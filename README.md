@@ -133,6 +133,18 @@ npm run validate
 - [timrogers/litra](https://github.com/timrogers/litra) — HID protocol / Node library
 - [Elgato Stream Deck SDK](https://docs.elgato.com/streamdeck)
 
+## Third-party code
+
+The settings panels (Property Inspector) use [sdpi-components](https://github.com/GeekyEggo/sdpi-components) (MIT), vendored at `com.daczarne.litra.sdPlugin/ui/vendor/sdpi-components.js` instead of loaded from `sdpi-components.dev`, so no remote code runs inside Stream Deck.
+
+- **Version:** `v4.0.1`
+- **Source:** [`dist/sdpi-components.js` at tag `v4.0.1`](https://github.com/GeekyEggo/sdpi-components/blob/v4.0.1/dist/sdpi-components.js) (commit `06185f1452`)
+- **Pinned hash:** sha256 in [`scripts/check-ui.mjs`](scripts/check-ui.mjs)
+
+`npm run check:ui` (also run by `validate` and `pack`) fails if any `ui/*.html` loads a remote resource or the vendored file doesn't match its pinned hash.
+
+To update: download `dist/sdpi-components.js` from the new upstream tag (not from npm — the `sdpi-components` package there is unrelated to this project), review the diff, replace the vendored file, and update the version/commit here and the hash in `scripts/check-ui.mjs`.
+
 ## Security
 
 See [SECURITY.md](SECURITY.md) for how to report vulnerabilities and this project’s secrets policy.
