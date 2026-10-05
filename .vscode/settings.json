@@ -13,5 +13,8 @@
       ],
       "url": "https://schemas.elgato.com/streamdeck/plugins/layout.json"
     }
-  ]
+  ],
+  /* Use the repo's pinned TypeScript, same as `npm run build` */
+  "js/ts.tsdk.path": "node_modules/typescript/lib",
+  "js/ts.tsdk.promptToUseWorkspaceVersion": true
 }

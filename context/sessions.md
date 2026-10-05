@@ -20,6 +20,17 @@ Same supply-chain risk as finding 2, one level up.
 - [ ] Rename the stale `com.ssheppdev.litra.streamDeckPlugin` artifact name/path to `com.daczarne.litra.streamDeckPlugin`
 - [ ] Consider having Dependabot track `github-actions` so pinned SHAs get update PRs
 
+### Move the plugin runtime to Node 24
+
+Node 20 reached end-of-life in April 2026. Stream Deck 7.1+ accepts `"Nodejs": { "Version": "24" }` (we require 7.1; the Deck runs 7.6). Do this only **after** the audit fixes are done and the plugin is confirmed working on the real Deck with the real lamps, so there's a known-good point to return to.
+
+- [ ] `manifest.json`: `Nodejs.Version` → `"24"`
+- [ ] `tsconfig.json`: extend `@tsconfig/node24`; devDeps: `@tsconfig/node20` → `@tsconfig/node24`, `@types/node` `^20` → `^24`
+- [ ] `.github/dependabot.yml`: update the `@types/node` ignore and its "Node 20 runtime" comment
+- [ ] README: "Node.js **20**" build requirement → 24
+- [ ] CI: `node-version: "20"` → `"24"` (could go with the workflows PR)
+- [ ] Re-test on the Deck: every action on keys and dials, settings panels, unplug/replug
+
 ### Revisit `ref/` once we know the codebase
 
 Audit finding 3 suggested deleting `ref/`. Kept for now: it isn't shipped or used by the build, and it holds the original author's design rationale (`scope-001.md`, `build-001.md`) and the paused Beam LX back-light research (`hid-captures/NOTES.md`, captures, inert Frida scaffolding) that a per-lamp picker or back-RGB feature would build on.
