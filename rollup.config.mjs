@@ -19,7 +19,8 @@ function copyNativeRuntime() {
   return {
     name: "copy-native-runtime",
     writeBundle() {
-      const packages = ["node-hid", "node-addon-api", "bindings"];
+      // node-hid 3.x loads its .node binary via `pkg-prebuilds/bindings`, not `bindings`.
+      const packages = ["node-hid", "node-addon-api", "pkg-prebuilds"];
       for (const name of packages) {
         const from = path.join("node_modules", name);
         const to = path.join(pluginNodeModules, name);
