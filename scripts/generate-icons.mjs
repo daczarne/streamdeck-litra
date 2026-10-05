@@ -6,7 +6,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import sharp from "sharp";
 
-const root = path.resolve("com.ssheppdev.litra.sdPlugin/imgs");
+const root = path.resolve("com.daczarne.litra.sdPlugin/imgs");
 
 const COLORS = {
 	bg: "#1A1A1A",

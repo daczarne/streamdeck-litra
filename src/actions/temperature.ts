@@ -23,7 +23,7 @@ type TemperatureSettings = {
 
 type ActionRef = WillAppearEvent<TemperatureSettings>["action"];
 
-@action({ UUID: "com.ssheppdev.litra.temperature" })
+@action({ UUID: "com.daczarne.litra.temperature" })
 export class TemperatureAction extends SingletonAction<TemperatureSettings> {
 	private readonly dialQueues = new Map<string, (ticks: number) => void>();
 	private readonly latestSettings = new Map<string, TemperatureSettings>();

@@ -23,7 +23,7 @@ type BrightnessSettings = {
 
 type ActionRef = WillAppearEvent<BrightnessSettings>["action"];
 
-@action({ UUID: "com.ssheppdev.litra.brightness" })
+@action({ UUID: "com.daczarne.litra.brightness" })
 export class BrightnessAction extends SingletonAction<BrightnessSettings> {
 	private readonly dialQueues = new Map<string, (ticks: number) => void>();
 	private readonly latestSettings = new Map<string, BrightnessSettings>();

@@ -11,7 +11,7 @@ type PowerSettings = {
 	mode?: "toggle" | "on" | "off";
 };
 
-@action({ UUID: "com.ssheppdev.litra.power" })
+@action({ UUID: "com.daczarne.litra.power" })
 export class PowerAction extends SingletonAction<PowerSettings> {
 	override async onWillAppear(ev: WillAppearEvent<PowerSettings>): Promise<void> {
 		await this.syncState(ev.action);

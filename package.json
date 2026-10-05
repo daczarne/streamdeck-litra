@@ -1,5 +1,5 @@
 {
-  "name": "com.ssheppdev.litra",
+  "name": "com.daczarne.litra",
   "version": "1.0.0",
   "private": true,
   "description": "Elgato Stream Deck plugin for Logitech Litra lights (Glow, Beam, Beam LX front light).",
@@ -7,12 +7,12 @@
   "author": "Seth Sheppard",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/SSheppDev/streamdeck-litra.git"
+    "url": "git+https://github.com/daczarne/streamdeck-litra.git"
   },
   "bugs": {
-    "url": "https://github.com/SSheppDev/streamdeck-litra/issues"
+    "url": "https://github.com/daczarne/streamdeck-litra/issues"
   },
-  "homepage": "https://github.com/SSheppDev/streamdeck-litra#readme",
+  "homepage": "https://github.com/daczarne/streamdeck-litra#readme",
   "keywords": [
     "streamdeck",
     "elgato",
@@ -23,11 +23,11 @@
   "scripts": {
     "build": "rollup -c",
     "icons": "node scripts/generate-icons.mjs",
-    "watch": "rollup -c -w --watch.onEnd=\"streamdeck restart com.ssheppdev.litra\"",
-    "link": "streamdeck link com.ssheppdev.litra.sdPlugin",
-    "unlink": "streamdeck unlink com.ssheppdev.litra",
-    "validate": "npm run build && streamdeck validate com.ssheppdev.litra.sdPlugin",
-    "pack": "npm run build && streamdeck pack com.ssheppdev.litra.sdPlugin --force -o release --version 1.0.0.0"
+    "watch": "rollup -c -w --watch.onEnd=\"streamdeck restart com.daczarne.litra\"",
+    "link": "streamdeck link com.daczarne.litra.sdPlugin",
+    "unlink": "streamdeck unlink com.daczarne.litra",
+    "validate": "npm run build && streamdeck validate com.daczarne.litra.sdPlugin",
+    "pack": "npm run build && streamdeck pack com.daczarne.litra.sdPlugin --force -o release --version 1.0.0.0"
   },
   "type": "module",
   "devDependencies": {

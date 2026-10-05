@@ -7,7 +7,7 @@ import path from "node:path";
 import url from "node:url";
 
 const isWatching = !!process.env.ROLLUP_WATCH;
-const sdPlugin = "com.ssheppdev.litra.sdPlugin";
+const sdPlugin = "com.daczarne.litra.sdPlugin";
 const pluginNodeModules = path.join(sdPlugin, "node_modules");
 
 /**

@@ -4,7 +4,7 @@
 
 Please **do not** open a public GitHub issue for security problems.
 
-Use [GitHub private vulnerability reporting](https://github.com/SSheppDev/streamdeck-litra/security/advisories/new) on this repository. Include:
+Use [GitHub private vulnerability reporting](https://github.com/daczarne/streamdeck-litra/security/advisories/new) on this repository. Include:
 
 - A short description of the issue
 - Steps to reproduce (or a PoC)
@@ -54,7 +54,7 @@ This repository must not contain secrets. Treat the following as secrets and **n
 
 ## Supported versions
 
-| Version | Supported |
-|---------|-----------|
-| Latest release (`v1.x`) | Yes |
-| Older tags / forks | Best effort only |
+| Version                 | Supported        |
+|-------------------------|------------------|
+| Latest release (`v1.x`) | Yes              |
+| Older tags / forks      | Best effort only |
