@@ -4,8 +4,8 @@ Derived from `ref/scope-001.md`, audited against `ref/litra` (JS) and published 
 
 ## Goals
 
-- Plugin UUID: `com.ssheppdev.litra`
-- Source tree at repo root: `com.ssheppdev.litra.sdPlugin` (via `streamdeck create`, then hand-edit)
+- Plugin UUID: `com.daczarne.litra`
+- Source tree at repo root: `com.daczarne.litra.sdPlugin` (via `streamdeck create`, then hand-edit)
 - Runtime dep: npm `litra` (do **not** vendor/copy from `ref/litra`)
 - Target hardware: Litra Beam LX; Stream Deck (keys) + Stream Deck + (dials)
 - v1 broadcast: every action applies to **all** connected Litra devices
@@ -122,7 +122,7 @@ Do not implement all actions until this spike passes.
 
 ## Implementation sequence
 
-1. `streamdeck create` → rename UUID/files to `com.ssheppdev.litra`; Node 20 or 24 per manifest.
+1. `streamdeck create` → rename UUID/files to `com.daczarne.litra`; Node 20 or 24 per manifest.
 2. `npm install litra`; configure native bundling; **HID spike**.
 3. Implement `litra-manager.ts` (forEachDevice, close, safe brightness read, %↔lm helpers, broadcast wrappers).
 4. Power action + PI + states + empty-device / alert behavior.
@@ -139,7 +139,7 @@ Do not implement all actions until this spike passes.
 
 ## Verification
 
-1. `npm run build` / `npm run watch`; `streamdeck restart com.ssheppdev.litra`.
+1. `npm run build` / `npm run watch`; `streamdeck restart com.daczarne.litra`.
 2. Power key: toggle/on/off all devices; `onWillAppear` Off when none connected; On only if `length > 0 && every(isOn)`; alert when none plugged in.
 3. Brightness on a **key**: preset % on all devices. Brightness on a **dial**: smooth step by %; `$A1` shows %; works above ~64% / 255 lm on Beam LX (proves safe read).
 4. Temperature on a **key**: preset K. Temperature on a **dial**: steps stay on allow-list (no thrown string / alert from invalid K).

@@ -3,7 +3,7 @@
 **Status:** paused 2026-07-13  
 **Hardware:** 2× Litra Beam LX (`046d:c903`), synced in G HUB when testing presets  
 **Host:** macOS (SIP enabled), G HUB 39.x with DriverKit `com.logi.ghub.hidfilter`  
-**Plugin v1:** front white light only (`com.ssheppdev.litra`) — back RGB explicitly deferred  
+**Plugin v1:** front white light only (`com.daczarne.litra`) — back RGB explicitly deferred  
 
 This folder (`ref/hid-captures/`) holds raw JSON captures, Frida hook scaffolding, and this note. Upstream clones stay in `ref/litra` / `ref/litra-rs` (gitignored).
 

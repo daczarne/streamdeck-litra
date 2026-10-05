@@ -12,7 +12,7 @@ Target hardware confirmed: Litra Beam LX; both a standard Stream Deck (keys only
 
 ## Project layout
 
-New plugin project at repo root (sibling to `ref/`): `com.ssheppdev.litra.sdPlugin` source tree, scaffolded via `streamdeck create` (per `ref/STREAMDECK_SDK_DOCS.md` Getting Started section) then hand-edited. Add `litra` (from npm, the published package backing `ref/litra`) as a runtime dependency — do not vendor/copy code out of `ref/litra`, just `npm install litra`.
+New plugin project at repo root (sibling to `ref/`): `com.daczarne.litra.sdPlugin` source tree, scaffolded via `streamdeck create` (per `ref/STREAMDECK_SDK_DOCS.md` Getting Started section) then hand-edited. Add `litra` (from npm, the published package backing `ref/litra`) as a runtime dependency — do not vendor/copy code out of `ref/litra`, just `npm install litra`.
 
 ## Core module: `src/litra-manager.ts`
 
@@ -34,7 +34,7 @@ This module is the single seam between "the `litra` npm package" and "our plugin
 
 All three actions declare `Controllers: ["Keypad", "Encoder"]` where noted, so the *same* action can be dropped on a key (standard Stream Deck) or a dial slot (Stream Deck +) — matches "key sets a static value, dial changes it continuously."
 
-All action UUIDs are prefixed by the plugin UUID `com.ssheppdev.litra`.
+All action UUIDs are prefixed by the plugin UUID `com.daczarne.litra`.
 
 1. **Power** (`<uuid>.power`) — Keypad only.
    - Settings: `{ mode: "toggle" | "on" | "off" }` (PI dropdown, default `toggle`).
