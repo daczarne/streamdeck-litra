@@ -22,12 +22,13 @@
   ],
   "scripts": {
     "build": "rollup -c",
+    "check:ui": "node scripts/check-ui.mjs",
     "icons": "node scripts/generate-icons.mjs",
     "watch": "rollup -c -w --watch.onEnd=\"streamdeck restart com.daczarne.litra\"",
     "link": "streamdeck link com.daczarne.litra.sdPlugin",
     "unlink": "streamdeck unlink com.daczarne.litra",
-    "validate": "npm run build && streamdeck validate com.daczarne.litra.sdPlugin",
-    "pack": "npm run build && streamdeck pack com.daczarne.litra.sdPlugin --force -o release --version 1.0.0.0"
+    "validate": "npm run check:ui && npm run build && streamdeck validate com.daczarne.litra.sdPlugin",
+    "pack": "npm run check:ui && npm run build && streamdeck pack com.daczarne.litra.sdPlugin --force -o release --version 1.0.0.0"
   },
   "type": "module",
   "devDependencies": {
