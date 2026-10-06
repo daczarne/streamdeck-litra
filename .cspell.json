@@ -20,6 +20,9 @@
     "daczarne",
     "daniel",
     "Daniel",
+    "ssheppdev",
+    "Subresource",
+    "Unreviewed",
   ],
   "dictionaryDefinitions": [
     {
@@ -28,14 +31,32 @@
       "addWords": true,
     },
     {
+      "name": "elgato",
+      "path": "./.cspell/elgato.txt",
+      "addWords": true,
+    },
+    {
       "name": "html_extras",
       "path": "./.cspell/html_extras.txt",
+      "addWords": true,
+    },
+    {
+      "name": "js_extra",
+      "path": "./.cspell/js_extra.txt",
+      "addWords": true,
+    },
+    {
+      "name": "lg",
+      "path": "./.cspell/lg.txt",
       "addWords": true,
     },
   ],
   "dictionaries": [
     "claude",
+    "elgato",
     "html_extras",
+    "js_extra",
+    "lg",
   ],
   "overrides": [
     {
@@ -65,7 +86,7 @@
     {
       "filename": "**/*.toml",
       "languageId": "toml",
-    },
+    }
   ],
   "ignoreRegExpList": [
     // Ignores UUIDs
