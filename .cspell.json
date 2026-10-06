@@ -55,6 +55,11 @@
       "path": "./.cspell/lg.txt",
       "addWords": true,
     },
+    {
+      "name": "miscellaneous",
+      "path": "./.cspell/miscellaneous.txt",
+      "addWords": true,
+    },
   ],
   "dictionaries": [
     "claude",
@@ -63,6 +68,7 @@
     "html_extras",
     "js_extra",
     "lg",
+    "miscellaneous",
   ],
   "overrides": [
     {

@@ -1,0 +1,3 @@
+codespace
+killall
+osascript
