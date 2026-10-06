@@ -1,0 +1,77 @@
+{
+  "version": "0.2",
+  "language": "en",
+  "ignorePaths": [
+    ".gitattributes",
+    ".gitignore",
+    "ref/**",
+    "node_modules/**",
+    "**/__pycache__/**",
+    "**/.git/**",
+    "com.daczarne.litra.sdPlugin/bin/**",
+    "com.daczarne.litra.sdPlugin/logs/**",
+    "com.daczarne.litra.sdPlugin/node_modules/**",
+    "com.daczarne.litra.sdPlugin/vendor/**",
+  ],
+  "ignoreWords": [ ],
+  "words": [
+    "czarnievicz",
+    "Czarnievicz",
+    "daczarne",
+    "daniel",
+    "Daniel",
+  ],
+  "dictionaryDefinitions": [
+    {
+      "name": "claude",
+      "path": "./.cspell/claude.txt",
+      "addWords": true,
+    },
+    {
+      "name": "git_extras",
+      "path": "./.cspell/git_extras.txt",
+      "addWords": true,
+    },
+    {
+      "name": "vs_code",
+      "path": "./.cspell/vs_code.txt",
+      "addWords": true,
+    },
+  ],
+  "dictionaries": [ ],
+  "overrides": [
+    {
+      "filename": "**/*.py",
+      "languageId": "python",
+    },
+    {
+      "filename": "**/*.yaml",
+      "languageId": "yaml",
+    },
+    {
+      "filename": "**/*.yml",
+      "languageId": "yaml",
+    },
+    {
+      "filename": "**/*.md",
+      "languageId": "markdown",
+    },
+    {
+      "filename": "**/*.txt",
+      "languageId": "plaintext",
+    },
+    {
+      "filename": "**/*.zsh",
+      "languageId": "shellscript",
+    },
+    {
+      "filename": "**/*.toml",
+      "languageId": "toml",
+    },
+  ],
+  "ignoreRegExpList": [
+    // Ignores UUIDs
+    "\\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\\b",
+  ],
+  "useGitignore": false,
+}
