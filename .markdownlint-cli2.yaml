@@ -1,0 +1,5 @@
+gitignore: true
+showFound: true
+globs:
+  - "**/*.md"
+  - "!node_modules"

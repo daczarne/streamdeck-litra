@@ -1,0 +1,108 @@
+{
+  "version": "0.2",
+  "language": "en",
+  "ignorePaths": [
+    ".gitattributes",
+    ".gitignore",
+    "ref/**",
+    "node_modules/**",
+    "**/__pycache__/**",
+    "**/.git/**",
+    "com.daczarne.litra.sdPlugin/bin/**",
+    "com.daczarne.litra.sdPlugin/logs/**",
+    "com.daczarne.litra.sdPlugin/node_modules/**",
+    "com.daczarne.litra.sdPlugin/vendor/**",
+  ],
+  "ignoreWords": [ ],
+  "words": [
+    "czarnievicz",
+    "Czarnievicz",
+    "daczarne",
+    "daniel",
+    "Daniel",
+    "ssheppdev",
+    "Subresource",
+    "Unreviewed",
+  ],
+  "dictionaryDefinitions": [
+    {
+      "name": "claude",
+      "path": "./.cspell/claude.txt",
+      "addWords": true,
+    },
+    {
+      "name": "elgato",
+      "path": "./.cspell/elgato.txt",
+      "addWords": true,
+    },
+    {
+      "name": "git_extras",
+      "path": "./.cspell/git_extras.txt",
+      "addWords": true,
+    },
+    {
+      "name": "html_extras",
+      "path": "./.cspell/html_extras.txt",
+      "addWords": true,
+    },
+    {
+      "name": "js_extra",
+      "path": "./.cspell/js_extra.txt",
+      "addWords": true,
+    },
+    {
+      "name": "lg",
+      "path": "./.cspell/lg.txt",
+      "addWords": true,
+    },
+    {
+      "name": "miscellaneous",
+      "path": "./.cspell/miscellaneous.txt",
+      "addWords": true,
+    },
+  ],
+  "dictionaries": [
+    "claude",
+    "elgato",
+    "git_extras",
+    "html_extras",
+    "js_extra",
+    "lg",
+    "miscellaneous",
+  ],
+  "overrides": [
+    {
+      "filename": "**/*.py",
+      "languageId": "python",
+    },
+    {
+      "filename": "**/*.yaml",
+      "languageId": "yaml",
+    },
+    {
+      "filename": "**/*.yml",
+      "languageId": "yaml",
+    },
+    {
+      "filename": "**/*.md",
+      "languageId": "markdown",
+    },
+    {
+      "filename": "**/*.txt",
+      "languageId": "plaintext",
+    },
+    {
+      "filename": "**/*.zsh",
+      "languageId": "shellscript",
+    },
+    {
+      "filename": "**/*.toml",
+      "languageId": "toml",
+    }
+  ],
+  "ignoreRegExpList": [
+    // Ignores UUIDs
+    "\\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\\b",
+  ],
+  "useGitignore": false,
+}

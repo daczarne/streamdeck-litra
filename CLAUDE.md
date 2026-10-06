@@ -1,0 +1,77 @@
+# CLAUDE.md
+
+- [Project](#project)
+- [Layout](#layout)
+- [Commands](#commands)
+- [Runtime and toolchain](#runtime-and-toolchain)
+- [Supply chain](#supply-chain)
+- [Testing on the hardware](#testing-on-the-hardware)
+- [Workflow](#workflow)
+- [Style](#style)
+
+## Project
+
+A Stream Deck plugin that controls Logitech Litra lights (Glow, Beam, Beam LX front light) over USB HID, without Logitech's software. It is a fork of a repository its original author abandoned, so the code and the notes in `ref/` describe decisions nobody here made: read them before changing behavior that looks odd.
+
+Daniel's setup: macOS on a Mac Studio, a Stream Deck + XL running Stream Deck 7.6, and Litra lamps (a Litra Beam, with more arriving, including a Beam LX). Logi Options+ and G HUB are not installed and won't be.
+
+## Layout
+
+- `src/plugin.ts` registers the actions.
+- `src/litra-manager.ts` is the only module that talks to the `litra` library. Actions import from it, never from `litra` directly. It re-scans the lamps on every call, applies each operation to every connected lamp, and always closes the HID handles.
+- `src/actions/` holds the Power, Brightness and Temperature actions.
+- `com.daczarne.litra.sdPlugin/` is the plugin folder: `manifest.json`, the settings pages in `ui/` (with the vendored `sdpi-components` in `ui/vendor/`), and the icons in `imgs/`. `bin/` and `node_modules/` inside it are build output.
+- `scripts/check-ui.mjs` guards the settings pages (see [Supply chain](#supply-chain)). `scripts/generate-icons.mjs` generates the icons.
+- `ref/` holds the original author's design notes and the paused Beam LX back-light research. It isn't shipped or built ([#12]).
+
+## Commands
+
+```shell
+npm ci --ignore-scripts   # install from the lockfile, without install scripts
+npm run build             # bundle src/ into the plugin folder and copy node-hid next to it
+npm run check:ui          # no remote resources in ui/*.html, vendored file matches its hash
+npm run validate          # check:ui, build, streamdeck validate
+npm run pack              # check:ui, build, write release/com.daczarne.litra.streamDeckPlugin
+npm run link              # link the plugin folder into Stream Deck
+npm run watch             # rebuild and restart the plugin on change
+npx tsc --noEmit -p .     # type-check only
+```
+
+## Runtime and toolchain
+
+- The plugin runs on Stream Deck's built-in Node 20, set by `Nodejs.Version` in `manifest.json`. `tsconfig.json` extends `@tsconfig/node20` to match that runtime, not the Node used to build (Node 24 locally). Moving the runtime to Node 24 is [#11], to do only once the plugin is confirmed working on the Deck.
+- The repo pins TypeScript 5.9. VS Code bundles TypeScript 6, which no longer loads `@types/*` automatically, hence `"types": ["node"]` in `tsconfig.json`. `.vscode/settings.json` points the editor at the repo's TypeScript.
+- `node-hid` ships native binaries, so Rollup keeps it external and `copyNativeRuntime` in `rollup.config.mjs` copies it and its runtime dependencies into the plugin folder. A dependency missing from that list breaks the installed plugin but not a linked one, because a linked plugin also finds the repo's top-level `node_modules` ([#21]).
+
+## Supply chain
+
+Daniel treats supply-chain risk as a hard requirement:
+
+- No remote code. The settings pages load `sdpi-components` from `ui/vendor/`, pinned by hash in `scripts/check-ui.mjs`. The "Third-party code" section of `README.md` describes how to update it. Never install `sdpi-components` from npm: that package belongs to an unrelated maintainer.
+- Install with `--ignore-scripts`, pin versions, and prefer local copies with recorded hashes. Flag any new dependency, remote resource or broad OS permission, and offer a narrower alternative.
+- GitHub Actions are to be pinned to commit SHAs ([#10]).
+
+## Testing on the hardware
+
+- Build, enable developer mode (`npx streamdeck dev`), `npm run link`, then `npx streamdeck restart com.daczarne.litra`. The actions appear under the Litra category. Developer mode is turned off again after testing (`npx streamdeck dev --disable`).
+- Plugin logs are in `com.daczarne.litra.sdPlugin/logs/`.
+- Test the settings pages with Wi-Fi off, to prove they load nothing remote.
+- On the Stream Deck + XL's USB hub (7.5 W), the Beam caps its brightness at about 70%. Plugged into the Mac, it reaches 100%.
+- Opening a Litra needs no macOS permission. Opening a mouse or keyboard over HID needs Input Monitoring, which Daniel only grants temporarily ([#3]).
+
+## Workflow
+
+- Work happens on a branch, created with `git switch -c`. Branch names are flat kebab-case, without `/`.
+- Commit messages explain the why and end with the `Co-Authored-By` trailer for Claude. Commit only when Daniel asks. Pushing and merging are Daniel's.
+- Pull requests are squash-merged, so their title and description become the commit on `main`. Write them with the `pr-description` skill.
+- Work that doesn't belong in the current branch becomes a GitHub issue, drafted with the `github-issues` skill and posted only when Daniel asks.
+
+## Style
+
+`docs/style_guide.md`, `.editorconfig`, the Markdown lint configuration and CSpell (with the dictionaries in `.cspell/`) are the authority on style.
+
+[#3]: https://github.com/daczarne/streamdeck-litra/issues/3
+[#10]: https://github.com/daczarne/streamdeck-litra/issues/10
+[#11]: https://github.com/daczarne/streamdeck-litra/issues/11
+[#12]: https://github.com/daczarne/streamdeck-litra/issues/12
+[#21]: https://github.com/daczarne/streamdeck-litra/issues/21

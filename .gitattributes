@@ -1,0 +1,38 @@
+*.sql linguist-detectable
+*.session.sql linguist-language=sql
+
+* text=auto eol=lf
+
+*.cfg text eol=lf
+*.editorconfig text eol=lf
+*.ini text eol=lf
+*.json text eol=lf
+*.jsonc text eol=lf
+*.mako text eol=lf
+*.md text eol=lf
+*.py text eol=lf
+*.python-version text eol=lf
+*.sh text eol=lf
+*.sql text eol=lf
+*.svg text eol=lf
+*.toml text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.zsh text eol=lf
+
+*.jpg binary
+*.pdf binary
+*.png binary
+
+*.cfg linguist-detectable
+*.ini linguist-detectable
+*.mako linguist-detectable
+*.md linguist-detectable
+*.md linguist-documentation=false
+*.sql linguist-detectable
+*.sql linguist-language=sql
+*.svg linguist-detectable
+*.toml linguist-detectable
+*.yaml linguist-detectable
+*.yml linguist-detectable
+*.yml linguist-language=yaml

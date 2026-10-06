@@ -1,0 +1,319 @@
+# This means that the rules as defined in this file, will be the default state of the rules.
+default: true
+
+# Path to configuration file to extend. Null means that we are not extending another file.
+extends: null
+
+# MD001/heading-increment: heading levels should only increment by one level at a time
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md001.md
+MD001: true
+
+# MD003/heading-style: how should headings we defined (### or ===).
+# The value `atx` means that # must be used.
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md003.md
+MD003:
+  style: atx
+
+# MD004/ul-style: which character should be used to create unordered lists.
+# We set it to -
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md004.md
+MD004:
+  style: dash
+
+# MD005/list-indent: flag inconsistent indentation for list items at the same level
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md005.md
+MD005: true
+
+# This rule controls what kind of indentation is expected for unordered lists.
+MD007:
+  # Spaces for indent
+  indent: 2
+  # Whether to indent the first level of the list
+  start_indented: false
+  # Spaces for first level indent (when start_indented is set)
+  start_indent: 2
+
+# MD009/no-trailing-spaces: trailing spaces. Spaces for empty lines are allowed because in some cases (like aligning
+# images as part of an unordered list) they have consequences.
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md009.md
+MD009:
+  # Spaces for line break
+  br_spaces: 2
+  # Allow spaces for empty lines in list items
+  list_item_empty_lines: true
+  # Include unnecessary breaks
+  strict: false
+
+# MD010/no-hard-tabs: hard tabs
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md010.md
+MD010:
+  # Include code blocks
+  code_blocks: true
+  # Fenced code languages to ignore
+  ignore_code_languages: []
+  # Number of spaces for each hard tab
+  spaces_per_tab: 2
+
+# MD011/no-reversed-links: flag reversed link syntax
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md011.md
+MD011: true
+
+# MD012/no-multiple-blanks: disallow multiple consecutive blank lines
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md012.md
+MD012:
+  maximum: 1
+
+# MD013/line-length: controls the different values of line length. Markdown is not hard-wrapped: each paragraph or list
+# item is written on a single line and the editor wraps it on screen, so there is no line length to enforce. The rule
+# can't limit headings alone, so their limit is in the style guide instead.
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md013.md
+MD013: false
+
+# MD014/commands-show-output: $ signs used before commands without showing output
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md014.md
+MD014: true
+
+# MD018/no-missing-space-atx: enforce that # should be followed by a space
+# when declaring headings.
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md018.md
+MD018: true
+
+# MD019/no-multiple-space-atx: disallow multiple spaces after hash on ATX style heading
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md019.md
+MD019: true
+
+# MD020/no-missing-space-closed-atx: no space inside hashes on closed ATX style heading
+# This rule doesn't really matter to us as we are enforcing ATX headings
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md020.md
+MD020: true
+
+# MD021/no-multiple-space-closed-atx: multiple spaces inside hashes on closed ATX style heading
+# This rule doesn't really matter to us as we are enforcing ATX headings
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md021.md
+MD021: true
+
+# MD022/blanks-around-headings: enforces that headings are surrounded by blank lines
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md022.md
+MD022:
+  # Blank lines above heading
+  lines_above: 1
+  # Blank lines below heading
+  lines_below: 1
+
+# MD023/heading-start-left: enforces that headings must start at the beginning of the line
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md023.md
+MD023: true
+
+# MD024/no-duplicate-heading: this rules checks whether two headings have the same content
+# On occasions this might be needed, but it should be checked only for siblings.
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md024.md
+MD024:
+  # Only check sibling headings
+  siblings_only: true
+
+# MD025/single-title/single-h1: allow only one level 1 heading
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md025.md
+MD025:
+  # Heading level
+  level: 1
+  # RegExp for matching title in front matter
+  front_matter_title: ^\\s*title\\s*[:=]
+
+# MD026/no-trailing-punctuation: disallow trailing punctuation in heading
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md026.md
+MD026:
+  # Punctuation characters
+  punctuation: .,;:!
+
+# MD027/no-multiple-space-blockquote: disallow multiple spaces after blockquote symbol
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md027.md
+MD027: true
+
+# MD028/no-blanks-blockquote: the linter wrongfully flags empty lines that separate two
+# block quotes as if they were line breaks in the block.
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md028.md
+MD028: false
+
+# MD029/ol-prefix: this allows for ordered lists to be defined with all 1. or
+# with ordered 1. 2. 3. and so on
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md029.md
+MD029:
+  # List style
+  style: one_or_ordered
+
+# MD030/list-marker-space: controls the number of spaces after list markers.
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md030.md
+MD030:
+  # Spaces for single-line unordered list items
+  ul_single: 1
+  # Spaces for single-line ordered list items
+  ol_single: 1
+  # Spaces for multi-line unordered list items
+  ul_multi: 1
+  # Spaces for multi-line ordered list items
+  ol_multi: 1
+
+# MD031/blanks-around-fences: enforces that code blocks should be surrounded
+# by blanks lines, even in list items.
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md031.md
+MD031:
+  # Include list items
+  list_items: true
+
+# MD032/blanks-around-lists: lists should be surrounded by blank lines
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md032.md
+MD032: true
+
+# MD033/no-inline-html: disallows inline HTML
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md033.md
+MD033:
+  # Allowed elements
+  allowed_elements: []
+
+# MD034/no-bare-urls: disallows bare URLs
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md034.md
+MD034: true
+
+# MD035/hr-style: enforces consistency in HR (horizontal rule) style
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md035.md
+MD035:
+  style: ---
+
+# MD036/no-emphasis-as-heading: this rules controls whether emphasis can be used instead of a heading. There are two
+# reasons why this should be allowed.
+#   1) headings smaller than level 3 are not clear and we can not change this as styles are fixed in Md
+#   2) using bold for smaller "headings", allows as to create headings (small divisions in the document) that do not
+#      get automatically included in TOCs.
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md036.md
+MD036: false
+
+# MD037/no-space-in-emphasis: disallow use of spaces inside emphasis markers
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md037.md
+MD037: true
+
+# MD038/no-space-in-code: disallow use of spaces inside code span elements
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md038.md
+MD038: true
+
+# MD039/no-space-in-links: disallow use of spaces inside link text
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md039.md
+MD039: true
+
+# MD040/fenced-code-language: enforces code blocks to have a language specified
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md040.md
+MD040:
+  # List of languages
+  allowed_languages: []
+  # Require language only
+  language_only: false
+
+# MD041/first-line-heading/first-line-h1: ensures presence of top level heading at the start of docs
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md041.md
+MD041:
+  # Heading level
+  level: 1
+  # RegExp for matching title in front matter
+  front_matter_title: ^\\s*title\\s*[:=]
+
+# MD042/no-empty-links: disallows empty links
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md042.md
+MD042: true
+
+# MD043/required-headings: this rule allows for specifying required heading structures.
+# Since our docs can vary, we cannot use this.
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md043.md
+MD043: false
+
+# MD044/proper-names: proper names should have the correct capitalization
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md044.md
+MD044:
+  # List of proper names
+  names:
+    - BigQuery
+    - GitHub
+    - JavaScript
+    - Python
+  # Include code blocks
+  code_blocks: false
+  # Include HTML elements
+  html_elements: true
+
+# MD045/no-alt-text: ensure images have an alternate text (alt text)
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md045.md
+MD045: true
+
+# MD046/code-block-style: ensures all code blocks are created with fences
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md046.md
+MD046:
+  style: fenced
+
+# MD047/single-trailing-newline: ensures files end with a single newline character
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md047.md
+MD047: true
+
+# MD048/code-fence-style: ensures code fencing is done with backticks
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md048.md
+MD048:
+  style: backtick
+
+# MD049/emphasis-style: ensures italics are done with *
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md049.md
+MD049:
+  style: asterisk
+
+# MD050/strong-style: ensures bold is done with **
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md050.md
+MD050:
+  style: asterisk
+
+# MD051/link-fragments: link fragments should be lower case.
+# This is "better" as upper case is not recognized by GitHub.
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md051.md
+MD051:
+  ignore_case: false
+
+# MD052/reference-links-images: reference links and images should use a label that is defined
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md052.md
+MD052:
+  # Include shortcut syntax
+  shortcut_syntax: false
+
+# MD053/link-image-reference-definitions: link and image reference definitions should be needed
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md053.md
+MD053:
+  ignored_definitions:
+    - //
+
+# MD054/link-image-style: link and image style
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md054.md
+MD054:
+  # Allow auto-links
+  autolink: false
+  # Allow inline links and images
+  inline: true
+  # Allow full reference links and images
+  full: true
+  # Allow collapsed reference links and images
+  collapsed: true
+  # Allow shortcut reference links and images
+  shortcut: true
+  # Allow URLs as inline links
+  url_inline: true
+
+# MD055/table-pipe-style: table pipe style
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md055.md
+MD055:
+  # Table pipe style
+  style: leading_and_trailing
+
+# MD056/table-column-count: ensures tables are not missing cells
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md056.md
+MD056: true
+
+# MD058/blanks-around-tables: ensures tables are surrounded by blank lines
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/md058.md
+MD058: true
+
+# MD059/descriptive-link-text: ensures link texts are descriptive
+# https://github.com/DavidAnson/markdownlint/blob/v0.38.0/doc/md059.md
+MD059: false
