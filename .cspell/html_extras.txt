@@ -1,0 +1,3 @@
+litra
+sdpi
+showlabels

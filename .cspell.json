@@ -28,17 +28,15 @@
       "addWords": true,
     },
     {
-      "name": "git_extras",
-      "path": "./.cspell/git_extras.txt",
-      "addWords": true,
-    },
-    {
-      "name": "vs_code",
-      "path": "./.cspell/vs_code.txt",
+      "name": "html_extras",
+      "path": "./.cspell/html_extras.txt",
       "addWords": true,
     },
   ],
-  "dictionaries": [ ],
+  "dictionaries": [
+    "claude",
+    "html_extras",
+  ],
   "overrides": [
     {
       "filename": "**/*.py",
