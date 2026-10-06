@@ -6,7 +6,7 @@ allowed-tools: Bash(git diff *), Bash(git log *), Bash(git status *)
 
 # Pull request title and description
 
-Pull requests are squash-merged, so their title and description become the commit on `main`: they are the history of the repository (see `docs/contributing.md`). They are written for someone reading that history later, who never saw the conversation.
+Pull requests are squash-merged, so their title and description become the commit on `main`: they are the history of the repository. They are written for someone reading that history later, who never saw the conversation.
 
 ## Gather
 
