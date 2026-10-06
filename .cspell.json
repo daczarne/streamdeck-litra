@@ -36,6 +36,11 @@
       "addWords": true,
     },
     {
+      "name": "git_extras",
+      "path": "./.cspell/git_extras.txt",
+      "addWords": true,
+    },
+    {
       "name": "html_extras",
       "path": "./.cspell/html_extras.txt",
       "addWords": true,
@@ -54,6 +59,7 @@
   "dictionaries": [
     "claude",
     "elgato",
+    "git_extras",
     "html_extras",
     "js_extra",
     "lg",

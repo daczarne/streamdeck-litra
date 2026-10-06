@@ -1,3 +1,2 @@
-litra
 sdpi
 showlabels
