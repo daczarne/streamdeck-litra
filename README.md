@@ -1,154 +1,136 @@
-<p align="center">
-  <img src="com.daczarne.litra.sdPlugin/imgs/plugin/marketplace@2x.png" alt="Litra for Stream Deck" width="168" />
-</p>
+# Litra for Stream Deck
 
-<h1 align="center">Litra for Stream Deck</h1>
+A Stream Deck plugin that controls Logitech Litra lights over USB, without Logitech's software. It is a personal fork of a plugin by Seth Sheppard. It isn't published: it runs linked from this repository, so the Deck always runs whatever is built from the checked-out branch.
 
-<p align="center">
-  <strong>Warm key-light control</strong> for Logitech Litra — from an Elgato Stream Deck,<br />
-  including dials on Stream Deck+.
-</p>
+Not an official Logitech or Elgato product.
 
-<p align="center">
-  <a href="https://github.com/daczarne/streamdeck-litra/releases/latest"><img src="https://img.shields.io/github/v/release/daczarne/streamdeck-litra?style=for-the-badge&color=FFB347&labelColor=1A1A1A" alt="Latest release" /></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-7EC8FF?style=for-the-badge&labelColor=1A1A1A" alt="MIT License" /></a>
-  <img src="https://img.shields.io/badge/Stream%20Deck-7.1%2B-F5C542?style=for-the-badge&labelColor=1A1A1A" alt="Stream Deck 7.1+" />
-  <img src="https://img.shields.io/badge/macOS%20%7C%20Windows-USB-E8E8E8?style=for-the-badge&labelColor=1A1A1A" alt="macOS and Windows over USB" />
-</p>
-
-<p align="center"><em>Not an official Logitech or Elgato product.</em></p>
-
----
+- [Actions](#actions)
+- [Supported hardware](#supported-hardware)
+- [Requirements](#requirements)
+- [Setting up on a new computer](#setting-up-on-a-new-computer)
+- [Working on the plugin](#working-on-the-plugin)
+- [Packaging](#packaging)
+- [Usage tips](#usage-tips)
+- [Third-party code](#third-party-code)
+- [Credits](#credits)
 
 ## Actions
 
-<p align="center">
-  <img src="com.daczarne.litra.sdPlugin/imgs/actions/power/key-on@2x.png" width="88" alt="Power on" />
-  &nbsp;&nbsp;
-  <img src="com.daczarne.litra.sdPlugin/imgs/actions/power/key-off@2x.png" width="88" alt="Power off" />
-  &nbsp;&nbsp;
-  <img src="com.daczarne.litra.sdPlugin/imgs/actions/brightness/key@2x.png" width="88" alt="Brightness" />
-  &nbsp;&nbsp;
-  <img src="com.daczarne.litra.sdPlugin/imgs/actions/temperature/key@2x.png" width="88" alt="Temperature" />
-</p>
+|                       | Action          | Key                     | Dial (Stream Deck +)                  |
+|:---------------------:|:----------------|:------------------------|:--------------------------------------|
+| ![Power][power]       | **Power**       | On, off or toggle       | None                                  |
+| ![Brightness][bright] | **Brightness**  | Jump to a preset %      | Rotate to adjust, press toggles power |
+| ![Temperature][temp]  | **Temperature** | Jump to a preset Kelvin | Rotate to adjust, press toggles power |
 
-<p align="center">
-  <sub>Power · Brightness · Temperature</sub>
-</p>
-
-|                                                                                                  | Action          | Key                     | Dial (Stream Deck+)                       |
-|:------------------------------------------------------------------------------------------------:|:----------------|:------------------------|:------------------------------------------|
-|    <img src="com.daczarne.litra.sdPlugin/imgs/actions/power/icon@2x.png" width="28" alt="" />    | **Power**       | On / off / toggle       | —                                         |
-| <img src="com.daczarne.litra.sdPlugin/imgs/actions/brightness/icon@2x.png" width="28" alt="" />  | **Brightness**  | Jump to a preset %      | Rotate to adjust; **press toggles power** |
-| <img src="com.daczarne.litra.sdPlugin/imgs/actions/temperature/icon@2x.png" width="28" alt="" /> | **Temperature** | Jump to a preset Kelvin | Rotate to adjust; **press toggles power** |
-
-- Works with **all connected Litra devices** at once (no per-light picker yet)
-- Beam LX front brightness uses a corrected lumen read (stock JS only used the low byte)
-- macOS and Windows (USB; Bluetooth control is not supported by the underlying stack)
-
-End users only need Stream Deck software and a USB-connected Litra — nothing else to install (no Node, no `litra` CLI, no Homebrew). The plugin ships with its USB HID stack baked in.
-
-Under the hood (for developers): it uses the [`litra`](https://github.com/timrogers/litra) Node library **in-process** over USB HID — no CLI subprocess.
+- Every action applies to all connected lamps at once. There is no per-lamp picker yet.
+- The plugin talks to the lamps in-process over USB HID, through the [`litra`][litra] Node library, with no CLI subprocess.
+- The Beam LX front brightness is read from two bytes. The stock `litra` library only reads the low one, which truncates values above 255 lumens.
 
 ## Supported hardware
 
-| Light         | Front power / brightness / temperature |
-|---------------|----------------------------------------|
-| Litra Glow    | Yes                                    |
-| Litra Beam    | Yes                                    |
-| Litra Beam LX | Yes (front key light)                  |
+| Lamp          | Front power, brightness and temperature |
+|---------------|-----------------------------------------|
+| Litra Glow    | Yes                                     |
+| Litra Beam    | Yes                                     |
+| Litra Beam LX | Yes (front light only)                  |
 
-**Not included (yet):** Beam LX rear RGB / G HUB effect presets. Research notes are in [`ref/hid-captures/NOTES.md`](ref/hid-captures/NOTES.md).
+The Beam LX back light (RGB and G HUB effect presets) isn't supported. The research notes are in [`ref/hid-captures/NOTES.md`][hid-notes].
+
+Lamps connect over USB only: the underlying HID stack doesn't support Bluetooth. A lamp plugged into a hub with limited power may cap its brightness. On the Stream Deck + XL's hub (7.5 W), the Beam stops at about 70%, while plugged into the computer it reaches 100%.
 
 ## Requirements
 
-**To use the plugin (install from Releases)**
+- [Stream Deck][stream-deck] 7.1 or later, on macOS 12 or later, or Windows 10 or later.
+- A Litra lamp connected over USB. On macOS, opening it needs no permission.
+- Node.js 20 or later and npm, to build. The plugin itself runs on Stream Deck's built-in Node 20, so the Node used to build doesn't have to match (this repository is built with Node 24).
+- No Logitech software. If G HUB is installed, quit it if it fights the plugin for the HID device.
 
-- [Stream Deck](https://www.elgato.com/streamdeck) software **7.1+**
-- A Litra connected over **USB**
-- macOS 12+ or Windows 10+
+## Setting up on a new computer
 
-You do **not** need Node.js, npm, Homebrew, or the `litra` CLI.
+1. Install Stream Deck, connect the Deck, and plug the lamps in over USB.
+2. Clone the repository and install the dependencies from the lockfile, without running install scripts:
 
-Quit **Logitech G HUB** if HID access fights the plugin (especially on macOS).
+    ```shell
+    git clone https://github.com/daczarne/streamdeck-litra.git
+    cd streamdeck-litra
+    npm ci --ignore-scripts
+    ```
 
-**To build from source** (contributors only)
+3. Build the plugin. This bundles `src/` into `com.daczarne.litra.sdPlugin/bin/` and copies `node-hid` next to it:
 
-- Node.js **20**
-- npm
+    ```shell
+    npm run build
+    ```
 
-## Install (prebuilt)
+4. Turn on Stream Deck's developer mode, link the plugin folder into Stream Deck, and restart the plugin:
 
-1. Download the latest `.streamDeckPlugin` from [Releases](https://github.com/daczarne/streamdeck-litra/releases).
-2. Double-click the file (or open it with Stream Deck).
-3. Drag **Power**, **Brightness**, or **Temperature** onto your layout.
+    ```shell
+    npx streamdeck dev
+    npm run link
+    npx streamdeck restart com.daczarne.litra
+    ```
 
-That’s the full end-user install — the package already includes `litra` / `node-hid`.
+5. In Stream Deck, the actions appear under the **Litra** category. Drag them onto keys or dials, or restore a Stream Deck backup that already has them: the layout lives in Stream Deck's profiles, not in this repository.
 
-If you linked a local/dev copy earlier, unlink it first:
+Developer mode stays on afterwards.
 
-```bash
-streamdeck unlink com.daczarne.litra
+## Working on the plugin
+
+Since the plugin is linked, a change takes effect as soon as it's built and the plugin restarts. Switching branches switches what the Deck runs, after the next build.
+
+```shell
+npm run watch             # rebuild and restart the plugin on every change
+npm run build             # build once
+npx streamdeck restart com.daczarne.litra   # load the new build
+npx tsc --noEmit -p .     # type-check only
+npm run check:ui          # no remote resources in the settings pages, vendored file matches its hash
+npm run validate          # check:ui, build and streamdeck validate
 ```
 
-## Build from source
+The plugin's logs are in `com.daczarne.litra.sdPlugin/logs/`.
 
-```bash
-git clone https://github.com/daczarne/streamdeck-litra.git
-cd streamdeck-litra
-npm install
-npm run build
-```
+## Packaging
 
-### Link for development
+The plugin isn't packaged or installed today. The tooling to do it stays, in case it's published one day:
 
-```bash
-npm run link   # streamdeck link ./com.daczarne.litra.sdPlugin
-npm run watch  # rebuild + restart on change
-```
-
-### Package a distributable
-
-```bash
+```shell
 npm run pack
 ```
 
-Writes `release/com.daczarne.litra.streamDeckPlugin`.
-
-Validate without packing:
-
-```bash
-npm run validate
-```
+This runs `check:ui`, builds, and writes `release/com.daczarne.litra.streamDeckPlugin`. A packaged plugin can't fall back on the repository's `node_modules` the way a linked one does, so it needs testing as an installed plugin before any release ([#21]).
 
 ## Usage tips
 
-- **Brightness / temperature keys** show the configured preset as the title.
-- **Dials** use Stream Deck’s built-in `$A1` layout; rotate adjusts, press toggles front power.
-- With **no lights connected**, actions show Stream Deck’s alert indicator.
-- Multiple lights are always controlled together in v1.
-
-## Credits
-
-- [timrogers/litra](https://github.com/timrogers/litra) — HID protocol / Node library
-- [Elgato Stream Deck SDK](https://docs.elgato.com/streamdeck)
+- Brightness and temperature keys are meant to show their preset value, as a bare number at the bottom of the key. The plugin sets it itself, since editing the title is disabled. On the Deck, no number appears yet ([#25]).
+- Dials use Stream Deck's built-in `$A1` layout: rotating adjusts, pressing toggles the front light.
+- With no lamp connected, actions show Stream Deck's alert indicator.
 
 ## Third-party code
 
-The settings panels (Property Inspector) use [sdpi-components](https://github.com/GeekyEggo/sdpi-components) (MIT), vendored at `com.daczarne.litra.sdPlugin/ui/vendor/sdpi-components.js` instead of loaded from `sdpi-components.dev`, so no remote code runs inside Stream Deck.
+The settings pages (Property Inspector) use [sdpi-components][sdpi] (MIT), vendored at `com.daczarne.litra.sdPlugin/ui/vendor/sdpi-components.js` instead of loaded from `sdpi-components.dev`, so no remote code runs inside Stream Deck.
 
 - **Version:** `v4.0.1`
-- **Source:** [`dist/sdpi-components.js` at tag `v4.0.1`](https://github.com/GeekyEggo/sdpi-components/blob/v4.0.1/dist/sdpi-components.js) (commit `06185f1452`)
-- **Pinned hash:** sha256 in [`scripts/check-ui.mjs`](scripts/check-ui.mjs)
+- **Source:** [`dist/sdpi-components.js` at tag `v4.0.1`][sdpi-source] (commit `06185f1452`)
+- **Pinned hash:** sha256 in [`scripts/check-ui.mjs`][check-ui]
 
 `npm run check:ui` (also run by `validate` and `pack`) fails if any `ui/*.html` loads a remote resource or the vendored file doesn't match its pinned hash.
 
-To update: download `dist/sdpi-components.js` from the new upstream tag (not from npm — the `sdpi-components` package there is unrelated to this project), review the diff, replace the vendored file, and update the version/commit here and the hash in `scripts/check-ui.mjs`.
+To update it, download `dist/sdpi-components.js` from the new upstream tag (not from npm: the `sdpi-components` package there is unrelated to this project), review the diff, replace the vendored file, and update the version and commit here and the hash in `scripts/check-ui.mjs`.
 
-## Security
+## Credits
 
-See [SECURITY.md](SECURITY.md) for how to report vulnerabilities and this project’s secrets policy.
+- [timrogers/litra][litra]: the HID protocol and Node library.
+- [Elgato Stream Deck SDK][sdk].
 
-## License
-
-[MIT](LICENSE)
+[#21]: https://github.com/daczarne/streamdeck-litra/issues/21
+[#25]: https://github.com/daczarne/streamdeck-litra/issues/25
+[bright]: com.daczarne.litra.sdPlugin/imgs/actions/brightness/icon@2x.png
+[check-ui]: scripts/check-ui.mjs
+[hid-notes]: ref/hid-captures/NOTES.md
+[litra]: https://github.com/timrogers/litra
+[power]: com.daczarne.litra.sdPlugin/imgs/actions/power/icon@2x.png
+[sdk]: https://docs.elgato.com/streamdeck
+[sdpi]: https://github.com/GeekyEggo/sdpi-components
+[sdpi-source]: https://github.com/GeekyEggo/sdpi-components/blob/v4.0.1/dist/sdpi-components.js
+[stream-deck]: https://www.elgato.com/streamdeck
+[temp]: com.daczarne.litra.sdPlugin/imgs/actions/temperature/icon@2x.png
