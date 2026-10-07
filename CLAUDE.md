@@ -15,6 +15,8 @@ A Stream Deck plugin that controls Logitech Litra lights (Glow, Beam, Beam LX fr
 
 Daniel's setup: macOS on a Mac Studio, a Stream Deck + XL running Stream Deck 7.6, and Litra lamps (a Litra Beam, with more arriving, including a Beam LX). Logi Options+ and G HUB are not installed and won't be.
 
+The plugin is for Daniel's own use and isn't published. It runs linked from the repo, never installed, so the Deck runs whatever is built from the checked-out branch. That is intended: a change takes effect on the next build and restart. `npm run pack` and the Packaging section of `README.md` stay, in case the plugin is published one day ([#21]).
+
 ## Layout
 
 - `src/plugin.ts` registers the actions.
@@ -41,7 +43,7 @@ npx tsc --noEmit -p .     # type-check only
 
 - The plugin runs on Stream Deck's built-in Node 20, set by `Nodejs.Version` in `manifest.json`. `tsconfig.json` extends `@tsconfig/node20` to match that runtime, not the Node used to build (Node 24 locally). Moving the runtime to Node 24 is [#11], to do only once the plugin is confirmed working on the Deck.
 - The repo pins TypeScript 5.9. VS Code bundles TypeScript 6, which no longer loads `@types/*` automatically, hence `"types": ["node"]` in `tsconfig.json`. `.vscode/settings.json` points the editor at the repo's TypeScript.
-- `node-hid` ships native binaries, so Rollup keeps it external and `copyNativeRuntime` in `rollup.config.mjs` copies it and its runtime dependencies into the plugin folder. A dependency missing from that list breaks the installed plugin but not a linked one, because a linked plugin also finds the repo's top-level `node_modules` ([#21]).
+- `node-hid` ships native binaries, so Rollup keeps it external and `copyNativeRuntime` in `rollup.config.mjs` copies it and its runtime dependencies into the plugin folder. A dependency missing from that list breaks the installed plugin but not a linked one, because a linked plugin also finds the repo's top-level `node_modules`. Since the plugin only runs linked, that list is untested ([#21]).
 
 ## Supply chain
 
@@ -53,7 +55,7 @@ Daniel treats supply-chain risk as a hard requirement:
 
 ## Testing on the hardware
 
-- Build, enable developer mode (`npx streamdeck dev`), `npm run link`, then `npx streamdeck restart com.daczarne.litra`. The actions appear under the Litra category. Developer mode is turned off again after testing (`npx streamdeck dev --disable`).
+- Build, enable developer mode (`npx streamdeck dev`), `npm run link`, then `npx streamdeck restart com.daczarne.litra`. The actions appear under the Litra category. Developer mode stays on.
 - Plugin logs are in `com.daczarne.litra.sdPlugin/logs/`.
 - Test the settings pages with Wi-Fi off, to prove they load nothing remote.
 - On the Stream Deck + XL's USB hub (7.5 W), the Beam caps its brightness at about 70%. Plugged into the Mac, it reaches 100%.
