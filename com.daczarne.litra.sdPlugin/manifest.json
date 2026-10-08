@@ -107,7 +107,7 @@
     }
   ],
   "Nodejs": {
-    "Version": "20"
+    "Version": "24"
   },
   "UUID": "com.daczarne.litra"
 }

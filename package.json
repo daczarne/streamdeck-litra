@@ -31,14 +31,17 @@
     "pack": "npm run check:ui && npm run build && streamdeck pack com.daczarne.litra.sdPlugin --force -o release --version 1.0.0.0"
   },
   "type": "module",
+  "engines": {
+    "node": "24.15.0"
+  },
   "devDependencies": {
     "@elgato/cli": "1.7.4",
     "@rollup/plugin-commonjs": "29.0.3",
     "@rollup/plugin-node-resolve": "16.0.3",
     "@rollup/plugin-terser": "1.0.0",
     "@rollup/plugin-typescript": "12.3.0",
-    "@tsconfig/node20": "20.1.9",
-    "@types/node": "20.19.43",
+    "@tsconfig/node24": "24.0.5",
+    "@types/node": "24.13.6",
     "rollup": "4.62.4",
     "sharp": "0.35.5",
     "tslib": "2.8.1",
