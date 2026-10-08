@@ -4,14 +4,13 @@
   "ignorePaths": [
     ".gitattributes",
     ".gitignore",
-    "ref/**",
-    "node_modules/**",
-    "**/__pycache__/**",
     "**/.git/**",
     "com.daczarne.litra.sdPlugin/bin/**",
     "com.daczarne.litra.sdPlugin/logs/**",
     "com.daczarne.litra.sdPlugin/node_modules/**",
-    "com.daczarne.litra.sdPlugin/vendor/**",
+    "com.daczarne.litra.sdPlugin/**/vendor/**",
+    "node_modules/**",
+    "ref/**",
   ],
   "ignoreWords": [ ],
   "words": [

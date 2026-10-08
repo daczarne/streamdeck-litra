@@ -1,0 +1,25 @@
+dependencies:
+  - changed-files:
+      - any-glob-to-any-file:
+          - package.json
+          - package-lock.json
+docs:
+  - changed-files:
+      - any-glob-to-any-file:
+          - docs/**
+          - README.md
+tools:
+  - changed-files:
+      - any-glob-to-any-file:
+          - .cspell.json
+          - .cspell/**
+          - .editorconfig
+          - .gitattributes
+          - .gitignore
+          - .markdownlint-cli2.yaml
+          - .markdownlint.yaml
+          - .vscode/**
+workflows:
+  - changed-files:
+      - any-glob-to-any-file:
+          - .github/**
