@@ -42,17 +42,18 @@ Lamps connect over USB only: the underlying HID stack doesn't support Bluetooth.
 
 - [Stream Deck][stream-deck] 7.1 or later, on macOS 12 or later, or Windows 10 or later.
 - A Litra lamp connected over USB. On macOS, opening it needs no permission.
-- Node.js 20 or later and npm, to build. The plugin itself runs on Stream Deck's built-in Node 20, so the Node used to build doesn't have to match (this repository is built with Node 24).
+- Node.js and npm, to build, at the exact Node version in `.node-version`: `npm ci` refuses any other. With [n][n], `n auto` installs and switches to it. The plugin itself runs on the Node 24 that Stream Deck downloads, so the Node used to build doesn't have to match it.
 - No Logitech software. If G HUB is installed, quit it if it fights the plugin for the HID device.
 
 ## Setting up on a new computer
 
 1. Install Stream Deck, connect the Deck, and plug the lamps in over USB.
-2. Clone the repository and install the dependencies from the lockfile, without running install scripts:
+2. Clone the repository, switch to the Node version in `.node-version`, and install the dependencies from the lockfile, without running install scripts:
 
     ```shell
     git clone https://github.com/daczarne/streamdeck-litra.git
     cd streamdeck-litra
+    n auto
     npm ci --ignore-scripts
     ```
 
@@ -128,6 +129,7 @@ To update it, download `dist/sdpi-components.js` from the new upstream tag (not 
 [check-ui]: scripts/check-ui.mjs
 [hid-notes]: ref/hid-captures/NOTES.md
 [litra]: https://github.com/timrogers/litra
+[n]: https://github.com/tj/n
 [power]: com.daczarne.litra.sdPlugin/imgs/actions/power/icon@2x.png
 [sdk]: https://docs.elgato.com/streamdeck
 [sdpi]: https://github.com/GeekyEggo/sdpi-components
