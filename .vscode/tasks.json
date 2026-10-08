@@ -1,0 +1,28 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    // Like CI, the compound task stops at the first linter that fails.
+    {
+      "label": "Lint",
+      "detail": "Run every linter from CI",
+      "dependsOn": [
+        "Lint: Markdown",
+        "Lint: spelling",
+      ],
+      "dependsOrder": "sequence",
+      "problemMatcher": [ ],
+    },
+    {
+      "label": "Lint: Markdown",
+      "type": "shell",
+      "command": "markdownlint-cli2 --config .markdownlint.yaml .",
+      "problemMatcher": [ ],
+    },
+    {
+      "label": "Lint: spelling",
+      "type": "shell",
+      "command": "cspell lint --config .cspell.json --dot --no-progress .",
+      "problemMatcher": [ ],
+    },
+  ],
+}
