@@ -84,6 +84,7 @@ npm run watch             # rebuild and restart the plugin on every change
 npm run build             # build once
 npx streamdeck restart com.daczarne.litra   # load the new build
 npx tsc --noEmit -p .     # type-check only
+npm test                  # run the unit tests
 npm run check:ui          # no remote resources in the settings pages, vendored file matches its hash
 npm run validate          # check:ui, build and streamdeck validate
 ```

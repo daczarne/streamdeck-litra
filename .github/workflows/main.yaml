@@ -67,6 +67,9 @@ jobs:
       - name: Type check 🧪
         id: type_check
         run: npx tsc --noEmit -p .
+      - name: Test 🧪
+        id: test
+        run: npm test
       - name: Validate 🧪
         id: validate
         # Runs check:ui, the build and streamdeck validate.

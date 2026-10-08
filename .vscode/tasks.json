@@ -9,6 +9,7 @@
         "Lint: Markdown",
         "Lint: spelling",
         "Lint: types",
+        "Lint: tests",
         "Lint: validate",
       ],
       "dependsOrder": "sequence",
@@ -33,6 +34,12 @@
       "problemMatcher": [
         "$tsc",
       ],
+    },
+    {
+      "label": "Lint: tests",
+      "type": "shell",
+      "command": "npm test",
+      "problemMatcher": [ ],
     },
     {
       "label": "Lint: validate",
