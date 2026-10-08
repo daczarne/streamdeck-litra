@@ -54,7 +54,7 @@ Daniel treats supply-chain risk as a hard requirement:
 - No remote code. The settings pages load `sdpi-components` from `ui/vendor/`, pinned by hash in `scripts/check-ui.mjs`. The "Third-party code" section of `README.md` describes how to update it. Never install `sdpi-components` from npm: that package belongs to an unrelated maintainer.
 - Install with `--ignore-scripts`, pin versions, and prefer local copies with recorded hashes. Flag any new dependency, remote resource or broad OS permission, and offer a narrower alternative.
 - `package.json` declares exact versions only, never ranges. The project `.npmrc` sets `save-exact=true`, so `npm install <package>` records an exact version, and `ignore-scripts=true`, so no install runs install scripts even without the flag. Every upgrade is its own deliberate change: `npm install <package>@<version>`, then a review of the lockfile diff. Exact versions don't pin transitive dependencies, only the lockfile does, so it stays committed and installs use `npm ci`.
-- GitHub Actions are pinned to full commit SHAs, with the version as a trailing comment, checked against the release tag ([#30]). Dependabot proposes their updates, as it does for npm, and only proposes versions that have been out for a week.
+- GitHub Actions are pinned to full commit SHAs, with the version as a trailing comment, checked against the release tag ([#30]). Like npm upgrades, their updates are made by hand. Dependabot was removed ([#40]) because it proposed upgrades that no tests could check. It may come back once the tests from [#27] exist.
 
 ## Testing on the hardware
 
@@ -79,4 +79,6 @@ Daniel treats supply-chain risk as a hard requirement:
 [#3]: https://github.com/daczarne/streamdeck-litra/issues/3
 [#12]: https://github.com/daczarne/streamdeck-litra/issues/12
 [#21]: https://github.com/daczarne/streamdeck-litra/issues/21
+[#27]: https://github.com/daczarne/streamdeck-litra/issues/27
 [#30]: https://github.com/daczarne/streamdeck-litra/issues/30
+[#40]: https://github.com/daczarne/streamdeck-litra/pull/40
