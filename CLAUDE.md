@@ -13,7 +13,7 @@
 
 A Stream Deck plugin that controls Logitech Litra lights (Glow, Beam, Beam LX front light) over USB HID, without Logitech's software. It is a fork of a repository its original author abandoned, so the code and the notes in `ref/` describe decisions nobody here made: read them before changing behavior that looks odd.
 
-Daniel's setup: macOS on a Mac Studio, a Stream Deck + XL running Stream Deck 7.6, and Litra lamps (a Litra Beam, with more arriving, including a Beam LX). Logi Options+ and G HUB are not installed and won't be.
+Daniel's setup: macOS on a Mac Studio, a Stream Deck + XL running Stream Deck 7.6, and two Litra Beams. The Beam is the plugin's main target: tests, fakes and defaults use its real values. Support for the Beam LX comes next, and the Glow is an afterthought. Logi Options+ and G HUB are not installed and won't be.
 
 The plugin is for Daniel's own use and isn't published. It runs linked from the repo, never installed, so the Deck runs whatever is built from the checked-out branch. That is intended: a change takes effect on the next build and restart. `npm run pack` and the Packaging section of `README.md` stay, in case the plugin is published one day ([#21]).
 
