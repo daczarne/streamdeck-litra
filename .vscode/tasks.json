@@ -1,13 +1,15 @@
 {
   "version": "2.0.0",
   "tasks": [
-    // Like CI, the compound task stops at the first linter that fails.
+    // Unlike CI, which runs its jobs in parallel, the compound task stops at the first check that fails.
     {
       "label": "Lint",
-      "detail": "Run every linter from CI",
+      "detail": "Run every check from CI",
       "dependsOn": [
         "Lint: Markdown",
         "Lint: spelling",
+        "Lint: types",
+        "Lint: validate",
       ],
       "dependsOrder": "sequence",
       "problemMatcher": [ ],
@@ -22,6 +24,21 @@
       "label": "Lint: spelling",
       "type": "shell",
       "command": "cspell lint --config .cspell.json --dot --no-progress .",
+      "problemMatcher": [ ],
+    },
+    {
+      "label": "Lint: types",
+      "type": "shell",
+      "command": "npx tsc --noEmit -p .",
+      "problemMatcher": [
+        "$tsc",
+      ],
+    },
+    {
+      "label": "Lint: validate",
+      "detail": "check:ui, build and streamdeck validate",
+      "type": "shell",
+      "command": "npm run validate",
       "problemMatcher": [ ],
     },
   ],

@@ -4,9 +4,13 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # Only propose versions that have been out for a week, long enough for a
+    # compromised release to be caught and pulled.
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 5
-    labels:
-      - dependencies
+    # No labels of its own: .github/labeler.yaml labels every pull request.
+    labels: []
     groups:
       elgato:
         patterns:
@@ -20,9 +24,23 @@ updates:
           - "@types/*"
           - "@tsconfig/*"
     ignore:
-      # @rollup/plugin-typescript does not support TypeScript 6+/7 yet
+      # @rollup/plugin-typescript doesn't support TypeScript 7
+      # (https://github.com/rollup/plugins/issues/2016). TypeScript 6 is still proposed.
       - dependency-name: typescript
-        update-types: ["version-update:semver-major"]
+        versions: [">= 7"]
       # Keep Node types aligned with the Node 24 minor that Stream Deck runs the plugin on
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major", "version-update:semver-minor"]
+
+  # Keeps the SHAs the workflows pin from going stale.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    labels: []
+    groups:
+      actions:
+        patterns:
+          - "*"
