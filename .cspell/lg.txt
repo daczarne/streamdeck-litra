@@ -4,3 +4,4 @@ lghub
 litra
 Litras
 Logi
+logitech
