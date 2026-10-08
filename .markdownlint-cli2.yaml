@@ -3,3 +3,4 @@ showFound: true
 globs:
   - "**/*.md"
   - "!node_modules"
+  - "!ref/"
