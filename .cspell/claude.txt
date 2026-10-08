@@ -1,1 +1,5 @@
+chsh
 claude
+netrc
+oneline
+pushd

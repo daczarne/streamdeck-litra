@@ -10,10 +10,6 @@
       "Bash(git commit *)",
       "Bash(git stash *)",
       "Bash(markdownlint-cli2 *)",
-      "Bash(uv run --locked pytest *)",
-      "Bash(uv run --locked ruff check --preview .)",
-      "Bash(uv run --locked yamllint *)",
-      "Bash(uv tree *)",
       "Bash(zsh -n *)",
       "WebFetch(domain:code.claude.com)",
       "WebFetch(domain:docs.astral.sh)"
@@ -63,7 +59,6 @@
       "Bash(uv remove *)",
       "Bash(uv sync *)",
       "Bash(uv tool *)",
-      "Bash(uv venv *)",
       "Bash(wget *)",
       "Bash(zsh *setup_*.zsh*)",
       "Edit(/.claude/commands/**)",
