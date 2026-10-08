@@ -2,3 +2,4 @@ Debouncer
 napi
 npmjs
 prebuilds
+rollup
