@@ -3,6 +3,7 @@ import {
   DialDownEvent,
   DialRotateEvent,
   DidReceiveSettingsEvent,
+  KeyAction,
   KeyDownEvent,
   SingletonAction,
   WillAppearEvent,
@@ -92,7 +93,7 @@ export class TemperatureAction extends SingletonAction<TemperatureSettings> {
     );
   }
 
-  private async showKeyAmount(action: ActionRef, kelvin: number): Promise<void> {
+  private async showKeyAmount(action: KeyAction<TemperatureSettings>, kelvin: number): Promise<void> {
     await action.setTitle(`${Math.round(kelvin)}`);
   }
 
