@@ -1,15 +1,24 @@
 {
   "version": "2.0.0",
   "tasks": [
-    // Unlike CI, which runs its jobs in parallel, the compound task stops at the first check that fails.
+    // Unlike CI, which runs its jobs in parallel, the compound tasks stop at the first check that fails.
+    {
+      "label": "CI",
+      "detail": "Run every check from CI: the linters, then the tests",
+      "dependsOn": [
+        "Lint",
+        "Test",
+      ],
+      "dependsOrder": "sequence",
+      "problemMatcher": [ ],
+    },
     {
       "label": "Lint",
-      "detail": "Run every check from CI",
+      "detail": "Run every linter",
       "dependsOn": [
         "Lint: Markdown",
         "Lint: spelling",
         "Lint: types",
-        "Lint: tests",
         "Lint: validate",
       ],
       "dependsOrder": "sequence",
@@ -36,16 +45,22 @@
       ],
     },
     {
-      "label": "Lint: tests",
-      "type": "shell",
-      "command": "npm test",
-      "problemMatcher": [ ],
-    },
-    {
       "label": "Lint: validate",
       "detail": "check:ui, build and streamdeck validate",
       "type": "shell",
       "command": "npm run validate",
+      "problemMatcher": [ ],
+    },
+    // The default test task, so "Tasks: Run Test Task" runs it.
+    {
+      "label": "Test",
+      "detail": "Run the unit tests",
+      "type": "shell",
+      "command": "npm test",
+      "group": {
+        "kind": "test",
+        "isDefault": true,
+      },
       "problemMatcher": [ ],
     },
   ],

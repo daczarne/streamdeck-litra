@@ -70,7 +70,7 @@ Daniel treats supply-chain risk as a hard requirement:
 
 - Work happens on a branch, created with `git switch -c`. Branch names are flat kebab-case, without `/`.
 - Commit messages explain the why and end with the `Co-Authored-By` trailer for Claude. Commit only when Daniel asks. Pushing and merging are Daniel's.
-- `.github/workflows/main.yaml` runs the type check, the unit tests, `npm run validate`, Markdown lint and CSpell on every pull request and on `main`. The `/lint` command and the VS Code `Lint` task run the same checks locally.
+- `.github/workflows/main.yaml` runs the type check, the unit tests, `npm run validate`, Markdown lint and CSpell on every pull request and on `main`. Locally, the same checks run in two parts, both as Claude commands and as VS Code tasks: `/lint` and the `Lint` task run the linters (everything but the unit tests), `/test` and the `Test` task run the unit tests, and `/ci` and the `CI` task run both. `Test` is VS Code's default test task, so **Tasks: Run Test Task** starts it.
 - Pull requests are squash-merged, so their title and description become the commit on `main`. Write them with the `pr-description` skill.
 - Work that doesn't belong in the current branch becomes a GitHub issue, drafted with the `github-issues` skill and posted only when Daniel asks.
 
