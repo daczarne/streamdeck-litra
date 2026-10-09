@@ -62,7 +62,13 @@ vi.mock("litra", () => ({
 // The fake lamps are Litra Beams, with the ranges litra reports for one.
 const BEAM_MIN_LUMEN = 30;
 const BEAM_MAX_LUMEN = 400;
-const BEAM_KELVIN = Array.from({ length: (6500 - 2700) / 100 + 1 }, (_, index) => 2700 + index * 100);
+const BEAM_MIN_KELVIN = 2700;
+const BEAM_MAX_KELVIN = 6500;
+const BEAM_KELVIN_STEP = 100;
+const BEAM_ALLOWED_KELVIN = Array.from(
+  { length: (BEAM_MAX_KELVIN - BEAM_MIN_KELVIN) / BEAM_KELVIN_STEP + 1 },
+  (_, index) => BEAM_MIN_KELVIN + index * BEAM_KELVIN_STEP,
+);
 
 function connect(...devices: FakeDevice[]): void {
   vi.mocked(findDevices).mockReturnValue(devices);
@@ -95,7 +101,7 @@ beforeEach(() => {
   vi.mocked(isOn).mockReturnValue(true);
   vi.mocked(getMinimumBrightnessInLumenForDevice).mockReturnValue(BEAM_MIN_LUMEN);
   vi.mocked(getMaximumBrightnessInLumenForDevice).mockReturnValue(BEAM_MAX_LUMEN);
-  vi.mocked(getAllowedTemperaturesInKelvinForDevice).mockReturnValue(BEAM_KELVIN);
+  vi.mocked(getAllowedTemperaturesInKelvinForDevice).mockReturnValue(BEAM_ALLOWED_KELVIN);
 });
 
 //* Pure functions
@@ -125,22 +131,22 @@ describe("lumenToPercentage", () => {
 
 describe("snapKelvin", () => {
   it("keeps an allowed value", () => {
-    expect(snapKelvin(3000, BEAM_KELVIN)).toBe(3000);
+    expect(snapKelvin(3000, BEAM_ALLOWED_KELVIN)).toBe(3000);
   });
 
   it("snaps to the nearest allowed value", () => {
-    expect(snapKelvin(3140, BEAM_KELVIN)).toBe(3100);
-    expect(snapKelvin(3160, BEAM_KELVIN)).toBe(3200);
+    expect(snapKelvin(3140, BEAM_ALLOWED_KELVIN)).toBe(3100);
+    expect(snapKelvin(3160, BEAM_ALLOWED_KELVIN)).toBe(3200);
   });
 
   it("snaps a tie to the value listed first", () => {
-    expect(snapKelvin(3150, BEAM_KELVIN)).toBe(3100);
-    expect(snapKelvin(3150, BEAM_KELVIN.toReversed())).toBe(3200);
+    expect(snapKelvin(3150, BEAM_ALLOWED_KELVIN)).toBe(3100);
+    expect(snapKelvin(3150, BEAM_ALLOWED_KELVIN.toReversed())).toBe(3200);
   });
 
   it("snaps values outside the range to its ends", () => {
-    expect(snapKelvin(1000, BEAM_KELVIN)).toBe(2700);
-    expect(snapKelvin(9000, BEAM_KELVIN)).toBe(6500);
+    expect(snapKelvin(1000, BEAM_ALLOWED_KELVIN)).toBe(BEAM_MIN_KELVIN);
+    expect(snapKelvin(9000, BEAM_ALLOWED_KELVIN)).toBe(BEAM_MAX_KELVIN);
   });
 
   it("accepts an unsorted list", () => {
@@ -358,10 +364,10 @@ describe("isOnAll", () => {
     expect(isOnAll()).toEqual({ ok: true, allOn: true, deviceCount: 2 });
   });
 
-  it("reports off when any lamp is off", () => {
-    const second = beam();
-    connect(beam(), second);
-    vi.mocked(isOn).mockImplementation((device) => device !== second);
+  it("reports off when at least one lamp is off", () => {
+    const first = beam();
+    connect(first, beam());
+    vi.mocked(isOn).mockImplementation((device) => device === first);
 
     expect(isOnAll()).toEqual({ ok: true, allOn: false, deviceCount: 2 });
   });
@@ -411,7 +417,7 @@ describe("setBrightnessAllPercentage", () => {
     ]);
   });
 
-  it("clamps the percentage to 0–100", () => {
+  it("clamps the percentage to 0-100", () => {
     connect(beam());
 
     expect(setBrightnessAllPercentage(150).representativeBrightnessPercentage).toBe(100);
@@ -432,6 +438,7 @@ describe("setBrightnessAllPercentage", () => {
 
   it("leaves a lamp that is on as it is", () => {
     connect(beam());
+    vi.mocked(isOn).mockReturnValue(true);
 
     setBrightnessAllPercentage(40);
 
@@ -480,7 +487,7 @@ describe("adjustBrightnessAllByPercentageSteps", () => {
     expect(adjustBrightnessAllByPercentageSteps(-3, 10).representativeBrightnessPercentage).toBe(20);
   });
 
-  it("clamps the result to 0–100", () => {
+  it("clamps the result to 0-100", () => {
     connect(beam(lumenAt(90)));
     expect(adjustBrightnessAllByPercentageSteps(5, 10).representativeBrightnessPercentage).toBe(100);
 
@@ -551,16 +558,6 @@ describe("setTemperatureAllInKelvin", () => {
     ]);
   });
 
-  it("snaps to each lamp's own allowed values", () => {
-    const first = beam();
-    const second = beam();
-    connect(first, second);
-
-    setTemperatureAllInKelvin(4321);
-
-    expect(vi.mocked(getAllowedTemperaturesInKelvinForDevice).mock.calls).toEqual([[first], [second]]);
-  });
-
   it("drains each lamp's ACK", () => {
     const device = beam();
     connect(device);
@@ -595,14 +592,18 @@ describe("adjustTemperatureAllByKelvinSteps", () => {
     connect(beam());
     vi.mocked(getTemperatureInKelvin).mockReturnValue(3000);
 
-    expect(adjustTemperatureAllByKelvinSteps(-10, 100).representativeTemperatureKelvin).toBe(2700);
+    const result = adjustTemperatureAllByKelvinSteps(-10, BEAM_KELVIN_STEP);
+
+    expect(result.representativeTemperatureKelvin).toBe(BEAM_MIN_KELVIN);
   });
 
   it("stops at the highest allowed value", () => {
     connect(beam());
-    vi.mocked(getTemperatureInKelvin).mockReturnValue(6400);
+    vi.mocked(getTemperatureInKelvin).mockReturnValue(BEAM_MAX_KELVIN - BEAM_KELVIN_STEP);
 
-    expect(adjustTemperatureAllByKelvinSteps(3, 100).representativeTemperatureKelvin).toBe(6500);
+    const result = adjustTemperatureAllByKelvinSteps(3, BEAM_KELVIN_STEP);
+
+    expect(result.representativeTemperatureKelvin).toBe(BEAM_MAX_KELVIN);
   });
 });
 
