@@ -27,6 +27,7 @@ export type BroadcastResult = {
   deviceCount: number;
   failures: number;
   representativeBrightnessPercentage?: number;
+  representativeBrightnessLumen?: number;
   representativeTemperatureKelvin?: number;
 };
 
@@ -87,6 +88,14 @@ export function lumenToPercentage(lumen: number, min: number, max: number): numb
     return 0;
   }
   return Math.max(0, Math.min(100, Math.round(((lumen - min) / (max - min)) * 100)));
+}
+
+/**
+ * The lumens litra's setBrightnessPercentage sends for a percentage. Mirrors litra's percentageWithinRange, which
+ * isn't exported.
+ */
+export function percentageToLumen(percentage: number, min: number, max: number): number {
+  return Math.ceil((percentage / 100) * (max - min) + min);
 }
 
 export function snapKelvin(value: number, allowed: number[]): number {
@@ -206,15 +215,25 @@ function ensureOn(device: Device): void {
 export function setBrightnessAllPercentage(percentage: number): BroadcastResult {
   const pct = Math.max(0, Math.min(100, percentage));
   let representative: number | undefined;
+  let representativeLumen: number | undefined;
   const result = forEachDevice((device) => {
     ensureOn(device);
     setBrightnessPercentage(device, pct);
     drainAck(device);
     if (representative === undefined) {
+      representativeLumen = percentageToLumen(
+        pct,
+        getMinimumBrightnessInLumenForDevice(device),
+        getMaximumBrightnessInLumenForDevice(device),
+      );
       representative = pct;
     }
   });
-  return { ...result, representativeBrightnessPercentage: representative };
+  return {
+    ...result,
+    representativeBrightnessPercentage: representative,
+    representativeBrightnessLumen: representativeLumen,
+  };
 }
 
 export function adjustBrightnessAllByPercentageSteps(
@@ -222,6 +241,7 @@ export function adjustBrightnessAllByPercentageSteps(
   stepPercentage: number,
 ): BroadcastResult {
   let representative: number | undefined;
+  let representativeLumen: number | undefined;
   const result = forEachDevice((device) => {
     ensureOn(device);
     const min = getMinimumBrightnessInLumenForDevice(device);
@@ -233,22 +253,33 @@ export function adjustBrightnessAllByPercentageSteps(
     drainAck(device);
     if (representative === undefined) {
       representative = nextPct;
+      representativeLumen = percentageToLumen(nextPct, min, max);
     }
   });
-  return { ...result, representativeBrightnessPercentage: representative };
+  return {
+    ...result,
+    representativeBrightnessPercentage: representative,
+    representativeBrightnessLumen: representativeLumen,
+  };
 }
 
 export function readRepresentativeBrightnessPercentage(): BroadcastResult {
   let representative: number | undefined;
+  let representativeLumen: number | undefined;
   const result = forEachDevice((device) => {
     if (representative !== undefined) {
       return;
     }
     const min = getMinimumBrightnessInLumenForDevice(device);
     const max = getMaximumBrightnessInLumenForDevice(device);
-    representative = lumenToPercentage(getBrightnessInLumenSafe(device), min, max);
+    representativeLumen = getBrightnessInLumenSafe(device);
+    representative = lumenToPercentage(representativeLumen, min, max);
   });
-  return { ...result, representativeBrightnessPercentage: representative };
+  return {
+    ...result,
+    representativeBrightnessPercentage: representative,
+    representativeBrightnessLumen: representativeLumen,
+  };
 }
 
 export function setTemperatureAllInKelvin(kelvin: number): BroadcastResult {
