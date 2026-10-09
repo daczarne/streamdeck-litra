@@ -13,7 +13,7 @@
 
 A Stream Deck plugin that controls Logitech Litra lights (Glow, Beam, Beam LX front light) over USB HID, without Logitech's software. It is a fork of a repository its original author abandoned, so the code and the notes in `ref/` describe decisions nobody here made: read them before changing behavior that looks odd.
 
-Daniel's setup: macOS on a Mac Studio, a Stream Deck + XL running Stream Deck 7.6, and Litra lamps (a Litra Beam, with more arriving, including a Beam LX). Logi Options+ and G HUB are not installed and won't be.
+Daniel's setup: macOS on a Mac Studio, a Stream Deck + XL running Stream Deck 7.6, and two Litra Beams. The Beam is the plugin's main target: tests, fakes and defaults use its real values. Support for the Beam LX comes next, and the Glow is an afterthought. Logi Options+ and G HUB are not installed and won't be.
 
 The plugin is for Daniel's own use and isn't published. It runs linked from the repo, never installed, so the Deck runs whatever is built from the checked-out branch. That is intended: a change takes effect on the next build and restart. `npm run pack` and the Packaging section of `README.md` stay, in case the plugin is published one day ([#21]).
 
@@ -22,6 +22,7 @@ The plugin is for Daniel's own use and isn't published. It runs linked from the 
 - `src/plugin.ts` registers the actions.
 - `src/litra-manager.ts` is the only module that talks to the `litra` library. Actions import from it, never from `litra` directly. It re-scans the lamps on every call, applies each operation to every connected lamp, and always closes the HID handles.
 - `src/actions/` holds the Power, Brightness and Temperature actions.
+- Unit tests sit next to the file they test (`litra-manager.test.ts`), and run with Vitest. They replace `litra` and `@elgato/streamdeck` with `vi.mock`, so they need no lamps and create no `logs/` folder. `src/test-support/` holds the shared fakes, such as a lamp whose HID handle records every call. A bug the tests find gets an `it.fails` test stating the intended behavior, linked to its own issue ([#27]).
 - `com.daczarne.litra.sdPlugin/` is the plugin folder: `manifest.json`, the settings pages in `ui/` (with the vendored `sdpi-components` in `ui/vendor/`), and the icons in `imgs/`. `bin/` and `node_modules/` inside it are build output.
 - `scripts/check-ui.mjs` guards the settings pages (see [Supply chain](#supply-chain)). `scripts/generate-icons.mjs` generates the icons.
 - `ref/` holds the original author's design notes and the paused Beam LX back-light research. It isn't shipped or built ([#12]).
@@ -38,13 +39,14 @@ npm run pack              # check:ui, build, write release/com.daczarne.litra.st
 npm run link              # link the plugin folder into Stream Deck
 npm run watch             # rebuild and restart the plugin on change
 npx tsc --noEmit -p .     # type-check only
+npm test                  # run the unit tests
 ```
 
 ## Runtime and toolchain
 
 - The plugin runs on Node 24, set by `Nodejs.Version` in `manifest.json`. Stream Deck downloads that runtime into `~/Library/Application Support/com.elgato.StreamDeck/NodeJS/`, whose `manifest.json` lists the exact version (24.13.1 when this was written). `tsconfig.json` extends `@tsconfig/node24`, and `@types/node` follows that runtime's minor version (24.13), not the Node used to build.
 - The Node used to build is pinned in `.node-version` (24.15.0), and `n auto` switches to it. `package.json` declares the same version in `engines`, and `engine-strict=true` in `.npmrc` makes `npm ci` refuse any other Node. CI reads `.node-version` too.
-- The repo pins TypeScript 5.9. VS Code bundles TypeScript 6, which no longer loads `@types/*` automatically, hence `"types": ["node"]` in `tsconfig.json`. `.vscode/settings.json` points the editor at the repo's TypeScript.
+- The repo pins TypeScript 6.0, which no longer loads `@types/*` automatically, hence `"types": ["node"]` in `tsconfig.json`. `.vscode/settings.json` points the editor at the repo's TypeScript, so the editor and the build check types with the same version.
 - `node-hid` ships native binaries, so Rollup keeps it external and `copyNativeRuntime` in `rollup.config.mjs` copies it and its runtime dependencies into the plugin folder. A dependency missing from that list breaks the installed plugin but not a linked one, because a linked plugin also finds the repo's top-level `node_modules`. Since the plugin only runs linked, that list is untested ([#21]).
 
 ## Supply chain
@@ -68,7 +70,7 @@ Daniel treats supply-chain risk as a hard requirement:
 
 - Work happens on a branch, created with `git switch -c`. Branch names are flat kebab-case, without `/`.
 - Commit messages explain the why and end with the `Co-Authored-By` trailer for Claude. Commit only when Daniel asks. Pushing and merging are Daniel's.
-- `.github/workflows/main.yaml` runs the type check, `npm run validate`, Markdown lint and CSpell on every pull request and on `main`. The `/lint` command and the VS Code `Lint` task run the same checks locally.
+- `.github/workflows/main.yaml` runs the type check, the unit tests, `npm run validate`, Markdown lint and CSpell on every pull request and on `main`. Locally, the same checks run in two parts, both as Claude commands and as VS Code tasks: `/lint` and the `Lint` task run the linters (everything but the unit tests), `/test` and the `Test` task run the unit tests, and `/ci` and the `CI` task run both. `Test` is VS Code's default test task, so **Tasks: Run Test Task** starts it.
 - Pull requests are squash-merged, so their title and description become the commit on `main`. Write them with the `pr-description` skill.
 - Work that doesn't belong in the current branch becomes a GitHub issue, drafted with the `github-issues` skill and posted only when Daniel asks.
 

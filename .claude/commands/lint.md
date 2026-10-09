@@ -1,11 +1,11 @@
 ---
-description: Run the same checks as CI, fix formatting findings and report the rest
+description: Run every linter, fix formatting findings and report the rest
 allowed-tools: Bash(markdownlint-cli2 *), Bash(cspell lint *), Bash(git grep *), Bash(npx tsc --noEmit -p .), Bash(npm run validate)
 ---
 
 # Lint
 
-Run the checks from the CI `build`, `lint` and `spell-check` jobs, from the repository root, in this order:
+Run the linters from CI, from the repository root, in this order: those of the `lint` and `spell-check` jobs, then the type check and `npm run validate` from the `tests` job. The unit tests have their own command, `/test`, and `/ci` runs both.
 
 1. `markdownlint-cli2 --config ".markdownlint.yaml" .`
 1. `cspell lint --config ".cspell.json" --dot --no-progress .`
