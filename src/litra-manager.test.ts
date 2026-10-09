@@ -464,17 +464,14 @@ describe("setBrightnessAllPercentage", () => {
 });
 
 describe("adjustBrightnessAllByPercentageSteps", () => {
-  it("moves every lamp from its own brightness, and reports the first lamp's", () => {
+  // These tests check what each lamp is sent, not the value reported back: the fake lamps keep reporting the same
+  // brightness after a write, so they can't stand in for a lamp's reading once #13 is fixed.
+  it("moves every lamp from its own brightness", () => {
     const first = beam(lumenAt(50));
     const second = beam(lumenAt(20));
     connect(first, second);
 
-    expect(adjustBrightnessAllByPercentageSteps(2, 5)).toEqual({
-      ok: true,
-      deviceCount: 2,
-      failures: 0,
-      representativeBrightnessPercentage: 60,
-    });
+    expect(adjustBrightnessAllByPercentageSteps(2, 5)).toMatchObject({ ok: true, deviceCount: 2, failures: 0 });
     expect(vi.mocked(setBrightnessPercentage).mock.calls).toEqual([
       [first, 60],
       [second, 30],
@@ -482,17 +479,38 @@ describe("adjustBrightnessAllByPercentageSteps", () => {
   });
 
   it("moves down for negative ticks", () => {
-    connect(beam(lumenAt(50)));
+    const device = beam(lumenAt(50));
+    connect(device);
 
-    expect(adjustBrightnessAllByPercentageSteps(-3, 10).representativeBrightnessPercentage).toBe(20);
+    adjustBrightnessAllByPercentageSteps(-3, 10);
+
+    expect(setBrightnessPercentage).toHaveBeenCalledWith(device, 20);
   });
 
   it("clamps the result to 0-100", () => {
-    connect(beam(lumenAt(90)));
-    expect(adjustBrightnessAllByPercentageSteps(5, 10).representativeBrightnessPercentage).toBe(100);
+    const bright = beam(lumenAt(90));
+    const dim = beam(lumenAt(10));
 
-    connect(beam(lumenAt(10)));
-    expect(adjustBrightnessAllByPercentageSteps(-5, 10).representativeBrightnessPercentage).toBe(0);
+    connect(bright);
+    adjustBrightnessAllByPercentageSteps(5, 10);
+    connect(dim);
+    adjustBrightnessAllByPercentageSteps(-5, 10);
+
+    expect(vi.mocked(setBrightnessPercentage).mock.calls).toEqual([
+      [bright, 100],
+      [dim, 0],
+    ]);
+  });
+
+  // Known bug: https://github.com/daczarne/streamdeck-litra/issues/13
+  it.fails("reports the brightness the first lamp reached, not the one requested (#13)", () => {
+    // On the Stream Deck + XL's USB hub, a Beam stays at about 70% whatever it's asked for.
+    connect(beam(lumenAt(70)));
+
+    const result = adjustBrightnessAllByPercentageSteps(4, 5);
+
+    expect(setBrightnessPercentage).toHaveBeenCalledWith(expect.anything(), 90);
+    expect(result.representativeBrightnessPercentage).toBe(70);
   });
 
   it("turns a lamp that is off on before changing its brightness", () => {
@@ -569,14 +587,14 @@ describe("setTemperatureAllInKelvin", () => {
 });
 
 describe("adjustTemperatureAllByKelvinSteps", () => {
-  it("moves every lamp from its own temperature, snapped, and reports the first lamp's", () => {
+  it("moves every lamp from its own temperature, and reports the first lamp's", () => {
     const first = beam();
     const second = beam();
     connect(first, second);
     vi.mocked(getTemperatureInKelvin).mockImplementation((device) => (device === first ? 3000 : 2700));
 
-    // 3 ticks of 130 K: 3000 + 390 snaps to 3400, and 2700 + 390 to 3100.
-    expect(adjustTemperatureAllByKelvinSteps(3, 130)).toEqual({
+    // 2 ticks of 200 K, one of the dial's step options.
+    expect(adjustTemperatureAllByKelvinSteps(2, 200)).toEqual({
       ok: true,
       deviceCount: 2,
       failures: 0,
