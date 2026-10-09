@@ -23,6 +23,7 @@ import {
   getBrightnessInLumenSafe,
   isOnAll,
   lumenToPercentage,
+  percentageToLumen,
   readRepresentativeBrightnessPercentage,
   readRepresentativeTemperatureKelvin,
   setBrightnessAllPercentage,
@@ -126,6 +127,23 @@ describe("lumenToPercentage", () => {
   it("returns 0 when the range is empty or inverted", () => {
     expect(lumenToPercentage(50, 50, 50)).toBe(0);
     expect(lumenToPercentage(50, 100, 20)).toBe(0);
+  });
+});
+
+describe("percentageToLumen", () => {
+  it("maps 0 and 100 to the ends of the range", () => {
+    expect(percentageToLumen(0, BEAM_MIN_LUMEN, BEAM_MAX_LUMEN)).toBe(30);
+    expect(percentageToLumen(100, BEAM_MIN_LUMEN, BEAM_MAX_LUMEN)).toBe(400);
+  });
+
+  it("rounds up, like litra", () => {
+    expect(percentageToLumen(70, BEAM_MIN_LUMEN, BEAM_MAX_LUMEN)).toBe(289);
+    expect(percentageToLumen(33, BEAM_MIN_LUMEN, BEAM_MAX_LUMEN)).toBe(153);
+  });
+
+  it("uses the range it's given", () => {
+    // A Litra Glow's range.
+    expect(percentageToLumen(50, 20, 250)).toBe(135);
   });
 });
 
@@ -400,7 +418,7 @@ describe("isOnAll", () => {
 });
 
 describe("setBrightnessAllPercentage", () => {
-  it("sets every lamp to the percentage and reports it", () => {
+  it("sets every lamp to the percentage and reports it, with its lumens", () => {
     const first = beam();
     const second = beam();
     connect(first, second);
@@ -410,6 +428,7 @@ describe("setBrightnessAllPercentage", () => {
       deviceCount: 2,
       failures: 0,
       representativeBrightnessPercentage: 40,
+      representativeBrightnessLumen: 178,
     });
     expect(vi.mocked(setBrightnessPercentage).mock.calls).toEqual([
       [first, 40],
@@ -455,11 +474,15 @@ describe("setBrightnessAllPercentage", () => {
       deviceCount: 2,
       failures: 1,
       representativeBrightnessPercentage: 40,
+      representativeBrightnessLumen: 178,
     });
   });
 
-  it("reports no percentage when no lamp succeeds", () => {
-    expect(setBrightnessAllPercentage(40).representativeBrightnessPercentage).toBeUndefined();
+  it("reports no percentage or lumens when no lamp succeeds", () => {
+    const result = setBrightnessAllPercentage(40);
+
+    expect(result.representativeBrightnessPercentage).toBeUndefined();
+    expect(result.representativeBrightnessLumen).toBeUndefined();
   });
 });
 
@@ -511,6 +534,7 @@ describe("adjustBrightnessAllByPercentageSteps", () => {
 
     expect(setBrightnessPercentage).toHaveBeenCalledWith(expect.anything(), 90);
     expect(result.representativeBrightnessPercentage).toBe(70);
+    expect(result.representativeBrightnessLumen).toBe(lumenAt(70));
   });
 
   it("turns a lamp that is off on before changing its brightness", () => {
@@ -526,7 +550,7 @@ describe("adjustBrightnessAllByPercentageSteps", () => {
 });
 
 describe("readRepresentativeBrightnessPercentage", () => {
-  it("reads only the first lamp, but closes every handle", () => {
+  it("reads only the first lamp, with its lumens, but closes every handle", () => {
     const first = beam(lumenAt(50));
     const second = beam(lumenAt(20));
     connect(first, second);
@@ -536,6 +560,7 @@ describe("readRepresentativeBrightnessPercentage", () => {
       deviceCount: 2,
       failures: 0,
       representativeBrightnessPercentage: 50,
+      representativeBrightnessLumen: lumenAt(50),
     });
     expect(second.hid.readSync).not.toHaveBeenCalled();
     expect(first.hid.close).toHaveBeenCalledOnce();
@@ -554,6 +579,7 @@ describe("readRepresentativeBrightnessPercentage", () => {
       deviceCount: 2,
       failures: 1,
       representativeBrightnessPercentage: 20,
+      representativeBrightnessLumen: lumenAt(20),
     });
   });
 });
