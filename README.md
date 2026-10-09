@@ -104,7 +104,7 @@ This runs `check:ui`, builds, and writes `release/com.daczarne.litra.streamDeckP
 ## Usage tips
 
 - Brightness and temperature keys are meant to show their preset value, as a bare number at the bottom of the key. The plugin sets it itself, since editing the title is disabled. On the Deck, no number appears yet ([#25]).
-- Dials use Stream Deck's built-in `$A1` layout: rotating adjusts, pressing toggles the front light.
+- Dials use Stream Deck's built-in `$A1` layout: rotating adjusts, pressing toggles the front light. Their titles don't show yet either ([#25]).
 - With no lamp connected, actions show Stream Deck's alert indicator.
 
 ## Third-party code

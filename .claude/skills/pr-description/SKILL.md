@@ -17,7 +17,7 @@ Pull requests are squash-merged, so their title and description become the commi
 
 ## Title
 
-- Says what changes, in the form used by `docs/contributing.md` (for example "Adds the FastAPI VS Code profile").
+- Says what changes, as a verb in the third person present, like the history on `main` (for example "Adds unit tests for litra-manager").
 - At most 72 characters, no final period, and no PR number (GitHub appends it on merge).
 
 ## Description

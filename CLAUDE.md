@@ -26,6 +26,7 @@ The plugin is for Daniel's own use and isn't published. It runs linked from the 
 - `com.daczarne.litra.sdPlugin/` is the plugin folder: `manifest.json`, the settings pages in `ui/` (with the vendored `sdpi-components` in `ui/vendor/`), and the icons in `imgs/`. `bin/` and `node_modules/` inside it are build output.
 - `scripts/check-ui.mjs` guards the settings pages (see [Supply chain](#supply-chain)). `scripts/generate-icons.mjs` generates the icons.
 - `ref/` holds the original author's design notes and the paused Beam LX back-light research. It isn't shipped or built ([#12]).
+- `docs/` holds the style guide and, under `docs/elgato_sdk/`, notes on what the Stream Deck SDK offers and what it doesn't (for example, the interactions a dial receives), checked against the installed version. Read them before designing how an action behaves on the Deck, and add to them when a change finds out something new about the SDK.
 
 ## Commands
 
@@ -64,6 +65,7 @@ Daniel treats supply-chain risk as a hard requirement:
 - Plugin logs are in `com.daczarne.litra.sdPlugin/logs/`.
 - Test the settings pages with Wi-Fi off, to prove they load nothing remote.
 - On the Stream Deck + XL's USB hub (7.5 W), the Beam caps its brightness at about 70%. Plugged into the Mac, it reaches 100%.
+- Claude can't see the Deck. Daniel checks what the keys and the touch strip show, and can share a photo of them, which is enough to judge a layout. Each dial gets 200 × 100 px of the touch strip, and text under about 16 px is hard to read on it ([#8]).
 - Opening a Litra needs no macOS permission. Opening a mouse or keyboard over HID needs Input Monitoring, which Daniel only grants temporarily ([#3]).
 
 ## Workflow
@@ -79,6 +81,7 @@ Daniel treats supply-chain risk as a hard requirement:
 `docs/style_guide.md`, `.editorconfig`, the Markdown lint configuration and CSpell (with the dictionaries in `.cspell/`) are the authority on style.
 
 [#3]: https://github.com/daczarne/streamdeck-litra/issues/3
+[#8]: https://github.com/daczarne/streamdeck-litra/issues/8
 [#12]: https://github.com/daczarne/streamdeck-litra/issues/12
 [#21]: https://github.com/daczarne/streamdeck-litra/issues/21
 [#27]: https://github.com/daczarne/streamdeck-litra/issues/27
