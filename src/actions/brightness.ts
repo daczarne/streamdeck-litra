@@ -3,6 +3,7 @@ import {
   DialDownEvent,
   DialRotateEvent,
   DidReceiveSettingsEvent,
+  KeyAction,
   KeyDownEvent,
   SingletonAction,
   WillAppearEvent,
@@ -92,7 +93,7 @@ export class BrightnessAction extends SingletonAction<BrightnessSettings> {
     );
   }
 
-  private async showKeyAmount(action: ActionRef, percentage: number): Promise<void> {
+  private async showKeyAmount(action: KeyAction<BrightnessSettings>, percentage: number): Promise<void> {
     await action.setTitle(`${Math.round(percentage)}`);
   }
 
