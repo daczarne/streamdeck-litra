@@ -116,7 +116,10 @@ jobs:
         run: npm test
       - name: Browser tests 🧪
         id: browser_tests
-        # Drives the Google Chrome that comes installed on the runner.
+        # Drives the Google Chrome that comes installed on the runner, at whatever version the runner image has.
+        # If Chrome starts failing here with "No usable sandbox", the runner's Ubuntu is restricting the user
+        # namespaces Chrome's sandbox needs. Adding --no-sandbox to the flags in browser-tests/support/chrome.ts,
+        # for CI only, is acceptable: Chrome only ever loads the plugin's own local pages there.
         run: npm run test:browser
       - name: Validate 🧪
         id: validate

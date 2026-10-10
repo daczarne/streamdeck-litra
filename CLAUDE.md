@@ -75,7 +75,7 @@ Daniel treats supply-chain risk as a hard requirement:
 
 - Build, enable developer mode (`npx streamdeck dev`), `npm run link`, then `npx streamdeck restart com.daczarne.litra`. The actions appear under the Litra category. Developer mode stays on.
 - Plugin logs are in `com.daczarne.litra.sdPlugin/logs/`.
-- `docs/manual_testing/` holds the checks to run by hand. For example, `settings_pages.md` covers the settings pages: how to open them in DevTools, the debugging port that has to be closed afterwards, and what each panel should show.
+- `docs/manual_testing/` holds the checks to run by hand. For example, `settings_pages.md` covers what the browser tests take for granted about Stream Deck, how to open the pages in DevTools to check it, and the debugging port that has to be closed afterwards.
 - On the Stream Deck + XL's USB hub (7.5 W), the Beam caps its brightness at about 70%. Plugged into the Mac, it reaches 100%.
 - Claude can't see the Deck. Daniel checks what the keys and the touch strip show, and can share a photo of them, which is enough to judge a layout. Each dial gets 200 × 100 px of the touch strip, and text under about 16 px is hard to read on it ([#8]).
 - Opening a Litra needs no macOS permission. Opening a mouse or keyboard over HID needs Input Monitoring, which Daniel only grants temporarily ([#3]).
