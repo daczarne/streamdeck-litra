@@ -11,22 +11,22 @@ A dial on the Stream Deck + shows its state on its segment of the touch strip, t
 
 ## The canvas
 
-Each dial gets a 200 × 100 px canvas on the touch strip. Every slot of a layout is placed on it with a `rect` of `[x, y, width, height]`.
+Each dial gets a 200x100 px canvas on the touch strip. Every slot of a layout is placed on it with a `rect` of `[x, y, width, height]`.
 
 ## Built-in layouts
 
 Stream Deck ships six layouts, chosen by name:
 
-| Layout | Contents                                                                    |
-|--------|-----------------------------------------------------------------------------|
-| `$X1`  | The title at the top, the icon centered beneath it.                         |
-| `$A0`  | The title at the top, a full-width image beneath it.                        |
-| `$A1`  | The title at the top, the icon on the left, a text value on the right.      |
-| `$B1`  | Like `$A1`, with a bar beneath the value.                                   |
-| `$B2`  | Like `$A1`, with a gradient bar and a marker beneath the value.             |
-| `$C1`  | The title at the top, two rows of an icon and a bar.                        |
+| Layout | Contents                                                               |
+|--------|------------------------------------------------------------------------|
+| `$X1`  | The title at the top, the icon centered beneath it.                    |
+| `$A0`  | The title at the top, a full-width image beneath it.                   |
+| `$A1`  | The title at the top, the icon on the left, a text value on the right. |
+| `$B1`  | Like `$A1`, with a bar beneath the value.                              |
+| `$B2`  | Like `$A1`, with a gradient bar and a marker beneath the value.        |
+| `$C1`  | The title at the top, two rows of an icon and a bar.                   |
 
-The dials use `$B1`, the layout of Stream Deck's own volume and microphone dials. Its slots are `title`, `icon`, `value` and `indicator` (the bar, filled by a number from 0 to 100). The `icon` slot shows the action's dial icon, `Encoder.Icon` in `manifest.json`: a PNG or SVG at 72 × 72 px and 144 × 144 px, also shown in the app's round picture of the dial. The icon reads best as white line art on a transparent background, like Stream Deck's own: anything drawn behind the glyph shows up as a box on the strip.
+The dials use `$B1`, the layout of Stream Deck's own volume and microphone dials. Its slots are `title`, `icon`, `value` and `indicator` (the bar, filled by a number from 0 to 100). The `icon` slot shows the action's dial icon, `Encoder.Icon` in `manifest.json`: a PNG or SVG at 72x72 px and 144x144 px, also shown in the app's round picture of the dial. The icon reads best as white line art on a transparent background, like Stream Deck's own: anything drawn behind the glyph shows up as a box on the strip.
 
 ## Custom layouts
 
