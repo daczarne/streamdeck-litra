@@ -1,0 +1,175 @@
+import { spawn, type ChildProcess } from "node:child_process";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import type { Readable, Writable } from "node:stream";
+
+const DEFAULT_CHROME: Partial<Record<NodeJS.Platform, string>> = {
+  darwin: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+  linux: "google-chrome",
+};
+
+type Message = {
+  id?: number;
+  method?: string;
+  params?: any;
+  result?: any;
+  error?: { message: string };
+  sessionId?: string;
+};
+type Listener = (params: any) => void;
+
+/**
+ * A headless Chrome, driven over the DevTools protocol through a pipe (`--remote-debugging-pipe`): Chrome reads
+ * commands from file descriptor 3 and writes replies and events to 4, each message ending in a NUL byte. Unlike
+ * `--remote-debugging-port`, this opens no TCP port that other processes could connect to.
+ */
+export class Chrome {
+  private nextId = 1;
+  private readonly pending = new Map<number, { resolve: (result: any) => void; reject: (error: Error) => void }>();
+  private readonly listeners = new Map<string, Set<Listener>>();
+  private buffer = "";
+  private stderr = "";
+  private readonly write: (message: Message) => void;
+
+  private constructor(
+    private readonly process: ChildProcess,
+    private readonly profileDir: string,
+  ) {
+    const toChrome = process.stdio[3] as Writable;
+    const fromChrome = process.stdio[4] as Readable;
+    this.write = (message) => toChrome.write(JSON.stringify(message) + "\0");
+    fromChrome.setEncoding("utf8");
+    fromChrome.on("data", (chunk: string) => this.receive(chunk));
+    process.stderr?.setEncoding("utf8");
+    process.stderr?.on("data", (chunk: string) => (this.stderr = (this.stderr + chunk).slice(-4000)));
+    process.on("exit", () => {
+      for (const { reject } of this.pending.values()) reject(new Error(`Chrome exited:\n${this.stderr}`));
+      this.pending.clear();
+    });
+  }
+
+  /** Starts Chrome from `CHROME_PATH`, or from where the platform usually installs it. */
+  static async launch(): Promise<Chrome> {
+    const executable = process.env.CHROME_PATH ?? DEFAULT_CHROME[process.platform];
+    if (!executable) throw new Error(`No default Chrome on ${process.platform}: set CHROME_PATH`);
+    const profileDir = mkdtempSync(path.join(tmpdir(), "litra-browser-tests-"));
+    const child = spawn(
+      executable,
+      [
+        "--headless",
+        "--remote-debugging-pipe",
+        `--user-data-dir=${profileDir}`,
+        "--no-first-run",
+        "--no-default-browser-check",
+        // Keep Chrome itself off the network while the tests run.
+        "--disable-background-networking",
+        "--disable-component-update",
+        "--disable-sync",
+        "about:blank",
+      ],
+      { stdio: ["ignore", "ignore", "pipe", "pipe", "pipe"] },
+    );
+    await new Promise<void>((resolve, reject) => {
+      child.once("spawn", resolve);
+      child.once("error", (error) =>
+        reject(new Error(`Can't start Chrome at ${executable} (set CHROME_PATH): ${error.message}`)),
+      );
+    });
+    return new Chrome(child, profileDir);
+  }
+
+  /** Sends a command, to the browser or, with `sessionId`, to one page. */
+  send(method: string, params: object = {}, sessionId?: string): Promise<any> {
+    const id = this.nextId++;
+    return new Promise((resolve, reject) => {
+      this.pending.set(id, { resolve, reject });
+      this.write({ id, method, params, sessionId });
+    });
+  }
+
+  /** Calls `listener` with the parameters of every `method` event from the given page. */
+  on(sessionId: string, method: string, listener: Listener): void {
+    const key = `${sessionId}:${method}`;
+    if (!this.listeners.has(key)) this.listeners.set(key, new Set());
+    this.listeners.get(key)!.add(listener);
+  }
+
+  /** Opens a blank page and returns the session that drives it, with its page, console and network events on. */
+  async newPage(): Promise<Page> {
+    const { targetId } = await this.send("Target.createTarget", { url: "about:blank" });
+    const { sessionId } = await this.send("Target.attachToTarget", { targetId, flatten: true });
+    const page = new Page(this, targetId, sessionId);
+    await Promise.all(["Page", "Runtime", "Log", "Network"].map((domain) => page.send(`${domain}.enable`)));
+    return page;
+  }
+
+  async close(): Promise<void> {
+    const exited = new Promise((resolve) => this.process.once("exit", resolve));
+    this.process.kill();
+    await exited;
+    rmSync(this.profileDir, { recursive: true, force: true });
+  }
+
+  private receive(chunk: string): void {
+    this.buffer += chunk;
+    let end: number;
+    while ((end = this.buffer.indexOf("\0")) !== -1) {
+      const message: Message = JSON.parse(this.buffer.slice(0, end));
+      this.buffer = this.buffer.slice(end + 1);
+      if (message.id !== undefined) {
+        const pending = this.pending.get(message.id);
+        this.pending.delete(message.id);
+        if (message.error) pending?.reject(new Error(message.error.message));
+        else pending?.resolve(message.result);
+      } else if (message.method) {
+        for (const listener of this.listeners.get(`${message.sessionId}:${message.method}`) ?? []) {
+          listener(message.params);
+        }
+      }
+    }
+  }
+}
+
+/** One page of a `Chrome`, with the commands the tests need. */
+export class Page {
+  constructor(
+    private readonly chrome: Chrome,
+    private readonly targetId: string,
+    readonly sessionId: string,
+  ) {}
+
+  send(method: string, params: object = {}): Promise<any> {
+    return this.chrome.send(method, params, this.sessionId);
+  }
+
+  on(method: string, listener: Listener): void {
+    this.chrome.on(this.sessionId, method, listener);
+  }
+
+  /** Navigates to `url` and resolves once the page has loaded. */
+  async goto(url: string): Promise<void> {
+    const loaded = new Promise<void>((resolve) => this.on("Page.loadEventFired", () => resolve()));
+    const { errorText } = await this.send("Page.navigate", { url });
+    if (errorText) throw new Error(`Can't load ${url}: ${errorText}`);
+    await loaded;
+  }
+
+  /**
+   * Runs `expression` in the page and returns its value, awaiting it if it is a promise. Code run this way isn't
+   * subject to the page's Content-Security-Policy, but what it asks the page to load or connect to is.
+   */
+  async evaluate<T = unknown>(expression: string): Promise<T> {
+    const { result, exceptionDetails } = await this.send("Runtime.evaluate", {
+      expression,
+      awaitPromise: true,
+      returnByValue: true,
+    });
+    if (exceptionDetails) throw new Error(exceptionDetails.exception?.description ?? exceptionDetails.text);
+    return result.value as T;
+  }
+
+  close(): Promise<void> {
+    return this.chrome.send("Target.closeTarget", { targetId: this.targetId });
+  }
+}

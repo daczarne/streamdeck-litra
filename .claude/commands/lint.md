@@ -5,7 +5,7 @@ allowed-tools: Bash(markdownlint-cli2 *), Bash(cspell lint *), Bash(git grep *),
 
 # Lint
 
-Run the linters from CI, from the repository root, in this order: those of the `lint` and `spell-check` jobs, then the type check and `npm run validate` from the `tests` job. The unit tests have their own command, `/test`, and `/ci` runs both.
+Run the linters from CI, from the repository root, in this order: those of the `lint` and `spell-check` jobs, then the type check and `npm run validate` from the `tests` job. The tests have their own command, `/test`, and `/ci` runs both.
 
 1. `markdownlint-cli2 --config ".markdownlint.yaml" .`
 1. `cspell lint --config ".cspell.json" --dot --no-progress .`

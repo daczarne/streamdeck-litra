@@ -86,6 +86,7 @@ npm run build             # build once
 npx streamdeck restart com.daczarne.litra   # load the new build
 npx tsc --noEmit -p .     # type-check only
 npm test                  # run the unit tests
+npm run test:browser      # run the browser tests of the settings pages, which need Google Chrome
 npm run check:ui          # settings pages: no remote resources, CSP on every page, vendored file matches its hash
 npm run validate          # check:ui, build and streamdeck validate
 npm run icons             # regenerate the icons in imgs/ from scripts/generate-icons.mjs
@@ -115,6 +116,8 @@ The settings pages (Property Inspector), in `com.daczarne.litra.sdPlugin/ui/`, l
 
 - **When building.** `npm run check:ui` (also run by `validate` and `pack`) fails if any `ui/*.html` loads a remote resource, lacks the Content-Security-Policy below or declares a different one, or has an inline script. It also fails if the vendored sdpi-components doesn't match its pinned hash (see [Third-party code](#third-party-code)).
 - **When Stream Deck shows them.** Each page declares a Content-Security-Policy in a `<meta>`, so Stream Deck refuses whatever the policy doesn't allow, even if it slipped past the check.
+
+The browser tests (`npm run test:browser`, also run in CI) check that the policy works. They load each page in a headless Chrome, as Stream Deck would, and confirm that it refuses remote scripts, styles, images and connections, and inline scripts. They also check the controls each page shows and the settings it sends. They run in Chrome rather than in Stream Deck itself, so [`docs/manual_testing/settings_pages.md`][manual-test] lists the checks that only the Deck can prove.
 
 The policy allows only what the pages need:
 
@@ -151,6 +154,7 @@ To update it, download `dist/sdpi-components.js` from the new upstream tag (not 
 [check-ui]: scripts/check-ui.mjs
 [hid-notes]: ref/hid-captures/NOTES.md
 [litra]: https://github.com/timrogers/litra
+[manual-test]: docs/manual_testing/settings_pages.md
 [n]: https://github.com/tj/n
 [power]: com.daczarne.litra.sdPlugin/imgs/actions/power/icon@2x.png
 [sdk]: https://docs.elgato.com/streamdeck

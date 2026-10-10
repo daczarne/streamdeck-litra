@@ -1,6 +1,6 @@
 ---
-description: Run every check from CI, the linters and then the unit tests
-allowed-tools: Read(.claude/commands/*), Bash(markdownlint-cli2 *), Bash(cspell lint *), Bash(git grep *), Bash(npx tsc --noEmit -p .), Bash(npm run validate), Bash(npm test), Bash(npm test -- *)
+description: Run every check from CI, the linters and then the tests
+allowed-tools: Read(.claude/commands/*), Bash(markdownlint-cli2 *), Bash(cspell lint *), Bash(git grep *), Bash(npx tsc --noEmit -p .), Bash(npm run validate), Bash(npm test), Bash(npm test -- *), Bash(npm run test:browser), Bash(npm run test:browser -- *)
 ---
 
 # CI
@@ -8,7 +8,7 @@ allowed-tools: Read(.claude/commands/*), Bash(markdownlint-cli2 *), Bash(cspell 
 Run every check from CI locally, in two parts:
 
 1. The linters, following `.claude/commands/lint.md`, including its fixes of formatting findings.
-1. The unit tests, following `.claude/commands/test.md`.
+1. The unit tests and the browser tests, following `.claude/commands/test.md`.
 
 Run the tests even when the linters report findings, so that one run shows everything CI would.
 
