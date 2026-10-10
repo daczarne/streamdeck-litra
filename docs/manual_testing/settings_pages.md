@@ -7,12 +7,16 @@
   - [The policy](#the-policy)
 - [Afterwards](#afterwards)
 
-The settings pages (Property Inspector) run inside Stream Deck, which no automated test can drive. These checks confirm on the Deck what only Stream Deck can prove: that it loads the pages, enforces their Content-Security-Policy, and passes settings between the pages and the plugin. How Stream Deck does each of these is described in [`property_inspector.md`][property-inspector].
+The settings pages (Property Inspector) run inside Stream Deck, which no automated test drives. These checks confirm on the Deck what only Stream Deck can prove: that it loads the pages, enforces their Content-Security-Policy, and passes settings between the pages and the plugin. How Stream Deck does each of these is described in [`property_inspector.md`][property-inspector].
 
 ## When to run these checks
 
-- After a change to a page in `com.daczarne.litra.sdPlugin/ui/`, to its policy, or to the vendored sdpi-components.
+The browser tests (`npm run test:browser`) run the same checks on every pull request, but in a headless Chrome, where the tests stand in for Stream Deck. They assume that Stream Deck loads the pages from `file://`, enforces their policy and calls `connectElgatoStreamDeckSocket` the way it did when these checks were written. They also run a newer Chromium than the one inside Stream Deck. So run these checks on the Deck:
+
 - After a Stream Deck update.
+- After a change to the pages' policy, or to the vendored sdpi-components. An older Chromium may treat a directive or a script differently.
+
+A change to a page's controls only needs the browser tests, updated to the new controls.
 
 ## Opening a page in DevTools
 
