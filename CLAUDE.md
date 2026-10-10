@@ -26,7 +26,7 @@ The plugin is for Daniel's own use and isn't published. It runs linked from the 
 - `com.daczarne.litra.sdPlugin/` is the plugin folder: `manifest.json`, the settings pages in `ui/` (with the vendored `sdpi-components` in `ui/vendor/`), and the icons in `imgs/`. `bin/` and `node_modules/` inside it are build output.
 - `scripts/check-ui.mjs` guards the settings pages (see [Supply chain](#supply-chain)). `scripts/generate-icons.mjs` generates the icons.
 - `ref/` holds the original author's design notes and the paused Beam LX back-light research. It isn't shipped or built ([#12]).
-- `docs/` holds the style guide and, under `docs/elgato_sdk/`, notes on what the Stream Deck SDK offers and what it doesn't (for example, the interactions a dial receives, or its layouts), checked against the installed version. Read them before designing how an action behaves on the Deck, and add to them when a change finds out something new about the SDK.
+- `docs/` holds the style guide and, under `docs/elgato_sdk/`, notes on what the Stream Deck SDK offers and what it doesn't (for example, the interactions a dial receives, its layouts, or how Stream Deck loads the settings pages), checked against the installed version. Read them before designing how an action behaves on the Deck, and add to them when a change finds out something new about the SDK.
 
 ## Commands
 
@@ -34,7 +34,7 @@ The plugin is for Daniel's own use and isn't published. It runs linked from the 
 n auto                    # switch to the Node version in .node-version
 npm ci --ignore-scripts   # install from the lockfile, without install scripts
 npm run build             # bundle src/ into the plugin folder and copy node-hid next to it
-npm run check:ui          # no remote resources in ui/*.html, vendored file matches its hash
+npm run check:ui          # ui/*.html: no remote resources, CSP on every page; vendored file matches its hash
 npm run validate          # check:ui, build, streamdeck validate
 npm run pack              # check:ui, build, write release/com.daczarne.litra.streamDeckPlugin
 npm run icons             # regenerate the icons in imgs/ from scripts/generate-icons.mjs
@@ -56,6 +56,7 @@ npm test                  # run the unit tests
 Daniel treats supply-chain risk as a hard requirement:
 
 - No remote code. The settings pages load `sdpi-components` from `ui/vendor/`, pinned by hash in `scripts/check-ui.mjs`. The "Third-party code" section of `README.md` describes how to update it. Never install `sdpi-components` from npm: that package belongs to an unrelated maintainer.
+- Each settings page declares a Content-Security-Policy, which `scripts/check-ui.mjs` also holds and checks. It allows scripts only from the plugin folder and connections only to Stream Deck's WebSocket on `localhost`, so inline scripts are blocked: page logic goes in a `.js` file in `ui/`, like `controller-toggle.js`. The "Settings pages" section of `README.md` explains each directive. A change to the policy updates every page, the check and that section.
 - Install with `--ignore-scripts`, pin versions, and prefer local copies with recorded hashes. Flag any new dependency, remote resource or broad OS permission, and offer a narrower alternative.
 - `package.json` declares exact versions only, never ranges. The project `.npmrc` sets `save-exact=true`, so `npm install <package>` records an exact version, and `ignore-scripts=true`, so no install runs install scripts even without the flag. Every upgrade is its own deliberate change: `npm install <package>@<version>`, then a review of the lockfile diff. Exact versions don't pin transitive dependencies, only the lockfile does, so it stays committed and installs use `npm ci`.
 - GitHub Actions are pinned to full commit SHAs, with the version as a trailing comment, checked against the release tag ([#30]). Like npm upgrades, their updates are made by hand. Dependabot was removed ([#40]) because it proposed upgrades that no tests could check. It may come back once the tests from [#27] exist.
@@ -64,7 +65,7 @@ Daniel treats supply-chain risk as a hard requirement:
 
 - Build, enable developer mode (`npx streamdeck dev`), `npm run link`, then `npx streamdeck restart com.daczarne.litra`. The actions appear under the Litra category. Developer mode stays on.
 - Plugin logs are in `com.daczarne.litra.sdPlugin/logs/`.
-- Test the settings pages with Wi-Fi off, to prove they load nothing remote.
+- Test the settings pages with Wi-Fi off, to prove they load nothing remote. A page whose controls are missing or unstyled may have hit its Content-Security-Policy, which only its console shows. `docs/elgato_sdk/property_inspector.md` describes how to open it in DevTools, and the debugging port that needs turning off afterwards.
 - On the Stream Deck + XL's USB hub (7.5 W), the Beam caps its brightness at about 70%. Plugged into the Mac, it reaches 100%.
 - Claude can't see the Deck. Daniel checks what the keys and the touch strip show, and can share a photo of them, which is enough to judge a layout. Each dial gets 200 × 100 px of the touch strip, and text under about 16 px is hard to read on it ([#8]).
 - Opening a Litra needs no macOS permission. Opening a mouse or keyboard over HID needs Input Monitoring, which Daniel only grants temporarily ([#3]).

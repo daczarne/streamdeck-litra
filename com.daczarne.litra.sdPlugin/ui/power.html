@@ -4,6 +4,18 @@
   <head lang="en">
     <title>Litra Power</title>
     <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="
+        default-src 'none';
+        script-src 'self';
+        style-src 'unsafe-inline';
+        img-src data:;
+        connect-src ws://localhost:*;
+        base-uri 'none';
+        form-action 'none'
+      "
+    />
     <script src="vendor/sdpi-components.js"></script>
   </head>
 

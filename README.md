@@ -11,6 +11,7 @@ Not an official Logitech or Elgato product.
 - [Working on the plugin](#working-on-the-plugin)
 - [Packaging](#packaging)
 - [Usage tips](#usage-tips)
+- [Settings pages](#settings-pages)
 - [Third-party code](#third-party-code)
 - [Credits](#credits)
 
@@ -85,7 +86,7 @@ npm run build             # build once
 npx streamdeck restart com.daczarne.litra   # load the new build
 npx tsc --noEmit -p .     # type-check only
 npm test                  # run the unit tests
-npm run check:ui          # no remote resources in the settings pages, vendored file matches its hash
+npm run check:ui          # settings pages: no remote resources, CSP on every page, vendored file matches its hash
 npm run validate          # check:ui, build and streamdeck validate
 npm run icons             # regenerate the icons in imgs/ from scripts/generate-icons.mjs
 ```
@@ -108,15 +109,34 @@ This runs `check:ui`, builds, and writes `release/com.daczarne.litra.streamDeckP
 - Dials look like Stream Deck's own volume dials: the value, with a bar under it. The temperature bar runs from the lamp's warmest setting (empty) to its coolest (full). Rotating adjusts, pressing toggles the front light. Their titles don't show yet either ([#25]).
 - With no lamp connected, actions show Stream Deck's alert indicator.
 
+## Settings pages
+
+The settings pages (Property Inspector), in `com.daczarne.litra.sdPlugin/ui/`, load nothing remote, and two layers keep it that way:
+
+- **When building.** `npm run check:ui` (also run by `validate` and `pack`) fails if any `ui/*.html` loads a remote resource, lacks the Content-Security-Policy below or declares a different one, or has an inline script. It also fails if the vendored sdpi-components doesn't match its pinned hash (see [Third-party code](#third-party-code)).
+- **When Stream Deck shows them.** Each page declares a Content-Security-Policy in a `<meta>`, so Stream Deck refuses whatever the policy doesn't allow, even if it slipped past the check.
+
+The policy allows only what the pages need:
+
+| Directive                      | Allows                                                                         |
+|--------------------------------|--------------------------------------------------------------------------------|
+| `default-src 'none'`           | Nothing that the directives below don't allow.                                 |
+| `script-src 'self'`            | Scripts from the plugin folder. No inline scripts and no `eval`.               |
+| `style-src 'unsafe-inline'`    | The `<style>` element that sdpi-components adds to every page.                 |
+| `img-src data:`                | The icons that sdpi-components draws as `data:` SVGs, such as its check marks. |
+| `connect-src ws://localhost:*` | The WebSocket to Stream Deck, on the port Stream Deck passes to the page.      |
+| `base-uri 'none'`              | No `<base>` element, which would change where relative paths point.            |
+| `form-action 'none'`           | No form submissions.                                                           |
+
+Since inline scripts are blocked, the script that shows the key or the dial settings, shared by the brightness and temperature pages, lives in `ui/controller-toggle.js`. The policy is repeated in each page and in [`scripts/check-ui.mjs`][check-ui], so a change to it updates all of them and the table above.
+
 ## Third-party code
 
-The settings pages (Property Inspector) use [sdpi-components][sdpi] (MIT), vendored at `com.daczarne.litra.sdPlugin/ui/vendor/sdpi-components.js` instead of loaded from `sdpi-components.dev`, so no remote code runs inside Stream Deck.
+The settings pages use [sdpi-components][sdpi] (MIT), vendored at `com.daczarne.litra.sdPlugin/ui/vendor/sdpi-components.js` instead of loaded from `sdpi-components.dev`, so no remote code runs inside Stream Deck.
 
 - **Version:** `v4.0.1`
 - **Source:** [`dist/sdpi-components.js` at tag `v4.0.1`][sdpi-source] (commit `06185f1452`)
-- **Pinned hash:** sha256 in [`scripts/check-ui.mjs`][check-ui]
-
-`npm run check:ui` (also run by `validate` and `pack`) fails if any `ui/*.html` loads a remote resource or the vendored file doesn't match its pinned hash.
+- **Pinned hash:** sha256 in [`scripts/check-ui.mjs`][check-ui], checked by `npm run check:ui`
 
 To update it, download `dist/sdpi-components.js` from the new upstream tag (not from npm: the `sdpi-components` package there is unrelated to this project), review the diff, replace the vendored file, and update the version and commit here and the hash in `scripts/check-ui.mjs`.
 

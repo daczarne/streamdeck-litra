@@ -4,6 +4,18 @@
   <head lang="en">
     <title>Litra Brightness</title>
     <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="
+        default-src 'none';
+        script-src 'self';
+        style-src 'unsafe-inline';
+        img-src data:;
+        connect-src ws://localhost:*;
+        base-uri 'none';
+        form-action 'none'
+      "
+    />
     <script src="vendor/sdpi-components.js"></script>
   </head>
 
@@ -19,15 +31,7 @@
         <sdpi-range setting="stepPercentage" min="1" max="25" step="1" default="5" showlabels></sdpi-range>
       </sdpi-item>
     </div>
-    <script>
-      (async () => {
-        const info = await SDPIComponents.streamDeckClient.getConnectionInfo();
-        const controller = info?.actionInfo?.payload?.controller;
-        const isDial = controller === "Encoder";
-        document.getElementById("key-settings").hidden = isDial;
-        document.getElementById("dial-settings").hidden = !isDial;
-      })();
-    </script>
+    <script src="controller-toggle.js"></script>
   </body>
 
 </html>
