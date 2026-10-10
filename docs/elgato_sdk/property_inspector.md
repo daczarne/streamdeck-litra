@@ -24,26 +24,11 @@ A policy declared in a `<meta http-equiv="Content-Security-Policy">` is enforced
 
 ## Debugging a page
 
-Developer mode alone doesn't open the pages to DevTools. A separate preference does, on port 23654:
+- Developer mode alone doesn't open the pages to DevTools. A separate preference, `html_remote_debugging_enabled` in `com.elgato.StreamDeck`, opens a debugging port on 23654. Stream Deck reads it when it starts.
+- The port listens on `127.0.0.1` only, and has no authentication: while it's open, any process on the Mac can run code in the pages.
+- Each page is listed under its `<title>`, such as "Litra Temperature". The links on the port's own page, `http://localhost:23654/`, open a DevTools frontend served from `chrome-devtools-frontend.appspot.com`, whose connection to the port Chrome blocks (`ERR_BLOCKED_BY_LOCAL_NETWORK_ACCESS_CHECKS`). The DevTools behind `chrome://inspect` ship with Chrome and do connect.
 
-```shell
-defaults write com.elgato.StreamDeck html_remote_debugging_enabled -bool YES
-```
-
-Stream Deck reads it when it starts, so quit and reopen it. The port listens on `127.0.0.1` only. Then:
-
-1. Select the action in Stream Deck, so its page exists.
-2. In Chrome, open `chrome://inspect/#devices`, click **Configure…** next to **Discover network targets**, and add `localhost:23654`.
-3. Under **Remote Target**, click **inspect** under the page's title (the `<title>` of its HTML, such as "Litra Temperature").
-
-Don't use the links on `http://localhost:23654/` itself. They open a DevTools frontend served from `chrome-devtools-frontend.appspot.com`, which is remote code driving the debugging port. Chrome blocks its connection to the port anyway, with `ERR_BLOCKED_BY_LOCAL_NETWORK_ACCESS_CHECKS`. The DevTools behind `chrome://inspect` ship with Chrome and load nothing remote.
-
-> [!WARNING]
-> The port has no authentication: while it's open, any process on the Mac can connect to it and run code in the pages. Turn it off after debugging, then quit and reopen Stream Deck:
->
-> ```shell
-> defaults delete com.elgato.StreamDeck html_remote_debugging_enabled
-> ```
+The steps to open a page in DevTools, and the checks to run on it, are in [`manual_testing/settings_pages.md`][manual-test].
 
 ## Sources
 
@@ -55,3 +40,4 @@ Checked on Stream Deck 7.6, on macOS, while adding the Content-Security-Policy (
 - The policy: each page's console in DevTools, and the panels on the Deck.
 
 [#9]: https://github.com/daczarne/streamdeck-litra/issues/9
+[manual-test]: ../manual_testing/settings_pages.md
