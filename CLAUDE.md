@@ -1,6 +1,7 @@
 # CLAUDE.md
 
 - [Project](#project)
+- [Read before changing things](#read-before-changing-things)
 - [Layout](#layout)
 - [Commands](#commands)
 - [Runtime and toolchain](#runtime-and-toolchain)
@@ -17,16 +18,24 @@ Daniel's setup: macOS on a Mac Studio, a Stream Deck + XL running Stream Deck 7.
 
 The plugin is for Daniel's own use and isn't published. It runs linked from the repo, never installed, so the Deck runs whatever is built from the checked-out branch. That is intended: a change takes effect on the next build and restart. `npm run pack` and the Packaging section of `README.md` stay, in case the plugin is published one day ([#21]).
 
+## Read before changing things
+
+- `docs/contributing.md`: how work is done here. Changes go through pull requests, features come with their tests, and dependencies are pinned. It also says which unused code stays. This file only adds what is specific to Claude.
+- `docs/style_guide.md`: the conventions the linters don't enforce (see [Style](#style)).
+- `docs/elgato_sdk/`: what the Stream Deck SDK offers and what it doesn't (the interactions a dial receives, its layouts, how Stream Deck loads the settings pages), checked against the installed version. Read it before designing how an action behaves on the Deck, and add to it when a change finds out something new about the SDK.
+- `docs/manual_testing/`: the checks that only the Deck can prove, one document per area. Before asking Daniel to test on the Deck, point to the matching document. When a feature needs new manual checks, add them there.
+- `ref/`: the original author's notes. Read them before changing behavior that looks odd.
+
 ## Layout
 
 - `src/plugin.ts` registers the actions.
 - `src/litra-manager.ts` is the only module that talks to the `litra` library. Actions import from it, never from `litra` directly. It re-scans the lamps on every call, applies each operation to every connected lamp, and always closes the HID handles.
 - `src/actions/` holds the Power, Brightness and Temperature actions.
-- Unit tests sit next to the file they test (`litra-manager.test.ts`), and run with Vitest. They replace `litra` and `@elgato/streamdeck` with `vi.mock`, so they need no lamps and create no `logs/` folder. `src/test-support/` holds the shared fakes, such as a lamp whose HID handle records every call. A bug the tests find gets an `it.fails` test stating the intended behavior, linked to its own issue ([#27]).
+- Unit tests sit next to the file they test (`litra-manager.test.ts`), and run with Vitest. They replace `litra` and `@elgato/streamdeck` with `vi.mock`, so they need no lamps and create no `logs/` folder. `src/test-support/` holds the shared fakes, such as a lamp whose HID handle records every call.
 - `com.daczarne.litra.sdPlugin/` is the plugin folder: `manifest.json`, the settings pages in `ui/` (with the vendored `sdpi-components` in `ui/vendor/`), and the icons in `imgs/`. `bin/` and `node_modules/` inside it are build output.
 - `scripts/check-ui.mjs` guards the settings pages (see [Supply chain](#supply-chain)). `scripts/generate-icons.mjs` generates the icons.
 - `ref/` holds the original author's design notes and the paused Beam LX back-light research. It isn't shipped or built ([#12]).
-- `docs/` holds the style guide and, under `docs/elgato_sdk/`, notes on what the Stream Deck SDK offers and what it doesn't (for example, the interactions a dial receives, its layouts, or how Stream Deck loads the settings pages), checked against the installed version. Read them before designing how an action behaves on the Deck, and add to them when a change finds out something new about the SDK.
+- `docs/` holds the documents listed in [Read before changing things](#read-before-changing-things).
 
 ## Commands
 
@@ -58,25 +67,26 @@ Daniel treats supply-chain risk as a hard requirement:
 - No remote code. The settings pages load `sdpi-components` from `ui/vendor/`, pinned by hash in `scripts/check-ui.mjs`. The "Third-party code" section of `README.md` describes how to update it. Never install `sdpi-components` from npm: that package belongs to an unrelated maintainer.
 - Each settings page declares a Content-Security-Policy, which `scripts/check-ui.mjs` also holds and checks. It allows scripts only from the plugin folder and connections only to Stream Deck's WebSocket on `localhost`, so inline scripts are blocked: page logic goes in a `.js` file in `ui/`, like `controller-toggle.js`. The "Settings pages" section of `README.md` explains each directive. A change to the policy updates every page, the check and that section.
 - Install with `--ignore-scripts`, pin versions, and prefer local copies with recorded hashes. Flag any new dependency, remote resource or broad OS permission, and offer a narrower alternative.
-- `package.json` declares exact versions only, never ranges. The project `.npmrc` sets `save-exact=true`, so `npm install <package>` records an exact version, and `ignore-scripts=true`, so no install runs install scripts even without the flag. Every upgrade is its own deliberate change: `npm install <package>@<version>`, then a review of the lockfile diff. Exact versions don't pin transitive dependencies, only the lockfile does, so it stays committed and installs use `npm ci`.
-- GitHub Actions are pinned to full commit SHAs, with the version as a trailing comment, checked against the release tag ([#30]). Like npm upgrades, their updates are made by hand. Dependabot was removed ([#40]) because it proposed upgrades that no tests could check. It may come back once the tests from [#27] exist.
+- npm packages and GitHub Actions are pinned to exact versions, and each upgrade is its own change: see the "Dependencies" section of `docs/contributing.md`.
 
 ## Testing on the hardware
 
 - Build, enable developer mode (`npx streamdeck dev`), `npm run link`, then `npx streamdeck restart com.daczarne.litra`. The actions appear under the Litra category. Developer mode stays on.
 - Plugin logs are in `com.daczarne.litra.sdPlugin/logs/`.
-- Test the settings pages with Wi-Fi off, to prove they load nothing remote. A page whose controls are missing or unstyled may have hit its Content-Security-Policy, which only its console shows. `docs/elgato_sdk/property_inspector.md` describes how to open it in DevTools, and the debugging port that needs turning off afterwards.
+- `docs/manual_testing/` holds the checks to run by hand. For example, `settings_pages.md` covers the settings pages: how to open them in DevTools, the debugging port that has to be closed afterwards, and what each panel should show.
 - On the Stream Deck + XL's USB hub (7.5 W), the Beam caps its brightness at about 70%. Plugged into the Mac, it reaches 100%.
 - Claude can't see the Deck. Daniel checks what the keys and the touch strip show, and can share a photo of them, which is enough to judge a layout. Each dial gets 200 × 100 px of the touch strip, and text under about 16 px is hard to read on it ([#8]).
 - Opening a Litra needs no macOS permission. Opening a mouse or keyboard over HID needs Input Monitoring, which Daniel only grants temporarily ([#3]).
 
 ## Workflow
 
-- Work happens on a branch, created with `git switch -c`. Branch names are flat kebab-case, without `/`.
-- Commit messages explain the why and end with the `Co-Authored-By` trailer for Claude. Commit only when Daniel asks. Pushing and merging are Daniel's.
+`docs/contributing.md` describes branches, pull requests and tests. On top of it:
+
+- Create branches with `git switch -c`.
+- Commit messages explain the why and end with the `Co-Authored-By` trailer for Claude. Commit only when Daniel asks.
 - `.github/workflows/main.yaml` runs the type check, the unit tests, `npm run validate`, Markdown lint and CSpell on every pull request and on `main`. Locally, the same checks run in two parts, both as Claude commands and as VS Code tasks: `/lint` and the `Lint` task run the linters (everything but the unit tests), `/test` and the `Test` task run the unit tests, and `/ci` and the `CI` task run both. `Test` is VS Code's default test task, so **Tasks: Run Test Task** starts it.
-- Pull requests are squash-merged, so their title and description become the commit on `main`. Write them with the `pr-description` skill.
-- Work that doesn't belong in the current branch becomes a GitHub issue, drafted with the `github-issues` skill and posted only when Daniel asks.
+- Write the pull request title and description with the `pr-description` skill.
+- Draft issues with the `github-issues` skill, and post them only when Daniel asks.
 
 ## Style
 
@@ -86,6 +96,3 @@ Daniel treats supply-chain risk as a hard requirement:
 [#8]: https://github.com/daczarne/streamdeck-litra/issues/8
 [#12]: https://github.com/daczarne/streamdeck-litra/issues/12
 [#21]: https://github.com/daczarne/streamdeck-litra/issues/21
-[#27]: https://github.com/daczarne/streamdeck-litra/issues/27
-[#30]: https://github.com/daczarne/streamdeck-litra/issues/30
-[#40]: https://github.com/daczarne/streamdeck-litra/pull/40
