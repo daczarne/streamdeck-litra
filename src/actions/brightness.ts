@@ -68,7 +68,7 @@ export class BrightnessAction extends SingletonAction<BrightnessSettings> {
       queue = createDialDebouncer(async (ticks) => {
         const settings = this.latestSettings.get(id) ?? {};
         const step = Number(settings.stepPercentage ?? 5);
-        const result = adjustBrightnessAllByPercentageSteps(ticks, step);
+        const result = await adjustBrightnessAllByPercentageSteps(ticks, step);
         if (!result.ok) {
           await ev.action.showAlert();
           return;

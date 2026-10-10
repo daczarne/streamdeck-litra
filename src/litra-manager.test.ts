@@ -7,7 +7,7 @@ import {
   getMinimumBrightnessInLumenForDevice,
   getTemperatureInKelvin,
   isOn,
-  setBrightnessPercentage,
+  setBrightnessInLumen,
   setTemperatureInKelvin,
   toggle,
   turnOff,
@@ -20,6 +20,7 @@ import {
   adjustTemperatureAllByKelvinSteps,
   createDialDebouncer,
   forEachDevice,
+  forgetBrightnessCaps,
   getBrightnessInLumenSafe,
   isOnAll,
   percentageInRange,
@@ -53,7 +54,7 @@ vi.mock("litra", () => ({
   getMinimumBrightnessInLumenForDevice: vi.fn(),
   getTemperatureInKelvin: vi.fn(),
   isOn: vi.fn(),
-  setBrightnessPercentage: vi.fn(),
+  setBrightnessInLumen: vi.fn(),
   setTemperatureInKelvin: vi.fn(),
   toggle: vi.fn(),
   turnOff: vi.fn(),
@@ -75,8 +76,8 @@ function connect(...devices: FakeDevice[]): void {
   vi.mocked(findDevices).mockReturnValue(devices);
 }
 
-function beam(brightnessInLumen?: number): FakeDevice {
-  return createFakeDevice({ type: DeviceType.LitraBeam, brightnessInLumen });
+function beam(brightnessInLumen?: number, capInLumen?: number): FakeDevice {
+  return createFakeDevice({ type: DeviceType.LitraBeam, brightnessInLumen, capInLumen });
 }
 
 /** Brightness in lumen at the given percentage of the fake lamps' range. */
@@ -99,7 +100,9 @@ function firstCall(mock: Mock): number {
 
 beforeEach(() => {
   connect();
+  forgetBrightnessCaps();
   vi.mocked(isOn).mockReturnValue(true);
+  vi.mocked(setBrightnessInLumen).mockImplementation((device, lumen) => (device as FakeDevice).setBrightness(lumen));
   vi.mocked(getMinimumBrightnessInLumenForDevice).mockReturnValue(BEAM_MIN_LUMEN);
   vi.mocked(getMaximumBrightnessInLumenForDevice).mockReturnValue(BEAM_MAX_LUMEN);
   vi.mocked(getAllowedTemperaturesInKelvinForDevice).mockReturnValue(BEAM_ALLOWED_KELVIN);
@@ -185,69 +188,100 @@ describe("createDialDebouncer", () => {
     vi.useRealTimers();
   });
 
-  it("flushes once, 60 ms after the last tick", () => {
+  it("flushes once, 60 ms after the last tick", async () => {
     const flush = vi.fn();
     const debounce = createDialDebouncer(flush);
 
     debounce(1);
-    vi.advanceTimersByTime(59);
+    await vi.advanceTimersByTimeAsync(59);
     expect(flush).not.toHaveBeenCalled();
 
-    vi.advanceTimersByTime(1);
+    await vi.advanceTimersByTimeAsync(1);
     expect(flush).toHaveBeenCalledOnce();
     expect(flush).toHaveBeenCalledWith(1);
   });
 
-  it("sums the ticks received within the window", () => {
+  it("sums the ticks received within the window", async () => {
     const flush = vi.fn();
     const debounce = createDialDebouncer(flush);
 
     debounce(1);
     debounce(2);
     debounce(-1);
-    vi.advanceTimersByTime(60);
+    await vi.advanceTimersByTimeAsync(60);
 
     expect(flush).toHaveBeenCalledOnce();
     expect(flush).toHaveBeenCalledWith(2);
   });
 
-  it("restarts the window on every tick", () => {
+  it("restarts the window on every tick", async () => {
     const flush = vi.fn();
     const debounce = createDialDebouncer(flush);
 
     debounce(1);
-    vi.advanceTimersByTime(50);
+    await vi.advanceTimersByTimeAsync(50);
     debounce(1);
-    vi.advanceTimersByTime(50);
+    await vi.advanceTimersByTimeAsync(50);
     expect(flush).not.toHaveBeenCalled();
 
-    vi.advanceTimersByTime(10);
+    await vi.advanceTimersByTimeAsync(10);
     expect(flush).toHaveBeenCalledOnce();
     expect(flush).toHaveBeenCalledWith(2);
   });
 
-  it("starts counting from zero after a flush", () => {
+  it("starts counting from zero after a flush", async () => {
     const flush = vi.fn();
     const debounce = createDialDebouncer(flush);
 
     debounce(3);
-    vi.advanceTimersByTime(60);
+    await vi.advanceTimersByTimeAsync(60);
     debounce(1);
-    vi.advanceTimersByTime(60);
+    await vi.advanceTimersByTimeAsync(60);
 
     expect(flush.mock.calls).toEqual([[3], [1]]);
   });
 
-  it("uses the given delay", () => {
+  it("uses the given delay", async () => {
     const flush = vi.fn();
     const debounce = createDialDebouncer(flush, 200);
 
     debounce(1);
-    vi.advanceTimersByTime(199);
+    await vi.advanceTimersByTimeAsync(199);
     expect(flush).not.toHaveBeenCalled();
 
-    vi.advanceTimersByTime(1);
+    await vi.advanceTimersByTimeAsync(1);
     expect(flush).toHaveBeenCalledOnce();
+  });
+
+  it("waits for a running flush, then flushes every tick received meanwhile at once", async () => {
+    const flush = vi.fn(() => new Promise<void>((resolve) => setTimeout(resolve, 300)));
+    const debounce = createDialDebouncer(flush);
+
+    debounce(1);
+    await vi.advanceTimersByTimeAsync(60);
+    debounce(2);
+    await vi.advanceTimersByTimeAsync(100);
+    debounce(3);
+    await vi.advanceTimersByTimeAsync(100);
+    expect(flush.mock.calls).toEqual([[1]]);
+
+    await vi.advanceTimersByTimeAsync(100);
+    expect(flush.mock.calls).toEqual([[1], [5]]);
+
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(flush.mock.calls).toEqual([[1], [5]]);
+  });
+
+  it("keeps flushing after a flush fails", async () => {
+    const flush = vi.fn().mockRejectedValueOnce(new Error("HID write failed"));
+    const debounce = createDialDebouncer(flush);
+
+    debounce(1);
+    await vi.advanceTimersByTimeAsync(60);
+    debounce(1);
+    await vi.advanceTimersByTimeAsync(60);
+
+    expect(flush).toHaveBeenCalledTimes(2);
   });
 });
 
@@ -269,6 +303,23 @@ describe("getBrightnessInLumenSafe", () => {
   it("reads the brightness from two bytes, so values above 255 survive", () => {
     expect(getBrightnessInLumenSafe(beam(400))).toBe(400);
     expect(getBrightnessInLumenSafe(beam(30))).toBe(30);
+  });
+
+  it("skips the reports a lamp sends unasked, ahead of the reply", () => {
+    const device = beam(244);
+    // A set-brightness ACK, a change notice and an error report, as a capped Beam sends them.
+    device.queueReport([0x11, 0xff, 0x04, 0x4c, ...Array(16).fill(0)]);
+    device.queueReport([0x11, 0xff, 0x04, 0x40, 0x01, 0x00, 0xf4, ...Array(13).fill(0)]);
+    device.queueReport([0x11, 0xff, 0xff, 0x04, 0x4c, 0x02, ...Array(14).fill(0)]);
+
+    expect(getBrightnessInLumenSafe(device)).toBe(244);
+  });
+
+  it("gives up when the reply doesn't come", () => {
+    const device = beam();
+    device.hid.readSync.mockReturnValue([0x11, 0xff, 0x04, 0x40, 0x01, 0x00, 0xf4, ...Array(13).fill(0)]);
+
+    expect(() => getBrightnessInLumenSafe(device)).toThrow("No brightness reply");
   });
 });
 
@@ -430,9 +481,9 @@ describe("setBrightnessAllPercentage", () => {
       representativeBrightnessPercentage: 40,
       representativeBrightnessLumen: 178,
     });
-    expect(vi.mocked(setBrightnessPercentage).mock.calls).toEqual([
-      [first, 40],
-      [second, 40],
+    expect(vi.mocked(setBrightnessInLumen).mock.calls).toEqual([
+      [first, 178],
+      [second, 178],
     ]);
   });
 
@@ -441,7 +492,24 @@ describe("setBrightnessAllPercentage", () => {
 
     expect(setBrightnessAllPercentage(150).representativeBrightnessPercentage).toBe(100);
     expect(setBrightnessAllPercentage(-10).representativeBrightnessPercentage).toBe(0);
-    expect(vi.mocked(setBrightnessPercentage).mock.calls.map(([, percentage]) => percentage)).toEqual([100, 0]);
+    expect(vi.mocked(setBrightnessInLumen).mock.calls.map(([, lumen]) => lumen)).toEqual([
+      BEAM_MAX_LUMEN,
+      BEAM_MIN_LUMEN,
+    ]);
+  });
+
+  it("sends a lamp no more than its learned cap, but reports the percentage asked for", async () => {
+    const capped = beam(BEAM_MIN_LUMEN, 244);
+    const uncapped = beam();
+    connect(capped, uncapped);
+    await adjustBrightnessAllByPercentageSteps(20, 5, 0);
+    vi.mocked(setBrightnessInLumen).mockClear();
+
+    expect(setBrightnessAllPercentage(100).representativeBrightnessPercentage).toBe(100);
+    expect(vi.mocked(setBrightnessInLumen).mock.calls).toEqual([
+      [capped, 244],
+      [uncapped, BEAM_MAX_LUMEN],
+    ]);
   });
 
   it("turns a lamp that is off on before changing its brightness", () => {
@@ -452,7 +520,7 @@ describe("setBrightnessAllPercentage", () => {
     setBrightnessAllPercentage(40);
 
     expect(turnOn).toHaveBeenCalledWith(device);
-    expect(firstCall(vi.mocked(turnOn))).toBeLessThan(firstCall(vi.mocked(setBrightnessPercentage)));
+    expect(firstCall(vi.mocked(turnOn))).toBeLessThan(firstCall(vi.mocked(setBrightnessInLumen)));
   });
 
   it("leaves a lamp that is on as it is", () => {
@@ -467,7 +535,7 @@ describe("setBrightnessAllPercentage", () => {
   it("reports the percentage when only some lamps succeed", () => {
     const first = beam();
     connect(first, beam());
-    vi.mocked(setBrightnessPercentage).mockImplementation(failFor(first));
+    vi.mocked(setBrightnessInLumen).mockImplementation(failFor(first));
 
     expect(setBrightnessAllPercentage(40)).toEqual({
       ok: false,
@@ -487,72 +555,159 @@ describe("setBrightnessAllPercentage", () => {
 });
 
 describe("adjustBrightnessAllByPercentageSteps", () => {
-  // These tests check what each lamp is sent, not the value reported back: the fake lamps keep reporting the same
-  // brightness after a write, so they can't stand in for a lamp's reading once #13 is fixed.
-  it("moves every lamp from its own brightness", () => {
-    const first = beam(lumenAt(50));
-    const second = beam(lumenAt(20));
+  // Without waiting for the lamps to settle: the fake lamps apply a write at once.
+  const adjust = (ticks: number, stepPercentage: number) =>
+    adjustBrightnessAllByPercentageSteps(ticks, stepPercentage, 0);
+
+  it("moves every lamp to one target, stepped from the brightest lamp", async () => {
+    const first = beam(lumenAt(20));
+    const second = beam(lumenAt(50));
     connect(first, second);
 
-    expect(adjustBrightnessAllByPercentageSteps(2, 5)).toMatchObject({ ok: true, deviceCount: 2, failures: 0 });
-    expect(vi.mocked(setBrightnessPercentage).mock.calls).toEqual([
-      [first, 60],
-      [second, 30],
+    expect(await adjust(2, 5)).toEqual({
+      ok: true,
+      deviceCount: 2,
+      failures: 0,
+      representativeBrightnessPercentage: 60,
+      representativeBrightnessLumen: lumenAt(60),
+    });
+    expect(vi.mocked(setBrightnessInLumen).mock.calls).toEqual([
+      [first, lumenAt(60)],
+      [second, lumenAt(60)],
     ]);
   });
 
-  it("moves down for negative ticks", () => {
+  it("moves down for negative ticks", async () => {
     const device = beam(lumenAt(50));
     connect(device);
 
-    adjustBrightnessAllByPercentageSteps(-3, 10);
+    await adjust(-3, 10);
 
-    expect(setBrightnessPercentage).toHaveBeenCalledWith(device, 20);
+    expect(setBrightnessInLumen).toHaveBeenCalledWith(device, lumenAt(20));
   });
 
-  it("clamps the result to 0-100", () => {
+  it("clamps the target to 0-100", async () => {
     const bright = beam(lumenAt(90));
     const dim = beam(lumenAt(10));
 
     connect(bright);
-    adjustBrightnessAllByPercentageSteps(5, 10);
+    await adjust(5, 10);
     connect(dim);
-    adjustBrightnessAllByPercentageSteps(-5, 10);
+    await adjust(-5, 10);
 
-    expect(vi.mocked(setBrightnessPercentage).mock.calls).toEqual([
-      [bright, 100],
-      [dim, 0],
+    expect(vi.mocked(setBrightnessInLumen).mock.calls).toEqual([
+      [bright, BEAM_MAX_LUMEN],
+      [dim, BEAM_MIN_LUMEN],
     ]);
   });
 
-  // Known bug: https://github.com/daczarne/streamdeck-litra/issues/13
-  it.fails("reports the brightness the first lamp reached, not the one requested (#13)", () => {
-    // On the Stream Deck + XL's USB hub, a Beam stays at about 70% whatever it's asked for.
-    connect(beam(lumenAt(70)));
+  it("reports the brightness the lamp reached, not the one requested (#13)", async () => {
+    // On the Stream Deck + XL's USB hub, a Beam stops below what it's asked for.
+    const device = beam(lumenAt(70), lumenAt(70));
+    connect(device);
 
-    const result = adjustBrightnessAllByPercentageSteps(4, 5);
+    const result = await adjust(4, 5);
 
-    expect(setBrightnessPercentage).toHaveBeenCalledWith(expect.anything(), 90);
+    expect(setBrightnessInLumen).toHaveBeenCalledWith(device, lumenAt(90));
     expect(result.representativeBrightnessPercentage).toBe(70);
     expect(result.representativeBrightnessLumen).toBe(lumenAt(70));
   });
 
-  it("turns a lamp that is off on before changing its brightness", () => {
+  it("reports the brightest lamp when the lamps reach different brightnesses", async () => {
+    connect(beam(BEAM_MIN_LUMEN, 244), beam(BEAM_MIN_LUMEN, 324));
+
+    const result = await adjust(20, 5);
+
+    expect(result.representativeBrightnessPercentage).toBe(79);
+    expect(result.representativeBrightnessLumen).toBe(324);
+  });
+
+  it("learns a lamp's cap, and sends it no more than its cap afterwards", async () => {
+    const capped = beam(BEAM_MIN_LUMEN, 244);
+    const uncapped = beam();
+    connect(capped, uncapped);
+
+    await adjust(20, 5);
+    vi.mocked(setBrightnessInLumen).mockClear();
+    await adjust(-2, 5);
+
+    expect(vi.mocked(setBrightnessInLumen).mock.calls).toEqual([
+      [capped, 244],
+      [uncapped, lumenAt(90)],
+    ]);
+  });
+
+  it("keeps a learned cap per lamp", async () => {
+    const capped = beam(BEAM_MIN_LUMEN, 244);
+    connect(capped);
+    await adjust(20, 5);
+
+    const other = beam();
+    connect(other);
+    await adjust(20, 5);
+
+    expect(setBrightnessInLumen).toHaveBeenLastCalledWith(other, BEAM_MAX_LUMEN);
+  });
+
+  it("waits for the lamps to settle before reading them back", async () => {
+    vi.useFakeTimers();
+    try {
+      const device = beam();
+      connect(device);
+
+      const result = adjustBrightnessAllByPercentageSteps(1, 10);
+      await vi.advanceTimersByTimeAsync(249);
+      expect(device.hid.readSync).toHaveBeenCalledOnce();
+
+      await vi.advanceTimersByTimeAsync(1);
+      await result;
+      expect(device.hid.readSync).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("turns a lamp that is off on before changing its brightness", async () => {
     const device = beam(lumenAt(50));
     connect(device);
     vi.mocked(isOn).mockReturnValue(false);
 
-    adjustBrightnessAllByPercentageSteps(1, 5);
+    await adjust(1, 5);
 
     expect(turnOn).toHaveBeenCalledWith(device);
-    expect(firstCall(vi.mocked(turnOn))).toBeLessThan(firstCall(vi.mocked(setBrightnessPercentage)));
+    expect(firstCall(vi.mocked(turnOn))).toBeLessThan(firstCall(vi.mocked(setBrightnessInLumen)));
+  });
+
+  it("keeps going when a lamp fails, counts it once, and closes every handle", async () => {
+    const first = beam(lumenAt(50));
+    const second = beam(lumenAt(50));
+    connect(first, second);
+    vi.mocked(setBrightnessInLumen).mockImplementation((device, lumen) => {
+      failFor(first)(device);
+      (device as FakeDevice).setBrightness(lumen);
+    });
+
+    expect(await adjust(2, 5)).toEqual({
+      ok: false,
+      deviceCount: 2,
+      failures: 1,
+      representativeBrightnessPercentage: 60,
+      representativeBrightnessLumen: lumenAt(60),
+    });
+    expect(first.hid.close).toHaveBeenCalledOnce();
+    expect(second.hid.close).toHaveBeenCalledOnce();
+  });
+
+  it("fails without writing when no lamp is connected", async () => {
+    expect(await adjust(1, 5)).toEqual({ ok: false, deviceCount: 0, failures: 1 });
+    expect(setBrightnessInLumen).not.toHaveBeenCalled();
   });
 });
 
 describe("readRepresentativeBrightnessPercentage", () => {
-  it("reads only the first lamp, with its lumens, but closes every handle", () => {
-    const first = beam(lumenAt(50));
-    const second = beam(lumenAt(20));
+  it("reads every lamp and reports the brightest, with its lumens", () => {
+    const first = beam(lumenAt(20));
+    const second = beam(lumenAt(50));
     connect(first, second);
 
     expect(readRepresentativeBrightnessPercentage()).toEqual({
@@ -562,12 +717,11 @@ describe("readRepresentativeBrightnessPercentage", () => {
       representativeBrightnessPercentage: 50,
       representativeBrightnessLumen: lumenAt(50),
     });
-    expect(second.hid.readSync).not.toHaveBeenCalled();
     expect(first.hid.close).toHaveBeenCalledOnce();
     expect(second.hid.close).toHaveBeenCalledOnce();
   });
 
-  it("falls back to the next lamp when the first can't be read", () => {
+  it("reports the lamps it could read when one can't be read", () => {
     const first = beam(lumenAt(50));
     first.hid.readSync.mockImplementation(() => {
       throw new Error("HID read failed");
