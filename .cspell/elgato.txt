@@ -1,3 +1,5 @@
 elgato
 Elgato
+gbar
+pixmap
 streamdeck

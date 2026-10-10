@@ -29,6 +29,7 @@ export type BroadcastResult = {
   representativeBrightnessPercentage?: number;
   representativeBrightnessLumen?: number;
   representativeTemperatureKelvin?: number;
+  representativeTemperaturePercentage?: number;
 };
 
 const logger = streamDeck.logger;
@@ -83,11 +84,12 @@ export function getBrightnessInLumenSafe(device: Device): number {
   return data[4] * 256 + data[5];
 }
 
-export function lumenToPercentage(lumen: number, min: number, max: number): number {
+/** Where a value sits in a lamp's range, from 0 to 100, such as a brightness in lumens or a temperature in kelvin. */
+export function percentageInRange(value: number, min: number, max: number): number {
   if (max <= min) {
     return 0;
   }
-  return Math.max(0, Math.min(100, Math.round(((lumen - min) / (max - min)) * 100)));
+  return Math.max(0, Math.min(100, Math.round(((value - min) / (max - min)) * 100)));
 }
 
 /**
@@ -112,6 +114,14 @@ export function snapKelvin(value: number, allowed: number[]): number {
     }
   }
   return best;
+}
+
+/** Where a temperature sits between the lowest and the highest allowed for a lamp, from 0 to 100. */
+function temperaturePercentage(kelvin: number, allowed: number[]): number {
+  if (allowed.length === 0) {
+    return 0;
+  }
+  return percentageInRange(kelvin, allowed[0], allowed[allowed.length - 1]);
 }
 
 /**
@@ -247,7 +257,7 @@ export function adjustBrightnessAllByPercentageSteps(
     const min = getMinimumBrightnessInLumenForDevice(device);
     const max = getMaximumBrightnessInLumenForDevice(device);
     const lumen = getBrightnessInLumenSafe(device);
-    const currentPct = lumenToPercentage(lumen, min, max);
+    const currentPct = percentageInRange(lumen, min, max);
     const nextPct = Math.max(0, Math.min(100, currentPct + ticks * stepPercentage));
     setBrightnessPercentage(device, nextPct);
     drainAck(device);
@@ -273,7 +283,7 @@ export function readRepresentativeBrightnessPercentage(): BroadcastResult {
     const min = getMinimumBrightnessInLumenForDevice(device);
     const max = getMaximumBrightnessInLumenForDevice(device);
     representativeLumen = getBrightnessInLumenSafe(device);
-    representative = lumenToPercentage(representativeLumen, min, max);
+    representative = percentageInRange(representativeLumen, min, max);
   });
   return {
     ...result,
@@ -284,6 +294,7 @@ export function readRepresentativeBrightnessPercentage(): BroadcastResult {
 
 export function setTemperatureAllInKelvin(kelvin: number): BroadcastResult {
   let representative: number | undefined;
+  let representativePercentage: number | undefined;
   const result = forEachDevice((device) => {
     const allowed = getAllowedTemperaturesInKelvinForDevice(device);
     const snapped = snapKelvin(kelvin, allowed);
@@ -291,13 +302,19 @@ export function setTemperatureAllInKelvin(kelvin: number): BroadcastResult {
     drainAck(device);
     if (representative === undefined) {
       representative = snapped;
+      representativePercentage = temperaturePercentage(snapped, allowed);
     }
   });
-  return { ...result, representativeTemperatureKelvin: representative };
+  return {
+    ...result,
+    representativeTemperatureKelvin: representative,
+    representativeTemperaturePercentage: representativePercentage,
+  };
 }
 
 export function adjustTemperatureAllByKelvinSteps(ticks: number, stepKelvin: number): BroadcastResult {
   let representative: number | undefined;
+  let representativePercentage: number | undefined;
   const result = forEachDevice((device) => {
     const current = getTemperatureInKelvin(device);
     const allowed = getAllowedTemperaturesInKelvinForDevice(device);
@@ -306,20 +323,31 @@ export function adjustTemperatureAllByKelvinSteps(ticks: number, stepKelvin: num
     drainAck(device);
     if (representative === undefined) {
       representative = snapped;
+      representativePercentage = temperaturePercentage(snapped, allowed);
     }
   });
-  return { ...result, representativeTemperatureKelvin: representative };
+  return {
+    ...result,
+    representativeTemperatureKelvin: representative,
+    representativeTemperaturePercentage: representativePercentage,
+  };
 }
 
 export function readRepresentativeTemperatureKelvin(): BroadcastResult {
   let representative: number | undefined;
+  let representativePercentage: number | undefined;
   const result = forEachDevice((device) => {
     if (representative !== undefined) {
       return;
     }
     representative = getTemperatureInKelvin(device);
+    representativePercentage = temperaturePercentage(representative, getAllowedTemperaturesInKelvinForDevice(device));
   });
-  return { ...result, representativeTemperatureKelvin: representative };
+  return {
+    ...result,
+    representativeTemperatureKelvin: representative,
+    representativeTemperaturePercentage: representativePercentage,
+  };
 }
 
 /** Coalesce dial ticks for a short window, then flush once. */

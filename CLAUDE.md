@@ -26,7 +26,7 @@ The plugin is for Daniel's own use and isn't published. It runs linked from the 
 - `com.daczarne.litra.sdPlugin/` is the plugin folder: `manifest.json`, the settings pages in `ui/` (with the vendored `sdpi-components` in `ui/vendor/`), and the icons in `imgs/`. `bin/` and `node_modules/` inside it are build output.
 - `scripts/check-ui.mjs` guards the settings pages (see [Supply chain](#supply-chain)). `scripts/generate-icons.mjs` generates the icons.
 - `ref/` holds the original author's design notes and the paused Beam LX back-light research. It isn't shipped or built ([#12]).
-- `docs/` holds the style guide and, under `docs/elgato_sdk/`, notes on what the Stream Deck SDK offers and what it doesn't (for example, the interactions a dial receives), checked against the installed version. Read them before designing how an action behaves on the Deck, and add to them when a change finds out something new about the SDK.
+- `docs/` holds the style guide and, under `docs/elgato_sdk/`, notes on what the Stream Deck SDK offers and what it doesn't (for example, the interactions a dial receives, or its layouts), checked against the installed version. Read them before designing how an action behaves on the Deck, and add to them when a change finds out something new about the SDK.
 
 ## Commands
 
@@ -37,6 +37,7 @@ npm run build             # bundle src/ into the plugin folder and copy node-hid
 npm run check:ui          # no remote resources in ui/*.html, vendored file matches its hash
 npm run validate          # check:ui, build, streamdeck validate
 npm run pack              # check:ui, build, write release/com.daczarne.litra.streamDeckPlugin
+npm run icons             # regenerate the icons in imgs/ from scripts/generate-icons.mjs
 npm run link              # link the plugin folder into Stream Deck
 npm run watch             # rebuild and restart the plugin on change
 npx tsc --noEmit -p .     # type-check only

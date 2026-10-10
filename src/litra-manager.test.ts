@@ -22,7 +22,7 @@ import {
   forEachDevice,
   getBrightnessInLumenSafe,
   isOnAll,
-  lumenToPercentage,
+  percentageInRange,
   percentageToLumen,
   readRepresentativeBrightnessPercentage,
   readRepresentativeTemperatureKelvin,
@@ -107,26 +107,26 @@ beforeEach(() => {
 
 //* Pure functions
 
-describe("lumenToPercentage", () => {
+describe("percentageInRange", () => {
   it("maps the ends of the range to 0 and 100", () => {
-    expect(lumenToPercentage(BEAM_MIN_LUMEN, BEAM_MIN_LUMEN, BEAM_MAX_LUMEN)).toBe(0);
-    expect(lumenToPercentage(BEAM_MAX_LUMEN, BEAM_MIN_LUMEN, BEAM_MAX_LUMEN)).toBe(100);
+    expect(percentageInRange(BEAM_MIN_LUMEN, BEAM_MIN_LUMEN, BEAM_MAX_LUMEN)).toBe(0);
+    expect(percentageInRange(BEAM_MAX_LUMEN, BEAM_MIN_LUMEN, BEAM_MAX_LUMEN)).toBe(100);
   });
 
   it("maps a value inside the range proportionally, rounded to an integer", () => {
-    expect(lumenToPercentage(215, BEAM_MIN_LUMEN, BEAM_MAX_LUMEN)).toBe(50);
-    expect(lumenToPercentage(100, BEAM_MIN_LUMEN, BEAM_MAX_LUMEN)).toBe(19); // 18.92
-    expect(lumenToPercentage(102, BEAM_MIN_LUMEN, BEAM_MAX_LUMEN)).toBe(19); // 19.46
+    expect(percentageInRange(215, BEAM_MIN_LUMEN, BEAM_MAX_LUMEN)).toBe(50);
+    expect(percentageInRange(100, BEAM_MIN_LUMEN, BEAM_MAX_LUMEN)).toBe(19); // 18.92
+    expect(percentageInRange(102, BEAM_MIN_LUMEN, BEAM_MAX_LUMEN)).toBe(19); // 19.46
   });
 
   it("clamps values outside the range", () => {
-    expect(lumenToPercentage(20, BEAM_MIN_LUMEN, BEAM_MAX_LUMEN)).toBe(0);
-    expect(lumenToPercentage(500, BEAM_MIN_LUMEN, BEAM_MAX_LUMEN)).toBe(100);
+    expect(percentageInRange(20, BEAM_MIN_LUMEN, BEAM_MAX_LUMEN)).toBe(0);
+    expect(percentageInRange(500, BEAM_MIN_LUMEN, BEAM_MAX_LUMEN)).toBe(100);
   });
 
   it("returns 0 when the range is empty or inverted", () => {
-    expect(lumenToPercentage(50, 50, 50)).toBe(0);
-    expect(lumenToPercentage(50, 100, 20)).toBe(0);
+    expect(percentageInRange(50, 50, 50)).toBe(0);
+    expect(percentageInRange(50, 100, 20)).toBe(0);
   });
 });
 
@@ -585,7 +585,7 @@ describe("readRepresentativeBrightnessPercentage", () => {
 });
 
 describe("setTemperatureAllInKelvin", () => {
-  it("sets every lamp to the temperature, snapped to an allowed value, and reports it", () => {
+  it("sets every lamp to the temperature, snapped to an allowed value, and reports it and its %", () => {
     const first = beam();
     const second = beam();
     connect(first, second);
@@ -595,6 +595,7 @@ describe("setTemperatureAllInKelvin", () => {
       deviceCount: 2,
       failures: 0,
       representativeTemperatureKelvin: 4300,
+      representativeTemperaturePercentage: 42,
     });
     expect(vi.mocked(setTemperatureInKelvin).mock.calls).toEqual([
       [first, 4300],
@@ -625,6 +626,7 @@ describe("adjustTemperatureAllByKelvinSteps", () => {
       deviceCount: 2,
       failures: 0,
       representativeTemperatureKelvin: 3400,
+      representativeTemperaturePercentage: 18,
     });
     expect(vi.mocked(setTemperatureInKelvin).mock.calls).toEqual([
       [first, 3400],
@@ -639,6 +641,7 @@ describe("adjustTemperatureAllByKelvinSteps", () => {
     const result = adjustTemperatureAllByKelvinSteps(-10, BEAM_KELVIN_STEP);
 
     expect(result.representativeTemperatureKelvin).toBe(BEAM_MIN_KELVIN);
+    expect(result.representativeTemperaturePercentage).toBe(0);
   });
 
   it("stops at the highest allowed value", () => {
@@ -648,11 +651,12 @@ describe("adjustTemperatureAllByKelvinSteps", () => {
     const result = adjustTemperatureAllByKelvinSteps(3, BEAM_KELVIN_STEP);
 
     expect(result.representativeTemperatureKelvin).toBe(BEAM_MAX_KELVIN);
+    expect(result.representativeTemperaturePercentage).toBe(100);
   });
 });
 
 describe("readRepresentativeTemperatureKelvin", () => {
-  it("reads only the first lamp, but closes every handle", () => {
+  it("reads only the first lamp, with its place in the range, but closes every handle", () => {
     const first = beam();
     const second = beam();
     connect(first, second);
@@ -663,6 +667,7 @@ describe("readRepresentativeTemperatureKelvin", () => {
       deviceCount: 2,
       failures: 0,
       representativeTemperatureKelvin: 3500,
+      representativeTemperaturePercentage: 21,
     });
     expect(vi.mocked(getTemperatureInKelvin).mock.calls).toEqual([[first]]);
     expect(first.hid.close).toHaveBeenCalledOnce();

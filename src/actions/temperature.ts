@@ -11,6 +11,7 @@ import {
 
 import {
   adjustTemperatureAllByKelvinSteps,
+  type BroadcastResult,
   createDialDebouncer,
   readRepresentativeTemperatureKelvin,
   setTemperatureAllInKelvin,
@@ -73,7 +74,7 @@ export class TemperatureAction extends SingletonAction<TemperatureSettings> {
           await ev.action.showAlert();
           return;
         }
-        await this.showDialValue(ev.action, result.representativeTemperatureKelvin);
+        await this.showDialValue(ev.action, result);
       });
       this.dialQueues.set(id, queue);
     }
@@ -87,22 +88,21 @@ export class TemperatureAction extends SingletonAction<TemperatureSettings> {
     }
 
     const result = readRepresentativeTemperatureKelvin();
-    await this.showDialValue(
-      action,
-      result.ok ? result.representativeTemperatureKelvin : undefined,
-    );
+    await this.showDialValue(action, result.ok ? result : undefined);
   }
 
   private async showKeyAmount(action: KeyAction<TemperatureSettings>, kelvin: number): Promise<void> {
     await action.setTitle(`${Math.round(kelvin)}`);
   }
 
-  private async showDialValue(action: ActionRef, kelvin: number | undefined): Promise<void> {
-    const label = kelvin === undefined ? "—" : `${Math.round(kelvin)}`;
+  /** Fills the slots of the $B1 layout: the kelvin as text, and its place in the lamp's range as the bar under it. */
+  private async showDialValue(action: ActionRef, result: BroadcastResult | undefined): Promise<void> {
+    const kelvin = result?.representativeTemperatureKelvin;
     if (action.isDial()) {
       await action.setFeedback({
         title: "Temp",
-        value: label,
+        value: kelvin === undefined ? "—" : `${Math.round(kelvin)}`,
+        indicator: result?.representativeTemperaturePercentage ?? 0,
       });
     }
   }

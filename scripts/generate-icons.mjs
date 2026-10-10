@@ -171,6 +171,43 @@ function actionIconTemperature(size) {
         stroke="#FFFFFF" stroke-width="${sw * 0.7}" stroke-linecap="round"/>`;
 }
 
+/** Dial icons: white line art on transparent, like the icons of Stream Deck's own dials. */
+function encoderIconBrightness(size) {
+  const cx = size / 2;
+  const cy = size / 2;
+  const sw = size * 0.065;
+  const core = size * 0.16;
+  const rayIn = size * 0.27;
+  const rayOut = size * 0.4;
+  const rays = Array.from({ length: 8 }, (_, i) => {
+    const a = (i * Math.PI) / 4 - Math.PI / 2;
+    return `<line x1="${cx + Math.cos(a) * rayIn}" y1="${cy + Math.sin(a) * rayIn}"
+                      x2="${cx + Math.cos(a) * rayOut}" y2="${cy + Math.sin(a) * rayOut}"
+                      stroke="#FFFFFF" stroke-width="${sw}" stroke-linecap="round"/>`;
+  }).join("\n");
+  return `<circle cx="${cx}" cy="${cy}" r="${core}" stroke="#FFFFFF" stroke-width="${sw}"/>\n${rays}`;
+}
+
+function encoderIconTemperature(size) {
+  const cx = size / 2;
+  const sw = size * 0.065;
+  const tubeHalf = size * 0.08;
+  const top = size * 0.12;
+  const bulbR = size * 0.15;
+  const bulbCy = size * 0.72;
+  // Where the tube's sides meet the bulb.
+  const joinY = bulbCy - Math.sqrt(bulbR ** 2 - tubeHalf ** 2);
+  return `
+  <path d="M ${cx - tubeHalf} ${top + tubeHalf}
+           A ${tubeHalf} ${tubeHalf} 0 0 1 ${cx + tubeHalf} ${top + tubeHalf}
+           V ${joinY}
+           A ${bulbR} ${bulbR} 0 1 1 ${cx - tubeHalf} ${joinY} Z"
+        stroke="#FFFFFF" stroke-width="${sw}" stroke-linejoin="round"/>
+  <circle cx="${cx}" cy="${bulbCy}" r="${bulbR * 0.45}" fill="#FFFFFF"/>
+  <line x1="${cx}" y1="${top + size * 0.16}" x2="${cx}" y2="${bulbCy}"
+        stroke="#FFFFFF" stroke-width="${sw}" stroke-linecap="round"/>`;
+}
+
 async function writePng(filePath, svg, size) {
   mkdirSync(path.dirname(filePath), { recursive: true });
   await sharp(Buffer.from(svgDoc(size, svg)))
@@ -191,9 +228,9 @@ async function main() {
   await writePair(path.join(root, "actions/brightness/key"), (s) => brightnessGlyph(s), 72);
   await writePair(path.join(root, "actions/temperature/key"), (s) => temperatureGlyph(s), 72);
 
-  // Encoder icons (same art)
-  await writePair(path.join(root, "actions/brightness/encoder"), (s) => brightnessGlyph(s), 72);
-  await writePair(path.join(root, "actions/temperature/encoder"), (s) => temperatureGlyph(s), 72);
+  // Encoder icons (72 / 144), shown on the touch strip and in the app's dial canvas
+  await writePair(path.join(root, "actions/brightness/encoder"), (s) => encoderIconBrightness(s), 72);
+  await writePair(path.join(root, "actions/temperature/encoder"), (s) => encoderIconTemperature(s), 72);
 
   // Action list icons (20 / 40) — monochrome white
   await writePair(path.join(root, "actions/power/icon"), (s) => actionIconPower(s), 20);
