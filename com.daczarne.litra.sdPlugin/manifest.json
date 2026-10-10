@@ -42,7 +42,7 @@
       ],
       "UserTitleEnabled": false,
       "Encoder": {
-        "layout": "$A1",
+        "layout": "$B1",
         "Icon": "imgs/actions/brightness/encoder",
         "TriggerDescription": {
           "Rotate": "Brightness",
@@ -70,7 +70,7 @@
       ],
       "UserTitleEnabled": false,
       "Encoder": {
-        "layout": "$A1",
+        "layout": "$B1",
         "Icon": "imgs/actions/temperature/encoder",
         "TriggerDescription": {
           "Rotate": "Temperature",

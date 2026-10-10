@@ -97,12 +97,14 @@ export class BrightnessAction extends SingletonAction<BrightnessSettings> {
     await action.setTitle(`${Math.round(percentage)}`);
   }
 
+  /** Fills the slots of the $B1 layout: the % as text, and again as the bar under it. */
   private async showDialValue(action: ActionRef, percentage: number | undefined): Promise<void> {
     const label = percentage === undefined ? "—" : `${Math.round(percentage)}%`;
     if (action.isDial()) {
       await action.setFeedback({
         title: "Brightness",
         value: label,
+        indicator: percentage ?? 0,
       });
     }
   }
