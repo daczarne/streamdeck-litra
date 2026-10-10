@@ -8,7 +8,7 @@ import {
   getMinimumBrightnessInLumenForDevice,
   getTemperatureInKelvin,
   isOn,
-  setBrightnessPercentage,
+  setBrightnessInLumen,
   setTemperatureInKelvin,
   toggle,
   turnOff,
@@ -34,6 +34,18 @@ export type BroadcastResult = {
 
 const logger = streamDeck.logger;
 const DIAL_DEBOUNCE_MS = 60;
+
+// A capped lamp applies its cap within about 100 ms of a write, and until then reports the brightness it was sent.
+const BRIGHTNESS_SETTLE_MS = 250;
+
+// Reports a lamp sends unasked (ACKs, change notices, error reports) can arrive ahead of the reply to a query.
+const MAX_SKIPPED_REPORTS = 10;
+
+/**
+ * The brightness each lamp on a low-power supply can reach, in lumens, by serial number. Learned when a lamp reaches
+ * less than it was sent, and kept until the plugin restarts (#55).
+ */
+const brightnessCapsInLumen = new Map<string, number>();
 
 function asHid(device: Device): ClosableHid {
   return device.hid as ClosableHid;
@@ -73,15 +85,31 @@ function padRight(values: number[], length: number): number[] {
 /**
  * Stock litra getBrightnessInLumen only returns data[5], which truncates Beam LX
  * above 255 lm. Mirror litra-rs / temperature parsing: data[4]*256 + data[5].
+ *
+ * It also takes the first report that arrives, which can be an ACK or a change notice instead of the reply, so this
+ * skips every report that isn't the reply.
  */
 export function getBrightnessInLumenSafe(device: Device): number {
-  const bytes =
-    device.type === DeviceType.LitraBeamLX
-      ? padRight([0x11, 0xff, 0x06, 0x31], 20)
-      : padRight([0x11, 0xff, 0x04, 0x31], 20);
-  device.hid.write(bytes);
-  const data = device.hid.readSync();
-  return data[4] * 256 + data[5];
+  const featureIndex = device.type === DeviceType.LitraBeamLX ? 0x06 : 0x04;
+  device.hid.write(padRight([0x11, 0xff, featureIndex, 0x31], 20));
+  for (let skipped = 0; skipped <= MAX_SKIPPED_REPORTS; skipped += 1) {
+    const data = device.hid.readSync();
+    if (data[2] === featureIndex && data[3] === 0x31) {
+      return data[4] * 256 + data[5];
+    }
+  }
+  throw new Error(`No brightness reply after ${MAX_SKIPPED_REPORTS} other reports`);
+}
+
+/** Forgets every learned brightness cap. */
+export function forgetBrightnessCaps(): void {
+  brightnessCapsInLumen.clear();
+}
+
+/** The lumens to send a lamp: the ones asked for, or its cap if it has a lower one. */
+function withinCap(device: Device, lumen: number): number {
+  const cap = brightnessCapsInLumen.get(device.serialNumber);
+  return cap === undefined ? lumen : Math.min(lumen, cap);
 }
 
 /** Where a value sits in a lamp's range, from 0 to 100, such as a brightness in lumens or a temperature in kelvin. */
@@ -124,20 +152,27 @@ function temperaturePercentage(kelvin: number, allowed: number[]): number {
   return percentageInRange(kelvin, allowed[0], allowed[allowed.length - 1]);
 }
 
-/**
- * Open devices, run fn per device, always close handles. Zero devices = failure.
- */
-export function forEachDevice(fn: (device: Device) => void): BroadcastResult {
-  let devices: Device[] = [];
+/** Opens every connected lamp. Returns none when no lamp is connected or finding them fails. */
+function openDevices(): Device[] {
+  let devices: Device[];
   try {
     devices = findDevices();
   } catch (error) {
     logger.error(`findDevices failed: ${String(error)}`);
-    return { ok: false, deviceCount: 0, failures: 1 };
+    return [];
   }
-
   if (devices.length === 0) {
     logger.warn("No Litra devices found");
+  }
+  return devices;
+}
+
+/**
+ * Open devices, run fn per device, always close handles. Zero devices = failure.
+ */
+export function forEachDevice(fn: (device: Device) => void): BroadcastResult {
+  const devices = openDevices();
+  if (devices.length === 0) {
     return { ok: false, deviceCount: 0, failures: 1 };
   }
 
@@ -222,20 +257,37 @@ function ensureOn(device: Device): void {
   }
 }
 
+function brightnessPercentage(device: Device, lumen: number): number {
+  return percentageInRange(
+    lumen,
+    getMinimumBrightnessInLumenForDevice(device),
+    getMaximumBrightnessInLumenForDevice(device),
+  );
+}
+
+function brightnessLumen(device: Device, percentage: number): number {
+  return percentageToLumen(
+    percentage,
+    getMinimumBrightnessInLumenForDevice(device),
+    getMaximumBrightnessInLumenForDevice(device),
+  );
+}
+
+/**
+ * Sets every lamp to the percentage, or to its cap when it has a lower one. Reports the percentage asked for: a key
+ * shows its preset, not what the lamps reached.
+ */
 export function setBrightnessAllPercentage(percentage: number): BroadcastResult {
   const pct = Math.max(0, Math.min(100, percentage));
   let representative: number | undefined;
   let representativeLumen: number | undefined;
   const result = forEachDevice((device) => {
     ensureOn(device);
-    setBrightnessPercentage(device, pct);
+    const lumen = brightnessLumen(device, pct);
+    setBrightnessInLumen(device, withinCap(device, lumen));
     drainAck(device);
     if (representative === undefined) {
-      representativeLumen = percentageToLumen(
-        pct,
-        getMinimumBrightnessInLumenForDevice(device),
-        getMaximumBrightnessInLumenForDevice(device),
-      );
+      representativeLumen = lumen;
       representative = pct;
     }
   });
@@ -246,44 +298,101 @@ export function setBrightnessAllPercentage(percentage: number): BroadcastResult 
   };
 }
 
-export function adjustBrightnessAllByPercentageSteps(
+/**
+ * Moves every lamp to one target, stepped from the brightest lamp, and reports the brightest lamp once they've settled.
+ * Each lamp is sent the target or its cap, whichever is lower, and a lamp that reaches less than it was sent has its
+ * cap learned. The lamps stay open from the first read to the last, so calls mustn't overlap: the dial's debouncer
+ * runs them one at a time.
+ */
+export async function adjustBrightnessAllByPercentageSteps(
   ticks: number,
   stepPercentage: number,
-): BroadcastResult {
-  let representative: number | undefined;
-  let representativeLumen: number | undefined;
-  const result = forEachDevice((device) => {
-    ensureOn(device);
-    const min = getMinimumBrightnessInLumenForDevice(device);
-    const max = getMaximumBrightnessInLumenForDevice(device);
-    const lumen = getBrightnessInLumenSafe(device);
-    const currentPct = percentageInRange(lumen, min, max);
-    const nextPct = Math.max(0, Math.min(100, currentPct + ticks * stepPercentage));
-    setBrightnessPercentage(device, nextPct);
-    drainAck(device);
-    if (representative === undefined) {
-      representative = nextPct;
-      representativeLumen = percentageToLumen(nextPct, min, max);
+  settleMs = BRIGHTNESS_SETTLE_MS,
+): Promise<BroadcastResult> {
+  const devices = openDevices();
+  if (devices.length === 0) {
+    return { ok: false, deviceCount: 0, failures: 1 };
+  }
+
+  // A lamp that fails one stage is left out of the next ones and counted once.
+  const failed = new Set<Device>();
+  const attempt = (device: Device, fn: () => void): void => {
+    if (failed.has(device)) {
+      return;
     }
-  });
-  return {
-    ...result,
-    representativeBrightnessPercentage: representative,
-    representativeBrightnessLumen: representativeLumen,
+    try {
+      fn();
+    } catch (error) {
+      failed.add(device);
+      logger.error(`Litra device operation failed: ${String(error)}`);
+    }
   };
+
+  try {
+    let brightest: number | undefined;
+    for (const device of devices) {
+      attempt(device, () => {
+        ensureOn(device);
+        const pct = brightnessPercentage(device, getBrightnessInLumenSafe(device));
+        brightest = Math.max(brightest ?? pct, pct);
+      });
+    }
+
+    const sent = new Map<Device, number>();
+    if (brightest !== undefined) {
+      const target = Math.max(0, Math.min(100, brightest + ticks * stepPercentage));
+      for (const device of devices) {
+        attempt(device, () => {
+          const lumen = withinCap(device, brightnessLumen(device, target));
+          setBrightnessInLumen(device, lumen);
+          drainAck(device);
+          sent.set(device, lumen);
+        });
+      }
+      await new Promise((resolve) => setTimeout(resolve, settleMs));
+    }
+
+    let representative: number | undefined;
+    let representativeLumen: number | undefined;
+    for (const [device, lumen] of sent) {
+      attempt(device, () => {
+        const reached = getBrightnessInLumenSafe(device);
+        if (reached < lumen) {
+          brightnessCapsInLumen.set(device.serialNumber, reached);
+        }
+        const pct = brightnessPercentage(device, reached);
+        if (representative === undefined || pct > representative) {
+          representative = pct;
+          representativeLumen = reached;
+        }
+      });
+    }
+
+    return {
+      ok: failed.size === 0,
+      deviceCount: devices.length,
+      failures: failed.size,
+      representativeBrightnessPercentage: representative,
+      representativeBrightnessLumen: representativeLumen,
+    };
+  } finally {
+    for (const device of devices) {
+      closeDevice(device);
+    }
+  }
 }
 
+/** Reads every lamp and reports the brightest. */
 export function readRepresentativeBrightnessPercentage(): BroadcastResult {
   let representative: number | undefined;
   let representativeLumen: number | undefined;
   const result = forEachDevice((device) => {
-    if (representative !== undefined) {
-      return;
+    const lumen = getBrightnessInLumenSafe(device);
+    const pct = brightnessPercentage(device, lumen);
+    if (representative === undefined || pct > representative) {
+      representative = pct;
+      representativeLumen = lumen;
     }
-    const min = getMinimumBrightnessInLumenForDevice(device);
-    const max = getMaximumBrightnessInLumenForDevice(device);
-    representativeLumen = getBrightnessInLumenSafe(device);
-    representative = percentageInRange(representativeLumen, min, max);
   });
   return {
     ...result,
@@ -350,13 +459,27 @@ export function readRepresentativeTemperatureKelvin(): BroadcastResult {
   };
 }
 
-/** Coalesce dial ticks for a short window, then flush once. */
+/**
+ * Coalesce dial ticks for a short window, then flush once. A flush waits for the previous one to finish, since both
+ * would use the lamps, and takes every tick received until it starts.
+ */
 export function createDialDebouncer(
   flush: (ticks: number) => void | Promise<void>,
   delayMs = DIAL_DEBOUNCE_MS,
 ): (ticks: number) => void {
   let pending = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let running: Promise<void> = Promise.resolve();
+
+  const run = async (): Promise<void> => {
+    const batch = pending;
+    pending = 0;
+    // A flush that was still running when this one was due has already taken these ticks.
+    if (batch === 0) {
+      return;
+    }
+    await flush(batch);
+  };
 
   return (ticks: number) => {
     pending += ticks;
@@ -364,10 +487,10 @@ export function createDialDebouncer(
       clearTimeout(timer);
     }
     timer = setTimeout(() => {
-      const batch = pending;
-      pending = 0;
       timer = undefined;
-      void flush(batch);
+      running = running.then(run).catch((error: unknown) => {
+        logger.error(`Dial flush failed: ${String(error)}`);
+      });
     }, delayMs);
   };
 }

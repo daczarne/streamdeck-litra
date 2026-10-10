@@ -6,9 +6,10 @@
 - [Features ship with tests](#features-ship-with-tests)
 - [Dependencies](#dependencies)
 - [Unused code](#unused-code)
+- [Lamps are managed together](#lamps-are-managed-together)
 - [Working with Claude](#working-with-claude)
 
-This document describes how work on this repository is done: how changes reach `main`, how they are sliced and recorded, and what each one has to bring with it. Style is covered separately, in [the style guide][style-guide].
+This document describes how work on this repository is done: how changes reach `main`, how they are sliced and recorded, what each one has to bring with it, and the design rules that hold across the plugin. Style is covered separately, in [the style guide][style-guide].
 
 ## Changes go through pull requests
 
@@ -55,11 +56,19 @@ Two things are exceptions. They are unused today but kept on purpose, with their
 - `ref/`, the original author's design notes and the Beam LX back-light research. It plays no part in the plugin.
 - The build code for an installed plugin (`npm run pack` and `copyNativeRuntime` in `rollup.config.mjs`), in case the plugin is published one day ([#21]). Today it only runs linked.
 
+## Lamps are managed together
+
+The plugin has no way to act on one lamp alone, so until per-lamp control arrives in [#20], it assumes the user wants every connected lamp kept in sync and controlled as one. Questions about several lamps are answered from that rule, not decided case by case: every lamp is sent the same value, and what an action displays describes the group. For example, when one lamp can't reach the requested brightness, the others still go there, and the dial shows the brightest lamp ([#13]).
+
+When [#20] is worked on, the question changes: what would someone who controls each lamp separately need for the plugin to work for them?
+
 ## Working with Claude
 
 - When Daniel asks for a command, Claude replies with the command and doesn't run it. Steps that change what the Deck runs or shows, like restarting the plugin, are Daniel's to run, while looking at the hardware.
 
 [#9]: https://github.com/daczarne/streamdeck-litra/issues/9
+[#13]: https://github.com/daczarne/streamdeck-litra/issues/13
+[#20]: https://github.com/daczarne/streamdeck-litra/issues/20
 [#21]: https://github.com/daczarne/streamdeck-litra/issues/21
 [#27]: https://github.com/daczarne/streamdeck-litra/issues/27
 [#30]: https://github.com/daczarne/streamdeck-litra/issues/30

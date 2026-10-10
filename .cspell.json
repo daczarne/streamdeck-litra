@@ -11,6 +11,7 @@
     "com.daczarne.litra.sdPlugin/**/vendor/**",
     "node_modules/**",
     "ref/**",
+    "scripts/probes/out/**",
   ],
   "ignoreWords": [ ],
   "words": [

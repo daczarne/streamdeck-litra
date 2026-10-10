@@ -34,7 +34,7 @@ The plugin is for Daniel's own use and isn't published. It runs linked from the 
 - Unit tests sit next to the file they test (`litra-manager.test.ts`), and run with Vitest. They replace `litra` and `@elgato/streamdeck` with `vi.mock`, so they need no lamps and create no `logs/` folder. `src/test-support/` holds the shared fakes, such as a lamp whose HID handle records every call.
 - `browser-tests/` holds the browser tests, which load each settings page from the plugin folder in a headless Chrome. They check the controls each page shows, the settings it sends, and that its Content-Security-Policy refuses anything remote. `browser-tests/support/` drives Chrome over a pipe rather than a debugging port, and fakes Stream Deck's WebSocket. Chrome is found at `CHROME_PATH`, or where macOS or Linux usually install it. The tests run apart from the unit tests, with their own Vitest config, so `npm test` still needs nothing installed.
 - `com.daczarne.litra.sdPlugin/` is the plugin folder: `manifest.json`, the settings pages in `ui/` (with the vendored `sdpi-components` in `ui/vendor/`), and the icons in `imgs/`. `bin/` and `node_modules/` inside it are build output.
-- `scripts/check-ui.mjs` guards the settings pages (see [Supply chain](#supply-chain)). `scripts/generate-icons.mjs` generates the icons.
+- `scripts/check-ui.mjs` guards the settings pages (see [Supply chain](#supply-chain)). `scripts/generate-icons.mjs` generates the icons. `scripts/probes/` holds scripts that ask the lamps directly how they behave, run by hand, with a README on how to run them and read their output.
 - `ref/` holds the original author's design notes and the paused Beam LX back-light research. It isn't shipped or built ([#12]).
 - `docs/` holds the documents listed in [Read before changing things](#read-before-changing-things).
 
@@ -76,7 +76,7 @@ Daniel treats supply-chain risk as a hard requirement:
 - Build, enable developer mode (`npx streamdeck dev`), `npm run link`, then `npx streamdeck restart com.daczarne.litra`. The actions appear under the Litra category. Developer mode stays on.
 - Plugin logs are in `com.daczarne.litra.sdPlugin/logs/`.
 - `docs/manual_testing/` holds the checks to run by hand. For example, `settings_pages.md` covers what the browser tests take for granted about Stream Deck, how to open the pages in DevTools to check it, and the debugging port that has to be closed afterwards.
-- On the Stream Deck + XL's USB hub (7.5 W), the Beam caps its brightness at about 70%. Plugged into the Mac, it reaches 100%.
+- On the Stream Deck + XL's USB hub (7.5 W), each Beam caps its brightness below 100%, at a level that depends on both the port and the lamp: from 58% to 79% for Daniel's two Beams (see the example in `scripts/probes/README.md`). The cap doesn't change with what the other lamp draws. Plugged into the Mac, a Beam reaches 100%.
 - Claude can't see the Deck. Daniel checks what the keys and the touch strip show, and can share a photo of them, which is enough to judge a layout. Each dial gets 200 × 100 px of the touch strip, and text under about 16 px is hard to read on it ([#8]).
 - Opening a Litra needs no macOS permission. Opening a mouse or keyboard over HID needs Input Monitoring, which Daniel only grants temporarily ([#3]).
 
