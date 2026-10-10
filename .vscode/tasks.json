@@ -54,13 +54,29 @@
     // The default test task, so "Tasks: Run Test Task" runs it.
     {
       "label": "Test",
-      "detail": "Run the unit tests",
-      "type": "shell",
-      "command": "npm test",
+      "detail": "Run the unit tests, then the browser tests",
+      "dependsOn": [
+        "Test: unit",
+        "Test: browser",
+      ],
+      "dependsOrder": "sequence",
       "group": {
         "kind": "test",
         "isDefault": true,
       },
+      "problemMatcher": [ ],
+    },
+    {
+      "label": "Test: unit",
+      "type": "shell",
+      "command": "npm test",
+      "problemMatcher": [ ],
+    },
+    {
+      "label": "Test: browser",
+      "detail": "Drive the settings pages in a headless Chrome",
+      "type": "shell",
+      "command": "npm run test:browser",
       "problemMatcher": [ ],
     },
   ],
