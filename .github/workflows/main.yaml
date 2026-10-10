@@ -114,6 +114,10 @@ jobs:
       - name: Test 🧪
         id: test
         run: npm test
+      - name: Browser tests 🧪
+        id: browser_tests
+        # Drives the Google Chrome that comes installed on the runner.
+        run: npm run test:browser
       - name: Validate 🧪
         id: validate
         # Runs check:ui, the build and streamdeck validate.
