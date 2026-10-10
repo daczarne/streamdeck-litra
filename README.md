@@ -87,6 +87,7 @@ npx tsc --noEmit -p .     # type-check only
 npm test                  # run the unit tests
 npm run check:ui          # no remote resources in the settings pages, vendored file matches its hash
 npm run validate          # check:ui, build and streamdeck validate
+npm run icons             # regenerate the icons in imgs/ from scripts/generate-icons.mjs
 ```
 
 The plugin's logs are in `com.daczarne.litra.sdPlugin/logs/`.
@@ -104,7 +105,7 @@ This runs `check:ui`, builds, and writes `release/com.daczarne.litra.streamDeckP
 ## Usage tips
 
 - Brightness and temperature keys are meant to show their preset value, as a bare number at the bottom of the key. The plugin sets it itself, since editing the title is disabled. On the Deck, no number appears yet ([#25]).
-- Dials use Stream Deck's built-in `$A1` layout: rotating adjusts, pressing toggles the front light. Their titles don't show yet either ([#25]).
+- Dials look like Stream Deck's own volume dials: the value, with a bar under it. The temperature bar runs from the lamp's warmest setting (empty) to its coolest (full). Rotating adjusts, pressing toggles the front light. Their titles don't show yet either ([#25]).
 - With no lamp connected, actions show Stream Deck's alert indicator.
 
 ## Third-party code

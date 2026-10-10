@@ -1,0 +1,55 @@
+# Stream Deck + dial layouts
+
+- [The canvas](#the-canvas)
+- [Built-in layouts](#built-in-layouts)
+- [Custom layouts](#custom-layouts)
+- [Updating what a dial shows](#updating-what-a-dial-shows)
+- [What fits on the Deck](#what-fits-on-the-deck)
+- [Sources](#sources)
+
+A dial on the Stream Deck + shows its state on its segment of the touch strip, through a layout: a set of slots (text, images, bars) that the plugin fills. This document describes the layouts the SDK offers and what was learnt about them on the Deck, so that a dial's display can be designed without trial and error.
+
+## The canvas
+
+Each dial gets a 200 × 100 px canvas on the touch strip. Every slot of a layout is placed on it with a `rect` of `[x, y, width, height]`.
+
+## Built-in layouts
+
+Stream Deck ships six layouts, chosen by name:
+
+| Layout | Contents                                                                    |
+|--------|-----------------------------------------------------------------------------|
+| `$X1`  | The title at the top, the icon centered beneath it.                         |
+| `$A0`  | The title at the top, a full-width image beneath it.                        |
+| `$A1`  | The title at the top, the icon on the left, a text value on the right.      |
+| `$B1`  | Like `$A1`, with a bar beneath the value.                                   |
+| `$B2`  | Like `$A1`, with a gradient bar and a marker beneath the value.             |
+| `$C1`  | The title at the top, two rows of an icon and a bar.                        |
+
+The dials use `$B1`, the layout of Stream Deck's own volume and microphone dials. Its slots are `title`, `icon`, `value` and `indicator` (the bar, filled by a number from 0 to 100). The `icon` slot shows the action's dial icon, `Encoder.Icon` in `manifest.json`: a PNG or SVG at 72 × 72 px and 144 × 144 px, also shown in the app's round picture of the dial. The icon reads best as white line art on a transparent background, like Stream Deck's own: anything drawn behind the glyph shows up as a box on the strip.
+
+## Custom layouts
+
+A custom layout is a JSON file in the plugin folder, validated by the schema at `https://schemas.elgato.com/streamdeck/plugins/layout.json`. It lists items of four types (`text`, `pixmap`, `bar` and `gbar`), each with a `key` that the plugin fills and a `rect` on the canvas. A text item whose `key` is `title` follows the font settings the user picks in Stream Deck, and `setTitle` updates it.
+
+## Updating what a dial shows
+
+- `Encoder.layout` in `manifest.json` sets a dial's layout, by name or by the path to a custom one. `setFeedbackLayout` replaces it at runtime.
+- `setFeedback` fills the slots, keyed by their `key`. A slot takes either a plain value (a string or a number) or an object that changes its other properties too, such as a text's color, except its `key`, `rect` and `type`, which are fixed.
+
+## What fits on the Deck
+
+Measured on the Stream Deck + XL's touch strip while trying to show the lumens next to the brightness ([#8]):
+
+- Text under about 16 px is hard to read, and a mid-grey on the strip's background doesn't contrast enough.
+- At the size of `$B1`'s value, a value like `70%` already takes about half of the 108 px value area, so a second value doesn't fit on the same line.
+
+## Sources
+
+Checked against `@elgato/streamdeck` 3.0.1 and the schemas in `@elgato/schemas`, both installed in `node_modules/`, and on the Deck:
+
+- The canvas size, the built-in layouts and `Encoder.Icon`: the `Encoder` definition in `@elgato/schemas/streamdeck/plugins/manifest.json`.
+- The item types and the `title` key: `@elgato/streamdeck/dist/api/layout.d.ts` and `@elgato/schemas/streamdeck/plugins/layout.json`.
+- `setFeedback` and `setFeedbackLayout`: `@elgato/streamdeck/dist/plugin/actions/dial.d.ts`.
+
+[#8]: https://github.com/daczarne/streamdeck-litra/issues/8
