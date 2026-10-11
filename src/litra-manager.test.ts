@@ -9,7 +9,6 @@ import {
   isOn,
   setBrightnessInLumen,
   setTemperatureInKelvin,
-  toggle,
   turnOff,
   turnOn,
 } from "litra";
@@ -57,7 +56,6 @@ vi.mock("litra", () => ({
   isOn: vi.fn(),
   setBrightnessInLumen: vi.fn(),
   setTemperatureInKelvin: vi.fn(),
-  toggle: vi.fn(),
   turnOff: vi.fn(),
   turnOn: vi.fn(),
 }));
@@ -446,7 +444,6 @@ describe("forEachDevice", () => {
 describe.each([
   ["turnOnAll", turnOnAll, turnOn],
   ["turnOffAll", turnOffAll, turnOff],
-  ["toggleAll", toggleAll, toggle],
 ])("%s", (_name, broadcast, command) => {
   it("sends the command to every lamp, then drains its ACK", () => {
     const first = beam();
@@ -475,6 +472,112 @@ describe.each([
     vi.mocked(command).mockImplementation(failFor(first));
 
     expect(broadcast()).toEqual({ ok: false, deviceCount: 2, failures: 1 });
+  });
+});
+
+describe("toggleAll", () => {
+  it("turns every lamp off when every lamp is on, then drains each ACK", () => {
+    const first = beam();
+    const second = beam();
+    connect(first, second);
+
+    expect(toggleAll()).toEqual({ ok: true, deviceCount: 2, failures: 0 });
+    expect(vi.mocked(turnOff).mock.calls).toEqual([[first], [second]]);
+    expect(turnOn).not.toHaveBeenCalled();
+    expect(firstCall(vi.mocked(turnOff))).toBeLessThan(firstCall(first.hid.readTimeout));
+    expect(second.hid.readTimeout).toHaveBeenCalledOnce();
+  });
+
+  it("turns every lamp on when one is on and one is off", () => {
+    const first = beam();
+    const second = beam();
+    connect(first, second);
+    vi.mocked(isOn).mockImplementation((device) => device === first);
+
+    expect(toggleAll()).toEqual({ ok: true, deviceCount: 2, failures: 0 });
+    expect(vi.mocked(turnOn).mock.calls).toEqual([[first], [second]]);
+    expect(turnOff).not.toHaveBeenCalled();
+  });
+
+  it("turns every lamp on when every lamp is off", () => {
+    const first = beam();
+    const second = beam();
+    connect(first, second);
+    vi.mocked(isOn).mockReturnValue(false);
+
+    expect(toggleAll()).toEqual({ ok: true, deviceCount: 2, failures: 0 });
+    expect(vi.mocked(turnOn).mock.calls).toEqual([[first], [second]]);
+  });
+
+  it("reads every lamp before sending any command", () => {
+    connect(beam(), beam());
+
+    toggleAll();
+
+    expect(vi.mocked(isOn).mock.invocationCallOrder[1]).toBeLessThan(firstCall(vi.mocked(turnOff)));
+  });
+
+  it("counts a lamp that can't be read as off, and still turns it on", () => {
+    const first = beam();
+    const second = beam();
+    connect(first, second);
+    vi.mocked(isOn).mockImplementation((device) => {
+      failFor(first)(device);
+      return true;
+    });
+
+    expect(toggleAll()).toEqual({ ok: false, deviceCount: 2, failures: 1 });
+    expect(vi.mocked(turnOn).mock.calls).toEqual([[first], [second]]);
+  });
+
+  it("counts a lamp once when it can't be read nor written", () => {
+    const first = beam();
+    connect(first, beam());
+    vi.mocked(isOn).mockImplementation((device) => {
+      failFor(first)(device);
+      return true;
+    });
+    vi.mocked(turnOn).mockImplementation(failFor(first));
+
+    expect(toggleAll()).toEqual({ ok: false, deviceCount: 2, failures: 1 });
+  });
+
+  it("reports a lamp that fails, and still sends the command to the others", () => {
+    const first = beam();
+    const second = beam();
+    connect(first, second);
+    vi.mocked(turnOff).mockImplementation(failFor(first));
+
+    expect(toggleAll()).toEqual({ ok: false, deviceCount: 2, failures: 1 });
+    expect(turnOff).toHaveBeenCalledWith(second);
+  });
+
+  it("closes every handle, including a failed lamp's", () => {
+    const first = beam();
+    const second = beam();
+    connect(first, second);
+    vi.mocked(turnOff).mockImplementation(failFor(first));
+
+    toggleAll();
+
+    expect(first.hid.close).toHaveBeenCalledOnce();
+    expect(second.hid.close).toHaveBeenCalledOnce();
+  });
+
+  it("succeeds when there is no ACK to drain", () => {
+    const device = beam();
+    device.hid.readTimeout.mockImplementation(() => {
+      throw new Error("timed out");
+    });
+    connect(device);
+
+    expect(toggleAll()).toEqual({ ok: true, deviceCount: 1, failures: 0 });
+  });
+
+  it("fails when no lamp is connected", () => {
+    expect(toggleAll()).toEqual({ ok: false, deviceCount: 0, failures: 1 });
+    expect(turnOn).not.toHaveBeenCalled();
+    expect(turnOff).not.toHaveBeenCalled();
   });
 });
 
