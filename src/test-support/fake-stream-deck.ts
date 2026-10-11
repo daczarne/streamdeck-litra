@@ -19,6 +19,9 @@ function createFakeAction(controller: "Keypad" | "Encoder") {
     isDial: (): boolean => controller === "Encoder",
     setTitle: vi.fn(async (_title?: string): Promise<void> => {}),
     setFeedback: vi.fn(async (_feedback: object): Promise<void> => {}),
+    setFeedbackLayout: vi.fn(async (_layout: string): Promise<void> => {}),
+    setState: vi.fn(async (_state: number): Promise<void> => {}),
+    setTriggerDescription: vi.fn(async (_descriptions?: object): Promise<void> => {}),
     showAlert: vi.fn(async (): Promise<void> => {}),
   };
 }
@@ -40,6 +43,10 @@ let visibleActions: FakeAction[] = [];
 export function show(...actions: FakeAction[]): void {
   visibleActions = actions;
 }
+
+export default {
+  logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn(), debug: vi.fn(), trace: vi.fn() },
+};
 
 export function action(_definition: { UUID: string }) {
   return <T>(target: T): T => target;

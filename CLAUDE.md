@@ -30,10 +30,10 @@ The plugin is for Daniel's own use and isn't published. It runs linked from the 
 
 - `src/plugin.ts` registers the actions.
 - `src/litra-manager.ts` is the only module that talks to the `litra` library. Actions import from it, never from `litra` directly. It re-scans the lamps on every call, applies each operation to every connected lamp, and always closes the HID handles.
-- `src/actions/` holds the Power, Brightness and Temperature actions.
+- `src/actions/` holds the Power, Brightness and Temperature actions, and the lamp screens (`lamp-screens.ts`) that the Brightness and Temperature dials share.
 - Unit tests sit next to the file they test (`litra-manager.test.ts`), and run with Vitest. They replace `litra` and `@elgato/streamdeck` with `vi.mock`, so they need no lamps and create no `logs/` folder. `src/test-support/` holds the shared fakes, such as a lamp whose HID handle records every call.
 - `browser-tests/` holds the browser tests, which load each settings page from the plugin folder in a headless Chrome. They check the controls each page shows, the settings it sends, and that its Content-Security-Policy refuses anything remote. `browser-tests/support/` drives Chrome over a pipe rather than a debugging port, and fakes Stream Deck's WebSocket. Chrome is found at `CHROME_PATH`, or where macOS or Linux usually install it. The tests run apart from the unit tests, with their own Vitest config, so `npm test` still needs nothing installed.
-- `com.daczarne.litra.sdPlugin/` is the plugin folder: `manifest.json`, the settings pages in `ui/` (with the vendored `sdpi-components` in `ui/vendor/`), and the icons in `imgs/`. `bin/` and `node_modules/` inside it are build output.
+- `com.daczarne.litra.sdPlugin/` is the plugin folder: `manifest.json`, the settings pages in `ui/` (with the vendored `sdpi-components` in `ui/vendor/`), the icons in `imgs/`, and the custom dial layouts in `layouts/`. `bin/` and `node_modules/` inside it are build output.
 - `scripts/check-ui.mjs` guards the settings pages (see [Supply chain](#supply-chain)). `scripts/generate-icons.mjs` generates the icons. `scripts/probes/` holds scripts that ask the lamps directly how they behave, run by hand, with a README on how to run them and read their output.
 - `ref/` holds the original author's design notes and the paused Beam LX back-light research. It isn't shipped or built ([#12]).
 - `docs/` holds the documents listed in [Read before changing things](#read-before-changing-things).

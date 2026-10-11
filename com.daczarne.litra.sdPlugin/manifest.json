@@ -46,7 +46,8 @@
         "Icon": "imgs/actions/brightness/encoder",
         "TriggerDescription": {
           "Rotate": "Brightness",
-          "Push": "Power"
+          "Push": "Power",
+          "Touch": "Lamps"
         }
       },
       "States": [
@@ -74,7 +75,8 @@
         "Icon": "imgs/actions/temperature/encoder",
         "TriggerDescription": {
           "Rotate": "Temperature",
-          "Push": "Power"
+          "Push": "Power",
+          "Touch": "Lamps"
         }
       },
       "States": [

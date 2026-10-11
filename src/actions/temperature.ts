@@ -6,7 +6,9 @@ import {
   KeyAction,
   KeyDownEvent,
   SingletonAction,
+  TouchTapEvent,
   WillAppearEvent,
+  WillDisappearEvent,
 } from "@elgato/streamdeck";
 
 import {
@@ -17,6 +19,7 @@ import {
   setTemperatureAllInKelvin,
   toggleAll,
 } from "../litra-manager";
+import { lampScreens as sharedLampScreens, type LampScreens } from "./lamp-screens";
 
 type TemperatureSettings = {
   presetKelvin?: number;
@@ -30,9 +33,23 @@ export class TemperatureAction extends SingletonAction<TemperatureSettings> {
   private readonly dialQueues = new Map<string, (ticks: number) => void>();
   private readonly latestSettings = new Map<string, TemperatureSettings>();
 
+  private readonly lampScreens: LampScreens;
+
+  constructor(lampScreens: LampScreens = sharedLampScreens) {
+    super();
+    this.lampScreens = lampScreens;
+  }
+
   override async onWillAppear(ev: WillAppearEvent<TemperatureSettings>): Promise<void> {
     this.latestSettings.set(ev.action.id, ev.payload.settings);
+    if (ev.action.isDial()) {
+      await this.lampScreens.appear(ev.action);
+    }
     await this.refreshDisplay(ev.action, ev.payload.settings);
+  }
+
+  override async onWillDisappear(ev: WillDisappearEvent<TemperatureSettings>): Promise<void> {
+    await this.lampScreens.disappear(ev.action.id);
   }
 
   override async onDidReceiveSettings(ev: DidReceiveSettingsEvent<TemperatureSettings>): Promise<void> {
@@ -48,6 +65,7 @@ export class TemperatureAction extends SingletonAction<TemperatureSettings> {
     }
     // The key shows its preset, and the dials the temperature the lamps were set to: the preset snapped to an allowed one.
     await this.showOnEveryDial(result);
+    await this.lampScreens.refresh();
   }
 
   /** Dial press toggles power; rotate adjusts temperature. */
@@ -58,11 +76,25 @@ export class TemperatureAction extends SingletonAction<TemperatureSettings> {
       return;
     }
     await this.refreshDisplay(ev.action, ev.payload.settings);
+    await this.lampScreens.refresh();
+  }
+
+  /** Tapping the strip shows the lamps one by one, and holding it goes back to the main screen. */
+  override async onTouchTap(ev: TouchTapEvent<TemperatureSettings>): Promise<void> {
+    if (ev.payload.hold) {
+      await this.lampScreens.back(ev.action.id);
+      return;
+    }
+    await this.lampScreens.tap(ev.action, () => this.refreshDisplay(ev.action, ev.payload.settings));
   }
 
   override async onDialRotate(ev: DialRotateEvent<TemperatureSettings>): Promise<void> {
     const id = ev.action.id;
     this.latestSettings.set(id, ev.payload.settings);
+    // Turning the dial does nothing on a lamp screen.
+    if (this.lampScreens.isShowing(id)) {
+      return;
+    }
     let queue = this.dialQueues.get(id);
     if (!queue) {
       queue = createDialDebouncer(async (ticks) => {
@@ -73,6 +105,7 @@ export class TemperatureAction extends SingletonAction<TemperatureSettings> {
           await ev.action.showAlert();
         }
         await this.showOnEveryDial(result);
+        await this.lampScreens.refresh();
       });
       this.dialQueues.set(id, queue);
     }
@@ -103,7 +136,8 @@ export class TemperatureAction extends SingletonAction<TemperatureSettings> {
   /** Fills the slots of the $B1 layout: the kelvin as text, and its place in the lamp's range as the bar under it. */
   private async showDialValue(action: ActionRef, result: BroadcastResult | undefined): Promise<void> {
     const kelvin = result?.representativeTemperatureKelvin;
-    if (action.isDial()) {
+    // A dial on a lamp screen has another layout, which the lamp screens redraw.
+    if (action.isDial() && !this.lampScreens.isShowing(action.id)) {
       await action.setFeedback({
         title: "Temperature",
         value: kelvin === undefined ? "—" : `${Math.round(kelvin)}`,

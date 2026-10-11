@@ -6,6 +6,7 @@ import {
 } from "@elgato/streamdeck";
 
 import { isOnAll, toggleAll, turnOffAll, turnOnAll } from "../litra-manager";
+import { lampScreens as sharedLampScreens, type LampScreens } from "./lamp-screens";
 
 type PowerSettings = {
   mode?: "toggle" | "on" | "off";
@@ -13,6 +14,13 @@ type PowerSettings = {
 
 @action({ UUID: "com.daczarne.litra.power" })
 export class PowerAction extends SingletonAction<PowerSettings> {
+  private readonly lampScreens: LampScreens;
+
+  constructor(lampScreens: LampScreens = sharedLampScreens) {
+    super();
+    this.lampScreens = lampScreens;
+  }
+
   override async onWillAppear(ev: WillAppearEvent<PowerSettings>): Promise<void> {
     await this.syncState(ev.action);
   }
@@ -27,6 +35,8 @@ export class PowerAction extends SingletonAction<PowerSettings> {
     }
 
     await this.syncState(ev.action);
+    // Dials showing a lamp screen show whether that lamp is on.
+    await this.lampScreens.refresh();
   }
 
   private async syncState(action: WillAppearEvent<PowerSettings>["action"]): Promise<void> {

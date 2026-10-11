@@ -4,10 +4,15 @@ import {
   adjustBrightnessAllByPercentageSteps,
   type BroadcastResult,
   createDialDebouncer,
+  type LampStatus,
+  readLampStatuses,
+  readRepresentativeBrightnessPercentage,
   setBrightnessAllPercentage,
+  toggleAll,
 } from "../litra-manager";
 import { createFakeDial, createFakeKey, type FakeAction, show } from "../test-support/fake-stream-deck";
 import { BrightnessAction } from "./brightness";
+import { LampScreens } from "./lamp-screens";
 
 //* Fakes
 
@@ -17,6 +22,7 @@ vi.mock("@elgato/streamdeck", () => import("../test-support/fake-stream-deck"));
 vi.mock("../litra-manager", () => ({
   adjustBrightnessAllByPercentageSteps: vi.fn(),
   createDialDebouncer: vi.fn(),
+  readLampStatuses: vi.fn(),
   readRepresentativeBrightnessPercentage: vi.fn(),
   setBrightnessAllPercentage: vi.fn(),
   toggleAll: vi.fn(),
@@ -46,6 +52,19 @@ function brightnessOn(percentage: number) {
 }
 
 const UNKNOWN_BRIGHTNESS = { title: "Brightness", value: "—", indicator: 0 };
+
+const BEAM: LampStatus = {
+  serialNumber: "A1",
+  model: "Beam",
+  on: true,
+  brightnessLumen: 324,
+  brightnessPercentage: 79,
+  temperatureKelvin: 2700,
+};
+
+function touchTap(dial: FakeAction, hold = false) {
+  return { action: dial, payload: { settings: {}, hold } } as never;
+}
 
 /** Waits for a dial's flush, which the fake debouncer starts at once and nobody awaits. */
 function flushed(): Promise<void> {
@@ -152,6 +171,96 @@ describe("BrightnessAction", () => {
       expect(turned.showAlert).toHaveBeenCalledOnce();
       expect(otherDial.showAlert).not.toHaveBeenCalled();
       expect(otherDial.setFeedback).toHaveBeenCalledExactlyOnceWith(brightnessOn(79));
+    });
+  });
+
+  describe("with lamp screens", () => {
+    let lampScreens: LampScreens;
+
+    beforeEach(() => {
+      lampScreens = new LampScreens();
+      vi.mocked(readLampStatuses).mockResolvedValue({ ok: true, lamps: [BEAM] });
+      vi.mocked(readRepresentativeBrightnessPercentage).mockReturnValue(REACHED_AT_CAP);
+    });
+
+    it("shows a lamp screen on a tap, and the brightness again after the last lamp", async () => {
+      const dial = createFakeDial();
+      show(dial);
+      const brightness = new BrightnessAction(lampScreens);
+
+      await brightness.onTouchTap(touchTap(dial));
+      expect(dial.setFeedbackLayout).toHaveBeenLastCalledWith("layouts/lamp.json");
+
+      await brightness.onTouchTap(touchTap(dial));
+      expect(dial.setFeedbackLayout).toHaveBeenLastCalledWith("$B1");
+      expect(dial.setFeedback).toHaveBeenLastCalledWith(brightnessOn(79));
+    });
+
+    it("goes back to the brightness on a hold", async () => {
+      const dial = createFakeDial();
+      show(dial);
+      const brightness = new BrightnessAction(lampScreens);
+      await brightness.onTouchTap(touchTap(dial));
+
+      await brightness.onTouchTap(touchTap(dial, true));
+
+      expect(dial.setFeedbackLayout).toHaveBeenLastCalledWith("$B1");
+      expect(dial.setFeedback).toHaveBeenLastCalledWith(brightnessOn(79));
+    });
+
+    it("does nothing when the dial is turned on a lamp screen", async () => {
+      const dial = createFakeDial();
+      show(dial);
+      const brightness = new BrightnessAction(lampScreens);
+      await brightness.onTouchTap(touchTap(dial));
+
+      await brightness.onDialRotate(dialRotate(dial, 3));
+      await flushed();
+
+      expect(adjustBrightnessAllByPercentageSteps).not.toHaveBeenCalled();
+    });
+
+    it("redraws a lamp screen after a key press, instead of showing the brightness on it", async () => {
+      const key = createFakeKey();
+      const onLamp = createFakeDial();
+      const onMain = createFakeDial();
+      show(key, onLamp, onMain);
+      const brightness = new BrightnessAction(lampScreens);
+      await brightness.onTouchTap(touchTap(onLamp));
+      vi.mocked(setBrightnessAllPercentage).mockResolvedValue(REACHED_AT_CAP);
+      const dimmed = { ...BEAM, brightnessLumen: 30, brightnessPercentage: 0 };
+      vi.mocked(readLampStatuses).mockResolvedValue({ ok: true, lamps: [dimmed] });
+
+      await brightness.onKeyDown(keyDown(key, 0));
+
+      expect(onLamp.setFeedback).not.toHaveBeenCalledWith(brightnessOn(79));
+      expect(onLamp.setFeedback).toHaveBeenLastCalledWith(expect.objectContaining({ brightness: "0%", lumens: "30 lm" }));
+      expect(onMain.setFeedback).toHaveBeenCalledExactlyOnceWith(brightnessOn(79));
+    });
+
+    it("toggles every lamp on a push on a lamp screen, and redraws the lamp screen", async () => {
+      const dial = createFakeDial();
+      show(dial);
+      const brightness = new BrightnessAction(lampScreens);
+      await brightness.onTouchTap(touchTap(dial));
+      vi.mocked(toggleAll).mockReturnValue({ ok: true, deviceCount: 1, failures: 0 });
+      vi.mocked(readLampStatuses).mockResolvedValue({ ok: true, lamps: [{ ...BEAM, on: false }] });
+
+      await brightness.onDialDown({ action: dial, payload: { settings: {} } } as never);
+
+      expect(toggleAll).toHaveBeenCalledOnce();
+      expect(dial.setFeedback).not.toHaveBeenCalledWith(brightnessOn(79));
+      expect(dial.setFeedback).toHaveBeenLastCalledWith(expect.objectContaining({ power: "Off" }));
+    });
+
+    it("starts a dial that appears on the main screen", async () => {
+      const dial = createFakeDial();
+      show(dial);
+
+      await new BrightnessAction(lampScreens).onWillAppear({ action: dial, payload: { settings: {} } } as never);
+
+      expect(dial.setFeedbackLayout).toHaveBeenCalledExactlyOnceWith("$B1");
+      expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith(brightnessOn(79));
     });
   });
 });
