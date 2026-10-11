@@ -28,6 +28,8 @@ export const TILES = {
 export const ACCENTS = {
   amber: "#FFB020", // the frame of the desk mode key while it's on
   cobalt: "#33517A", // the slot in the lock, on a `TILES.navy` tile
+  gold: "#F5C542", // lights on: the Power key, and a power symbol on a dark tile
+  ochre: "#B07A00", // lights on, on the `grey` tile, where gold would wash out
   orange: "#E5892E", // the background of the dial's touch strip
   umber: "#2E1F12", // text on the touch strip's orange
 };

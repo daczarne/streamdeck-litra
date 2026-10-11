@@ -49,6 +49,17 @@
     ]
   },
   {
+    "path": "temperature-hot.svg",
+    "name": "Temperature hot",
+    "tags": [
+      "litra",
+      "thermometer",
+      "kelvin",
+      "flame",
+      "hot"
+    ]
+  },
+  {
     "path": "power-on.svg",
     "name": "Power on",
     "tags": [
@@ -132,6 +143,19 @@
     ]
   },
   {
+    "path": "temperature-hot-charcoal.svg",
+    "name": "Temperature hot (charcoal)",
+    "tags": [
+      "litra",
+      "tile",
+      "charcoal",
+      "thermometer",
+      "kelvin",
+      "flame",
+      "hot"
+    ]
+  },
+  {
     "path": "power-on-charcoal.svg",
     "name": "Power on (charcoal)",
     "tags": [
@@ -208,6 +232,19 @@
       "kelvin",
       "sun",
       "warm"
+    ]
+  },
+  {
+    "path": "temperature-hot-grey.svg",
+    "name": "Temperature hot (grey)",
+    "tags": [
+      "litra",
+      "tile",
+      "grey",
+      "thermometer",
+      "kelvin",
+      "flame",
+      "hot"
     ]
   },
   {

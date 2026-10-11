@@ -7,7 +7,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import sharp from "sharp";
 
-import { INK, TILES, WHITE } from "./icon-style.mjs";
+import { ACCENTS, INK, TILES, WHITE } from "./icon-style.mjs";
 
 const root = path.resolve("com.daczarne.litra.sdPlugin/imgs");
 const packRoot = path.resolve("com.daczarne.litra.sdIconPack");
@@ -16,7 +16,7 @@ const COLORS = {
   bg: "#1A1A1A",
   muted: "#6B6B6B",
   warm: "#FFB347",
-  on: "#F5C542",
+  on: ACCENTS.gold,
 };
 
 function svgDoc(size, body) {
@@ -131,7 +131,8 @@ function brightnessGlyph(size, { color = "#FFFFFF" } = {}) {
   return `<circle cx="${cx}" cy="${cy}" r="${core + sw / 2}" fill="${color}"/>\n${rays}`;
 }
 
-function temperatureGlyph(size, { color = "#FFFFFF" } = {}) {
+/** A thermometer whose bar fills `level` of the tube, from the bulb up: all of it unless a glyph says otherwise. */
+function temperatureGlyph(size, { color = "#FFFFFF", level = 1 } = {}) {
   const cx = size / 2;
   const sw = size * 0.065;
   const tubeHalf = size * 0.08;
@@ -140,6 +141,7 @@ function temperatureGlyph(size, { color = "#FFFFFF" } = {}) {
   const bulbCy = size * 0.72;
   // Where the tube's sides meet the bulb.
   const joinY = bulbCy - Math.sqrt(bulbR ** 2 - tubeHalf ** 2);
+  const barTop = top + size * 0.16;
   return `<path
     d="M ${cx - tubeHalf} ${top + tubeHalf}
     A ${tubeHalf} ${tubeHalf} 0 0 1 ${cx + tubeHalf} ${top + tubeHalf}
@@ -147,7 +149,7 @@ function temperatureGlyph(size, { color = "#FFFFFF" } = {}) {
     A ${bulbR} ${bulbR} 0 1 1 ${cx - tubeHalf} ${joinY} Z"
     stroke="${color}" stroke-width="${sw}" stroke-linejoin="round"/>
     <circle cx="${cx}" cy="${bulbCy}" r="${bulbR * 0.45}" fill="${color}"/>
-    <line x1="${cx}" y1="${top + size * 0.16}" x2="${cx}" y2="${bulbCy}"
+    <line x1="${cx}" y1="${bulbCy - (bulbCy - barTop) * level}" x2="${cx}" y2="${bulbCy}"
     stroke="${color}" stroke-width="${sw}" stroke-linecap="round"/>`;
 }
 
@@ -172,9 +174,10 @@ function dimGlyph(size, { color = "#FFFFFF" } = {}) {
 const BADGE = { thermometerX: 0.28, x: 0.71, y: 0.34, r: 0.18 };
 
 /** The thermometer of {@link temperatureGlyph}, moved left, with a badge drawn by `badge` at its upper right. */
-function thermometerWith(size, color, badge) {
+function thermometerWith(size, color, level, badge) {
   const sw = size * 0.038;
-  return `<g transform="translate(${size * (BADGE.thermometerX - 0.5)} 0)">${temperatureGlyph(size, { color })}</g>
+  const shift = size * (BADGE.thermometerX - 0.5);
+  return `<g transform="translate(${shift} 0)">${temperatureGlyph(size, { color, level })}</g>
     ${badge(size * BADGE.x, size * BADGE.y, size * BADGE.r, sw, color)}`;
 }
 
@@ -207,23 +210,49 @@ function smallSun(cx, cy, r, sw, color) {
   return `<circle cx="${cx}" cy="${cy}" r="${r * 0.42}" fill="${color}"/>\n${rays}`;
 }
 
-/** The thermometer with a snowflake, for a cooler temperature. */
-function coolGlyph(size, { color = "#FFFFFF" } = {}) {
-  return thermometerWith(size, color, snowflake);
+/**
+ * A flame of half-height `r`, a tenth taller than the other badges since it's narrower: a rounded base, a main tongue
+ * leaning right and a smaller one on the left, with a teardrop cut out of its base. The cut-out keeps a margin of `sw`.
+ */
+function flame(cx, cy, badgeR, sw, color) {
+  const r = badgeR * 1.1;
+  const at = (x, y) => `${cx + x * r} ${cy + y * r}`;
+  const outer = `M ${at(0, 1)}
+    C ${at(-0.72, 1)} ${at(-0.85, 0.4)} ${at(-0.58, -0.05)}
+    C ${at(-0.46, -0.25)} ${at(-0.46, -0.45)} ${at(-0.52, -0.64)}
+    C ${at(-0.24, -0.5)} ${at(-0.14, -0.32)} ${at(-0.12, -0.16)}
+    C ${at(-0.06, -0.55)} ${at(0.18, -0.78)} ${at(0.08, -1)}
+    C ${at(0.52, -0.72)} ${at(0.82, -0.22)} ${at(0.68, 0.35)}
+    C ${at(0.58, 0.8)} ${at(0.3, 1)} ${at(0, 1)} Z`;
+  const [ix, iy, ir] = [cx, cy + r * 0.5, r * 0.48 - sw / 2];
+  const inner = `M ${ix} ${iy + ir}
+    C ${ix - ir * 0.78} ${iy + ir} ${ix - ir * 0.78} ${iy} ${ix} ${iy - ir}
+    C ${ix + ir * 0.78} ${iy} ${ix + ir * 0.78} ${iy + ir} ${ix} ${iy + ir} Z`;
+  return `<path d="${outer} ${inner}" fill="${color}" fill-rule="evenodd"/>`;
 }
 
-/** The thermometer with a sun, for a warmer temperature. */
+/** The thermometer with its bar low and a snowflake, for a cool temperature. */
+function coolGlyph(size, { color = "#FFFFFF" } = {}) {
+  return thermometerWith(size, color, 0.25, snowflake);
+}
+
+/** The thermometer with a sun, for a warm temperature. */
 function warmGlyph(size, { color = "#FFFFFF" } = {}) {
-  return thermometerWith(size, color, smallSun);
+  return thermometerWith(size, color, 1, smallSun);
+}
+
+/** The thermometer with its bar full and a flame, for a hot temperature. */
+function hotGlyph(size, { color = "#FFFFFF" } = {}) {
+  return thermometerWith(size, color, 1, flame);
 }
 
 /**
  * The tiled schemes: a glyph in `ink` on a `tile` that fills the icon, like the monitor keys. The Deck's keys round the
- * corners themselves, so the tile doesn't.
+ * corners themselves, so the tile doesn't. `lit` is the color of lights that are on, readable on the tile.
  */
 const TILE_SCHEMES = [
-  { name: "charcoal", tile: TILES.charcoal, ink: WHITE },
-  { name: "grey", tile: TILES.grey, ink: INK },
+  { name: "charcoal", tile: TILES.charcoal, ink: WHITE, lit: ACCENTS.gold },
+  { name: "grey", tile: TILES.grey, ink: INK, lit: ACCENTS.ochre },
 ];
 
 /**
@@ -232,8 +261,8 @@ const TILE_SCHEMES = [
  *
  * `span` is how much of its own canvas a glyph covers at its widest or tallest, strokes included, and `tileSpan` how
  * much of a tile it covers. The suns match the suns of the monitor keys, and the others are sized to look as large: a
- * thin thermometer needs more room, and the heavy power symbol less. `fade` marks the off state, drawn on a tile in an
- * ink faded toward it.
+ * thin thermometer needs more room, and the heavy power symbol less. On a tile, `lit` draws a glyph in the tile's color
+ * for lights that are on, and `fade` marks the off state, drawn in an ink faded toward the tile.
  */
 const PACK_GLYPHS = [
   { id: "brightness", name: "Brightness", tags: ["sun", "light"], draw: brightnessGlyph, span: 0.865, tileSpan: 0.57 },
@@ -263,12 +292,21 @@ const PACK_GLYPHS = [
     tileSpan: 0.62,
   },
   {
+    id: "temperature-hot",
+    name: "Temperature hot",
+    tags: ["thermometer", "kelvin", "flame", "hot"],
+    draw: hotGlyph,
+    span: 0.815,
+    tileSpan: 0.62,
+  },
+  {
     id: "power-on",
     name: "Power on",
     tags: ["power"],
     draw: (size, options) => powerGlyph(size, { ...options, on: true }),
     span: 0.54,
     tileSpan: 0.52,
+    lit: true,
   },
   {
     id: "power-off",
@@ -299,8 +337,8 @@ function mix(from, to, share) {
 }
 
 /** The pack entry of a glyph on one tile. */
-function tiledIcon({ id, name, tags, draw, span, tileSpan, fade }, { name: tileName, tile, ink }) {
-  const color = fade ? mix(ink, tile, OFF_FADE) : ink;
+function tiledIcon({ id, name, tags, draw, span, tileSpan, lit, fade }, { name: tileName, tile, ink, lit: litColor }) {
+  const color = lit ? litColor : fade ? mix(ink, tile, OFF_FADE) : ink;
   return {
     path: `${id}-${tileName}.svg`,
     name: `${name} (${tileName})`,
