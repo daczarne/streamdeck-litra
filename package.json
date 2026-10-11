@@ -4,7 +4,7 @@
   "private": true,
   "description": "Elgato Stream Deck plugin for Logitech Litra lights (Glow, Beam, Beam LX front light).",
   "license": "MIT",
-  "author": "Seth Sheppard",
+  "author": "Daniel Czarnievicz",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/daczarne/streamdeck-litra.git"
