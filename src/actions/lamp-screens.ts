@@ -13,7 +13,6 @@ type Screen = {
   serialNumber: string;
   /** Draws the dial's main screen again, which only its action knows how to do. */
   showMain: () => Promise<void>;
-  timer: ReturnType<typeof setTimeout>;
 };
 
 const logger = streamDeck.logger;
@@ -21,15 +20,13 @@ const logger = streamDeck.logger;
 export const MAIN_LAYOUT = "$B1";
 const LAMP_LAYOUT = "layouts/lamp.json";
 
-// Like Elgato's weather plugin, a lamp screen gives way to the main screen when left alone.
-const BACK_TO_MAIN_MS = 5000;
-
 // Turning the dial does nothing on a lamp screen, so it gets no description.
 const LAMP_TRIGGER_DESCRIPTIONS = { push: "Power", touch: "Next lamp", longTouch: "Back" };
 
 /**
  * The lamp screens of every Brightness and Temperature dial (#48). Tapping a dial's strip shows each lamp in turn, in
- * the order of their serial numbers, then the dial's main screen again. Each dial remembers the serial of the lamp it
+ * the order of their serial numbers, then the dial's main screen again. A dial stays on a lamp screen until it's tapped
+ * past the last lamp or its strip is held. Each dial remembers the serial of the lamp it
  * shows rather than its position, so a lamp unplugged mid-cycle is skipped and "n of m" counts the lamps connected at
  * that moment.
  *
@@ -90,7 +87,7 @@ export class LampScreens {
    */
   appear(dial: LampScreenDial): Promise<void> {
     return this.enqueue(async () => {
-      this.forget(dial.id);
+      this.screens.delete(dial.id);
       await dial.setFeedbackLayout(MAIN_LAYOUT);
       await dial.setTriggerDescription();
     });
@@ -98,7 +95,7 @@ export class LampScreens {
 
   disappear(dialId: string): Promise<void> {
     return this.enqueue(async () => {
-      this.forget(dialId);
+      this.screens.delete(dialId);
     });
   }
 
@@ -115,9 +112,8 @@ export class LampScreens {
     lamps: LampStatus[],
     showMain: () => Promise<void>,
   ): Promise<void> {
-    const wasShowing = this.forget(dial.id);
-    const timer = setTimeout(() => void this.back(dial.id), BACK_TO_MAIN_MS);
-    this.screens.set(dial.id, { dial, serialNumber: lamp.serialNumber, showMain, timer });
+    const wasShowing = this.screens.has(dial.id);
+    this.screens.set(dial.id, { dial, serialNumber: lamp.serialNumber, showMain });
     if (!wasShowing) {
       await dial.setFeedbackLayout(LAMP_LAYOUT);
       await dial.setTriggerDescription(LAMP_TRIGGER_DESCRIPTIONS);
@@ -130,21 +126,10 @@ export class LampScreens {
     if (screen === undefined) {
       return;
     }
-    this.forget(dialId);
+    this.screens.delete(dialId);
     await screen.dial.setFeedbackLayout(MAIN_LAYOUT);
     await screen.dial.setTriggerDescription();
     await screen.showMain();
-  }
-
-  /** Drops a dial's lamp screen and its timer, without drawing anything. Says whether it had one. */
-  private forget(dialId: string): boolean {
-    const screen = this.screens.get(dialId);
-    if (screen === undefined) {
-      return false;
-    }
-    clearTimeout(screen.timer);
-    this.screens.delete(dialId);
-    return true;
   }
 }
 

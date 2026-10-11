@@ -28,7 +28,7 @@ In VS Code, the `Build and restart` task runs both.
 2. **Each lamp in turn.** Tap again: the strip shows "Beam · 2 of 2" with the other lamp's values. Tap again: the strip goes back to the brightness with its bar.
 3. **The two lamps tell apart.** Dim one lamp with its own button, then tap through both screens: only one shows the lower brightness, and it stays the same lamp ("1 of 2" or "2 of 2") on every cycle.
 4. **Holding goes back.** Tap to a lamp screen, then hold the strip: the strip goes back to the brightness right away.
-5. **Five seconds alone go back.** Tap to a lamp screen and leave the dial alone: about 5 seconds later, the strip goes back to the brightness. Tap to a lamp screen again and tap every 3 seconds or so: it stays on the lamp screens.
+5. **A lamp screen stays.** Tap to a lamp screen and leave the dial alone for a minute: the strip still shows the lamp screen.
 6. **Turning does nothing.** On a lamp screen, turn the dial: the lamps don't change, and neither does the screen.
 7. **Pushing toggles every lamp.** On a lamp screen, push the dial: both lamps turn off, and the screen shows "Off". Push again: both turn on, and it shows "On".
 8. **Other changes show.** Put the Temperature dial on a lamp screen, then turn the Brightness dial and press the Power key: the Temperature dial's lamp screen shows the new brightness, then the new power state.

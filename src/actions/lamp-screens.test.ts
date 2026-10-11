@@ -1,5 +1,5 @@
 import streamDeck from "@elgato/streamdeck";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { type LampStatus, readLampStatuses } from "../litra-manager";
 import { createFakeDial } from "../test-support/fake-stream-deck";
@@ -55,10 +55,6 @@ beforeEach(() => {
   screens = new LampScreens();
   showMain = vi.fn(async () => {});
   connect(A, B);
-});
-
-afterEach(() => {
-  vi.useRealTimers();
 });
 
 //* Tests
@@ -184,19 +180,16 @@ describe("LampScreens", () => {
       expect(dial.setFeedbackLayout).not.toHaveBeenCalled();
     });
 
-    it("happens 5 seconds after the last tap", async () => {
+    it("doesn't happen on its own", async () => {
       vi.useFakeTimers();
       const dial = createFakeDial();
       await screens.tap(dial, showMain);
-      await vi.advanceTimersByTimeAsync(4000);
-      await screens.tap(dial, showMain);
 
-      await vi.advanceTimersByTimeAsync(4999);
+      await vi.advanceTimersByTimeAsync(60_000);
+      vi.useRealTimers();
+
       expect(screens.isShowing(dial.id)).toBe(true);
-
-      await vi.advanceTimersByTimeAsync(1);
-      expect(screens.isShowing(dial.id)).toBe(false);
-      expect(showMain).toHaveBeenCalledOnce();
+      expect(showMain).not.toHaveBeenCalled();
     });
   });
 
@@ -250,16 +243,16 @@ describe("LampScreens", () => {
     it.each([
       ["appears again", (dial: ReturnType<typeof createFakeDial>) => screens.appear(dial)],
       ["disappears", (dial: ReturnType<typeof createFakeDial>) => screens.disappear(dial.id)],
-    ])("forgets the lamp screen of a dial that %s, and its timer", async (_, event) => {
-      vi.useFakeTimers();
+    ])("forgets the lamp screen of a dial that %s", async (_, event) => {
       const dial = createFakeDial();
       await screens.tap(dial, showMain);
 
       await event(dial);
-      await vi.advanceTimersByTimeAsync(5000);
+      await screens.refresh();
 
       expect(screens.isShowing(dial.id)).toBe(false);
-      expect(showMain).not.toHaveBeenCalled();
+      // The refresh had no lamp screen left to redraw.
+      expect(readLampStatuses).toHaveBeenCalledOnce();
     });
   });
 });
