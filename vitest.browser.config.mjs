@@ -4,7 +4,7 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     include: ["browser-tests/**/*.test.ts"],
-    // Starting Chrome takes a few seconds on a cold machine.
+    // Starting Chrome and loading its first page take several seconds on a cold machine, and the setup waits for both.
     hookTimeout: 30_000,
   },
 });
