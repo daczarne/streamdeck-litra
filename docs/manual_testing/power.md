@@ -20,6 +20,8 @@ npm run build
 npx streamdeck restart com.daczarne.litra
 ```
 
+In VS Code, the `Build and restart` task runs both.
+
 To put the lamps out of sync, turn one Beam off with its own power button. The plugin doesn't notice a lamp's own button, so the Power key keeps showing what it showed before until it's pressed.
 
 ## Checks

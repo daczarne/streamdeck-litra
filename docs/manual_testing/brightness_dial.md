@@ -32,6 +32,8 @@ npm run build
 npx streamdeck restart com.daczarne.litra
 ```
 
+In VS Code, the `Build and restart` task runs both.
+
 Restarting also clears the caps the plugin has learned, so the checks start from scratch.
 
 ## Checks
