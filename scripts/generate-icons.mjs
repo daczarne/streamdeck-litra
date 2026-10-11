@@ -22,12 +22,6 @@ function svgDoc(size, body) {
     </svg>`;
 }
 
-/** Key tile background */
-function keyBg(size = 72) {
-  const r = Math.round(size * 0.18);
-  return `<rect width="${size}" height="${size}" rx="${r}" fill="${COLORS.bg}"/>`;
-}
-
 function powerGlyph(size, { on }) {
   const cx = size / 2;
   const cy = size / 2;
@@ -35,8 +29,7 @@ function powerGlyph(size, { on }) {
   const sw = size * 0.07;
   const r = size * 0.22;
   const stemH = size * 0.2;
-  return `${keyBg(size)}
-    <path d="M ${cx} ${cy - r - stemH * 0.15} V ${cy - stemH * 0.05}"
+  return `<path d="M ${cx} ${cy - r - stemH * 0.15} V ${cy - stemH * 0.05}"
     stroke="${stroke}" stroke-width="${sw}" stroke-linecap="round"/>
     <path d="M ${cx - r * 0.85} ${cy - r * 0.35} A ${r} ${r} 0 1 0 ${cx + r * 0.85} ${cy - r * 0.35}"
     stroke="${stroke}" stroke-width="${sw}" stroke-linecap="round" fill="none"/>
@@ -168,7 +161,7 @@ async function writePair(basePathNoExt, svgAt1x, size1x) {
 }
 
 async function main() {
-  // Power key tiles (72 / 144)
+  // Power key states (72 / 144)
   await writePair(path.join(root, "actions/power/key-off"), (s) => powerGlyph(s, { on: false }), 72);
   await writePair(path.join(root, "actions/power/key-on"), (s) => powerGlyph(s, { on: true }), 72);
 

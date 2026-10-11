@@ -8,7 +8,7 @@ The unit tests check against fake lamps how a toggle chooses one state for every
 
 ## When to run these checks
 
-- After a change to how the plugin turns the lamps on or off, or reads whether they're on.
+- After a change to how the plugin turns the lamps on or off, or reads whether they're on, or to the Power key's images.
 - After a Stream Deck update.
 
 ## Setup
@@ -33,6 +33,7 @@ To put the lamps out of sync, turn one Beam off with its own power button. The p
 5. **Every Power key follows a Power key.** Press one Power key: both lamps change, and both Power keys show the new state.
 6. **Every Power key follows a dial press.** Press either dial: both lamps change, and both Power keys show the new state.
 7. **Every Power key follows a Brightness key.** With both lamps off, press the Brightness key: both lamps turn on at its preset, and both Power keys show on. Turn the lamps off again and turn the Brightness dial: the same happens.
+8. **The keys show their state without a tile.** A Power key shows an orange power symbol when the lamps are on and a grey one when they're off, both drawn straight on the key's background, like the transparent icons around them. A key given a custom image keeps it.
 
 [#23]: https://github.com/daczarne/streamdeck-litra/issues/23
 [#57]: https://github.com/daczarne/streamdeck-litra/issues/57
