@@ -27,6 +27,10 @@ type BrightnessSettings = {
 
 type ActionRef = WillAppearEvent<BrightnessSettings>["action"];
 
+// Stream Deck's app pictures a dial with the action's key image, not with `Encoder.Icon` as the SDK says, so each dial
+// sets its picture to the icon its touch strip shows (#51).
+const DIAL_IMAGE = "imgs/actions/brightness/encoder@2x.png";
+
 // Where fewer lamps reach, the bar fades from white towards this grey, never as far as the bar's own background, and
 // light enough to read on the strip.
 const FAINTEST_BAR_GREY = 0x80;
@@ -72,6 +76,7 @@ export class BrightnessAction extends SingletonAction<BrightnessSettings> {
   override async onWillAppear(ev: WillAppearEvent<BrightnessSettings>): Promise<void> {
     this.latestSettings.set(ev.action.id, ev.payload.settings);
     if (ev.action.isDial()) {
+      await ev.action.setImage(DIAL_IMAGE);
       await this.lampScreens.appear(ev.action);
     }
     await this.refreshDisplay(ev.action, ev.payload.settings);

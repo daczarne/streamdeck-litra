@@ -26,7 +26,9 @@ Stream Deck ships six layouts, chosen by name:
 | `$B2`  | Like `$A1`, with a gradient bar and a marker beneath the value.        |
 | `$C1`  | The title at the top, two rows of an icon and a bar.                   |
 
-The dials use `$B1`, the layout of Stream Deck's own volume and microphone dials. Its slots are `title`, `icon`, `value` and `indicator` (the bar, filled by a number from 0 to 100). The `icon` slot shows the action's dial icon, `Encoder.Icon` in `manifest.json`: a PNG or SVG at 72x72 px and 144x144 px, also shown in the app's round picture of the dial. The icon reads best as white line art on a transparent background, like Stream Deck's own: anything drawn behind the glyph shows up as a box on the strip.
+The dials use `$B1`, the layout of Stream Deck's own volume and microphone dials. Its slots are `title`, `icon`, `value` and `indicator` (the bar, filled by a number from 0 to 100). The `icon` slot shows the action's dial icon, `Encoder.Icon` in `manifest.json`: a PNG or SVG at 72x72 px and 144x144 px. The icon reads best as white line art on a transparent background, like Stream Deck's own: anything drawn behind the glyph shows up as a box on the strip.
+
+The schema says `Encoder.Icon` is also the app's round picture of the dial, but on Stream Deck 7.6 the app shows the action's key image there instead (`States[0].Image`), both for dials placed before and after the plugin's manifest changed, and after Stream Deck is quit and reopened ([#51]). This was seen on actions that have both a key and a dial. `setImage` on a dial changes that picture, so each dial sets it to its `Encoder.Icon` when it appears. Like a key's, it only applies while the user hasn't picked a custom image for the dial.
 
 ## Custom layouts
 
@@ -56,8 +58,9 @@ Checked against `@elgato/streamdeck` 3.0.1 and the schemas in `@elgato/schemas`,
 
 - The canvas size, the built-in layouts and `Encoder.Icon`: the `Encoder` definition in `@elgato/schemas/streamdeck/plugins/manifest.json`.
 - The item types and the `title` key: `@elgato/streamdeck/dist/api/layout.d.ts` and `@elgato/schemas/streamdeck/plugins/layout.json`.
-- `setFeedback` and `setFeedbackLayout`: `@elgato/streamdeck/dist/plugin/actions/dial.d.ts`.
+- `setFeedback`, `setFeedbackLayout` and `setImage`: `@elgato/streamdeck/dist/plugin/actions/dial.d.ts`.
 
 [#8]: https://github.com/daczarne/streamdeck-litra/issues/8
 [#48]: https://github.com/daczarne/streamdeck-litra/issues/48
+[#51]: https://github.com/daczarne/streamdeck-litra/issues/51
 [#59]: https://github.com/daczarne/streamdeck-litra/issues/59

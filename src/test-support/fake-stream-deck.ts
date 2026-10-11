@@ -20,6 +20,7 @@ function createFakeAction(controller: "Keypad" | "Encoder") {
     setTitle: vi.fn(async (_title?: string): Promise<void> => {}),
     setFeedback: vi.fn(async (_feedback: object): Promise<void> => {}),
     setFeedbackLayout: vi.fn(async (_layout: string): Promise<void> => {}),
+    setImage: vi.fn(async (_image?: string): Promise<void> => {}),
     setState: vi.fn(async (_state: number): Promise<void> => {}),
     setTriggerDescription: vi.fn(async (_descriptions?: object): Promise<void> => {}),
     showAlert: vi.fn(async (): Promise<void> => {}),

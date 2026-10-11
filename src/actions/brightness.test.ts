@@ -85,6 +85,30 @@ beforeEach(() => {
 //* Tests
 
 describe("BrightnessAction", () => {
+  describe("when it appears", () => {
+    beforeEach(() => {
+      vi.mocked(readRepresentativeBrightnessPercentage).mockReturnValue(REACHED_AT_CAP);
+    });
+
+    it("pictures a dial in the app with its touch strip's icon, not the key image (#51)", async () => {
+      const dial = createFakeDial();
+      show(dial);
+
+      await new BrightnessAction(new LampScreens()).onWillAppear({ action: dial, payload: { settings: {} } } as never);
+
+      expect(dial.setImage).toHaveBeenCalledExactlyOnceWith("imgs/actions/brightness/encoder@2x.png");
+    });
+
+    it("leaves a key's image to the manifest", async () => {
+      const key = createFakeKey();
+      show(key);
+
+      await new BrightnessAction(new LampScreens()).onWillAppear({ action: key, payload: { settings: {} } } as never);
+
+      expect(key.setImage).not.toHaveBeenCalled();
+    });
+  });
+
   describe("on a key press", () => {
     it("sets the lamps to the key's preset", async () => {
       const key = createFakeKey();

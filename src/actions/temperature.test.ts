@@ -75,6 +75,30 @@ beforeEach(() => {
 //* Tests
 
 describe("TemperatureAction", () => {
+  describe("when it appears", () => {
+    beforeEach(() => {
+      vi.mocked(readRepresentativeTemperatureKelvin).mockReturnValue(SNAPPED);
+    });
+
+    it("pictures a dial in the app with its touch strip's icon, not the key image (#51)", async () => {
+      const dial = createFakeDial();
+      show(dial);
+
+      await new TemperatureAction(new LampScreens()).onWillAppear({ action: dial, payload: { settings: {} } } as never);
+
+      expect(dial.setImage).toHaveBeenCalledExactlyOnceWith("imgs/actions/temperature/encoder@2x.png");
+    });
+
+    it("leaves a key's image to the manifest", async () => {
+      const key = createFakeKey();
+      show(key);
+
+      await new TemperatureAction(new LampScreens()).onWillAppear({ action: key, payload: { settings: {} } } as never);
+
+      expect(key.setImage).not.toHaveBeenCalled();
+    });
+  });
+
   describe("on a key press", () => {
     it("sets the lamps to the key's preset", () => {
       const key = createFakeKey();
