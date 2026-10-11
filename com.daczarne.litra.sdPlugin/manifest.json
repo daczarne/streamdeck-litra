@@ -2,7 +2,7 @@
   "$schema": "https://schemas.elgato.com/streamdeck/plugins/manifest.json",
   "Name": "Litra",
   "Version": "1.0.0.0",
-  "Author": "Seth Sheppard",
+  "Author": "Daniel Czarnievicz",
   "Actions": [
     {
       "Name": "Power",
