@@ -20,6 +20,8 @@ type Panel = {
   settings: string[];
   /** A setting to change through its control, and the value Stream Deck should receive for it. */
   change: { setting: string; value: string; saved: unknown };
+  /** For a slider: the value shown next to it by default, and once it is at `change.value`. */
+  slider?: { default: string; changed: string };
 };
 
 // What each settings page shows on each controller its action supports, as listed in manifest.json.
@@ -35,18 +37,21 @@ const PANELS: Panel[] = [
     controller: "Keypad",
     settings: ["presetPercentage"],
     change: { setting: "presetPercentage", value: "40", saved: 40 },
+    slider: { default: "100%", changed: "40%" },
   },
   {
     page: "ui/brightness.html",
     controller: "Encoder",
     settings: ["stepPercentage"],
     change: { setting: "stepPercentage", value: "10", saved: 10 },
+    slider: { default: "5%", changed: "10%" },
   },
   {
     page: "ui/temperature.html",
     controller: "Keypad",
     settings: ["presetKelvin"],
     change: { setting: "presetKelvin", value: "5000", saved: 5000 },
+    slider: { default: "4000 K", changed: "5000 K" },
   },
   {
     page: "ui/temperature.html",
@@ -82,9 +87,13 @@ type OpenedPanel = {
 
 /**
  * Opens a settings page the way Stream Deck does: loads it from the plugin folder, then calls the page's
- * `connectElgatoStreamDeckSocket` with the fake Stream Deck's port and the action's details.
+ * `connectElgatoStreamDeckSocket` with the fake Stream Deck's port and the action's details, including its saved
+ * settings.
  */
-async function openPanel({ page: file, controller }: Panel): Promise<OpenedPanel> {
+async function openPanel(
+  { page: file, controller }: Panel,
+  settings: Record<string, unknown> = {},
+): Promise<OpenedPanel> {
   const page = await chrome.newPage();
   const uuid = randomUUID();
   const requests: string[] = [];
@@ -116,7 +125,7 @@ async function openPanel({ page: file, controller }: Panel): Promise<OpenedPanel
     action: action.UUID,
     context: randomUUID(),
     device: "device",
-    payload: { controller, settings: {} },
+    payload: { controller, settings },
   };
   await page.evaluate(
     `connectElgatoStreamDeckSocket(${streamDeck.port}, "${uuid}", "registerPropertyInspector", ` +
@@ -132,6 +141,13 @@ function visibleSettings(page: Page): Promise<string[]> {
     [...document.querySelectorAll("[setting]")]
       .filter((control) => !control.closest("[hidden]"))
       .map((control) => control.getAttribute("setting"))
+  `);
+}
+
+/** The value shown next to the slider of a setting. */
+function shownValue(page: Page, setting: string): Promise<string> {
+  return page.evaluate(`
+    document.querySelector('[setting="${setting}"]').closest(".range").querySelector("output").value
   `);
 }
 
@@ -203,6 +219,37 @@ describe("settings pages", () => {
       })()`);
       expect(ran).toBe(false);
       expect(await page.evaluate("violations.map((v) => v.directive)")).toEqual(["script-src-elem"]);
+      await page.close();
+    });
+  });
+
+  describe.each(PANELS.filter((panel) => panel.slider))("the slider of $page on $controller", (panel) => {
+    const slider = panel.slider!;
+
+    it("shows its default value next to it", async () => {
+      const { page } = await openPanel(panel);
+      await expect.poll(() => shownValue(page, panel.change.setting)).toBe(slider.default);
+      await page.close();
+    });
+
+    it("shows the saved value next to it", async () => {
+      const { setting, saved } = panel.change;
+      const { page } = await openPanel(panel, { [setting]: saved });
+      await expect.poll(() => shownValue(page, setting)).toBe(slider.changed);
+      await page.close();
+    });
+
+    it("follows it while it's dragged, before it's released", async () => {
+      const { page } = await openPanel(panel);
+      const { setting, value } = panel.change;
+      await page.evaluate(`(async () => {
+        const host = document.querySelector('[setting="${setting}"]');
+        await host.updateComplete;
+        const control = host.shadowRoot.querySelector("input");
+        control.value = "${value}";
+        control.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+      })()`);
+      expect(await shownValue(page, setting)).toBe(slider.changed);
       await page.close();
     });
   });
