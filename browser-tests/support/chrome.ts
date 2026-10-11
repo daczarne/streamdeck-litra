@@ -49,7 +49,10 @@ export class Chrome {
     });
   }
 
-  /** Starts Chrome from `CHROME_PATH`, or from where the platform usually installs it. */
+  /**
+   * Starts Chrome from `CHROME_PATH`, or from where the platform usually installs it, and resolves once it answers
+   * over the pipe, so the time it takes to start counts against the caller and not against the first command sent.
+   */
   static async launch(): Promise<Chrome> {
     const executable = process.env.CHROME_PATH ?? DEFAULT_CHROME[process.platform];
     if (!executable) throw new Error(`No default Chrome on ${process.platform}: set CHROME_PATH`);
@@ -76,7 +79,12 @@ export class Chrome {
         reject(new Error(`Can't start Chrome at ${executable} (set CHROME_PATH): ${error.message}`)),
       );
     });
-    return new Chrome(child, profileDir);
+    // A spawned Chrome isn't ready yet: on a cold machine, such as a CI runner, it takes seconds to start. Asking it
+    // for something it can answer right away, without opening a page, waits for that here, so the start is timed
+    // against the caller (the tests' setup and its long timeout) instead of against the first test.
+    const chrome = new Chrome(child, profileDir);
+    await chrome.send("Browser.getVersion");
+    return chrome;
   }
 
   /** Sends a command, to the browser or, with `sessionId`, to one page. */
