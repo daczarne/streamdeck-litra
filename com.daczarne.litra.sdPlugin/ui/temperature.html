@@ -17,13 +17,41 @@
       "
     />
     <script src="vendor/sdpi-components.js"></script>
+    <style>
+      /* A slider with its value on its right, shown by range-value.js. */
+      .range {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .range sdpi-range {
+        flex: 1;
+      }
+
+      .range output {
+        min-width: 6ch;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+    </style>
   </head>
 
   <body>
     <!-- Key tiles: snap to a fixed Kelvin. Dial tiles: step size only. -->
     <div id="key-settings" hidden>
-      <sdpi-item label="Temperature K">
-        <sdpi-range setting="presetKelvin" min="2700" max="6500" step="100" default="4000" showlabels></sdpi-range>
+      <sdpi-item label="Temperature">
+        <div class="range">
+          <sdpi-range
+            id="preset-kelvin"
+            setting="presetKelvin"
+            min="2700"
+            max="6500"
+            step="100"
+            default="4000"
+          ></sdpi-range>
+          <output for="preset-kelvin" data-suffix=" K"></output>
+        </div>
       </sdpi-item>
     </div>
     <div id="dial-settings" hidden>
@@ -37,6 +65,7 @@
       </sdpi-item>
     </div>
     <script src="controller-toggle.js"></script>
+    <script src="range-value.js"></script>
   </body>
 
 </html>
