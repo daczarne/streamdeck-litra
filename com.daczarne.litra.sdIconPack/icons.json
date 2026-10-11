@@ -40,5 +40,89 @@
       "litra",
       "light"
     ]
+  },
+  {
+    "path": "brightness-charcoal.svg",
+    "name": "Brightness on charcoal",
+    "tags": [
+      "litra",
+      "tile",
+      "charcoal",
+      "sun",
+      "light"
+    ]
+  },
+  {
+    "path": "temperature-charcoal.svg",
+    "name": "Temperature on charcoal",
+    "tags": [
+      "litra",
+      "tile",
+      "charcoal",
+      "thermometer",
+      "kelvin"
+    ]
+  },
+  {
+    "path": "power-on-charcoal.svg",
+    "name": "Power on, on charcoal",
+    "tags": [
+      "litra",
+      "tile",
+      "charcoal",
+      "power"
+    ]
+  },
+  {
+    "path": "power-off-charcoal.svg",
+    "name": "Power off, on charcoal",
+    "tags": [
+      "litra",
+      "tile",
+      "charcoal",
+      "power"
+    ]
+  },
+  {
+    "path": "brightness-grey.svg",
+    "name": "Brightness on grey",
+    "tags": [
+      "litra",
+      "tile",
+      "grey",
+      "sun",
+      "light"
+    ]
+  },
+  {
+    "path": "temperature-grey.svg",
+    "name": "Temperature on grey",
+    "tags": [
+      "litra",
+      "tile",
+      "grey",
+      "thermometer",
+      "kelvin"
+    ]
+  },
+  {
+    "path": "power-on-grey.svg",
+    "name": "Power on, on grey",
+    "tags": [
+      "litra",
+      "tile",
+      "grey",
+      "power"
+    ]
+  },
+  {
+    "path": "power-off-grey.svg",
+    "name": "Power off, on grey",
+    "tags": [
+      "litra",
+      "tile",
+      "grey",
+      "power"
+    ]
   }
 ]

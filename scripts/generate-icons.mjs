@@ -7,6 +7,8 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import sharp from "sharp";
 
+import { INK, TILES, WHITE } from "./icon-style.mjs";
+
 const root = path.resolve("com.daczarne.litra.sdPlugin/imgs");
 const packRoot = path.resolve("com.daczarne.litra.sdIconPack");
 
@@ -24,10 +26,10 @@ function svgDoc(size, body) {
     </svg>`;
 }
 
-function powerGlyph(size, { on }) {
+function powerGlyph(size, { on, color }) {
   const cx = size / 2;
   const cy = size / 2;
-  const stroke = on ? COLORS.on : COLORS.muted;
+  const stroke = color ?? (on ? COLORS.on : COLORS.muted);
   const sw = size * 0.07;
   const r = size * 0.22;
   const stemH = size * 0.2;
@@ -35,7 +37,7 @@ function powerGlyph(size, { on }) {
     stroke="${stroke}" stroke-width="${sw}" stroke-linecap="round"/>
     <path d="M ${cx - r * 0.85} ${cy - r * 0.35} A ${r} ${r} 0 1 0 ${cx + r * 0.85} ${cy - r * 0.35}"
     stroke="${stroke}" stroke-width="${sw}" stroke-linecap="round" fill="none"/>
-    ${on ? `<circle cx="${cx}" cy="${cy + r * 0.15}" r="${size * 0.04}" fill="${COLORS.on}"/>` : ""}`;
+    ${on ? `<circle cx="${cx}" cy="${cy + r * 0.15}" r="${size * 0.04}" fill="${color ?? COLORS.on}"/>` : ""}`;
 }
 
 function lampMark(size, { mono = false } = {}) {
@@ -112,7 +114,7 @@ function actionIconTemperature(size) {
  * Brightness and Temperature icons: white line art on transparent, like Stream Deck's own. Each is both the key image
  * and the dial icon, since Stream Deck's app pictures a dial with the key image.
  */
-function brightnessGlyph(size) {
+function brightnessGlyph(size, { color = "#FFFFFF" } = {}) {
   const cx = size / 2;
   const cy = size / 2;
   const sw = size * 0.065;
@@ -123,13 +125,13 @@ function brightnessGlyph(size) {
     const a = (i * Math.PI) / 4 - Math.PI / 2;
     return `<line x1="${cx + Math.cos(a) * rayIn}" y1="${cy + Math.sin(a) * rayIn}"
       x2="${cx + Math.cos(a) * rayOut}" y2="${cy + Math.sin(a) * rayOut}"
-      stroke="#FFFFFF" stroke-width="${sw}" stroke-linecap="round"/>`;
+      stroke="${color}" stroke-width="${sw}" stroke-linecap="round"/>`;
   }).join("\n");
   // Filled, as large as the outlined circle was: an outline was hard to make out at the strip's sizes.
-  return `<circle cx="${cx}" cy="${cy}" r="${core + sw / 2}" fill="#FFFFFF"/>\n${rays}`;
+  return `<circle cx="${cx}" cy="${cy}" r="${core + sw / 2}" fill="${color}"/>\n${rays}`;
 }
 
-function temperatureGlyph(size) {
+function temperatureGlyph(size, { color = "#FFFFFF" } = {}) {
   const cx = size / 2;
   const sw = size * 0.065;
   const tubeHalf = size * 0.08;
@@ -143,10 +145,79 @@ function temperatureGlyph(size) {
     A ${tubeHalf} ${tubeHalf} 0 0 1 ${cx + tubeHalf} ${top + tubeHalf}
     V ${joinY}
     A ${bulbR} ${bulbR} 0 1 1 ${cx - tubeHalf} ${joinY} Z"
-    stroke="#FFFFFF" stroke-width="${sw}" stroke-linejoin="round"/>
-    <circle cx="${cx}" cy="${bulbCy}" r="${bulbR * 0.45}" fill="#FFFFFF"/>
+    stroke="${color}" stroke-width="${sw}" stroke-linejoin="round"/>
+    <circle cx="${cx}" cy="${bulbCy}" r="${bulbR * 0.45}" fill="${color}"/>
     <line x1="${cx}" y1="${top + size * 0.16}" x2="${cx}" y2="${bulbCy}"
-    stroke="#FFFFFF" stroke-width="${sw}" stroke-linecap="round"/>`;
+    stroke="${color}" stroke-width="${sw}" stroke-linecap="round"/>`;
+}
+
+/**
+ * The tiled schemes: a glyph in `ink` on a `tile` that fills the icon, like the monitor keys. The Deck's keys round the
+ * corners themselves, so the tile doesn't.
+ */
+const TILE_SCHEMES = [
+  { name: "charcoal", tile: TILES.charcoal, ink: WHITE },
+  { name: "grey", tile: TILES.grey, ink: INK },
+];
+
+/**
+ * For each glyph, how much of its own canvas it spans at its widest or tallest, strokes included, and how much of a
+ * tile it spans once on one. The sun spans as much as the suns on the monitor keys. The others are sized to look as
+ * large as it: the thin thermometer needs more room, and the heavy power symbol less.
+ */
+const TILED_GLYPHS = {
+  brightness: { span: 0.865, onTile: 0.57 },
+  temperature: { span: 0.815, onTile: 0.62 },
+  power: { span: 0.54, onTile: 0.52 },
+};
+
+// How far an off glyph fades toward its tile: dimmer than an on one, and still readable.
+const OFF_FADE = 0.5;
+
+/** A glyph drawn at `size` on a tile of that size, scaled from its own span to its span on the tile. */
+function onTile(size, tile, glyph, { span, onTile }) {
+  const c = size / 2;
+  return `<rect width="${size}" height="${size}" fill="${tile}"/>
+    <g transform="translate(${c} ${c}) scale(${onTile / span}) translate(${-c} ${-c})">${glyph}</g>`;
+}
+
+/** The color `share` of the way from `from` to `to`, both as six-digit hex colors. */
+function mix(from, to, share) {
+  const channels = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+  const [a, b] = [channels(from), channels(to)];
+  return `#${a.map((v, i) => Math.round(v + (b[i] - v) * share).toString(16).padStart(2, "0")).join("").toUpperCase()}`;
+}
+
+/** The tiled icons of one scheme. Power off is the on glyph without its dot, in an ink faded toward the tile. */
+function tiledIcons({ name, tile, ink }) {
+  const off = mix(ink, tile, OFF_FADE);
+  const tags = ["litra", "tile", name];
+  return [
+    {
+      path: `brightness-${name}.svg`,
+      name: `Brightness on ${name}`,
+      tags: [...tags, "sun", "light"],
+      draw: (s) => onTile(s, tile, brightnessGlyph(s, { color: ink }), TILED_GLYPHS.brightness),
+    },
+    {
+      path: `temperature-${name}.svg`,
+      name: `Temperature on ${name}`,
+      tags: [...tags, "thermometer", "kelvin"],
+      draw: (s) => onTile(s, tile, temperatureGlyph(s, { color: ink }), TILED_GLYPHS.temperature),
+    },
+    {
+      path: `power-on-${name}.svg`,
+      name: `Power on, on ${name}`,
+      tags: [...tags, "power"],
+      draw: (s) => onTile(s, tile, powerGlyph(s, { on: true, color: ink }), TILED_GLYPHS.power),
+    },
+    {
+      path: `power-off-${name}.svg`,
+      name: `Power off, on ${name}`,
+      tags: [...tags, "power"],
+      draw: (s) => onTile(s, tile, powerGlyph(s, { on: false, color: off }), TILED_GLYPHS.power),
+    },
+  ];
 }
 
 /**
@@ -159,6 +230,7 @@ const PACK_ICONS = [
   { path: "power-on.svg", name: "Power on", tags: ["litra", "power"], draw: (s) => powerGlyph(s, { on: true }) },
   { path: "power-off.svg", name: "Power off", tags: ["litra", "power"], draw: (s) => powerGlyph(s, { on: false }) },
   { path: "lamp.svg", name: "Lamp", tags: ["litra", "light"], draw: categoryGlyph },
+  ...TILE_SCHEMES.flatMap(tiledIcons),
 ];
 
 // The size Elgato asks for an icon in a pack, and the one it recommends for the pack's own icon.

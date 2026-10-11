@@ -19,7 +19,7 @@ export const TILES = {
   slate: "#484C52", // every monitor
   green: "#3E6B4A", // desk mode, while it's off
   red: "#D64541", // desk mode, while it's on, framed in `ACCENTS.amber`
-  // The lock key used one of #2E4A6B and #33517A: which one is to be read from its PNG.
+  navy: "#2E4A6B", // the lock, with its slot in `ACCENTS.cobalt`
   charcoal: "#2B2E33", // the dark neutral keys, with `WHITE` glyphs
   grey: "#9AA0A8", // the light neutral keys, the charcoal ones inverted, with `INK` glyphs
 };
@@ -27,7 +27,9 @@ export const TILES = {
 /** Colors that aren't tiles. */
 export const ACCENTS = {
   amber: "#FFB020", // the frame of the desk mode key while it's on
+  cobalt: "#33517A", // the slot in the lock, on a `TILES.navy` tile
   orange: "#E5892E", // the background of the dial's touch strip
+  umber: "#2E1F12", // text on the touch strip's orange
 };
 
 /** The font of text on the tiles, in `WHITE` or `INK` like the glyphs. Google's Noto Sans, under the OFL. */
