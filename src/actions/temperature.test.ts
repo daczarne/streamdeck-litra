@@ -24,6 +24,7 @@ vi.mock("../litra-manager", () => ({
   adjustTemperatureAllByKelvinSteps: vi.fn(),
   createDialDebouncer: vi.fn(),
   identifyLamp: vi.fn(),
+  onLampsChanged: vi.fn(),
   readLampStatuses: vi.fn(),
   readRepresentativeTemperatureKelvin: vi.fn(),
   setTemperatureAllInKelvin: vi.fn(),
@@ -188,7 +189,7 @@ describe("TemperatureAction", () => {
       expect(adjustTemperatureAllByKelvinSteps).not.toHaveBeenCalled();
     });
 
-    it("redraws a lamp screen after a key press, instead of showing the temperature on it", async () => {
+    it("doesn't show the temperature on a dial that shows a lamp screen", async () => {
       const key = createFakeKey();
       const onLamp = createFakeDial();
       const onMain = createFakeDial();
@@ -196,12 +197,10 @@ describe("TemperatureAction", () => {
       const temperature = new TemperatureAction(lampScreens);
       await temperature.onTouchTap(touchTap(onLamp));
       vi.mocked(setTemperatureAllInKelvin).mockReturnValue(SNAPPED);
-      vi.mocked(readLampStatuses).mockResolvedValue({ ok: true, lamps: [{ ...BEAM, temperatureKelvin: 4000 }] });
 
       await temperature.onKeyDown(keyDown(key, 4050));
 
       expect(onLamp.setFeedback).not.toHaveBeenCalledWith(TEMPERATURE_SNAPPED);
-      expect(onLamp.setFeedback).toHaveBeenLastCalledWith(expect.objectContaining({ temperature: "4000 K" }));
       expect(onMain.setFeedback).toHaveBeenCalledExactlyOnceWith(TEMPERATURE_SNAPPED);
     });
   });

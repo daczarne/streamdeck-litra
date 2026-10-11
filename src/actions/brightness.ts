@@ -64,7 +64,6 @@ export class BrightnessAction extends SingletonAction<BrightnessSettings> {
     }
     // The key shows its preset, and the dials what the lamps reached, which is less for a lamp at its cap.
     await this.showOnEveryDial(result.representativeBrightnessPercentage);
-    await this.lampScreens.refresh();
   }
 
   /** Dial press toggles power, or blinks the lamp on a lamp screen; rotate adjusts brightness. */
@@ -79,7 +78,6 @@ export class BrightnessAction extends SingletonAction<BrightnessSettings> {
       return;
     }
     await this.refreshDisplay(ev.action, ev.payload.settings);
-    await this.lampScreens.refresh();
   }
 
   /** Tapping the strip shows the lamps one by one, and holding it goes back to the main screen. */
@@ -108,8 +106,7 @@ export class BrightnessAction extends SingletonAction<BrightnessSettings> {
           await ev.action.showAlert();
         }
         await this.showOnEveryDial(result.representativeBrightnessPercentage);
-        await this.lampScreens.refresh();
-      });
+          });
       this.dialQueues.set(id, queue);
     }
     queue(ev.payload.ticks);

@@ -23,6 +23,7 @@ import {
   getBrightnessInLumenSafe,
   identifyLamp,
   isOnAll,
+  onLampsChanged,
   percentageInRange,
   readLampStatuses,
   percentageToLumen,
@@ -584,33 +585,33 @@ describe("toggleAll", () => {
 });
 
 describe("isOnAll", () => {
-  it("reports on when every lamp is on", () => {
+  it("reports on when every lamp is on", async () => {
     connect(beam(), beam());
 
-    expect(isOnAll()).toEqual({ ok: true, allOn: true, deviceCount: 2 });
+    expect(await isOnAll()).toEqual({ ok: true, allOn: true, deviceCount: 2 });
   });
 
-  it("reports off when at least one lamp is off", () => {
+  it("reports off when at least one lamp is off", async () => {
     const first = beam();
     connect(first, beam());
     vi.mocked(isOn).mockImplementation((device) => device === first);
 
-    expect(isOnAll()).toEqual({ ok: true, allOn: false, deviceCount: 2 });
+    expect(await isOnAll()).toEqual({ ok: true, allOn: false, deviceCount: 2 });
   });
 
-  it("fails and reports off when no lamp is connected", () => {
-    expect(isOnAll()).toEqual({ ok: false, allOn: false, deviceCount: 0 });
+  it("fails and reports off when no lamp is connected", async () => {
+    expect(await isOnAll()).toEqual({ ok: false, allOn: false, deviceCount: 0 });
   });
 
-  it("fails and reports off when finding the lamps throws", () => {
+  it("fails and reports off when finding the lamps throws", async () => {
     vi.mocked(findDevices).mockImplementation(() => {
       throw new Error("HID enumeration failed");
     });
 
-    expect(isOnAll()).toEqual({ ok: false, allOn: false, deviceCount: 0 });
+    expect(await isOnAll()).toEqual({ ok: false, allOn: false, deviceCount: 0 });
   });
 
-  it("fails and reports off when a lamp can't be read, but still closes every handle", () => {
+  it("fails and reports off when a lamp can't be read, but still closes every handle", async () => {
     const first = beam();
     const second = beam();
     connect(first, second);
@@ -619,9 +620,136 @@ describe("isOnAll", () => {
       return true;
     });
 
-    expect(isOnAll()).toEqual({ ok: false, allOn: false, deviceCount: 2 });
+    expect(await isOnAll()).toEqual({ ok: false, allOn: false, deviceCount: 2 });
     expect(first.hid.close).toHaveBeenCalledOnce();
     expect(second.hid.close).toHaveBeenCalledOnce();
+  });
+
+  it("waits for the brightness change in progress", async () => {
+    const device = beam();
+    connect(device);
+
+    await Promise.all([setBrightnessAllPercentage(100, 0), isOnAll()]);
+
+    // The change reads its lamp back before the lamps are opened again to read their power.
+    expect(device.hid.readSync.mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(isOn).mock.invocationCallOrder.at(-1)!);
+  });
+});
+
+describe("onLampsChanged", () => {
+  let removeListeners: Array<() => void> = [];
+
+  function listen(listener = vi.fn()) {
+    removeListeners.push(onLampsChanged(listener));
+    return listener;
+  }
+
+  /** Waits for the listeners, which are called once the operation has returned. */
+  function announced(): Promise<void> {
+    return new Promise((resolve) => setImmediate(resolve));
+  }
+
+  afterEach(() => {
+    for (const remove of removeListeners) {
+      remove();
+    }
+    removeListeners = [];
+  });
+
+  it.each([
+    ["turnOnAll", () => turnOnAll()],
+    ["turnOffAll", () => turnOffAll()],
+    ["toggleAll", () => toggleAll()],
+    ["setBrightnessAllPercentage", () => setBrightnessAllPercentage(50, 0)],
+    ["adjustBrightnessAllByPercentageSteps", () => adjustBrightnessAllByPercentageSteps(1, 5, 0)],
+    ["setTemperatureAllInKelvin", () => setTemperatureAllInKelvin(4000)],
+    ["adjustTemperatureAllByKelvinSteps", () => adjustTemperatureAllByKelvinSteps(1, 100)],
+  ])("calls every listener once after %s", async (_, operation) => {
+    connect(beam(), beam());
+    vi.mocked(getTemperatureInKelvin).mockReturnValue(4000);
+    const listener = listen();
+    const otherListener = listen();
+
+    await operation();
+    await announced();
+
+    expect(listener).toHaveBeenCalledOnce();
+    expect(otherListener).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    ["isOnAll", () => isOnAll()],
+    ["readLampStatuses", () => readLampStatuses()],
+    ["readRepresentativeBrightnessPercentage", () => readRepresentativeBrightnessPercentage()],
+    ["readRepresentativeTemperatureKelvin", () => readRepresentativeTemperatureKelvin()],
+    ["identifyLamp, which leaves the lamp as it was", () => identifyLamp("FAKE", 0)],
+  ])("doesn't call the listeners after %s", async (_, operation) => {
+    connect(beam(), beam());
+    vi.mocked(getTemperatureInKelvin).mockReturnValue(4000);
+    const listener = listen();
+
+    await operation();
+    await announced();
+
+    expect(listener).not.toHaveBeenCalled();
+  });
+
+  it("calls the listeners after a brightness change has read the lamps back", async () => {
+    const device = beam();
+    connect(device);
+    const listener = listen();
+
+    await setBrightnessAllPercentage(50, 0);
+    await announced();
+
+    expect(device.hid.readSync.mock.invocationCallOrder.at(-1)!).toBeLessThan(listener.mock.invocationCallOrder[0]);
+  });
+
+  it("calls the listeners after an operation that found no lamp", async () => {
+    const listener = listen();
+
+    toggleAll();
+    await announced();
+
+    expect(listener).toHaveBeenCalledOnce();
+  });
+
+  it("calls the listeners once the operation has returned", async () => {
+    connect(beam());
+    const listener = listen();
+
+    toggleAll();
+
+    expect(listener).not.toHaveBeenCalled();
+    await announced();
+    expect(listener).toHaveBeenCalledOnce();
+  });
+
+  it("keeps calling the other listeners when one fails", async () => {
+    connect(beam());
+    listen(
+      vi.fn(() => {
+        throw new Error("listener failed");
+      }),
+    );
+    const listener = listen();
+
+    turnOnAll();
+    await announced();
+
+    expect(listener).toHaveBeenCalledOnce();
+  });
+
+  it("stops calling a listener once it's removed", async () => {
+    connect(beam());
+    const listener = vi.fn();
+    const remove = onLampsChanged(listener);
+
+    remove();
+    turnOnAll();
+    await announced();
+
+    expect(listener).not.toHaveBeenCalled();
   });
 });
 
