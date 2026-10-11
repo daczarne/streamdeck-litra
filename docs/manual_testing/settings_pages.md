@@ -30,6 +30,8 @@ A page that hits its policy shows nothing wrong on the panel, apart from missing
     npx streamdeck restart com.daczarne.litra
     ```
 
+    In VS Code, the `Build and restart` task runs both.
+
 2. Open the debugging port, which developer mode alone doesn't, then quit and reopen Stream Deck:
 
     ```shell

@@ -20,6 +20,8 @@ npm run build
 npx streamdeck restart com.daczarne.litra
 ```
 
+In VS Code, the `Build and restart` task runs both.
+
 ## Checks
 
 1. **A key moves the dials to its temperature.** Press the 3000 K key. Both lamps turn warm, and both strips show 3000. Press the 6000 K key: both lamps turn cool, and both strips show 6000.

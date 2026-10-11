@@ -92,6 +92,8 @@ npm run validate          # check:ui, build and streamdeck validate
 npm run icons             # regenerate the icons in imgs/ from scripts/generate-icons.mjs
 ```
 
+In VS Code, the `Build and restart` task builds once and restarts the plugin. It's the default build task, so **Tasks: Run Build Task** (⇧⌘B) starts it.
+
 The plugin's logs are in `com.daczarne.litra.sdPlugin/logs/`.
 
 ## Packaging

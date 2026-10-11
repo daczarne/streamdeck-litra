@@ -1,6 +1,18 @@
 {
   "version": "2.0.0",
   "tasks": [
+    // The default build task, so "Tasks: Run Build Task" runs it. The linked plugin runs the new build once restarted.
+    {
+      "label": "Build and restart",
+      "detail": "Build the plugin, then restart it on the Deck",
+      "type": "shell",
+      "command": "npm run build && npx streamdeck restart com.daczarne.litra",
+      "group": {
+        "kind": "build",
+        "isDefault": true,
+      },
+      "problemMatcher": [ ],
+    },
     // Unlike CI, which runs its jobs in parallel, the compound tasks stop at the first check that fails.
     {
       "label": "CI",
