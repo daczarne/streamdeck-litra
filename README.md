@@ -78,7 +78,7 @@ Developer mode stays on afterwards.
 
 ## Working on the plugin
 
-Since the plugin is linked, a change takes effect as soon as it's built and the plugin restarts. Switching branches switches what the Deck runs, after the next build.
+Since the plugin is linked, a change takes effect as soon as it's built and the plugin restarts. A change to `manifest.json` takes effect once Stream Deck itself is quit and reopened: restarting the plugin isn't enough. Switching branches switches what the Deck runs, after the next build.
 
 ```shell
 npm run watch             # rebuild and restart the plugin on every change

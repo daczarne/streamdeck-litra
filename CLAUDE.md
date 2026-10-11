@@ -73,8 +73,8 @@ Daniel treats supply-chain risk as a hard requirement:
 
 ## Testing on the hardware
 
-- Build, enable developer mode (`npx streamdeck dev`), `npm run link`, then `npx streamdeck restart com.daczarne.litra`. The actions appear under the Litra category. Developer mode stays on. After that, the `Build and restart` VS Code task (the default build task) runs the build and the restart in one go.
-- Plugin logs are in `com.daczarne.litra.sdPlugin/logs/`.
+- Build, enable developer mode (`npx streamdeck dev`), `npm run link`, then `npx streamdeck restart com.daczarne.litra`. The actions appear under the Litra category. Developer mode stays on. After that, the `Build and restart` VS Code task (the default build task) runs the build and the restart in one go. A change to `manifest.json` takes effect only once Stream Deck itself is quit and reopened, so mention it to Daniel whenever a branch changes the manifest.
+- Plugin logs are in `com.daczarne.litra.sdPlugin/logs/`. Stream Deck's own log, `~/Library/Logs/ElgatoStreamDeck/StreamDeck.log`, records what it refuses from the plugin, such as a layout it can't load.
 - `docs/manual_testing/` holds the checks to run by hand. For example, `settings_pages.md` covers what the browser tests take for granted about Stream Deck, how to open the pages in DevTools to check it, and the debugging port that has to be closed afterwards.
 - On the Stream Deck + XL's USB hub (7.5 W), each Beam caps its brightness below 100%, at a level that depends on both the port and the lamp: from 58% to 79% for Daniel's two Beams (see the example in `scripts/probes/README.md`). The cap doesn't change with what the other lamp draws. Plugged into the Mac, a Beam reaches 100%.
 - Claude can't see the Deck. Daniel checks what the keys and the touch strip show, and can share a photo of them, which is enough to judge a layout. Each dial gets 200 × 100 px of the touch strip, and text under about 16 px is hard to read on it ([#8]).
