@@ -108,6 +108,7 @@ This runs `check:ui`, builds, and writes `release/com.daczarne.litra.streamDeckP
 
 ## Usage tips
 
+- A Power key shows on only when every lamp is on. Every Power key, and every lamp screen, follows changes made by any key or dial. Changes made with a lamp's own buttons show at the next change made through the plugin.
 - Brightness and temperature keys show their preset value, as a bare number at the bottom of the key, set by the plugin. A title typed in the key's settings replaces it, and the **Show Title** box under the **T** menu hides it.
 - Dials look like Stream Deck's own volume dials: the value, with a bar under it. The temperature bar runs from the lamp's warmest setting (empty) to its coolest (full). Their title says what they control ("Brightness", "Temperature"), and can be replaced or hidden like a key's. Rotating adjusts, pressing toggles the front light.
 - Tapping a dial's part of the strip shows one screen per lamp: its model, whether it's on, its brightness in % and lumens, and its temperature. Each tap shows the next lamp, in the order of their serial numbers, and the dial's own screen after the last. The dial stays on a lamp screen until the strip is held, which goes back to the dial's own screen right away. On a lamp screen, pressing the dial blinks that lamp once, to show which one it is, and turning does nothing.
