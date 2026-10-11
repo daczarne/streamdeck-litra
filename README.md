@@ -118,21 +118,21 @@ The settings pages (Property Inspector), in `com.daczarne.litra.sdPlugin/ui/`, l
 - **When building.** `npm run check:ui` (also run by `validate` and `pack`) fails if any `ui/*.html` loads a remote resource, lacks the Content-Security-Policy below or declares a different one, or has an inline script. It also fails if the vendored sdpi-components doesn't match its pinned hash (see [Third-party code](#third-party-code)).
 - **When Stream Deck shows them.** Each page declares a Content-Security-Policy in a `<meta>`, so Stream Deck refuses whatever the policy doesn't allow, even if it slipped past the check.
 
-The browser tests (`npm run test:browser`, also run in CI) check that the policy works. They load each page in a headless Chrome, as Stream Deck would, and confirm that it refuses remote scripts, styles, images and connections, and inline scripts. They also check the controls each page shows and the settings it sends. They run in Chrome rather than in Stream Deck itself, so [`docs/manual_testing/settings_pages.md`][manual-test] lists the checks that only the Deck can prove.
+The browser tests (`npm run test:browser`, also run in CI) check that the policy works. They load each page in a headless Chrome, as Stream Deck would, and confirm that it refuses remote scripts, styles, images and connections, and inline scripts. They also check the controls each page shows, the settings it sends, and the value shown next to each slider. They run in Chrome rather than in Stream Deck itself, so [`docs/manual_testing/settings_pages.md`][manual-test] lists the checks that only the Deck can prove.
 
 The policy allows only what the pages need:
 
-| Directive                      | Allows                                                                         |
-|--------------------------------|--------------------------------------------------------------------------------|
-| `default-src 'none'`           | Nothing that the directives below don't allow.                                 |
-| `script-src 'self'`            | Scripts from the plugin folder. No inline scripts and no `eval`.               |
-| `style-src 'unsafe-inline'`    | The `<style>` element that sdpi-components adds to every page.                 |
-| `img-src data:`                | The icons that sdpi-components draws as `data:` SVGs, such as its check marks. |
-| `connect-src ws://localhost:*` | The WebSocket to Stream Deck, on the port Stream Deck passes to the page.      |
-| `base-uri 'none'`              | No `<base>` element, which would change where relative paths point.            |
-| `form-action 'none'`           | No form submissions.                                                           |
+| Directive                      | Allows                                                                              |
+|--------------------------------|-------------------------------------------------------------------------------------|
+| `default-src 'none'`           | Nothing that the directives below don't allow.                                      |
+| `script-src 'self'`            | Scripts from the plugin folder. No inline scripts and no `eval`.                    |
+| `style-src 'unsafe-inline'`    | The `<style>` elements of the pages and the one sdpi-components adds to every page. |
+| `img-src data:`                | The icons that sdpi-components draws as `data:` SVGs, such as its check marks.      |
+| `connect-src ws://localhost:*` | The WebSocket to Stream Deck, on the port Stream Deck passes to the page.           |
+| `base-uri 'none'`              | No `<base>` element, which would change where relative paths point.                 |
+| `form-action 'none'`           | No form submissions.                                                                |
 
-Since inline scripts are blocked, the script that shows the key or the dial settings, shared by the brightness and temperature pages, lives in `ui/controller-toggle.js`. The policy is repeated in each page and in [`scripts/check-ui.mjs`][check-ui], so a change to it updates all of them and the table above.
+Since inline scripts are blocked, the scripts shared by the brightness and temperature pages live in `ui/`: `controller-toggle.js` shows the key or the dial settings, and `range-value.js` shows each slider's value. The policy is repeated in each page and in [`scripts/check-ui.mjs`][check-ui], so a change to it updates all of them and the table above.
 
 ## Third-party code
 
