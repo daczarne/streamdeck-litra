@@ -107,7 +107,7 @@ export class TemperatureAction extends SingletonAction<TemperatureSettings> {
           await ev.action.showAlert();
         }
         await this.showOnEveryDial(result);
-          });
+      });
       this.dialQueues.set(id, queue);
     }
     queue(ev.payload.ticks);

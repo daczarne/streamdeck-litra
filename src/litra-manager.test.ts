@@ -768,6 +768,7 @@ describe("setBrightnessAllPercentage", () => {
       failures: 0,
       representativeBrightnessPercentage: 40,
       representativeBrightnessLumen: 178,
+      brightnessPercentages: [40, 40],
     });
     expect(vi.mocked(setBrightnessInLumen).mock.calls).toEqual([
       [first, 178],
@@ -875,6 +876,7 @@ describe("setBrightnessAllPercentage", () => {
       failures: 1,
       representativeBrightnessPercentage: 40,
       representativeBrightnessLumen: 178,
+      brightnessPercentages: [40],
     });
     expect(first.hid.close).toHaveBeenCalledOnce();
     expect(second.hid.close).toHaveBeenCalledOnce();
@@ -931,6 +933,7 @@ describe("adjustBrightnessAllByPercentageSteps", () => {
       failures: 0,
       representativeBrightnessPercentage: 60,
       representativeBrightnessLumen: lumenAt(60),
+      brightnessPercentages: [60, 60],
     });
     expect(vi.mocked(setBrightnessInLumen).mock.calls).toEqual([
       [first, lumenAt(60)],
@@ -1084,6 +1087,7 @@ describe("adjustBrightnessAllByPercentageSteps", () => {
       failures: 1,
       representativeBrightnessPercentage: 60,
       representativeBrightnessLumen: lumenAt(60),
+      brightnessPercentages: [60],
     });
     expect(first.hid.close).toHaveBeenCalledOnce();
     expect(second.hid.close).toHaveBeenCalledOnce();
@@ -1107,6 +1111,7 @@ describe("readRepresentativeBrightnessPercentage", () => {
       failures: 0,
       representativeBrightnessPercentage: 50,
       representativeBrightnessLumen: lumenAt(50),
+      brightnessPercentages: [20, 50],
     });
     expect(first.hid.close).toHaveBeenCalledOnce();
     expect(second.hid.close).toHaveBeenCalledOnce();
@@ -1125,6 +1130,7 @@ describe("readRepresentativeBrightnessPercentage", () => {
       failures: 1,
       representativeBrightnessPercentage: 20,
       representativeBrightnessLumen: lumenAt(20),
+      brightnessPercentages: [20],
     });
   });
 });
