@@ -152,9 +152,9 @@ function temperatureGlyph(size) {
   const joinY = bulbCy - Math.sqrt(bulbR ** 2 - tubeHalf ** 2);
   return `
   <path d="M ${cx - tubeHalf} ${top + tubeHalf}
-           A ${tubeHalf} ${tubeHalf} 0 0 1 ${cx + tubeHalf} ${top + tubeHalf}
-           V ${joinY}
-           A ${bulbR} ${bulbR} 0 1 1 ${cx - tubeHalf} ${joinY} Z"
+          A ${tubeHalf} ${tubeHalf} 0 0 1 ${cx + tubeHalf} ${top + tubeHalf}
+          V ${joinY}
+          A ${bulbR} ${bulbR} 0 1 1 ${cx - tubeHalf} ${joinY} Z"
         stroke="#FFFFFF" stroke-width="${sw}" stroke-linejoin="round"/>
   <circle cx="${cx}" cy="${bulbCy}" r="${bulbR * 0.45}" fill="#FFFFFF"/>
   <line x1="${cx}" y1="${top + size * 0.16}" x2="${cx}" y2="${bulbCy}"
