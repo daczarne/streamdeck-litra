@@ -27,6 +27,36 @@ type BrightnessSettings = {
 
 type ActionRef = WillAppearEvent<BrightnessSettings>["action"];
 
+// Where fewer lamps reach, the bar fades from white towards this grey, never as far as the bar's own background, and
+// light enough to read on the strip.
+const FAINTEST_BAR_GREY = 0x80;
+
+/**
+ * The fill of the brightness bar for the lamps' levels, in %: white up to the dimmest lamp's level, then fainter for
+ * each level fewer lamps reach, so the bar shows that only some lamps go that far (#59). A gradient's stops span the
+ * bar's filled part, which ends at the brightest lamp's level, so each level is placed as a share of that one. Two
+ * stops 0.001 apart draw a sharp edge.
+ */
+export function barFill(levels: number[]): string {
+  const brightest = Math.max(0, ...levels);
+  const distinct = [...new Set(levels)].filter((level) => level > 0).sort((a, b) => a - b);
+  if (distinct.length === 0 || (distinct.length === 1 && levels.every((level) => level === brightest))) {
+    return "white";
+  }
+  const offset = (share: number): number => Number(Math.min(1, share).toFixed(3));
+  const stops: string[] = [];
+  let start = 0;
+  for (const level of distinct) {
+    const reaching = levels.filter((other) => other >= level).length / levels.length;
+    const grey = Math.round(FAINTEST_BAR_GREY + (0xff - FAINTEST_BAR_GREY) * reaching).toString(16).padStart(2, "0");
+    const color = `#${grey}${grey}${grey}`;
+    const end = level / brightest;
+    stops.push(`${offset(start)}:${color}`, `${offset(end)}:${color}`);
+    start = end + 0.001;
+  }
+  return stops.join(",");
+}
+
 @action({ UUID: "com.daczarne.litra.brightness" })
 export class BrightnessAction extends SingletonAction<BrightnessSettings> {
   private readonly dialQueues = new Map<string, (ticks: number) => void>();
@@ -63,7 +93,7 @@ export class BrightnessAction extends SingletonAction<BrightnessSettings> {
       await ev.action.showAlert();
     }
     // The key shows its preset, and the dials what the lamps reached, which is less for a lamp at its cap.
-    await this.showOnEveryDial(result.representativeBrightnessPercentage);
+    await this.showOnEveryDial(result.brightnessPercentages);
   }
 
   /** Dial press toggles power, or blinks the lamp on a lamp screen; rotate adjusts brightness. */
@@ -105,8 +135,8 @@ export class BrightnessAction extends SingletonAction<BrightnessSettings> {
         if (!result.ok) {
           await ev.action.showAlert();
         }
-        await this.showOnEveryDial(result.representativeBrightnessPercentage);
-          });
+        await this.showOnEveryDial(result.brightnessPercentages);
+      });
       this.dialQueues.set(id, queue);
     }
     queue(ev.payload.ticks);
@@ -119,10 +149,7 @@ export class BrightnessAction extends SingletonAction<BrightnessSettings> {
     }
 
     const result = readRepresentativeBrightnessPercentage();
-    await this.showDialValue(
-      action,
-      result.ok ? result.representativeBrightnessPercentage : undefined,
-    );
+    await this.showDialValue(action, result.ok ? result.brightnessPercentages : undefined);
   }
 
   private async showKeyAmount(action: KeyAction<BrightnessSettings>, percentage: number): Promise<void> {
@@ -130,21 +157,25 @@ export class BrightnessAction extends SingletonAction<BrightnessSettings> {
   }
 
   /** Shows the brightness on every visible dial of this action, since they all describe the same lamps. */
-  private async showOnEveryDial(percentage: number | undefined): Promise<void> {
+  private async showOnEveryDial(levels: number[] | undefined): Promise<void> {
     for (const action of this.actions) {
-      await this.showDialValue(action, percentage);
+      await this.showDialValue(action, levels);
     }
   }
 
-  /** Fills the slots of the $B1 layout: the % as text, and again as the bar under it. */
-  private async showDialValue(action: ActionRef, percentage: number | undefined): Promise<void> {
-    const label = percentage === undefined ? "—" : `${Math.round(percentage)}%`;
+  /**
+   * Fills the slots of the $B1 layout: the brightest lamp's % as text, and again as the bar under it, banded by how many
+   * lamps reach each part of it.
+   */
+  private async showDialValue(action: ActionRef, levels: number[] | undefined): Promise<void> {
+    const brightest = levels === undefined || levels.length === 0 ? undefined : Math.max(...levels);
+    const label = brightest === undefined ? "—" : `${Math.round(brightest)}%`;
     // A dial on a lamp screen has another layout, which the lamp screens redraw.
     if (action.isDial() && !this.lampScreens.isShowing(action.id)) {
       await action.setFeedback({
         title: "Brightness",
         value: label,
-        indicator: percentage ?? 0,
+        indicator: { value: brightest ?? 0, bar_fill_c: barFill(levels ?? []) },
       });
     }
   }

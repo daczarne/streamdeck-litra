@@ -27,6 +27,8 @@ export type BroadcastResult = {
   failures: number;
   representativeBrightnessPercentage?: number;
   representativeBrightnessLumen?: number;
+  /** Every lamp's brightness, in % of its range, for the lamps that could be read. */
+  brightnessPercentages?: number[];
   representativeTemperatureKelvin?: number;
   representativeTemperaturePercentage?: number;
 };
@@ -492,6 +494,7 @@ async function moveBrightnessAll(
 
     let representative: number | undefined;
     let representativeLumen: number | undefined;
+    const percentages: number[] = [];
     for (const [device, lumen] of sent) {
       attempt(device, () => {
         const reached = getBrightnessInLumenSafe(device);
@@ -499,6 +502,7 @@ async function moveBrightnessAll(
           brightnessCapsInLumen.set(device.serialNumber, reached);
         }
         const pct = brightnessPercentage(device, reached);
+        percentages.push(pct);
         if (representative === undefined || pct > representative) {
           representative = pct;
           representativeLumen = reached;
@@ -512,6 +516,7 @@ async function moveBrightnessAll(
       failures: failed.size,
       representativeBrightnessPercentage: representative,
       representativeBrightnessLumen: representativeLumen,
+      brightnessPercentages: percentages,
     };
   } finally {
     for (const device of devices) {
@@ -520,13 +525,15 @@ async function moveBrightnessAll(
   }
 }
 
-/** Reads every lamp and reports the brightest. */
+/** Reads every lamp and reports the brightest, and every lamp's percentage. */
 export function readRepresentativeBrightnessPercentage(): BroadcastResult {
   let representative: number | undefined;
   let representativeLumen: number | undefined;
+  const percentages: number[] = [];
   const result = forEachDevice((device) => {
     const lumen = getBrightnessInLumenSafe(device);
     const pct = brightnessPercentage(device, lumen);
+    percentages.push(pct);
     if (representative === undefined || pct > representative) {
       representative = pct;
       representativeLumen = lumen;
@@ -536,6 +543,7 @@ export function readRepresentativeBrightnessPercentage(): BroadcastResult {
     ...result,
     representativeBrightnessPercentage: representative,
     representativeBrightnessLumen: representativeLumen,
+    brightnessPercentages: percentages,
   };
 }
 

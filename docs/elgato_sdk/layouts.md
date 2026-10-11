@@ -38,6 +38,7 @@ Items can't overlap unless their `zOrder` differs. Stream Deck refuses a layout 
 
 - `Encoder.layout` in `manifest.json` sets a dial's layout, by name or by the path to a custom one. `setFeedbackLayout` replaces it at runtime.
 - `setFeedback` fills the slots, keyed by their `key`. A slot takes either a plain value (a string or a number) or an object that changes its other properties too, such as a text's color, except its `key`, `rect` and `type`, which are fixed.
+- A bar's `bar_fill_c` takes a single color or a gradient of `{offset}:{color}` stops. The stops span the bar's filled part, not the whole bar, so a point at a given level sits at that level divided by the bar's `value`. Two stops 0.001 apart draw a sharp edge between two colors.
 
 ## What fits on the Deck
 
@@ -47,6 +48,7 @@ Measured on the Stream Deck + XL's touch strip, while trying to show the lumens 
 - At the size of `$B1`'s value, a value like `70%` already takes about half of the 108 px value area, so a second value doesn't fit on the same line.
 - Three rows of 18 px text, two of them led by a 22 px icon, fit in the 200 × 100 px canvas and read well.
 - At icon sizes of about 22 px, an outlined circle is hard to make out. A filled one reads better, which is why both brightness icons use a filled sun.
+- On the bar, a grey of `#999999` is barely readable against the bar's background, while `#c0c0c0` reads well ([#59]).
 
 ## Sources
 
@@ -58,3 +60,4 @@ Checked against `@elgato/streamdeck` 3.0.1 and the schemas in `@elgato/schemas`,
 
 [#8]: https://github.com/daczarne/streamdeck-litra/issues/8
 [#48]: https://github.com/daczarne/streamdeck-litra/issues/48
+[#59]: https://github.com/daczarne/streamdeck-litra/issues/59
