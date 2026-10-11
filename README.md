@@ -65,15 +65,16 @@ Lamps connect over USB only: the underlying HID stack doesn't support Bluetooth.
     npm run build
     ```
 
-4. Turn on Stream Deck's developer mode, link the plugin folder into Stream Deck, and restart the plugin:
+4. Turn on Stream Deck's developer mode, link the plugin folder and the icon pack into Stream Deck, and restart the plugin:
 
     ```shell
     npx streamdeck dev
     npm run link
+    npm run link:icons
     npx streamdeck restart com.daczarne.litra
     ```
 
-5. In Stream Deck, the actions appear under the **Litra** category. Drag them onto keys or dials, or restore a Stream Deck backup that already has them: the layout lives in Stream Deck's profiles, not in this repository.
+5. In Stream Deck, the actions appear under the **Litra** category. Drag them onto keys or dials, or restore a Stream Deck backup that already has them: the layout lives in Stream Deck's profiles, not in this repository. Quit and reopen Stream Deck once, so it finds the icon pack: its icons then show in the Icon Library, under **Litra**.
 
 Developer mode stays on afterwards.
 
