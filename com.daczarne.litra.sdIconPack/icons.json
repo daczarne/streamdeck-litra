@@ -9,12 +9,43 @@
     ]
   },
   {
+    "path": "brightness-low.svg",
+    "name": "Brightness low",
+    "tags": [
+      "litra",
+      "sun",
+      "dim"
+    ]
+  },
+  {
     "path": "temperature.svg",
     "name": "Temperature",
     "tags": [
       "litra",
       "thermometer",
       "kelvin"
+    ]
+  },
+  {
+    "path": "temperature-cool.svg",
+    "name": "Temperature cool",
+    "tags": [
+      "litra",
+      "thermometer",
+      "kelvin",
+      "snowflake",
+      "cold"
+    ]
+  },
+  {
+    "path": "temperature-warm.svg",
+    "name": "Temperature warm",
+    "tags": [
+      "litra",
+      "thermometer",
+      "kelvin",
+      "sun",
+      "warm"
     ]
   },
   {
@@ -43,7 +74,7 @@
   },
   {
     "path": "brightness-charcoal.svg",
-    "name": "Brightness on charcoal",
+    "name": "Brightness (charcoal)",
     "tags": [
       "litra",
       "tile",
@@ -53,8 +84,19 @@
     ]
   },
   {
+    "path": "brightness-low-charcoal.svg",
+    "name": "Brightness low (charcoal)",
+    "tags": [
+      "litra",
+      "tile",
+      "charcoal",
+      "sun",
+      "dim"
+    ]
+  },
+  {
     "path": "temperature-charcoal.svg",
-    "name": "Temperature on charcoal",
+    "name": "Temperature (charcoal)",
     "tags": [
       "litra",
       "tile",
@@ -64,8 +106,34 @@
     ]
   },
   {
+    "path": "temperature-cool-charcoal.svg",
+    "name": "Temperature cool (charcoal)",
+    "tags": [
+      "litra",
+      "tile",
+      "charcoal",
+      "thermometer",
+      "kelvin",
+      "snowflake",
+      "cold"
+    ]
+  },
+  {
+    "path": "temperature-warm-charcoal.svg",
+    "name": "Temperature warm (charcoal)",
+    "tags": [
+      "litra",
+      "tile",
+      "charcoal",
+      "thermometer",
+      "kelvin",
+      "sun",
+      "warm"
+    ]
+  },
+  {
     "path": "power-on-charcoal.svg",
-    "name": "Power on, on charcoal",
+    "name": "Power on (charcoal)",
     "tags": [
       "litra",
       "tile",
@@ -75,7 +143,7 @@
   },
   {
     "path": "power-off-charcoal.svg",
-    "name": "Power off, on charcoal",
+    "name": "Power off (charcoal)",
     "tags": [
       "litra",
       "tile",
@@ -85,7 +153,7 @@
   },
   {
     "path": "brightness-grey.svg",
-    "name": "Brightness on grey",
+    "name": "Brightness (grey)",
     "tags": [
       "litra",
       "tile",
@@ -95,8 +163,19 @@
     ]
   },
   {
+    "path": "brightness-low-grey.svg",
+    "name": "Brightness low (grey)",
+    "tags": [
+      "litra",
+      "tile",
+      "grey",
+      "sun",
+      "dim"
+    ]
+  },
+  {
     "path": "temperature-grey.svg",
-    "name": "Temperature on grey",
+    "name": "Temperature (grey)",
     "tags": [
       "litra",
       "tile",
@@ -106,8 +185,34 @@
     ]
   },
   {
+    "path": "temperature-cool-grey.svg",
+    "name": "Temperature cool (grey)",
+    "tags": [
+      "litra",
+      "tile",
+      "grey",
+      "thermometer",
+      "kelvin",
+      "snowflake",
+      "cold"
+    ]
+  },
+  {
+    "path": "temperature-warm-grey.svg",
+    "name": "Temperature warm (grey)",
+    "tags": [
+      "litra",
+      "tile",
+      "grey",
+      "thermometer",
+      "kelvin",
+      "sun",
+      "warm"
+    ]
+  },
+  {
     "path": "power-on-grey.svg",
-    "name": "Power on, on grey",
+    "name": "Power on (grey)",
     "tags": [
       "litra",
       "tile",
@@ -117,7 +222,7 @@
   },
   {
     "path": "power-off-grey.svg",
-    "name": "Power off, on grey",
+    "name": "Power off (grey)",
     "tags": [
       "litra",
       "tile",

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+    <svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144" fill="none">
+    <rect width="144" height="144" fill="#2B2E33"/>
+    <g transform="translate(72 72) scale(0.7607361963190185) translate(-72 -72)"><g transform="translate(-31.679999999999996 0)"><path
+    d="M 60.480000000000004 28.8
+    A 11.52 11.52 0 0 1 83.52 28.8
+    V 85.40844834175269
+    A 21.599999999999998 21.599999999999998 0 1 1 60.480000000000004 85.40844834175269 Z"
+    stroke="#F2F2F2" stroke-width="9.36" stroke-linejoin="round"/>
+    <circle cx="72" cy="103.67999999999999" r="9.719999999999999" fill="#F2F2F2"/>
+    <line x1="72" y1="40.32" x2="72" y2="103.67999999999999"
+    stroke="#F2F2F2" stroke-width="9.36" stroke-linecap="round"/></g>
+    <circle cx="102.24" cy="48.96" r="10.886399999999998" fill="#F2F2F2"/>
+<line x1="102.24" y1="31.334400000000002" x2="102.24" y2="23.040000000000003"
+    stroke="#F2F2F2" stroke-width="5.4719999999999995" stroke-linecap="round"/>
+<line x1="114.70318128248161" y1="36.49681871751839" x2="120.56820776835531" y2="30.631792231644692"
+    stroke="#F2F2F2" stroke-width="5.4719999999999995" stroke-linecap="round"/>
+<line x1="119.8656" y1="48.96" x2="128.16" y2="48.96"
+    stroke="#F2F2F2" stroke-width="5.4719999999999995" stroke-linecap="round"/>
+<line x1="114.70318128248161" y1="61.423181282481615" x2="120.56820776835531" y2="67.2882077683553"
+    stroke="#F2F2F2" stroke-width="5.4719999999999995" stroke-linecap="round"/>
+<line x1="102.24" y1="66.5856" x2="102.24" y2="74.88"
+    stroke="#F2F2F2" stroke-width="5.4719999999999995" stroke-linecap="round"/>
+<line x1="89.77681871751838" y1="61.423181282481615" x2="83.91179223164468" y2="67.2882077683553"
+    stroke="#F2F2F2" stroke-width="5.4719999999999995" stroke-linecap="round"/>
+<line x1="84.61439999999999" y1="48.96" x2="76.32" y2="48.96"
+    stroke="#F2F2F2" stroke-width="5.4719999999999995" stroke-linecap="round"/>
+<line x1="89.77681871751838" y1="36.49681871751839" x2="83.91179223164468" y2="30.631792231644692"
+    stroke="#F2F2F2" stroke-width="5.4719999999999995" stroke-linecap="round"/></g>
+    </svg>

@@ -151,6 +151,72 @@ function temperatureGlyph(size, { color = "#FFFFFF" } = {}) {
     stroke="${color}" stroke-width="${sw}" stroke-linecap="round"/>`;
 }
 
+/** The sun outlined rather than filled, for a lower brightness, with the rays of {@link brightnessGlyph}. */
+function dimGlyph(size, { color = "#FFFFFF" } = {}) {
+  const cx = size / 2;
+  const cy = size / 2;
+  const sw = size * 0.065;
+  const rays = Array.from({ length: 8 }, (_, i) => {
+    const a = (i * Math.PI) / 4 - Math.PI / 2;
+    return `<line x1="${cx + Math.cos(a) * size * 0.27}" y1="${cy + Math.sin(a) * size * 0.27}"
+      x2="${cx + Math.cos(a) * size * 0.4}" y2="${cy + Math.sin(a) * size * 0.4}"
+      stroke="${color}" stroke-width="${sw}" stroke-linecap="round"/>`;
+  }).join("\n");
+  return `<circle cx="${cx}" cy="${cy}" r="${size * 0.16}" stroke="${color}" stroke-width="${sw}"/>\n${rays}`;
+}
+
+/**
+ * Where a thermometer and its badge (a snowflake or a sun) sit side by side, as shares of the canvas: the
+ * thermometer's center, and the badge's center and radius. Together they span the canvas as the thermometer alone does.
+ */
+const BADGE = { thermometerX: 0.28, x: 0.71, y: 0.34, r: 0.18 };
+
+/** The thermometer of {@link temperatureGlyph}, moved left, with a badge drawn by `badge` at its upper right. */
+function thermometerWith(size, color, badge) {
+  const sw = size * 0.038;
+  return `<g transform="translate(${size * (BADGE.thermometerX - 0.5)} 0)">${temperatureGlyph(size, { color })}</g>
+    ${badge(size * BADGE.x, size * BADGE.y, size * BADGE.r, sw, color)}`;
+}
+
+function strokeLine(x1, y1, x2, y2, sw, color) {
+  return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"
+    stroke="${color}" stroke-width="${sw}" stroke-linecap="round"/>`;
+}
+
+/** A snowflake of radius `r`: six arms, each with a pair of branches pointing outward. */
+function snowflake(cx, cy, r, sw, color) {
+  return Array.from({ length: 6 }, (_, i) => {
+    const a = (i * Math.PI) / 3 - Math.PI / 2;
+    const at = (d, angle = a) => [cx + Math.cos(angle) * d, cy + Math.sin(angle) * d];
+    const [bx, by] = at(r * 0.62);
+    const branch = (turn) => {
+      const angle = a + turn;
+      return strokeLine(bx, by, bx + Math.cos(angle) * r * 0.3, by + Math.sin(angle) * r * 0.3, sw, color);
+    };
+    return [strokeLine(cx, cy, ...at(r), sw, color), branch(Math.PI / 4), branch(-Math.PI / 4)].join("\n");
+  }).join("\n");
+}
+
+/** A small sun of radius `r`, filled like {@link brightnessGlyph}'s. */
+function smallSun(cx, cy, r, sw, color) {
+  const rays = Array.from({ length: 8 }, (_, i) => {
+    const a = (i * Math.PI) / 4 - Math.PI / 2;
+    const [c, s] = [Math.cos(a), Math.sin(a)];
+    return strokeLine(cx + c * r * 0.68, cy + s * r * 0.68, cx + c * r, cy + s * r, sw, color);
+  }).join("\n");
+  return `<circle cx="${cx}" cy="${cy}" r="${r * 0.42}" fill="${color}"/>\n${rays}`;
+}
+
+/** The thermometer with a snowflake, for a cooler temperature. */
+function coolGlyph(size, { color = "#FFFFFF" } = {}) {
+  return thermometerWith(size, color, snowflake);
+}
+
+/** The thermometer with a sun, for a warmer temperature. */
+function warmGlyph(size, { color = "#FFFFFF" } = {}) {
+  return thermometerWith(size, color, smallSun);
+}
+
 /**
  * The tiled schemes: a glyph in `ink` on a `tile` that fills the icon, like the monitor keys. The Deck's keys round the
  * corners themselves, so the tile doesn't.
@@ -161,24 +227,68 @@ const TILE_SCHEMES = [
 ];
 
 /**
- * For each glyph, how much of its own canvas it spans at its widest or tallest, strokes included, and how much of a
- * tile it spans once on one. The sun spans as much as the suns on the monitor keys. The others are sized to look as
- * large as it: the thin thermometer needs more room, and the heavy power symbol less.
+ * The pack's glyphs, each drawn by `draw(size, { color })`. Every glyph comes plain, in its default colors on
+ * transparent like the plugin's keys, and on every tile of {@link TILE_SCHEMES}.
+ *
+ * `span` is how much of its own canvas a glyph covers at its widest or tallest, strokes included, and `tileSpan` how
+ * much of a tile it covers. The suns match the suns of the monitor keys, and the others are sized to look as large: a
+ * thin thermometer needs more room, and the heavy power symbol less. `fade` marks the off state, drawn on a tile in an
+ * ink faded toward it.
  */
-const TILED_GLYPHS = {
-  brightness: { span: 0.865, onTile: 0.57 },
-  temperature: { span: 0.815, onTile: 0.62 },
-  power: { span: 0.54, onTile: 0.52 },
-};
+const PACK_GLYPHS = [
+  { id: "brightness", name: "Brightness", tags: ["sun", "light"], draw: brightnessGlyph, span: 0.865, tileSpan: 0.57 },
+  { id: "brightness-low", name: "Brightness low", tags: ["sun", "dim"], draw: dimGlyph, span: 0.865, tileSpan: 0.57 },
+  {
+    id: "temperature",
+    name: "Temperature",
+    tags: ["thermometer", "kelvin"],
+    draw: temperatureGlyph,
+    span: 0.815,
+    tileSpan: 0.62,
+  },
+  {
+    id: "temperature-cool",
+    name: "Temperature cool",
+    tags: ["thermometer", "kelvin", "snowflake", "cold"],
+    draw: coolGlyph,
+    span: 0.815,
+    tileSpan: 0.62,
+  },
+  {
+    id: "temperature-warm",
+    name: "Temperature warm",
+    tags: ["thermometer", "kelvin", "sun", "warm"],
+    draw: warmGlyph,
+    span: 0.815,
+    tileSpan: 0.62,
+  },
+  {
+    id: "power-on",
+    name: "Power on",
+    tags: ["power"],
+    draw: (size, options) => powerGlyph(size, { ...options, on: true }),
+    span: 0.54,
+    tileSpan: 0.52,
+  },
+  {
+    id: "power-off",
+    name: "Power off",
+    tags: ["power"],
+    draw: (size, options) => powerGlyph(size, { ...options, on: false }),
+    span: 0.54,
+    tileSpan: 0.52,
+    fade: true,
+  },
+];
 
 // How far an off glyph fades toward its tile: dimmer than an on one, and still readable.
 const OFF_FADE = 0.5;
 
 /** A glyph drawn at `size` on a tile of that size, scaled from its own span to its span on the tile. */
-function onTile(size, tile, glyph, { span, onTile }) {
+function onTile(size, tile, glyph, span, tileSpan) {
   const c = size / 2;
   return `<rect width="${size}" height="${size}" fill="${tile}"/>
-    <g transform="translate(${c} ${c}) scale(${onTile / span}) translate(${-c} ${-c})">${glyph}</g>`;
+    <g transform="translate(${c} ${c}) scale(${tileSpan / span}) translate(${-c} ${-c})">${glyph}</g>`;
 }
 
 /** The color `share` of the way from `from` to `to`, both as six-digit hex colors. */
@@ -188,49 +298,26 @@ function mix(from, to, share) {
   return `#${a.map((v, i) => Math.round(v + (b[i] - v) * share).toString(16).padStart(2, "0")).join("").toUpperCase()}`;
 }
 
-/** The tiled icons of one scheme. Power off is the on glyph without its dot, in an ink faded toward the tile. */
-function tiledIcons({ name, tile, ink }) {
-  const off = mix(ink, tile, OFF_FADE);
-  const tags = ["litra", "tile", name];
-  return [
-    {
-      path: `brightness-${name}.svg`,
-      name: `Brightness on ${name}`,
-      tags: [...tags, "sun", "light"],
-      draw: (s) => onTile(s, tile, brightnessGlyph(s, { color: ink }), TILED_GLYPHS.brightness),
-    },
-    {
-      path: `temperature-${name}.svg`,
-      name: `Temperature on ${name}`,
-      tags: [...tags, "thermometer", "kelvin"],
-      draw: (s) => onTile(s, tile, temperatureGlyph(s, { color: ink }), TILED_GLYPHS.temperature),
-    },
-    {
-      path: `power-on-${name}.svg`,
-      name: `Power on, on ${name}`,
-      tags: [...tags, "power"],
-      draw: (s) => onTile(s, tile, powerGlyph(s, { on: true, color: ink }), TILED_GLYPHS.power),
-    },
-    {
-      path: `power-off-${name}.svg`,
-      name: `Power off, on ${name}`,
-      tags: [...tags, "power"],
-      draw: (s) => onTile(s, tile, powerGlyph(s, { on: false, color: off }), TILED_GLYPHS.power),
-    },
-  ];
+/** The pack entry of a glyph on one tile. */
+function tiledIcon({ id, name, tags, draw, span, tileSpan, fade }, { name: tileName, tile, ink }) {
+  const color = fade ? mix(ink, tile, OFF_FADE) : ink;
+  return {
+    path: `${id}-${tileName}.svg`,
+    name: `${name} (${tileName})`,
+    tags: ["litra", "tile", tileName, ...tags],
+    draw: (size) => onTile(size, tile, draw(size, { color }), span, tileSpan),
+  };
 }
 
 /**
- * The icon pack's icons, in the order the Icon Library shows them. Every icon is tagged "litra", so a search for it
- * finds the whole pack. The pack's own icon is the lamp, like the plugin's category.
+ * The icon pack's icons, in the order the Icon Library shows them: the plain glyphs and the lamp, then each tile's set.
+ * Every icon is tagged "litra", so a search for it finds the whole pack. The pack's own icon is the lamp, like the
+ * plugin's category.
  */
 const PACK_ICONS = [
-  { path: "brightness.svg", name: "Brightness", tags: ["litra", "sun", "light"], draw: brightnessGlyph },
-  { path: "temperature.svg", name: "Temperature", tags: ["litra", "thermometer", "kelvin"], draw: temperatureGlyph },
-  { path: "power-on.svg", name: "Power on", tags: ["litra", "power"], draw: (s) => powerGlyph(s, { on: true }) },
-  { path: "power-off.svg", name: "Power off", tags: ["litra", "power"], draw: (s) => powerGlyph(s, { on: false }) },
+  ...PACK_GLYPHS.map(({ id, name, tags, draw }) => ({ path: `${id}.svg`, name, tags: ["litra", ...tags], draw })),
   { path: "lamp.svg", name: "Lamp", tags: ["litra", "light"], draw: categoryGlyph },
-  ...TILE_SCHEMES.flatMap(tiledIcons),
+  ...TILE_SCHEMES.flatMap((scheme) => PACK_GLYPHS.map((glyph) => tiledIcon(glyph, scheme))),
 ];
 
 // The size Elgato asks for an icon in a pack, and the one it recommends for the pack's own icon.
