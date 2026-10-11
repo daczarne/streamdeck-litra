@@ -43,7 +43,7 @@
       "UserTitleEnabled": true,
       "Encoder": {
         "layout": "$B1",
-        "Icon": "imgs/actions/brightness/encoder",
+        "Icon": "imgs/actions/brightness/glyph",
         "TriggerDescription": {
           "Rotate": "Brightness",
           "Push": "Power",
@@ -52,7 +52,7 @@
       },
       "States": [
         {
-          "Image": "imgs/actions/brightness/key",
+          "Image": "imgs/actions/brightness/glyph",
           "TitleAlignment": "bottom",
           "FontSize": 14,
           "TitleColor": "#ffffff"
@@ -72,7 +72,7 @@
       "UserTitleEnabled": true,
       "Encoder": {
         "layout": "$B1",
-        "Icon": "imgs/actions/temperature/encoder",
+        "Icon": "imgs/actions/temperature/glyph",
         "TriggerDescription": {
           "Rotate": "Temperature",
           "Push": "Power",
@@ -81,7 +81,7 @@
       },
       "States": [
         {
-          "Image": "imgs/actions/temperature/key",
+          "Image": "imgs/actions/temperature/glyph",
           "TitleAlignment": "bottom",
           "FontSize": 12,
           "TitleColor": "#ffffff"

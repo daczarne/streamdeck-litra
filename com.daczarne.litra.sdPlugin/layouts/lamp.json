@@ -20,7 +20,7 @@
       "key": "brightnessIcon",
       "type": "pixmap",
       "rect": [12, 40, 22, 22],
-      "value": "imgs/actions/brightness/icon@2x.png"
+      "value": "imgs/actions/brightness/glyph@2x.png"
     },
     {
       "key": "brightness",
@@ -40,7 +40,7 @@
       "key": "temperatureIcon",
       "type": "pixmap",
       "rect": [12, 70, 22, 22],
-      "value": "imgs/actions/temperature/encoder@2x.png"
+      "value": "imgs/actions/temperature/glyph@2x.png"
     },
     {
       "key": "temperature",
