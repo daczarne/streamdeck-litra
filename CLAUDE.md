@@ -22,7 +22,7 @@ The plugin is for Daniel's own use and isn't published. It runs linked from the 
 
 - `docs/contributing.md`: how work is done here. Changes go through pull requests, features come with their tests, and dependencies are pinned. It also says which unused code stays. This file only adds what is specific to Claude.
 - `docs/style_guide.md`: the conventions the linters don't enforce (see [Style](#style)).
-- `docs/elgato_sdk/`: what the Stream Deck SDK offers and what it doesn't (the interactions a dial receives, its layouts, how Stream Deck loads the settings pages), checked against the installed version. Read it before designing how an action behaves on the Deck, and add to it when a change finds out something new about the SDK.
+- `docs/elgato_sdk/`: what the Stream Deck SDK offers and what it doesn't (the interactions a dial receives, its layouts, how Stream Deck loads the settings pages and icon packs), checked against the installed version. Read it before designing how an action behaves on the Deck, and add to it when a change finds out something new about the SDK.
 - `docs/manual_testing/`: the checks that only the Deck can prove, one document per area. Before asking Daniel to test on the Deck, point to the matching document. When a feature needs new manual checks, add them there.
 - `ref/`: the original author's notes. Read them before changing behavior that looks odd.
 
@@ -34,7 +34,8 @@ The plugin is for Daniel's own use and isn't published. It runs linked from the 
 - Unit tests sit next to the file they test (`litra-manager.test.ts`), and run with Vitest. They replace `litra` and `@elgato/streamdeck` with `vi.mock`, so they need no lamps and create no `logs/` folder. `src/test-support/` holds the shared fakes, such as a lamp whose HID handle records every call.
 - `browser-tests/` holds the browser tests, which load each settings page from the plugin folder in a headless Chrome. They check the controls each page shows, the settings it sends, and that its Content-Security-Policy refuses anything remote. `browser-tests/support/` drives Chrome over a pipe rather than a debugging port, and fakes Stream Deck's WebSocket. Chrome is found at `CHROME_PATH`, or where macOS or Linux usually install it. The tests run apart from the unit tests, with their own Vitest config, so `npm test` still needs nothing installed.
 - `com.daczarne.litra.sdPlugin/` is the plugin folder: `manifest.json`, the settings pages in `ui/` (with the vendored `sdpi-components` in `ui/vendor/`), the icons in `imgs/`, and the custom dial layouts in `layouts/`. `bin/` and `node_modules/` inside it are build output.
-- `scripts/check-ui.mjs` guards the settings pages (see [Supply chain](#supply-chain)). `scripts/generate-icons.mjs` generates the icons. `scripts/probes/` holds scripts that ask the lamps directly how they behave, run by hand, with a README on how to run them and read their output.
+- `com.daczarne.litra.sdIconPack/` is the icon pack, which adds the plugin's icons to Stream Deck's Icon Library: `manifest.json`, written by hand, and `icons.json`, `icons/` and `icon.svg`, generated. Like the plugin, it runs linked from the repo.
+- `scripts/check-ui.mjs` guards the settings pages (see [Supply chain](#supply-chain)). `scripts/generate-icons.mjs` generates the plugin's icons and the icon pack, and `scripts/check-icon-pack.mjs` checks that the pack is complete. `scripts/probes/` holds scripts that ask the lamps directly how they behave, run by hand, with a README on how to run them and read their output.
 - `ref/` holds the original author's design notes and the paused Beam LX back-light research. It isn't shipped or built ([#12]).
 - `docs/` holds the documents listed in [Read before changing things](#read-before-changing-things).
 
@@ -45,10 +46,12 @@ n auto                    # switch to the Node version in .node-version
 npm ci --ignore-scripts   # install from the lockfile, without install scripts
 npm run build             # bundle src/ into the plugin folder and copy node-hid next to it
 npm run check:ui          # ui/*.html: no remote resources, CSP on every page; vendored file matches its hash
-npm run validate          # check:ui, build, streamdeck validate
+npm run check:icons       # icon pack: manifest complete, every icon listed, sized and present
+npm run validate          # check:ui, check:icons, build, streamdeck validate
 npm run pack              # check:ui, build, write release/com.daczarne.litra.streamDeckPlugin
-npm run icons             # regenerate the icons in imgs/ from scripts/generate-icons.mjs
+npm run icons             # regenerate the icons in imgs/ and the icon pack from scripts/generate-icons.mjs
 npm run link              # link the plugin folder into Stream Deck
+npm run link:icons        # link the icon pack into Stream Deck (macOS)
 npm run watch             # rebuild and restart the plugin on change
 npx tsc --noEmit -p .     # type-check only
 npm test                  # run the unit tests
@@ -73,7 +76,7 @@ Daniel treats supply-chain risk as a hard requirement:
 
 ## Testing on the hardware
 
-- Build, enable developer mode (`npx streamdeck dev`), `npm run link`, then `npx streamdeck restart com.daczarne.litra`. The actions appear under the Litra category. Developer mode stays on. After that, the `Build and restart` VS Code task (the default build task) runs the build and the restart in one go. A change to `manifest.json` takes effect only once Stream Deck itself is quit and reopened, so mention it to Daniel whenever a branch changes the manifest.
+- Build, enable developer mode (`npx streamdeck dev`), `npm run link`, then `npx streamdeck restart com.daczarne.litra`. The actions appear under the Litra category. Developer mode stays on. After that, the `Build and restart` VS Code task (the default build task) runs the build and the restart in one go. A change to `manifest.json` takes effect only once Stream Deck itself is quit and reopened, so mention it to Daniel whenever a branch changes the manifest. The icon pack is linked with `npm run link:icons`. Stream Deck only finds it once it's quit and reopened, and after that a change to the pack shows the next time the Icon Library is opened. The `Build icons` VS Code task regenerates the icons and checks the pack.
 - Plugin logs are in `com.daczarne.litra.sdPlugin/logs/`. Stream Deck's own log, `~/Library/Logs/ElgatoStreamDeck/StreamDeck.log`, records what it refuses from the plugin, such as a layout it can't load.
 - `docs/manual_testing/` holds the checks to run by hand. For example, `settings_pages.md` covers what the browser tests take for granted about Stream Deck, how to open the pages in DevTools to check it, and the debugging port that has to be closed afterwards.
 - On the Stream Deck + XL's USB hub (7.5 W), each Beam caps its brightness below 100%, at a level that depends on both the port and the lamp: from 58% to 79% for Daniel's two Beams (see the example in `scripts/probes/README.md`). The cap doesn't change with what the other lamp draws. Plugged into the Mac, a Beam reaches 100%.

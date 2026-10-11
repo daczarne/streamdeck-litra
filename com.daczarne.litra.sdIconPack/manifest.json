@@ -1,0 +1,8 @@
+{
+  "Name": "Litra",
+  "Version": "1.0.0",
+  "Description": "Icons for Logitech Litra lights, in the style of the Litra plugin's actions.",
+  "Author": "Daniel Czarnievicz",
+  "URL": "https://github.com/daczarne/streamdeck-litra",
+  "Icon": "icon.svg"
+}

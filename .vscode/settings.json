@@ -7,8 +7,9 @@
   /* JSON schemas */
   "json.schemas": [
     {
+      // Only the plugin's: the icon pack's manifest is another format, which Elgato publishes no schema for.
       "fileMatch": [
-        "**/manifest.json"
+        "**/*.sdPlugin/manifest.json"
       ],
       "url": "https://schemas.elgato.com/streamdeck/plugins/manifest.json"
     },

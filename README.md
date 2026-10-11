@@ -10,6 +10,7 @@ Not an official Logitech or Elgato product.
 - [Setting up on a new computer](#setting-up-on-a-new-computer)
 - [Working on the plugin](#working-on-the-plugin)
 - [Packaging](#packaging)
+- [Icon pack](#icon-pack)
 - [Usage tips](#usage-tips)
 - [Settings pages](#settings-pages)
 - [Third-party code](#third-party-code)
@@ -64,15 +65,16 @@ Lamps connect over USB only: the underlying HID stack doesn't support Bluetooth.
     npm run build
     ```
 
-4. Turn on Stream Deck's developer mode, link the plugin folder into Stream Deck, and restart the plugin:
+4. Turn on Stream Deck's developer mode, link the plugin folder and the icon pack into Stream Deck, and restart the plugin:
 
     ```shell
     npx streamdeck dev
     npm run link
+    npm run link:icons
     npx streamdeck restart com.daczarne.litra
     ```
 
-5. In Stream Deck, the actions appear under the **Litra** category. Drag them onto keys or dials, or restore a Stream Deck backup that already has them: the layout lives in Stream Deck's profiles, not in this repository.
+5. In Stream Deck, the actions appear under the **Litra** category. Drag them onto keys or dials, or restore a Stream Deck backup that already has them: the layout lives in Stream Deck's profiles, not in this repository. Quit and reopen Stream Deck once, so it finds the icon pack: its icons then show in the Icon Library, under **Litra**.
 
 Developer mode stays on afterwards.
 
@@ -88,8 +90,9 @@ npx tsc --noEmit -p .     # type-check only
 npm test                  # run the unit tests
 npm run test:browser      # run the browser tests of the settings pages, which need Google Chrome
 npm run check:ui          # settings pages: no remote resources, CSP on every page, vendored file matches its hash
-npm run validate          # check:ui, build and streamdeck validate
-npm run icons             # regenerate the icons in imgs/ from scripts/generate-icons.mjs
+npm run check:icons       # icon pack: manifest complete, every icon listed, sized and present
+npm run validate          # check:ui, check:icons, build and streamdeck validate
+npm run icons             # regenerate the icons in imgs/ and the icon pack from scripts/generate-icons.mjs
 ```
 
 In VS Code, the `Build and restart` task builds once and restarts the plugin. It's the default build task, so **Tasks: Run Build Task** (⇧⌘B) starts it.
@@ -105,6 +108,19 @@ npm run pack
 ```
 
 This runs `check:ui`, builds, and writes `release/com.daczarne.litra.streamDeckPlugin`. A packaged plugin can't fall back on the repository's `node_modules` the way a linked one does, so it needs testing as an installed plugin before any release ([#21]).
+
+## Icon pack
+
+`com.daczarne.litra.sdIconPack/` is an icon pack: it adds the plugin's icons to Stream Deck's Icon Library, so any key or dial can pick them, the Litra actions' included. `scripts/generate-icons.mjs` draws its icons with the same code as the plugin's, as 144 × 144 px SVGs, and writes `icons.json` from the same list. `manifest.json` is written by hand.
+
+Like the plugin, the pack runs linked from the repository:
+
+```shell
+npm run link:icons        # link the pack into Stream Deck's IconPacks folder (macOS)
+npm run unlink:icons      # remove the link
+```
+
+Stream Deck only finds a new pack when it starts, so quit and reopen it after the first link. After that, a change to the pack shows the next time the Icon Library is opened. In VS Code, the `Build icons` task regenerates the icons and checks the pack. A key keeps the icon it was given even when the pack changes, until the icon is assigned again. [`docs/elgato_sdk/icon_packs.md`][icon-packs] describes the format and how Stream Deck loads a pack, and [`docs/manual_testing/icon_pack.md`][icon-pack-test] the checks to run on the Deck.
 
 ## Usage tips
 
@@ -157,6 +173,8 @@ To update it, download `dist/sdpi-components.js` from the new upstream tag (not 
 [bright]: com.daczarne.litra.sdPlugin/imgs/actions/brightness/icon@2x.png
 [check-ui]: scripts/check-ui.mjs
 [hid-notes]: ref/hid-captures/NOTES.md
+[icon-pack-test]: docs/manual_testing/icon_pack.md
+[icon-packs]: docs/elgato_sdk/icon_packs.md
 [litra]: https://github.com/timrogers/litra
 [manual-test]: docs/manual_testing/settings_pages.md
 [n]: https://github.com/tj/n
