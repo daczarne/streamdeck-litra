@@ -108,6 +108,7 @@ This runs `check:ui`, builds, and writes `release/com.daczarne.litra.streamDeckP
 
 - Brightness and temperature keys are meant to show their preset value, as a bare number at the bottom of the key. The plugin sets it itself, since editing the title is disabled. On the Deck, no number appears yet ([#25]).
 - Dials look like Stream Deck's own volume dials: the value, with a bar under it. The temperature bar runs from the lamp's warmest setting (empty) to its coolest (full). Rotating adjusts, pressing toggles the front light. Their titles don't show yet either ([#25]).
+- A dial turns by the step in its settings, and stops on the multiples of that step counted from the bottom of the range (0% or 2700 K), the same values going up as going down. From a value between two of them, such as a lamp's cap or a key's preset, the first step goes to the next one in the direction of the turn. When the step doesn't divide the range, the last step to 100% or 6500 K is shorter.
 - With no lamp connected, actions show Stream Deck's alert indicator.
 
 ## Settings pages
