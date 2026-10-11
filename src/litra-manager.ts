@@ -10,7 +10,6 @@ import {
   isOn,
   setBrightnessInLumen,
   setTemperatureInKelvin,
-  toggle,
   turnOff,
   turnOn,
 } from "litra";
@@ -227,11 +226,51 @@ export function turnOffAll(): BroadcastResult {
   });
 }
 
+/**
+ * Turns every lamp off if every lamp is on, and on otherwise, so lamps out of sync end up in sync (#23). That's the
+ * opposite of what {@link isOnAll} reports, which the Power key shows. A lamp that can't be read counts as off, as in
+ * {@link isOnAll}, and is still sent the command.
+ */
 export function toggleAll(): BroadcastResult {
-  return forEachDevice((device) => {
-    toggle(device);
-    drainAck(device);
-  });
+  const devices = openDevices();
+  if (devices.length === 0) {
+    return { ok: false, deviceCount: 0, failures: 1 };
+  }
+
+  // A lamp that fails both stages is counted once.
+  const failed = new Set<Device>();
+  const attempt = <T>(device: Device, fn: () => T, fallback: T): T => {
+    try {
+      return fn();
+    } catch (error) {
+      failed.add(device);
+      logger.error(`Litra device operation failed: ${String(error)}`);
+      return fallback;
+    }
+  };
+
+  try {
+    const allOn = devices.map((device) => attempt(device, () => isOn(device), false)).every(Boolean);
+    for (const device of devices) {
+      attempt(
+        device,
+        () => {
+          if (allOn) {
+            turnOff(device);
+          } else {
+            turnOn(device);
+          }
+          drainAck(device);
+        },
+        undefined,
+      );
+    }
+    return { ok: failed.size === 0, deviceCount: devices.length, failures: failed.size };
+  } finally {
+    for (const device of devices) {
+      closeDevice(device);
+    }
+  }
 }
 
 /** On only if at least one device and every device reports on. */
