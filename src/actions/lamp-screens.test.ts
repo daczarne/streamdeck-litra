@@ -1,7 +1,7 @@
 import streamDeck from "@elgato/streamdeck";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { identifyLamp, type LampStatus, readLampStatuses } from "../litra-manager";
+import { identifyLamp, type LampStatus, onLampsChanged, readLampStatuses } from "../litra-manager";
 import { createFakeDial } from "../test-support/fake-stream-deck";
 import { LampScreens, MAIN_LAYOUT } from "./lamp-screens";
 
@@ -12,6 +12,7 @@ vi.mock("@elgato/streamdeck", () => import("../test-support/fake-stream-deck"));
 // The real litra-manager loads node-hid's native binary on import and talks to real lamps.
 vi.mock("../litra-manager", () => ({
   identifyLamp: vi.fn(),
+  onLampsChanged: vi.fn(),
   readLampStatuses: vi.fn(),
 }));
 
@@ -243,6 +244,18 @@ describe("LampScreens", () => {
       expect(onA.setFeedback).toHaveBeenLastCalledWith(lampScreenOf(dimmedA, 1, 2));
       expect(onB.setFeedback).toHaveBeenLastCalledWith(lampScreenOf(turnedOnB, 2, 2));
       expect(onMain.setFeedback).not.toHaveBeenCalled();
+    });
+
+    it("happens whenever the lamps change, whichever action changed them", async () => {
+      const dial = createFakeDial();
+      await screens.tap(dial, showMain);
+      const lampsChanged = vi.mocked(onLampsChanged).mock.lastCall?.[0];
+      const turnedOffA = { ...A, on: false };
+      connect(turnedOffA, B);
+
+      await lampsChanged?.();
+
+      expect(dial.setFeedback).toHaveBeenLastCalledWith(lampScreenOf(turnedOffA, 1, 2));
     });
 
     it("doesn't read the lamps when no dial shows a lamp screen", async () => {

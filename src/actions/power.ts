@@ -5,8 +5,7 @@ import {
   WillAppearEvent,
 } from "@elgato/streamdeck";
 
-import { isOnAll, toggleAll, turnOffAll, turnOnAll } from "../litra-manager";
-import { lampScreens as sharedLampScreens, type LampScreens } from "./lamp-screens";
+import { isOnAll, onLampsChanged, toggleAll, turnOffAll, turnOnAll } from "../litra-manager";
 
 type PowerSettings = {
   mode?: "toggle" | "on" | "off";
@@ -14,15 +13,16 @@ type PowerSettings = {
 
 @action({ UUID: "com.daczarne.litra.power" })
 export class PowerAction extends SingletonAction<PowerSettings> {
-  private readonly lampScreens: LampScreens;
-
-  constructor(lampScreens: LampScreens = sharedLampScreens) {
+  constructor() {
     super();
-    this.lampScreens = lampScreens;
+    // Every Power key follows the lamps, whichever key or dial changed them, this one included (#57).
+    onLampsChanged(() => this.syncEveryKey());
   }
 
   override async onWillAppear(ev: WillAppearEvent<PowerSettings>): Promise<void> {
-    await this.syncState(ev.action);
+    if (ev.action.isKey()) {
+      await ev.action.setState(await this.readState());
+    }
   }
 
   override async onKeyDown(ev: KeyDownEvent<PowerSettings>): Promise<void> {
@@ -33,17 +33,21 @@ export class PowerAction extends SingletonAction<PowerSettings> {
     if (!result.ok) {
       await ev.action.showAlert();
     }
-
-    await this.syncState(ev.action);
-    // Dials showing a lamp screen show whether that lamp is on.
-    await this.lampScreens.refresh();
   }
 
-  private async syncState(action: WillAppearEvent<PowerSettings>["action"]): Promise<void> {
-    if (!action.isKey()) {
-      return;
+  /** Shows the lamps' state on every visible Power key, from one read. */
+  private async syncEveryKey(): Promise<void> {
+    const state = await this.readState();
+    for (const action of this.actions) {
+      if (action.isKey()) {
+        await action.setState(state);
+      }
     }
-    const { allOn, deviceCount } = isOnAll();
-    await action.setState(deviceCount > 0 && allOn ? 1 : 0);
+  }
+
+  /** The key's state: on (1) only if there is a lamp and every lamp is on. */
+  private async readState(): Promise<0 | 1> {
+    const { allOn, deviceCount } = await isOnAll();
+    return deviceCount > 0 && allOn ? 1 : 0;
   }
 }

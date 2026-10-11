@@ -1,6 +1,6 @@
 import streamDeck, { type TouchTapEvent } from "@elgato/streamdeck";
 
-import { identifyLamp, type LampStatus, readLampStatuses } from "../litra-manager";
+import { identifyLamp, type LampStatus, onLampsChanged, readLampStatuses } from "../litra-manager";
 
 /** What the lamp screens use of a dial, whichever action it belongs to. */
 export type LampScreenDial = Pick<
@@ -30,12 +30,17 @@ const LAMP_TRIGGER_DESCRIPTIONS = { push: "Identify", touch: "Next lamp", longTo
  * shows rather than its position, so a lamp unplugged mid-cycle is skipped and "n of m" counts the lamps connected at
  * that moment.
  *
- * Every dial shares one instance, so a change made through any action can redraw every lamp screen. Operations run one
- * at a time, since each reads the lamps and changes what a dial shows, and never reject: failures are logged.
+ * Every dial shares one instance, which redraws every lamp screen whenever the lamps change, whichever action changed
+ * them. Operations run one at a time, since each reads the lamps and changes what a dial shows, and never reject:
+ * failures are logged.
  */
 export class LampScreens {
   private readonly screens = new Map<string, Screen>();
   private queue: Promise<void> = Promise.resolve();
+
+  constructor() {
+    onLampsChanged(() => this.refresh());
+  }
 
   isShowing(dialId: string): boolean {
     return this.screens.has(dialId);
@@ -77,7 +82,7 @@ export class LampScreens {
     return this.enqueue(() => this.backToMain(dialId));
   }
 
-  /** Redraws every lamp screen from a fresh read, after a change made through the plugin. */
+  /** Redraws every lamp screen from a fresh read. */
   refresh(): Promise<void> {
     return this.enqueue(async () => {
       if (this.screens.size === 0) {

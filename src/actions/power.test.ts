@@ -1,8 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { isOnAll, type LampStatus, readLampStatuses, toggleAll } from "../litra-manager";
-import { createFakeDial, createFakeKey } from "../test-support/fake-stream-deck";
-import { LampScreens } from "./lamp-screens";
+import { isOnAll, onLampsChanged, toggleAll, turnOffAll, turnOnAll } from "../litra-manager";
+import { createFakeDial, createFakeKey, type FakeAction, show } from "../test-support/fake-stream-deck";
 import { PowerAction } from "./power";
 
 //* Fakes
@@ -12,36 +11,109 @@ vi.mock("@elgato/streamdeck", () => import("../test-support/fake-stream-deck"));
 // The real litra-manager loads node-hid's native binary on import and talks to real lamps.
 vi.mock("../litra-manager", () => ({
   isOnAll: vi.fn(),
-  readLampStatuses: vi.fn(),
+  onLampsChanged: vi.fn(),
   toggleAll: vi.fn(),
   turnOffAll: vi.fn(),
   turnOnAll: vi.fn(),
 }));
 
-const BEAM: LampStatus = {
-  serialNumber: "A1",
-  model: "Beam",
-  on: true,
-  brightnessLumen: 324,
-  brightnessPercentage: 79,
-  temperatureKelvin: 2700,
-};
+const SWITCHED = { ok: true, deviceCount: 2, failures: 0 };
+
+function keyDown(key: FakeAction, mode?: "toggle" | "on" | "off") {
+  return { action: key, payload: { settings: { mode } } } as never;
+}
+
+/** Creates the action, and returns what it does when litra-manager announces that the lamps changed. */
+function createPowerAction(): { power: PowerAction; lampsChanged: () => Promise<void> } {
+  const power = new PowerAction();
+  const listener = vi.mocked(onLampsChanged).mock.lastCall?.[0];
+  if (listener === undefined) {
+    throw new Error("PowerAction didn't listen for lamp changes");
+  }
+  return { power, lampsChanged: async () => listener() };
+}
 
 //* Tests
 
 describe("PowerAction", () => {
-  it("redraws the lamp screens after a key press, so they show whether each lamp is on", async () => {
+  describe("when the lamps change", () => {
+    it("shows the lamps' state on every Power key, not only the one pressed (#57)", async () => {
+      const key = createFakeKey();
+      const otherKey = createFakeKey();
+      const dial = createFakeDial();
+      show(key, dial, otherKey);
+      const { lampsChanged } = createPowerAction();
+      vi.mocked(isOnAll).mockResolvedValue({ ok: true, allOn: true, deviceCount: 2 });
+
+      await lampsChanged();
+
+      expect(key.setState).toHaveBeenCalledExactlyOnceWith(1);
+      expect(otherKey.setState).toHaveBeenCalledExactlyOnceWith(1);
+      expect(isOnAll).toHaveBeenCalledOnce();
+    });
+
+    it("shows off when only some lamps are on", async () => {
+      const key = createFakeKey();
+      show(key);
+      const { lampsChanged } = createPowerAction();
+      vi.mocked(isOnAll).mockResolvedValue({ ok: true, allOn: false, deviceCount: 2 });
+
+      await lampsChanged();
+
+      expect(key.setState).toHaveBeenCalledExactlyOnceWith(0);
+    });
+
+    it("shows off when no lamp is connected", async () => {
+      const key = createFakeKey();
+      show(key);
+      const { lampsChanged } = createPowerAction();
+      vi.mocked(isOnAll).mockResolvedValue({ ok: false, allOn: false, deviceCount: 0 });
+
+      await lampsChanged();
+
+      expect(key.setState).toHaveBeenCalledExactlyOnceWith(0);
+    });
+  });
+
+  describe("on a key press", () => {
+    it.each([
+      [undefined, toggleAll],
+      ["toggle" as const, toggleAll],
+      ["on" as const, turnOnAll],
+      ["off" as const, turnOffAll],
+    ])("in mode %s, switches the lamps, and leaves showing the result to the notice", async (mode, operation) => {
+      const key = createFakeKey();
+      show(key);
+      const { power } = createPowerAction();
+      vi.mocked(operation).mockReturnValue(SWITCHED);
+
+      await power.onKeyDown(keyDown(key, mode));
+
+      expect(operation).toHaveBeenCalledOnce();
+      expect(key.setState).not.toHaveBeenCalled();
+      expect(key.showAlert).not.toHaveBeenCalled();
+    });
+
+    it("shows an alert when a lamp fails", async () => {
+      const key = createFakeKey();
+      show(key);
+      const { power } = createPowerAction();
+      vi.mocked(toggleAll).mockReturnValue({ ok: false, deviceCount: 0, failures: 1 });
+
+      await power.onKeyDown(keyDown(key));
+
+      expect(key.showAlert).toHaveBeenCalledOnce();
+    });
+  });
+
+  it("shows the lamps' state on a key that appears", async () => {
     const key = createFakeKey();
-    const dial = createFakeDial();
-    const lampScreens = new LampScreens();
-    vi.mocked(readLampStatuses).mockResolvedValue({ ok: true, lamps: [BEAM] });
-    await lampScreens.tap(dial, async () => {});
-    vi.mocked(toggleAll).mockReturnValue({ ok: true, deviceCount: 1, failures: 0 });
-    vi.mocked(isOnAll).mockReturnValue({ ok: true, allOn: false, deviceCount: 1 });
-    vi.mocked(readLampStatuses).mockResolvedValue({ ok: true, lamps: [{ ...BEAM, on: false }] });
+    show(key);
+    const { power } = createPowerAction();
+    vi.mocked(isOnAll).mockResolvedValue({ ok: true, allOn: true, deviceCount: 2 });
 
-    await new PowerAction(lampScreens).onKeyDown({ action: key, payload: { settings: {} } } as never);
+    await power.onWillAppear({ action: key, payload: { settings: {} } } as never);
 
-    expect(dial.setFeedback).toHaveBeenLastCalledWith(expect.objectContaining({ power: "Off" }));
+    expect(key.setState).toHaveBeenCalledExactlyOnceWith(1);
   });
 });

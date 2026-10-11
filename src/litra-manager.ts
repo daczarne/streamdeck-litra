@@ -71,6 +71,43 @@ const brightnessCapsInLumen = new Map<string, number>();
  */
 let brightnessChanges: Promise<unknown> = Promise.resolve();
 
+const lampsChangedListeners: Array<() => void | Promise<void>> = [];
+
+/**
+ * Registers a listener called after every operation that writes to the lamps, whichever action asked for it, so that
+ * everything the Deck shows about the lamps can follow (#57). A brightness change calls it once it has settled and left
+ * the queue. Returns a function that removes the listener.
+ */
+export function onLampsChanged(listener: () => void | Promise<void>): () => void {
+  lampsChangedListeners.push(listener);
+  return () => {
+    const index = lampsChangedListeners.indexOf(listener);
+    if (index !== -1) {
+      lampsChangedListeners.splice(index, 1);
+    }
+  };
+}
+
+/**
+ * Calls every listener once the current operation has returned, and its handles are closed. A failed operation is
+ * announced too, since it may have written to some lamps, and finding none is news as well.
+ */
+function announceLampsChanged(): void {
+  for (const listener of [...lampsChangedListeners]) {
+    Promise.resolve()
+      .then(listener)
+      .catch((error: unknown) => {
+        logger.error(`Lamps changed listener failed: ${String(error)}`);
+      });
+  }
+}
+
+/** Announces that the lamps changed, and passes on the result of the operation that changed them. */
+function announced<T>(result: T): T {
+  announceLampsChanged();
+  return result;
+}
+
 function asHid(device: Device): ClosableHid {
   return device.hid as ClosableHid;
 }
@@ -235,17 +272,21 @@ export function forEachDevice(fn: (device: Device) => void): BroadcastResult {
 }
 
 export function turnOnAll(): BroadcastResult {
-  return forEachDevice((device) => {
-    turnOn(device);
-    drainAck(device);
-  });
+  return announced(
+    forEachDevice((device) => {
+      turnOn(device);
+      drainAck(device);
+    }),
+  );
 }
 
 export function turnOffAll(): BroadcastResult {
-  return forEachDevice((device) => {
-    turnOff(device);
-    drainAck(device);
-  });
+  return announced(
+    forEachDevice((device) => {
+      turnOff(device);
+      drainAck(device);
+    }),
+  );
 }
 
 /**
@@ -256,7 +297,7 @@ export function turnOffAll(): BroadcastResult {
 export function toggleAll(): BroadcastResult {
   const devices = openDevices();
   if (devices.length === 0) {
-    return { ok: false, deviceCount: 0, failures: 1 };
+    return announced({ ok: false, deviceCount: 0, failures: 1 });
   }
 
   // A lamp that fails both stages is counted once.
@@ -287,7 +328,7 @@ export function toggleAll(): BroadcastResult {
         undefined,
       );
     }
-    return { ok: failed.size === 0, deviceCount: devices.length, failures: failed.size };
+    return announced({ ok: failed.size === 0, deviceCount: devices.length, failures: failed.size });
   } finally {
     for (const device of devices) {
       closeDevice(device);
@@ -295,8 +336,12 @@ export function toggleAll(): BroadcastResult {
   }
 }
 
-/** On only if at least one device and every device reports on. */
-export function isOnAll(): { ok: boolean; allOn: boolean; deviceCount: number } {
+/**
+ * On only if at least one device and every device reports on. Waits for the brightness change in progress, if any,
+ * which holds the lamps open until it has read them back.
+ */
+export async function isOnAll(): Promise<{ ok: boolean; allOn: boolean; deviceCount: number }> {
+  await brightnessChanges;
   let devices: Device[] = [];
   try {
     devices = findDevices();
@@ -360,7 +405,7 @@ export function setBrightnessAllPercentage(
   percentage: number,
   settleMs = BRIGHTNESS_SETTLE_MS,
 ): Promise<BroadcastResult> {
-  return oneBrightnessChangeAtATime(() => moveBrightnessAll(percentage, settleMs));
+  return oneBrightnessChangeAtATime(() => moveBrightnessAll(percentage, settleMs)).finally(announceLampsChanged);
 }
 
 /**
@@ -374,7 +419,7 @@ export function adjustBrightnessAllByPercentageSteps(
 ): Promise<BroadcastResult> {
   return oneBrightnessChangeAtATime(() =>
     moveBrightnessAll((brightest) => stepOnGrid(brightest, ticks, stepPercentage, 0, 100), settleMs),
-  );
+  ).finally(announceLampsChanged);
 }
 
 /**
@@ -571,11 +616,11 @@ export function setTemperatureAllInKelvin(kelvin: number): BroadcastResult {
       representativePercentage = temperaturePercentage(snapped, allowed);
     }
   });
-  return {
+  return announced({
     ...result,
     representativeTemperatureKelvin: representative,
     representativeTemperaturePercentage: representativePercentage,
-  };
+  });
 }
 
 /**
@@ -603,11 +648,11 @@ export function adjustTemperatureAllByKelvinSteps(ticks: number, stepKelvin: num
       representativePercentage = temperaturePercentage(snapped, allowed);
     }
   });
-  return {
+  return announced({
     ...result,
     representativeTemperatureKelvin: representative,
     representativeTemperaturePercentage: representativePercentage,
-  };
+  });
 }
 
 export function readRepresentativeTemperatureKelvin(): BroadcastResult {

@@ -65,7 +65,6 @@ export class TemperatureAction extends SingletonAction<TemperatureSettings> {
     }
     // The key shows its preset, and the dials the temperature the lamps were set to: the preset snapped to an allowed one.
     await this.showOnEveryDial(result);
-    await this.lampScreens.refresh();
   }
 
   /** Dial press toggles power, or blinks the lamp on a lamp screen; rotate adjusts temperature. */
@@ -80,7 +79,6 @@ export class TemperatureAction extends SingletonAction<TemperatureSettings> {
       return;
     }
     await this.refreshDisplay(ev.action, ev.payload.settings);
-    await this.lampScreens.refresh();
   }
 
   /** Tapping the strip shows the lamps one by one, and holding it goes back to the main screen. */
@@ -109,8 +107,7 @@ export class TemperatureAction extends SingletonAction<TemperatureSettings> {
           await ev.action.showAlert();
         }
         await this.showOnEveryDial(result);
-        await this.lampScreens.refresh();
-      });
+          });
       this.dialQueues.set(id, queue);
     }
     queue(ev.payload.ticks);
