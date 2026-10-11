@@ -30,9 +30,9 @@ In VS Code, the `Build and restart` task runs both.
 4. **Holding goes back.** Tap to a lamp screen, then hold the strip: the strip goes back to the brightness right away.
 5. **A lamp screen stays.** Tap to a lamp screen and leave the dial alone for a minute: the strip still shows the lamp screen.
 6. **Turning does nothing.** On a lamp screen, turn the dial: the lamps don't change, and neither does the screen.
-7. **Pushing toggles every lamp.** On a lamp screen, push the dial: both lamps turn off, and the screen shows "Off". Push again: both turn on, and it shows "On".
+7. **Pushing blinks the lamp on screen.** On a lamp screen, push the dial: only that lamp goes off for a moment and comes back at the same brightness and temperature. Turn that lamp off with its own button, tap through to its screen again, and push: it lights up for a moment and goes off again. On the main screen, a push still toggles every lamp.
 8. **Other changes show.** Put the Temperature dial on a lamp screen, then turn the Brightness dial and press the Power key: the Temperature dial's lamp screen shows the new brightness, then the new power state.
-9. **The app describes the gestures.** Select the dial in Stream Deck: it lists "Lamps" for touching the strip. On a lamp screen, it lists "Next lamp" for a touch, "Back" for a long touch, and nothing for rotating.
+9. **The app describes the gestures.** Select the dial in Stream Deck: it lists "Lamps" for touching the strip. On a lamp screen, it lists "Identify" for a push, "Next lamp" for a touch, "Back" for a long touch, and nothing for rotating.
 10. **Unplugging mid-cycle.** Tap to "1 of 2", unplug the other lamp, and tap: the strip goes back to the main screen. Plug it back in, tap to "1 of 2", unplug the lamp on screen, and tap: the strip shows the remaining lamp as "1 of 1".
 11. **Switching pages.** Tap to a lamp screen, switch to another page of the Deck and back: the dial shows its main screen.
 

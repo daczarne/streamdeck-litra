@@ -68,8 +68,12 @@ export class TemperatureAction extends SingletonAction<TemperatureSettings> {
     await this.lampScreens.refresh();
   }
 
-  /** Dial press toggles power; rotate adjusts temperature. */
+  /** Dial press toggles power, or blinks the lamp on a lamp screen; rotate adjusts temperature. */
   override async onDialDown(ev: DialDownEvent<TemperatureSettings>): Promise<void> {
+    if (this.lampScreens.isShowing(ev.action.id)) {
+      await this.lampScreens.identify(ev.action);
+      return;
+    }
     const result = toggleAll();
     if (!result.ok) {
       await ev.action.showAlert();

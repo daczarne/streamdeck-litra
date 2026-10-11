@@ -4,6 +4,7 @@ import {
   adjustBrightnessAllByPercentageSteps,
   type BroadcastResult,
   createDialDebouncer,
+  identifyLamp,
   type LampStatus,
   readLampStatuses,
   readRepresentativeBrightnessPercentage,
@@ -22,6 +23,7 @@ vi.mock("@elgato/streamdeck", () => import("../test-support/fake-stream-deck"));
 vi.mock("../litra-manager", () => ({
   adjustBrightnessAllByPercentageSteps: vi.fn(),
   createDialDebouncer: vi.fn(),
+  identifyLamp: vi.fn(),
   readLampStatuses: vi.fn(),
   readRepresentativeBrightnessPercentage: vi.fn(),
   setBrightnessAllPercentage: vi.fn(),
@@ -238,19 +240,33 @@ describe("BrightnessAction", () => {
       expect(onMain.setFeedback).toHaveBeenCalledExactlyOnceWith(brightnessOn(79));
     });
 
-    it("toggles every lamp on a push on a lamp screen, and redraws the lamp screen", async () => {
+    it("blinks the lamp on screen on a push, instead of toggling every lamp", async () => {
       const dial = createFakeDial();
       show(dial);
       const brightness = new BrightnessAction(lampScreens);
       await brightness.onTouchTap(touchTap(dial));
-      vi.mocked(toggleAll).mockReturnValue({ ok: true, deviceCount: 1, failures: 0 });
-      vi.mocked(readLampStatuses).mockResolvedValue({ ok: true, lamps: [{ ...BEAM, on: false }] });
+      vi.mocked(identifyLamp).mockResolvedValue({ ok: true, deviceCount: 1, failures: 0 });
 
       await brightness.onDialDown({ action: dial, payload: { settings: {} } } as never);
 
+      expect(identifyLamp).toHaveBeenCalledExactlyOnceWith(BEAM.serialNumber);
+      expect(toggleAll).not.toHaveBeenCalled();
+    });
+
+    it("toggles every lamp on a push on the main screen, and redraws the other dials' lamp screens", async () => {
+      const pushed = createFakeDial();
+      const onLamp = createFakeDial();
+      show(pushed, onLamp);
+      const brightness = new BrightnessAction(lampScreens);
+      await brightness.onTouchTap(touchTap(onLamp));
+      vi.mocked(toggleAll).mockReturnValue({ ok: true, deviceCount: 1, failures: 0 });
+      vi.mocked(readLampStatuses).mockResolvedValue({ ok: true, lamps: [{ ...BEAM, on: false }] });
+
+      await brightness.onDialDown({ action: pushed, payload: { settings: {} } } as never);
+
       expect(toggleAll).toHaveBeenCalledOnce();
-      expect(dial.setFeedback).not.toHaveBeenCalledWith(brightnessOn(79));
-      expect(dial.setFeedback).toHaveBeenLastCalledWith(expect.objectContaining({ power: "Off" }));
+      expect(pushed.setFeedback).toHaveBeenLastCalledWith(brightnessOn(79));
+      expect(onLamp.setFeedback).toHaveBeenLastCalledWith(expect.objectContaining({ power: "Off" }));
     });
 
     it("starts a dial that appears on the main screen", async () => {

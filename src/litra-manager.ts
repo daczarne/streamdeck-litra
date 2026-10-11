@@ -54,6 +54,9 @@ const MODEL_BY_DEVICE_TYPE: Record<DeviceType, string> = {
 // A capped lamp applies its cap within about 100 ms of a write, and until then reports the brightness it was sent.
 const BRIGHTNESS_SETTLE_MS = 250;
 
+// Long enough to see the lamp go off and back on, short enough not to disturb.
+const IDENTIFY_BLINK_MS = 300;
+
 // Reports a lamp sends unasked (ACKs, change notices, error reports) can arrive ahead of the reply to a query.
 const MAX_SKIPPED_REPORTS = 10;
 
@@ -63,7 +66,9 @@ const MAX_SKIPPED_REPORTS = 10;
  */
 const brightnessCapsInLumen = new Map<string, number>();
 
-/** The last brightness change queued by {@link oneBrightnessChangeAtATime}, which the next one waits for. */
+/**
+ * The last brightness change, or blink, queued by {@link oneBrightnessChangeAtATime}, which the next one waits for.
+ */
 let brightnessChanges: Promise<unknown> = Promise.resolve();
 
 function asHid(device: Device): ClosableHid {
@@ -374,7 +379,8 @@ export function adjustBrightnessAllByPercentageSteps(
 
 /**
  * Runs brightness changes one at a time, in the order they were asked for. A change holds the lamps open while they
- * settle, and its read-back would take a later change's lower write for a cap.
+ * settle, and its read-back would take a later change's lower write for a cap. {@link identifyLamp} goes through it
+ * too, since it holds a lamp open during its blink.
  */
 function oneBrightnessChangeAtATime(change: () => Promise<BroadcastResult>): Promise<BroadcastResult> {
   const result = brightnessChanges.then(change);
@@ -511,6 +517,45 @@ export async function readLampStatuses(): Promise<{ ok: boolean; lamps: LampStat
   });
   lamps.sort((a, b) => (a.serialNumber < b.serialNumber ? -1 : a.serialNumber > b.serialNumber ? 1 : 0));
   return { ok: result.ok, lamps };
+}
+
+/**
+ * Blinks one lamp, so the user can tell which one it is (#48): switches it off and back on, or on and back off when
+ * it's off. A blink writes no brightness, so it shows at any brightness and leaves learned caps alone, and the lamp ends
+ * as it started. Fails when the lamp isn't connected.
+ */
+export function identifyLamp(serialNumber: string, blinkMs = IDENTIFY_BLINK_MS): Promise<BroadcastResult> {
+  return oneBrightnessChangeAtATime(async () => {
+    const devices = openDevices();
+    try {
+      const device = devices.find((candidate) => candidate.serialNumber === serialNumber);
+      if (device === undefined) {
+        return { ok: false, deviceCount: 0, failures: 1 };
+      }
+      const setPower = (on: boolean): void => {
+        if (on) {
+          turnOn(device);
+        } else {
+          turnOff(device);
+        }
+        drainAck(device);
+      };
+      try {
+        const wasOn = isOn(device);
+        setPower(!wasOn);
+        await new Promise((resolve) => setTimeout(resolve, blinkMs));
+        setPower(wasOn);
+        return { ok: true, deviceCount: 1, failures: 0 };
+      } catch (error) {
+        logger.error(`Litra device operation failed: ${String(error)}`);
+        return { ok: false, deviceCount: 1, failures: 1 };
+      }
+    } finally {
+      for (const device of devices) {
+        closeDevice(device);
+      }
+    }
+  });
 }
 
 export function setTemperatureAllInKelvin(kelvin: number): BroadcastResult {

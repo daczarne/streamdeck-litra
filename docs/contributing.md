@@ -58,7 +58,7 @@ Two things are exceptions. They are unused today but kept on purpose, with their
 
 ## Lamps are managed together
 
-The plugin has no way to act on one lamp alone, so until per-lamp control arrives in [#20], it assumes the user wants every connected lamp kept in sync and controlled as one. Questions about several lamps are answered from that rule, not decided case by case: every lamp is sent the same value, and what an action displays describes the group. For example, when one lamp can't reach the requested brightness, the others still go there, and the dial shows the brightest lamp ([#13]). The lamp screens ([#48]) are the one exception to what an action displays: each shows a single lamp, so lamps that are out of sync can be told apart. Changing a value from a lamp screen still changes every lamp, as pushing the dial does.
+The plugin has no way to control one lamp alone, so until per-lamp control arrives in [#20], it assumes the user wants every connected lamp kept in sync and controlled as one. Questions about several lamps are answered from that rule, not decided case by case: every lamp is sent the same value, and what an action displays describes the group. For example, when one lamp can't reach the requested brightness, the others still go there, and the dial shows the brightest lamp ([#13]). The lamp screens ([#48]) are the one exception: each shows a single lamp, so lamps that are out of sync can be told apart, and pushing the dial there blinks that lamp alone, so it can be found. The blink leaves the lamp as it was, and every value set through the plugin still goes to every lamp.
 
 When [#20] is worked on, the question changes: what would someone who controls each lamp separately need for the plugin to work for them?
 

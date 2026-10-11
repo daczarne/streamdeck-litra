@@ -1,7 +1,7 @@
 import streamDeck from "@elgato/streamdeck";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { type LampStatus, readLampStatuses } from "../litra-manager";
+import { identifyLamp, type LampStatus, readLampStatuses } from "../litra-manager";
 import { createFakeDial } from "../test-support/fake-stream-deck";
 import { LampScreens, MAIN_LAYOUT } from "./lamp-screens";
 
@@ -11,6 +11,7 @@ vi.mock("@elgato/streamdeck", () => import("../test-support/fake-stream-deck"));
 
 // The real litra-manager loads node-hid's native binary on import and talks to real lamps.
 vi.mock("../litra-manager", () => ({
+  identifyLamp: vi.fn(),
   readLampStatuses: vi.fn(),
 }));
 
@@ -68,7 +69,7 @@ describe("LampScreens", () => {
 
       expect(dial.setFeedbackLayout).toHaveBeenCalledExactlyOnceWith(LAMP_LAYOUT);
       expect(dial.setTriggerDescription).toHaveBeenCalledExactlyOnceWith({
-        push: "Power",
+        push: "Identify",
         touch: "Next lamp",
         longTouch: "Back",
       });
@@ -157,6 +158,38 @@ describe("LampScreens", () => {
 
       expect(screens.isShowing(otherDial.id)).toBe(false);
       expect(otherDial.setFeedback).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("on identify", () => {
+    it("blinks the lamp on the dial's screen", async () => {
+      const dial = createFakeDial();
+      vi.mocked(identifyLamp).mockResolvedValue({ ok: true, deviceCount: 1, failures: 0 });
+      await screens.tap(dial, showMain);
+      await screens.tap(dial, showMain);
+
+      await screens.identify(dial);
+
+      expect(identifyLamp).toHaveBeenCalledExactlyOnceWith(B.serialNumber);
+      expect(dial.showAlert).not.toHaveBeenCalled();
+    });
+
+    it("shows an alert when the lamp can't be blinked", async () => {
+      const dial = createFakeDial();
+      vi.mocked(identifyLamp).mockResolvedValue({ ok: false, deviceCount: 0, failures: 1 });
+      await screens.tap(dial, showMain);
+
+      await screens.identify(dial);
+
+      expect(dial.showAlert).toHaveBeenCalledOnce();
+    });
+
+    it("does nothing on the main screen", async () => {
+      const dial = createFakeDial();
+
+      await screens.identify(dial);
+
+      expect(identifyLamp).not.toHaveBeenCalled();
     });
   });
 
