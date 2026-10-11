@@ -29,7 +29,7 @@ In VS Code, the `Build and restart` task runs both.
 3. **The keys keep their presets.** After checks 1 and 2, each key still shows its own preset, not the dials' value.
 4. **Going down retraces going up.** Set one dial's step to 500 in its settings. Press the 3000 K key, then turn that dial up one step at a time: the strips show 3200, 3700, and so on up to 6200, then 6500. Turn it down one step at a time: 6200, 5700, and so on down to 3200, then 2700, the same temperatures as on the way up ([#16]). Set the step back to 100.
 5. **The dial says what it does.** Both strips show "Temperature" at the top, above the icon and the value. If a strip shows none, check **Show Title** under the **T** menu of the dial's settings, which Stream Deck keeps for each dial. A title typed in the title field replaces it.
-6. **The app pictures the dial with its strip's icon.** In the Stream Deck app, the round picture of each Temperature dial shows the white line thermometer from its touch strip, not the key's art on a dark tile ([#51]). A Temperature action dragged onto an empty dial gets the same picture once the plugin starts it. The Temperature keys keep their art. A dial given a custom image keeps it.
+6. **The keys and the app's dial pictures show the strip's icon.** In the Stream Deck app, the round picture of each Temperature dial shows the white line thermometer from its touch strip, not a thermometer on a dark tile ([#51]). So does a Temperature action dragged onto an empty dial or key. A dial or key given a custom image keeps it.
 
 [#16]: https://github.com/daczarne/streamdeck-litra/issues/16
 [#51]: https://github.com/daczarne/streamdeck-litra/issues/51

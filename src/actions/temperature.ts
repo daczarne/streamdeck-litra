@@ -28,10 +28,6 @@ type TemperatureSettings = {
 
 type ActionRef = WillAppearEvent<TemperatureSettings>["action"];
 
-// Stream Deck's app pictures a dial with the action's key image, not with `Encoder.Icon` as the SDK says, so each dial
-// sets its picture to the icon its touch strip shows (#51).
-const DIAL_IMAGE = "imgs/actions/temperature/encoder@2x.png";
-
 @action({ UUID: "com.daczarne.litra.temperature" })
 export class TemperatureAction extends SingletonAction<TemperatureSettings> {
   private readonly dialQueues = new Map<string, (ticks: number) => void>();
@@ -47,7 +43,6 @@ export class TemperatureAction extends SingletonAction<TemperatureSettings> {
   override async onWillAppear(ev: WillAppearEvent<TemperatureSettings>): Promise<void> {
     this.latestSettings.set(ev.action.id, ev.payload.settings);
     if (ev.action.isDial()) {
-      await ev.action.setImage(DIAL_IMAGE);
       await this.lampScreens.appear(ev.action);
     }
     await this.refreshDisplay(ev.action, ev.payload.settings);

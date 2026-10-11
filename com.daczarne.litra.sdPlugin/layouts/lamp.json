@@ -40,7 +40,7 @@
       "key": "temperatureIcon",
       "type": "pixmap",
       "rect": [12, 70, 22, 22],
-      "value": "imgs/actions/temperature/encoder@2x.png"
+      "value": "imgs/actions/temperature/glyph@2x.png"
     },
     {
       "key": "temperature",

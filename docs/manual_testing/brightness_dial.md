@@ -48,7 +48,7 @@ Restarting also clears the caps the plugin has learned, so the checks start from
 8. **Going down retraces going up.** Set one dial's step to 25 in its settings. Press the 30% key, then turn that dial up one step at a time: the strips show 50%, 75%, then the brightest lamp's cap (about 79%). Turn it down one step at a time: 75%, 50%, 25%, 0%, the same multiples of 25 as on the way up ([#14]). Set the step back to 5.
 9. **The dial says what it does.** Both strips show "Brightness" at the top, above the icon and the value. If a strip shows none, check **Show Title** under the **T** menu of the dial's settings, which Stream Deck keeps for each dial. A title typed in the title field replaces it.
 10. **The bar shows where each lamp stops.** Press the 100% key: each strip's bar is white up to the dimmer lamp's cap (about 63% on the second port), and light grey from there to the brightest lamp's cap, with a sharp edge between them ([#59]). Turn a dial down below the dimmer lamp's cap: the bar turns plain white.
-11. **The app pictures the dial with its strip's icon.** In the Stream Deck app, the round picture of each Brightness dial shows the white line sun from its touch strip, not the key's art on a dark tile ([#51]). A Brightness action dragged onto an empty dial gets the same picture once the plugin starts it. The Brightness keys keep their art. A dial given a custom image keeps it.
+11. **The keys and the app's dial pictures show the strip's icon.** In the Stream Deck app, the round picture of each Brightness dial shows the white line sun from its touch strip, not a sun on a dark tile ([#51]). So does a Brightness action dragged onto an empty dial or key. A dial or key given a custom image keeps it.
 
 ## Known gap
 
