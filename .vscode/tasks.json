@@ -13,6 +13,15 @@
       },
       "problemMatcher": [ ],
     },
+    // The linked icon pack needs no restart: Stream Deck shows the new icons the next time the Icon Library opens.
+    {
+      "label": "Build icons",
+      "detail": "Regenerate the plugin's icons and the icon pack, then check the pack",
+      "type": "shell",
+      "command": "npm run icons && npm run check:icons",
+      "group": "build",
+      "problemMatcher": [ ],
+    },
     // Unlike CI, which runs its jobs in parallel, the compound tasks stop at the first check that fails.
     {
       "label": "CI",
@@ -58,7 +67,7 @@
     },
     {
       "label": "Lint: validate",
-      "detail": "check:ui, build and streamdeck validate",
+      "detail": "check:ui, check:icons, build and streamdeck validate",
       "type": "shell",
       "command": "npm run validate",
       "problemMatcher": [ ],

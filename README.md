@@ -120,7 +120,7 @@ npm run link:icons        # link the pack into Stream Deck's IconPacks folder (m
 npm run unlink:icons      # remove the link
 ```
 
-Stream Deck only finds a new pack when it starts, so quit and reopen it after the first link. After that, a change to the pack shows the next time the Icon Library is opened. A key keeps the icon it was given even when the pack changes, until the icon is assigned again. [`docs/elgato_sdk/icon_packs.md`][icon-packs] describes the format and how Stream Deck loads a pack, and [`docs/manual_testing/icon_pack.md`][icon-pack-test] the checks to run on the Deck.
+Stream Deck only finds a new pack when it starts, so quit and reopen it after the first link. After that, a change to the pack shows the next time the Icon Library is opened. In VS Code, the `Build icons` task regenerates the icons and checks the pack. A key keeps the icon it was given even when the pack changes, until the icon is assigned again. [`docs/elgato_sdk/icon_packs.md`][icon-packs] describes the format and how Stream Deck loads a pack, and [`docs/manual_testing/icon_pack.md`][icon-pack-test] the checks to run on the Deck.
 
 ## Usage tips
 
