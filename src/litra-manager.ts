@@ -31,8 +31,25 @@ export type BroadcastResult = {
   representativeTemperaturePercentage?: number;
 };
 
+/** What a lamp screen shows about one lamp (#48). */
+export type LampStatus = {
+  serialNumber: string;
+  model: string;
+  on: boolean;
+  brightnessLumen: number;
+  brightnessPercentage: number;
+  temperatureKelvin: number;
+};
+
 const logger = streamDeck.logger;
 const DIAL_DEBOUNCE_MS = 60;
+
+// litra names each model "Logitech Litra …", too long for the touch strip.
+const MODEL_BY_DEVICE_TYPE: Record<DeviceType, string> = {
+  [DeviceType.LitraGlow]: "Glow",
+  [DeviceType.LitraBeam]: "Beam",
+  [DeviceType.LitraBeamLX]: "Beam LX",
+};
 
 // A capped lamp applies its cap within about 100 ms of a write, and until then reports the brightness it was sent.
 const BRIGHTNESS_SETTLE_MS = 250;
@@ -469,6 +486,31 @@ export function readRepresentativeBrightnessPercentage(): BroadcastResult {
     representativeBrightnessPercentage: representative,
     representativeBrightnessLumen: representativeLumen,
   };
+}
+
+/**
+ * Reads every lamp for the lamp screens, sorted by serial number, since findDevices lists them in no fixed order. A
+ * lamp that can't be read is left out. Waits for the brightness change in progress, if any, which holds the lamps open
+ * until it has read them back.
+ */
+export async function readLampStatuses(): Promise<{ ok: boolean; lamps: LampStatus[] }> {
+  await brightnessChanges;
+  const lamps: LampStatus[] = [];
+  const result = forEachDevice((device) => {
+    const on = isOn(device);
+    const temperatureKelvin = getTemperatureInKelvin(device);
+    const brightnessLumen = getBrightnessInLumenSafe(device);
+    lamps.push({
+      serialNumber: device.serialNumber,
+      model: MODEL_BY_DEVICE_TYPE[device.type],
+      on,
+      brightnessLumen,
+      brightnessPercentage: brightnessPercentage(device, brightnessLumen),
+      temperatureKelvin,
+    });
+  });
+  lamps.sort((a, b) => (a.serialNumber < b.serialNumber ? -1 : a.serialNumber > b.serialNumber ? 1 : 0));
+  return { ok: result.ok, lamps };
 }
 
 export function setTemperatureAllInKelvin(kelvin: number): BroadcastResult {

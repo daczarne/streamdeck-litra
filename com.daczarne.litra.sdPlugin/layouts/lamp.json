@@ -1,0 +1,53 @@
+{
+  "$schema": "https://schemas.elgato.com/streamdeck/plugins/layout.json",
+  "id": "com.daczarne.litra.lamp",
+  "items": [
+    {
+      "key": "lamp",
+      "type": "text",
+      "rect": [12, 6, 138, 26],
+      "alignment": "left",
+      "font": { "size": 18 }
+    },
+    {
+      "key": "power",
+      "type": "text",
+      "rect": [152, 6, 36, 26],
+      "alignment": "right",
+      "font": { "size": 18 }
+    },
+    {
+      "key": "brightnessIcon",
+      "type": "pixmap",
+      "rect": [12, 40, 22, 22],
+      "value": "imgs/actions/brightness/icon@2x.png"
+    },
+    {
+      "key": "brightness",
+      "type": "text",
+      "rect": [40, 38, 58, 26],
+      "alignment": "left",
+      "font": { "size": 18 }
+    },
+    {
+      "key": "lumens",
+      "type": "text",
+      "rect": [100, 38, 88, 26],
+      "alignment": "right",
+      "font": { "size": 18 }
+    },
+    {
+      "key": "temperatureIcon",
+      "type": "pixmap",
+      "rect": [12, 70, 22, 22],
+      "value": "imgs/actions/temperature/encoder@2x.png"
+    },
+    {
+      "key": "temperature",
+      "type": "text",
+      "rect": [40, 68, 148, 26],
+      "alignment": "left",
+      "font": { "size": 18 }
+    }
+  ]
+}

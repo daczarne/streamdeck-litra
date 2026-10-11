@@ -4,9 +4,13 @@ import {
   adjustTemperatureAllByKelvinSteps,
   type BroadcastResult,
   createDialDebouncer,
+  type LampStatus,
+  readLampStatuses,
+  readRepresentativeTemperatureKelvin,
   setTemperatureAllInKelvin,
 } from "../litra-manager";
 import { createFakeDial, createFakeKey, type FakeAction, show } from "../test-support/fake-stream-deck";
+import { LampScreens } from "./lamp-screens";
 import { TemperatureAction } from "./temperature";
 
 //* Fakes
@@ -17,6 +21,7 @@ vi.mock("@elgato/streamdeck", () => import("../test-support/fake-stream-deck"));
 vi.mock("../litra-manager", () => ({
   adjustTemperatureAllByKelvinSteps: vi.fn(),
   createDialDebouncer: vi.fn(),
+  readLampStatuses: vi.fn(),
   readRepresentativeTemperatureKelvin: vi.fn(),
   setTemperatureAllInKelvin: vi.fn(),
   toggleAll: vi.fn(),
@@ -40,6 +45,19 @@ function dialRotate(dial: FakeAction, ticks: number) {
 }
 
 const TEMPERATURE_SNAPPED = { title: "Temperature", value: "4000", indicator: 34 };
+
+const BEAM: LampStatus = {
+  serialNumber: "A1",
+  model: "Beam",
+  on: true,
+  brightnessLumen: 324,
+  brightnessPercentage: 79,
+  temperatureKelvin: 2700,
+};
+
+function touchTap(dial: FakeAction) {
+  return { action: dial, payload: { settings: {}, hold: false } } as never;
+}
 
 /** Waits for a dial's flush, which the fake debouncer starts at once and nobody awaits. */
 function flushed(): Promise<void> {
@@ -118,6 +136,57 @@ describe("TemperatureAction", () => {
 
       expect(turned.showAlert).toHaveBeenCalledOnce();
       expect(otherDial.showAlert).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("with lamp screens", () => {
+    let lampScreens: LampScreens;
+
+    beforeEach(() => {
+      lampScreens = new LampScreens();
+      vi.mocked(readLampStatuses).mockResolvedValue({ ok: true, lamps: [BEAM] });
+      vi.mocked(readRepresentativeTemperatureKelvin).mockReturnValue(SNAPPED);
+    });
+
+    it("shows the temperature again after the last lamp", async () => {
+      const dial = createFakeDial();
+      show(dial);
+      const temperature = new TemperatureAction(lampScreens);
+
+      await temperature.onTouchTap(touchTap(dial));
+      await temperature.onTouchTap(touchTap(dial));
+
+      expect(dial.setFeedbackLayout).toHaveBeenLastCalledWith("$B1");
+      expect(dial.setFeedback).toHaveBeenLastCalledWith(TEMPERATURE_SNAPPED);
+    });
+
+    it("does nothing when the dial is turned on a lamp screen", async () => {
+      const dial = createFakeDial();
+      show(dial);
+      const temperature = new TemperatureAction(lampScreens);
+      await temperature.onTouchTap(touchTap(dial));
+
+      await temperature.onDialRotate(dialRotate(dial, 3));
+      await flushed();
+
+      expect(adjustTemperatureAllByKelvinSteps).not.toHaveBeenCalled();
+    });
+
+    it("redraws a lamp screen after a key press, instead of showing the temperature on it", async () => {
+      const key = createFakeKey();
+      const onLamp = createFakeDial();
+      const onMain = createFakeDial();
+      show(key, onLamp, onMain);
+      const temperature = new TemperatureAction(lampScreens);
+      await temperature.onTouchTap(touchTap(onLamp));
+      vi.mocked(setTemperatureAllInKelvin).mockReturnValue(SNAPPED);
+      vi.mocked(readLampStatuses).mockResolvedValue({ ok: true, lamps: [{ ...BEAM, temperatureKelvin: 4000 }] });
+
+      await temperature.onKeyDown(keyDown(key, 4050));
+
+      expect(onLamp.setFeedback).not.toHaveBeenCalledWith(TEMPERATURE_SNAPPED);
+      expect(onLamp.setFeedback).toHaveBeenLastCalledWith(expect.objectContaining({ temperature: "4000 K" }));
+      expect(onMain.setFeedback).toHaveBeenCalledExactlyOnceWith(TEMPERATURE_SNAPPED);
     });
   });
 });

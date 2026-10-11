@@ -185,7 +185,8 @@ function encoderIconBrightness(size) {
                       x2="${cx + Math.cos(a) * rayOut}" y2="${cy + Math.sin(a) * rayOut}"
                       stroke="#FFFFFF" stroke-width="${sw}" stroke-linecap="round"/>`;
   }).join("\n");
-  return `<circle cx="${cx}" cy="${cy}" r="${core}" stroke="#FFFFFF" stroke-width="${sw}"/>\n${rays}`;
+  // Filled, as large as the outlined circle was: an outline was hard to make out at the strip's sizes.
+  return `<circle cx="${cx}" cy="${cy}" r="${core + sw / 2}" fill="#FFFFFF"/>\n${rays}`;
 }
 
 function encoderIconTemperature(size) {

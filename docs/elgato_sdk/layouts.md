@@ -32,6 +32,8 @@ The dials use `$B1`, the layout of Stream Deck's own volume and microphone dials
 
 A custom layout is a JSON file in the plugin folder, validated by the schema at `https://schemas.elgato.com/streamdeck/plugins/layout.json`. It lists items of four types (`text`, `pixmap`, `bar` and `gbar`), each with a `key` that the plugin fills and a `rect` on the canvas. A text item whose `key` is `title` follows the font settings the user picks in Stream Deck, and `setTitle` updates it.
 
+Items can't overlap unless their `zOrder` differs. Stream Deck refuses a layout with overlapping items and shows the dial's title and icon instead. The reason only appears in Stream Deck's own log, `~/Library/Logs/ElgatoStreamDeck/StreamDeck.log`, as a line starting with "Layout instantiation failed" that names the two items. A `pixmap`'s `value` can be set in the layout file, as a path from the plugin folder, so a fixed icon needs no `setFeedback`.
+
 ## Updating what a dial shows
 
 - `Encoder.layout` in `manifest.json` sets a dial's layout, by name or by the path to a custom one. `setFeedbackLayout` replaces it at runtime.
@@ -39,10 +41,12 @@ A custom layout is a JSON file in the plugin folder, validated by the schema at 
 
 ## What fits on the Deck
 
-Measured on the Stream Deck + XL's touch strip while trying to show the lumens next to the brightness ([#8]):
+Measured on the Stream Deck + XL's touch strip, while trying to show the lumens next to the brightness ([#8]) and while building the lamp screens ([#48]):
 
 - Text under about 16 px is hard to read, and a mid-grey on the strip's background doesn't contrast enough.
 - At the size of `$B1`'s value, a value like `70%` already takes about half of the 108 px value area, so a second value doesn't fit on the same line.
+- Three rows of 18 px text, two of them led by a 22 px icon, fit in the 200 × 100 px canvas and read well.
+- At icon sizes of about 22 px, an outlined circle is hard to make out. A filled one reads better, which is why both brightness icons use a filled sun.
 
 ## Sources
 
@@ -53,3 +57,4 @@ Checked against `@elgato/streamdeck` 3.0.1 and the schemas in `@elgato/schemas`,
 - `setFeedback` and `setFeedbackLayout`: `@elgato/streamdeck/dist/plugin/actions/dial.d.ts`.
 
 [#8]: https://github.com/daczarne/streamdeck-litra/issues/8
+[#48]: https://github.com/daczarne/streamdeck-litra/issues/48

@@ -23,6 +23,7 @@ import {
   getBrightnessInLumenSafe,
   isOnAll,
   percentageInRange,
+  readLampStatuses,
   percentageToLumen,
   readRepresentativeBrightnessPercentage,
   readRepresentativeTemperatureKelvin,
@@ -1107,6 +1108,69 @@ describe("adjustTemperatureAllByKelvinSteps", () => {
 
     expect(result.representativeTemperatureKelvin).toBe(BEAM_MAX_KELVIN);
     expect(result.representativeTemperaturePercentage).toBe(100);
+  });
+});
+
+describe("readLampStatuses", () => {
+  it("reports every lamp sorted by serial number, and closes every handle", async () => {
+    const second = createFakeDevice({ type: DeviceType.LitraBeam, serialNumber: "B2", brightnessInLumen: lumenAt(50) });
+    const first = createFakeDevice({ type: DeviceType.LitraBeamLX, serialNumber: "A1", brightnessInLumen: 400 });
+    connect(second, first);
+    vi.mocked(isOn).mockImplementation((device) => device === first);
+    vi.mocked(getTemperatureInKelvin).mockImplementation((device) => (device === first ? 2700 : 6500));
+
+    expect(await readLampStatuses()).toEqual({
+      ok: true,
+      lamps: [
+        {
+          serialNumber: "A1",
+          model: "Beam LX",
+          on: true,
+          brightnessLumen: 400,
+          brightnessPercentage: 100,
+          temperatureKelvin: 2700,
+        },
+        {
+          serialNumber: "B2",
+          model: "Beam",
+          on: false,
+          brightnessLumen: lumenAt(50),
+          brightnessPercentage: 50,
+          temperatureKelvin: 6500,
+        },
+      ],
+    });
+    expect(first.hid.close).toHaveBeenCalledOnce();
+    expect(second.hid.close).toHaveBeenCalledOnce();
+  });
+
+  it("leaves out a lamp that can't be read", async () => {
+    const unreadable = beam();
+    unreadable.hid.readSync.mockImplementation(() => {
+      throw new Error("HID read failed");
+    });
+    const readable = beam();
+    connect(unreadable, readable);
+    vi.mocked(getTemperatureInKelvin).mockReturnValue(4000);
+
+    const result = await readLampStatuses();
+
+    expect(result.ok).toBe(false);
+    expect(result.lamps.map((lamp) => lamp.serialNumber)).toEqual([readable.serialNumber]);
+  });
+
+  it("reports no lamps when none is connected", async () => {
+    expect(await readLampStatuses()).toEqual({ ok: false, lamps: [] });
+  });
+
+  it("waits for the brightness change in progress", async () => {
+    const device = beam();
+    connect(device);
+    vi.mocked(getTemperatureInKelvin).mockReturnValue(4000);
+
+    const [, statuses] = await Promise.all([setBrightnessAllPercentage(100, 0), readLampStatuses()]);
+
+    expect(statuses.lamps[0].brightnessLumen).toBe(BEAM_MAX_LUMEN);
   });
 });
 

@@ -17,11 +17,11 @@ Not an official Logitech or Elgato product.
 
 ## Actions
 
-|                       | Action          | Key                     | Dial (Stream Deck +)                  |
-|:---------------------:|:----------------|:------------------------|:--------------------------------------|
-| ![Power][power]       | **Power**       | On, off or toggle       | None                                  |
-| ![Brightness][bright] | **Brightness**  | Jump to a preset %      | Rotate to adjust, press toggles power |
-| ![Temperature][temp]  | **Temperature** | Jump to a preset Kelvin | Rotate to adjust, press toggles power |
+|                       | Action          | Key                     | Dial (Stream Deck +)                                               |
+|:---------------------:|:----------------|:------------------------|:-------------------------------------------------------------------|
+| ![Power][power]       | **Power**       | On, off or toggle       | None                                                               |
+| ![Brightness][bright] | **Brightness**  | Jump to a preset %      | Rotate to adjust, press toggles power, tap the strip for each lamp |
+| ![Temperature][temp]  | **Temperature** | Jump to a preset Kelvin | Rotate to adjust, press toggles power, tap the strip for each lamp |
 
 - Every action applies to all connected lamps at once. There is no per-lamp picker yet.
 - The plugin talks to the lamps in-process over USB HID, through the [`litra`][litra] Node library, with no CLI subprocess.
@@ -78,7 +78,7 @@ Developer mode stays on afterwards.
 
 ## Working on the plugin
 
-Since the plugin is linked, a change takes effect as soon as it's built and the plugin restarts. Switching branches switches what the Deck runs, after the next build.
+Since the plugin is linked, a change takes effect as soon as it's built and the plugin restarts. A change to `manifest.json` takes effect once Stream Deck itself is quit and reopened: restarting the plugin isn't enough. Switching branches switches what the Deck runs, after the next build.
 
 ```shell
 npm run watch             # rebuild and restart the plugin on every change
@@ -110,6 +110,7 @@ This runs `check:ui`, builds, and writes `release/com.daczarne.litra.streamDeckP
 
 - Brightness and temperature keys show their preset value, as a bare number at the bottom of the key, set by the plugin. A title typed in the key's settings replaces it, and the **Show Title** box under the **T** menu hides it.
 - Dials look like Stream Deck's own volume dials: the value, with a bar under it. The temperature bar runs from the lamp's warmest setting (empty) to its coolest (full). Their title says what they control ("Brightness", "Temperature"), and can be replaced or hidden like a key's. Rotating adjusts, pressing toggles the front light.
+- Tapping a dial's part of the strip shows one screen per lamp: its model, whether it's on, its brightness in % and lumens, and its temperature. Each tap shows the next lamp, in the order of their serial numbers, and the dial's own screen after the last. The dial stays on a lamp screen until the strip is held, which goes back to the dial's own screen right away. On a lamp screen, pressing still toggles every lamp, and turning does nothing.
 - A dial turns by the step in its settings, and stops on the multiples of that step counted from the bottom of the range (0% or 2700 K), the same values going up as going down. From a value between two of them, such as a lamp's cap or a key's preset, the first step goes to the next one in the direction of the turn. When the step doesn't divide the range, the last step to 100% or 6500 K is shorter.
 - With no lamp connected, actions show Stream Deck's alert indicator.
 
