@@ -52,7 +52,7 @@ Measured on the Stream Deck + XL's touch strip, while trying to show the lumens 
 - Text under about 16 px is hard to read, and a mid-grey on the strip's background doesn't contrast enough.
 - At the size of `$B1`'s value, a value like `70%` already takes about half of the 108 px value area, so a second value doesn't fit on the same line.
 - Three rows of 18 px text, two of them led by a 22 px icon, fit in the 200 × 100 px canvas and read well.
-- At icon sizes of about 22 px, an outlined circle is hard to make out. A filled one reads better, which is why both brightness icons use a filled sun.
+- At icon sizes of about 22 px, an outlined circle is hard to make out. A filled one reads better, which is why the brightness glyph, shown at that size on the lamp screens, uses a filled sun.
 - On the bar, a grey of `#999999` is barely readable against the bar's background, while `#c0c0c0` reads well ([#59]).
 
 ## Sources
