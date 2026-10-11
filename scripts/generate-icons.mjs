@@ -51,7 +51,7 @@ function lampMark(size, { mono = false } = {}) {
   const sw = Math.max(1.5, size * 0.08);
   const headR = size * 0.22;
   const stemH = size * 0.18;
-  return `path
+  return `<path
     d="M ${cx - headR} ${cy - size * 0.02} A ${headR} ${headR * 0.85} 0 0 1 ${cx + headR} ${cy - size * 0.02}
     L ${cx + headR * 0.55} ${cy + size * 0.12} L ${cx - headR * 0.55} ${cy + size * 0.12} Z"
     fill="${fill}" stroke="${stroke}" stroke-width="${sw}" stroke-linejoin="round"/>
