@@ -41,13 +41,12 @@ export class BrightnessAction extends SingletonAction<BrightnessSettings> {
 
   override async onKeyDown(ev: KeyDownEvent<BrightnessSettings>): Promise<void> {
     const preset = Number(ev.payload.settings.presetPercentage ?? 100);
-    const result = setBrightnessAllPercentage(preset);
+    const result = await setBrightnessAllPercentage(preset);
     if (!result.ok) {
       await ev.action.showAlert();
-      return;
     }
-    // Key tiles represent the configured set-amount, not live hardware %.
-    await this.showKeyAmount(ev.action, preset);
+    // The key shows its preset, and the dials what the lamps reached, which is less for a lamp at its cap.
+    await this.showOnEveryDial(result.representativeBrightnessPercentage);
   }
 
   /** Dial press toggles power; rotate adjusts brightness. */
@@ -71,9 +70,8 @@ export class BrightnessAction extends SingletonAction<BrightnessSettings> {
         const result = await adjustBrightnessAllByPercentageSteps(ticks, step);
         if (!result.ok) {
           await ev.action.showAlert();
-          return;
         }
-        await this.showDialValue(ev.action, result.representativeBrightnessPercentage);
+        await this.showOnEveryDial(result.representativeBrightnessPercentage);
       });
       this.dialQueues.set(id, queue);
     }
@@ -95,6 +93,13 @@ export class BrightnessAction extends SingletonAction<BrightnessSettings> {
 
   private async showKeyAmount(action: KeyAction<BrightnessSettings>, percentage: number): Promise<void> {
     await action.setTitle(`${Math.round(percentage)}`);
+  }
+
+  /** Shows the brightness on every visible dial of this action, since they all describe the same lamps. */
+  private async showOnEveryDial(percentage: number | undefined): Promise<void> {
+    for (const action of this.actions) {
+      await this.showDialValue(action, percentage);
+    }
   }
 
   /** Fills the slots of the $B1 layout: the % as text, and again as the bar under it. */

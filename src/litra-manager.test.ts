@@ -469,12 +469,15 @@ describe("isOnAll", () => {
 });
 
 describe("setBrightnessAllPercentage", () => {
-  it("sets every lamp to the percentage and reports it, with its lumens", () => {
+  // Without waiting for the lamps to settle: the fake lamps apply a write at once.
+  const set = (percentage: number) => setBrightnessAllPercentage(percentage, 0);
+
+  it("sets every lamp to the percentage and reports it, with its lumens", async () => {
     const first = beam();
     const second = beam();
     connect(first, second);
 
-    expect(setBrightnessAllPercentage(40)).toEqual({
+    expect(await set(40)).toEqual({
       ok: true,
       deviceCount: 2,
       failures: 0,
@@ -487,70 +490,143 @@ describe("setBrightnessAllPercentage", () => {
     ]);
   });
 
-  it("clamps the percentage to 0-100", () => {
+  it("clamps the percentage to 0-100", async () => {
     connect(beam());
 
-    expect(setBrightnessAllPercentage(150).representativeBrightnessPercentage).toBe(100);
-    expect(setBrightnessAllPercentage(-10).representativeBrightnessPercentage).toBe(0);
+    expect((await set(150)).representativeBrightnessPercentage).toBe(100);
+    expect((await set(-10)).representativeBrightnessPercentage).toBe(0);
     expect(vi.mocked(setBrightnessInLumen).mock.calls.map(([, lumen]) => lumen)).toEqual([
       BEAM_MAX_LUMEN,
       BEAM_MIN_LUMEN,
     ]);
   });
 
-  it("sends a lamp no more than its learned cap, but reports the percentage asked for", async () => {
+  it("reports the brightness the lamps reached, not the percentage asked for (#29)", async () => {
+    // On the Stream Deck + XL's USB hub, a Beam stops below what it's asked for.
+    connect(beam(BEAM_MIN_LUMEN, 244), beam(BEAM_MIN_LUMEN, 324));
+
+    const result = await set(100);
+
+    expect(result.representativeBrightnessPercentage).toBe(79);
+    expect(result.representativeBrightnessLumen).toBe(324);
+  });
+
+  it("learns a lamp's cap, and sends it no more than its cap afterwards", async () => {
     const capped = beam(BEAM_MIN_LUMEN, 244);
     const uncapped = beam();
     connect(capped, uncapped);
-    await adjustBrightnessAllByPercentageSteps(20, 5, 0);
-    vi.mocked(setBrightnessInLumen).mockClear();
 
-    expect(setBrightnessAllPercentage(100).representativeBrightnessPercentage).toBe(100);
+    await set(100);
+    vi.mocked(setBrightnessInLumen).mockClear();
+    await set(90);
+
     expect(vi.mocked(setBrightnessInLumen).mock.calls).toEqual([
       [capped, 244],
-      [uncapped, BEAM_MAX_LUMEN],
+      [uncapped, lumenAt(90)],
     ]);
   });
 
-  it("turns a lamp that is off on before changing its brightness", () => {
+  it("sends a lamp no more than a cap the dial learned", async () => {
+    const capped = beam(BEAM_MIN_LUMEN, 244);
+    connect(capped);
+    await adjustBrightnessAllByPercentageSteps(20, 5, 0);
+    vi.mocked(setBrightnessInLumen).mockClear();
+
+    await set(100);
+
+    expect(vi.mocked(setBrightnessInLumen).mock.calls).toEqual([[capped, 244]]);
+  });
+
+  it("waits for the lamps to settle before reading them back", async () => {
+    vi.useFakeTimers();
+    try {
+      const device = beam();
+      connect(device);
+
+      const result = setBrightnessAllPercentage(40);
+      await vi.advanceTimersByTimeAsync(249);
+      expect(device.hid.readSync).not.toHaveBeenCalled();
+
+      await vi.advanceTimersByTimeAsync(1);
+      await result;
+      expect(device.hid.readSync).toHaveBeenCalledOnce();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("turns a lamp that is off on before changing its brightness", async () => {
     const device = beam();
     connect(device);
     vi.mocked(isOn).mockReturnValue(false);
 
-    setBrightnessAllPercentage(40);
+    await set(40);
 
     expect(turnOn).toHaveBeenCalledWith(device);
     expect(firstCall(vi.mocked(turnOn))).toBeLessThan(firstCall(vi.mocked(setBrightnessInLumen)));
   });
 
-  it("leaves a lamp that is on as it is", () => {
+  it("leaves a lamp that is on as it is", async () => {
     connect(beam());
     vi.mocked(isOn).mockReturnValue(true);
 
-    setBrightnessAllPercentage(40);
+    await set(40);
 
     expect(turnOn).not.toHaveBeenCalled();
   });
 
-  it("reports the percentage when only some lamps succeed", () => {
+  it("reports the lamps that succeeded when some fail, and closes every handle", async () => {
     const first = beam();
-    connect(first, beam());
-    vi.mocked(setBrightnessInLumen).mockImplementation(failFor(first));
+    const second = beam();
+    connect(first, second);
+    vi.mocked(setBrightnessInLumen).mockImplementation((device, lumen) => {
+      failFor(first)(device);
+      (device as FakeDevice).setBrightness(lumen);
+    });
 
-    expect(setBrightnessAllPercentage(40)).toEqual({
+    expect(await set(40)).toEqual({
       ok: false,
       deviceCount: 2,
       failures: 1,
       representativeBrightnessPercentage: 40,
       representativeBrightnessLumen: 178,
     });
+    expect(first.hid.close).toHaveBeenCalledOnce();
+    expect(second.hid.close).toHaveBeenCalledOnce();
   });
 
-  it("reports no percentage or lumens when no lamp succeeds", () => {
-    const result = setBrightnessAllPercentage(40);
+  it("fails without writing, and reports no percentage or lumens, when no lamp is connected", async () => {
+    expect(await set(40)).toEqual({ ok: false, deviceCount: 0, failures: 1 });
+    expect(setBrightnessInLumen).not.toHaveBeenCalled();
+  });
+});
 
-    expect(result.representativeBrightnessPercentage).toBeUndefined();
-    expect(result.representativeBrightnessLumen).toBeUndefined();
+describe("brightness changes", () => {
+  it("run one at a time, in the order they were asked for", async () => {
+    const device = beam();
+    connect(device);
+
+    await Promise.all([setBrightnessAllPercentage(100, 0), setBrightnessAllPercentage(20, 0)]);
+
+    // The lamp is read back after each change, before the next one is written.
+    expect(vi.mocked(setBrightnessInLumen).mock.calls).toEqual([
+      [device, BEAM_MAX_LUMEN],
+      [device, lumenAt(20)],
+    ]);
+    expect(device.hid.readSync.mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(setBrightnessInLumen).mock.invocationCallOrder[1],
+    );
+  });
+
+  it("don't take a later change's lower brightness for a cap", async () => {
+    const device = beam();
+    connect(device);
+    await Promise.all([setBrightnessAllPercentage(100, 0), adjustBrightnessAllByPercentageSteps(-16, 5, 0)]);
+    vi.mocked(setBrightnessInLumen).mockClear();
+
+    await setBrightnessAllPercentage(100, 0);
+
+    expect(setBrightnessInLumen).toHaveBeenCalledWith(device, BEAM_MAX_LUMEN);
   });
 });
 

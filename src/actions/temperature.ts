@@ -45,10 +45,9 @@ export class TemperatureAction extends SingletonAction<TemperatureSettings> {
     const result = setTemperatureAllInKelvin(preset);
     if (!result.ok) {
       await ev.action.showAlert();
-      return;
     }
-    // Key tiles represent the configured set-amount, not live hardware K.
-    await this.showKeyAmount(ev.action, preset);
+    // The key shows its preset, and the dials the temperature the lamps were set to: the preset snapped to an allowed one.
+    await this.showOnEveryDial(result);
   }
 
   /** Dial press toggles power; rotate adjusts temperature. */
@@ -72,9 +71,8 @@ export class TemperatureAction extends SingletonAction<TemperatureSettings> {
         const result = adjustTemperatureAllByKelvinSteps(ticks, step);
         if (!result.ok) {
           await ev.action.showAlert();
-          return;
         }
-        await this.showDialValue(ev.action, result);
+        await this.showOnEveryDial(result);
       });
       this.dialQueues.set(id, queue);
     }
@@ -93,6 +91,13 @@ export class TemperatureAction extends SingletonAction<TemperatureSettings> {
 
   private async showKeyAmount(action: KeyAction<TemperatureSettings>, kelvin: number): Promise<void> {
     await action.setTitle(`${Math.round(kelvin)}`);
+  }
+
+  /** Shows the temperature on every visible dial of this action, since they all describe the same lamps. */
+  private async showOnEveryDial(result: BroadcastResult): Promise<void> {
+    for (const action of this.actions) {
+      await this.showDialValue(action, result);
+    }
   }
 
   /** Fills the slots of the $B1 layout: the kelvin as text, and its place in the lamp's range as the bar under it. */

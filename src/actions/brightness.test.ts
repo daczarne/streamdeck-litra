@@ -1,0 +1,157 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import {
+  adjustBrightnessAllByPercentageSteps,
+  type BroadcastResult,
+  createDialDebouncer,
+  setBrightnessAllPercentage,
+} from "../litra-manager";
+import { createFakeDial, createFakeKey, type FakeAction, show } from "../test-support/fake-stream-deck";
+import { BrightnessAction } from "./brightness";
+
+//* Fakes
+
+vi.mock("@elgato/streamdeck", () => import("../test-support/fake-stream-deck"));
+
+// The real litra-manager loads node-hid's native binary on import and talks to real lamps.
+vi.mock("../litra-manager", () => ({
+  adjustBrightnessAllByPercentageSteps: vi.fn(),
+  createDialDebouncer: vi.fn(),
+  readRepresentativeBrightnessPercentage: vi.fn(),
+  setBrightnessAllPercentage: vi.fn(),
+  toggleAll: vi.fn(),
+}));
+
+/** Two Beams on the Stream Deck + XL's USB hub, the brightest of which stops at 79%. */
+const REACHED_AT_CAP: BroadcastResult = {
+  ok: true,
+  deviceCount: 2,
+  failures: 0,
+  representativeBrightnessPercentage: 79,
+  representativeBrightnessLumen: 324,
+};
+
+const NO_LAMP: BroadcastResult = { ok: false, deviceCount: 0, failures: 1 };
+
+function keyDown(key: FakeAction, presetPercentage: number) {
+  return { action: key, payload: { settings: { presetPercentage } } } as never;
+}
+
+function dialRotate(dial: FakeAction, ticks: number) {
+  return { action: dial, payload: { settings: { stepPercentage: 5 }, ticks } } as never;
+}
+
+function brightnessOn(percentage: number) {
+  return { title: "Brightness", value: `${percentage}%`, indicator: percentage };
+}
+
+const UNKNOWN_BRIGHTNESS = { title: "Brightness", value: "—", indicator: 0 };
+
+/** Waits for a dial's flush, which the fake debouncer starts at once and nobody awaits. */
+function flushed(): Promise<void> {
+  return new Promise((resolve) => setImmediate(resolve));
+}
+
+beforeEach(() => {
+  vi.mocked(createDialDebouncer).mockImplementation((flush) => (ticks) => void flush(ticks));
+});
+
+//* Tests
+
+describe("BrightnessAction", () => {
+  describe("on a key press", () => {
+    it("sets the lamps to the key's preset", async () => {
+      const key = createFakeKey();
+      show(key);
+      vi.mocked(setBrightnessAllPercentage).mockResolvedValue(REACHED_AT_CAP);
+
+      await new BrightnessAction().onKeyDown(keyDown(key, 100));
+
+      expect(setBrightnessAllPercentage).toHaveBeenCalledWith(100);
+      expect(key.showAlert).not.toHaveBeenCalled();
+    });
+
+    it("shows on every dial the brightness the lamps reached, not the preset (#29)", async () => {
+      const key = createFakeKey();
+      const otherKey = createFakeKey();
+      const dial = createFakeDial();
+      const otherDial = createFakeDial();
+      show(key, dial, otherKey, otherDial);
+      vi.mocked(setBrightnessAllPercentage).mockResolvedValue(REACHED_AT_CAP);
+
+      await new BrightnessAction().onKeyDown(keyDown(key, 100));
+
+      expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith(brightnessOn(79));
+      expect(otherDial.setFeedback).toHaveBeenCalledExactlyOnceWith(brightnessOn(79));
+      // A key keeps showing its own preset.
+      expect(key.setTitle).not.toHaveBeenCalled();
+      expect(otherKey.setTitle).not.toHaveBeenCalled();
+    });
+
+    it("shows an alert when a lamp fails, and the brightness of the others on the dials", async () => {
+      const key = createFakeKey();
+      const dial = createFakeDial();
+      show(key, dial);
+      vi.mocked(setBrightnessAllPercentage).mockResolvedValue({ ...REACHED_AT_CAP, ok: false, failures: 1 });
+
+      await new BrightnessAction().onKeyDown(keyDown(key, 100));
+
+      expect(key.showAlert).toHaveBeenCalledOnce();
+      expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith(brightnessOn(79));
+    });
+
+    it("shows an alert when no lamp is connected, and no brightness on the dials", async () => {
+      const key = createFakeKey();
+      const dial = createFakeDial();
+      show(key, dial);
+      vi.mocked(setBrightnessAllPercentage).mockResolvedValue(NO_LAMP);
+
+      await new BrightnessAction().onKeyDown(keyDown(key, 100));
+
+      expect(key.showAlert).toHaveBeenCalledOnce();
+      expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith(UNKNOWN_BRIGHTNESS);
+    });
+  });
+
+  describe("on a dial turn", () => {
+    it("moves the lamps by the dial's step", async () => {
+      const dial = createFakeDial();
+      show(dial);
+      vi.mocked(adjustBrightnessAllByPercentageSteps).mockResolvedValue(REACHED_AT_CAP);
+
+      await new BrightnessAction().onDialRotate(dialRotate(dial, 3));
+      await flushed();
+
+      expect(adjustBrightnessAllByPercentageSteps).toHaveBeenCalledWith(3, 5);
+    });
+
+    it("shows the brightness the lamps reached on every dial, not only the one turned", async () => {
+      const turned = createFakeDial();
+      const otherDial = createFakeDial();
+      const key = createFakeKey();
+      show(turned, key, otherDial);
+      vi.mocked(adjustBrightnessAllByPercentageSteps).mockResolvedValue(REACHED_AT_CAP);
+
+      await new BrightnessAction().onDialRotate(dialRotate(turned, 3));
+      await flushed();
+
+      expect(turned.setFeedback).toHaveBeenCalledExactlyOnceWith(brightnessOn(79));
+      expect(otherDial.setFeedback).toHaveBeenCalledExactlyOnceWith(brightnessOn(79));
+      expect(key.setTitle).not.toHaveBeenCalled();
+    });
+
+    it("shows an alert on the dial turned when a lamp fails, and the brightness of the others on every dial", async () => {
+      const turned = createFakeDial();
+      const otherDial = createFakeDial();
+      show(turned, otherDial);
+      vi.mocked(adjustBrightnessAllByPercentageSteps).mockResolvedValue({ ...REACHED_AT_CAP, ok: false, failures: 1 });
+
+      await new BrightnessAction().onDialRotate(dialRotate(turned, 3));
+      await flushed();
+
+      expect(turned.showAlert).toHaveBeenCalledOnce();
+      expect(otherDial.showAlert).not.toHaveBeenCalled();
+      expect(otherDial.setFeedback).toHaveBeenCalledExactlyOnceWith(brightnessOn(79));
+    });
+  });
+});
