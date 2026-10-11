@@ -16,10 +16,10 @@ const COLORS = {
 };
 
 function svgDoc(size, body) {
-	return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" fill="none">
-${body}
-</svg>`;
+  return `<?xml version="1.0" encoding="UTF-8"?>
+    <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" fill="none">
+    ${body}
+    </svg>`;
 }
 
 /** Key tile background */
@@ -35,14 +35,12 @@ function powerGlyph(size, { on }) {
   const sw = size * 0.07;
   const r = size * 0.22;
   const stemH = size * 0.2;
-  return `
-  ${keyBg(size)}
-  <path d="M ${cx} ${cy - r - stemH * 0.15} V ${cy - stemH * 0.05}"
-        stroke="${stroke}" stroke-width="${sw}" stroke-linecap="round"/>
-  <path d="M ${cx - r * 0.85} ${cy - r * 0.35}
-           A ${r} ${r} 0 1 0 ${cx + r * 0.85} ${cy - r * 0.35}"
-        stroke="${stroke}" stroke-width="${sw}" stroke-linecap="round" fill="none"/>
-  ${on ? `<circle cx="${cx}" cy="${cy + r * 0.15}" r="${size * 0.04}" fill="${COLORS.on}"/>` : ""}`;
+  return `${keyBg(size)}
+    <path d="M ${cx} ${cy - r - stemH * 0.15} V ${cy - stemH * 0.05}"
+    stroke="${stroke}" stroke-width="${sw}" stroke-linecap="round"/>
+    <path d="M ${cx - r * 0.85} ${cy - r * 0.35} A ${r} ${r} 0 1 0 ${cx + r * 0.85} ${cy - r * 0.35}"
+    stroke="${stroke}" stroke-width="${sw}" stroke-linecap="round" fill="none"/>
+    ${on ? `<circle cx="${cx}" cy="${cy + r * 0.15}" r="${size * 0.04}" fill="${COLORS.on}"/>` : ""}`;
 }
 
 function lampMark(size, { mono = false } = {}) {
@@ -53,22 +51,19 @@ function lampMark(size, { mono = false } = {}) {
   const sw = Math.max(1.5, size * 0.08);
   const headR = size * 0.22;
   const stemH = size * 0.18;
-  return `
-  <path d="M ${cx - headR} ${cy - size * 0.02}
-           A ${headR} ${headR * 0.85} 0 0 1 ${cx + headR} ${cy - size * 0.02}
-           L ${cx + headR * 0.55} ${cy + size * 0.12}
-           L ${cx - headR * 0.55} ${cy + size * 0.12} Z"
-        fill="${fill}" stroke="${stroke}" stroke-width="${sw}" stroke-linejoin="round"/>
-  <line x1="${cx}" y1="${cy + size * 0.12}" x2="${cx}" y2="${cy + size * 0.12 + stemH}"
-        stroke="${stroke}" stroke-width="${sw}" stroke-linecap="round"/>
-  <line x1="${cx - size * 0.12}" y1="${cy + size * 0.12 + stemH}" x2="${cx + size * 0.12}" y2="${cy + size * 0.12 + stemH}"
-        stroke="${stroke}" stroke-width="${sw}" stroke-linecap="round"/>`;
+  return `path
+    d="M ${cx - headR} ${cy - size * 0.02} A ${headR} ${headR * 0.85} 0 0 1 ${cx + headR} ${cy - size * 0.02}
+    L ${cx + headR * 0.55} ${cy + size * 0.12} L ${cx - headR * 0.55} ${cy + size * 0.12} Z"
+    fill="${fill}" stroke="${stroke}" stroke-width="${sw}" stroke-linejoin="round"/>
+    <line x1="${cx}" y1="${cy + size * 0.12}" x2="${cx}" y2="${cy + size * 0.12 + stemH}"
+    stroke="${stroke}" stroke-width="${sw}" stroke-linecap="round"/>
+    <line x1="${cx - size * 0.12}" y1="${cy + size * 0.12 + stemH}"
+    x2="${cx + size * 0.12}" y2="${cy + size * 0.12 + stemH}"
+    stroke="${stroke}" stroke-width="${sw}" stroke-linecap="round"/>`;
 }
 
 function marketplaceGlyph(size) {
-  return `
-  <rect width="${size}" height="${size}" rx="${size * 0.18}" fill="${COLORS.bg}"/>
-  ${lampMark(size)}`;
+  return `<rect width="${size}" height="${size}" rx="${size * 0.18}" fill="${COLORS.bg}"/> ${lampMark(size)}`;
 }
 
 function categoryGlyph(size) {
@@ -81,12 +76,11 @@ function actionIconPower(size) {
   const cy = size / 2;
   const sw = Math.max(1.5, size * 0.12);
   const r = size * 0.28;
-  return `
-  <path d="M ${cx} ${cy - r - size * 0.08} V ${cy - size * 0.02}"
-        stroke="#FFFFFF" stroke-width="${sw}" stroke-linecap="round"/>
-  <path d="M ${cx - r * 0.85} ${cy - r * 0.25}
-           A ${r} ${r} 0 1 0 ${cx + r * 0.85} ${cy - r * 0.25}"
-        stroke="#FFFFFF" stroke-width="${sw}" stroke-linecap="round" fill="none"/>`;
+  return `<path
+    d="M ${cx} ${cy - r - size * 0.08} V ${cy - size * 0.02}"
+    stroke="#FFFFFF" stroke-width="${sw}" stroke-linecap="round"/>
+    <path d="M ${cx - r * 0.85} ${cy - r * 0.25} A ${r} ${r} 0 1 0 ${cx + r * 0.85} ${cy - r * 0.25}"
+    stroke="#FFFFFF" stroke-width="${sw}" stroke-linecap="round" fill="none"/>`;
 }
 
 function actionIconBrightness(size) {
@@ -99,8 +93,8 @@ function actionIconBrightness(size) {
   const rays = Array.from({ length: 8 }, (_, i) => {
     const a = (i * Math.PI) / 4 - Math.PI / 2;
     return `<line x1="${cx + Math.cos(a) * rayIn}" y1="${cy + Math.sin(a) * rayIn}"
-                      x2="${cx + Math.cos(a) * rayOut}" y2="${cy + Math.sin(a) * rayOut}"
-                      stroke="#FFFFFF" stroke-width="${sw}" stroke-linecap="round"/>`;
+      x2="${cx + Math.cos(a) * rayOut}" y2="${cy + Math.sin(a) * rayOut}"
+      stroke="#FFFFFF" stroke-width="${sw}" stroke-linecap="round"/>`;
   }).join("\n");
   return `<circle cx="${cx}" cy="${cy}" r="${core}" fill="#FFFFFF"/>\n${rays}`;
 }
@@ -112,12 +106,11 @@ function actionIconTemperature(size) {
   const tubeW = size * 0.14;
   const top = size * 0.18;
   const bottom = size * 0.58;
-  return `
-  <rect x="${cx - tubeW / 2}" y="${top}" width="${tubeW}" height="${bottom - top}" rx="${tubeW / 2}"
-        stroke="#FFFFFF" stroke-width="${sw}" fill="none"/>
-  <circle cx="${cx}" cy="${bottom + bulbR * 0.35}" r="${bulbR}" fill="#FFFFFF"/>
-  <line x1="${cx}" y1="${top + size * 0.12}" x2="${cx}" y2="${bottom}"
-        stroke="#FFFFFF" stroke-width="${sw * 0.7}" stroke-linecap="round"/>`;
+  return `<rect x="${cx - tubeW / 2}" y="${top}" width="${tubeW}" height="${bottom - top}" rx="${tubeW / 2}"
+    stroke="#FFFFFF" stroke-width="${sw}" fill="none"/>
+    <circle cx="${cx}" cy="${bottom + bulbR * 0.35}" r="${bulbR}" fill="#FFFFFF"/>
+    <line x1="${cx}" y1="${top + size * 0.12}" x2="${cx}" y2="${bottom}"
+    stroke="#FFFFFF" stroke-width="${sw * 0.7}" stroke-linecap="round"/>`;
 }
 
 /**
@@ -134,8 +127,8 @@ function brightnessGlyph(size) {
   const rays = Array.from({ length: 8 }, (_, i) => {
     const a = (i * Math.PI) / 4 - Math.PI / 2;
     return `<line x1="${cx + Math.cos(a) * rayIn}" y1="${cy + Math.sin(a) * rayIn}"
-                      x2="${cx + Math.cos(a) * rayOut}" y2="${cy + Math.sin(a) * rayOut}"
-                      stroke="#FFFFFF" stroke-width="${sw}" stroke-linecap="round"/>`;
+      x2="${cx + Math.cos(a) * rayOut}" y2="${cy + Math.sin(a) * rayOut}"
+      stroke="#FFFFFF" stroke-width="${sw}" stroke-linecap="round"/>`;
   }).join("\n");
   // Filled, as large as the outlined circle was: an outline was hard to make out at the strip's sizes.
   return `<circle cx="${cx}" cy="${cy}" r="${core + sw / 2}" fill="#FFFFFF"/>\n${rays}`;
@@ -150,15 +143,15 @@ function temperatureGlyph(size) {
   const bulbCy = size * 0.72;
   // Where the tube's sides meet the bulb.
   const joinY = bulbCy - Math.sqrt(bulbR ** 2 - tubeHalf ** 2);
-  return `
-  <path d="M ${cx - tubeHalf} ${top + tubeHalf}
-          A ${tubeHalf} ${tubeHalf} 0 0 1 ${cx + tubeHalf} ${top + tubeHalf}
-          V ${joinY}
-          A ${bulbR} ${bulbR} 0 1 1 ${cx - tubeHalf} ${joinY} Z"
-        stroke="#FFFFFF" stroke-width="${sw}" stroke-linejoin="round"/>
-  <circle cx="${cx}" cy="${bulbCy}" r="${bulbR * 0.45}" fill="#FFFFFF"/>
-  <line x1="${cx}" y1="${top + size * 0.16}" x2="${cx}" y2="${bulbCy}"
-        stroke="#FFFFFF" stroke-width="${sw}" stroke-linecap="round"/>`;
+  return `<path
+    d="M ${cx - tubeHalf} ${top + tubeHalf}
+    A ${tubeHalf} ${tubeHalf} 0 0 1 ${cx + tubeHalf} ${top + tubeHalf}
+    V ${joinY}
+    A ${bulbR} ${bulbR} 0 1 1 ${cx - tubeHalf} ${joinY} Z"
+    stroke="#FFFFFF" stroke-width="${sw}" stroke-linejoin="round"/>
+    <circle cx="${cx}" cy="${bulbCy}" r="${bulbR * 0.45}" fill="#FFFFFF"/>
+    <line x1="${cx}" y1="${top + size * 0.16}" x2="${cx}" y2="${bulbCy}"
+    stroke="#FFFFFF" stroke-width="${sw}" stroke-linecap="round"/>`;
 }
 
 async function writePng(filePath, svg, size) {
