@@ -1,12 +1,14 @@
 #!/usr/bin/env node
 /**
- * Generates the plugin's icons: each is drawn as SVG and rendered to the PNG sizes Stream Deck requires (1x and @2x).
+ * Generates the plugin's icons and the Litra icon pack. Each icon is drawn as SVG. The plugin's are rendered to the PNG
+ * sizes Stream Deck requires (1x and @2x), while the pack ships the SVGs themselves, which Stream Deck scales.
  */
-import { mkdirSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import sharp from "sharp";
 
 const root = path.resolve("com.daczarne.litra.sdPlugin/imgs");
+const packRoot = path.resolve("com.daczarne.litra.sdIconPack");
 
 const COLORS = {
   bg: "#1A1A1A",
@@ -60,7 +62,7 @@ function marketplaceGlyph(size) {
 }
 
 function categoryGlyph(size) {
-  // Monochrome white on transparent for category / action list
+  // Monochrome white on transparent: the plugin's category, and the lamp of the icon pack
   return lampMark(size, { mono: true });
 }
 
@@ -147,6 +149,42 @@ function temperatureGlyph(size) {
     stroke="#FFFFFF" stroke-width="${sw}" stroke-linecap="round"/>`;
 }
 
+/**
+ * The icon pack's icons, in the order the Icon Library shows them. Every icon is tagged "litra", so a search for it
+ * finds the whole pack. The pack's own icon is the lamp, like the plugin's category.
+ */
+const PACK_ICONS = [
+  { path: "brightness.svg", name: "Brightness", tags: ["litra", "sun", "light"], draw: brightnessGlyph },
+  { path: "temperature.svg", name: "Temperature", tags: ["litra", "thermometer", "kelvin"], draw: temperatureGlyph },
+  { path: "power-on.svg", name: "Power on", tags: ["litra", "power"], draw: (s) => powerGlyph(s, { on: true }) },
+  { path: "power-off.svg", name: "Power off", tags: ["litra", "power"], draw: (s) => powerGlyph(s, { on: false }) },
+  { path: "lamp.svg", name: "Lamp", tags: ["litra", "light"], draw: categoryGlyph },
+];
+
+// The size Elgato asks for an icon in a pack, and the one it recommends for the pack's own icon.
+const PACK_ICON_SIZE = 144;
+const PACK_LOGO_SIZE = 56;
+
+function writeSvg(filePath, svg, size) {
+  mkdirSync(path.dirname(filePath), { recursive: true });
+  // The templates leave trailing spaces on some lines, such as where an optional element is left out.
+  writeFileSync(filePath, `${svgDoc(size, svg).replace(/[ \t]+$/gm, "")}\n`);
+  console.log("wrote", filePath);
+}
+
+/** Writes the pack's icons and `icons.json` from {@link PACK_ICONS}, so every icon has its entry and the reverse. */
+function writeIconPack() {
+  // Rewritten from scratch, so an icon removed from the list doesn't linger.
+  rmSync(path.join(packRoot, "icons"), { recursive: true, force: true });
+  for (const icon of PACK_ICONS) {
+    writeSvg(path.join(packRoot, "icons", icon.path), icon.draw(PACK_ICON_SIZE), PACK_ICON_SIZE);
+  }
+  const entries = PACK_ICONS.map(({ path, name, tags }) => ({ path, name, tags }));
+  writeFileSync(path.join(packRoot, "icons.json"), `${JSON.stringify(entries, null, 2)}\n`);
+  console.log("wrote", path.join(packRoot, "icons.json"));
+  writeSvg(path.join(packRoot, "icon.svg"), categoryGlyph(PACK_LOGO_SIZE), PACK_LOGO_SIZE);
+}
+
 async function writePng(filePath, svg, size) {
   mkdirSync(path.dirname(filePath), { recursive: true });
   await sharp(Buffer.from(svgDoc(size, svg)))
@@ -179,6 +217,9 @@ async function main() {
 
   // Marketplace (256 / 512)
   await writePair(path.join(root, "plugin/marketplace"), (s) => marketplaceGlyph(s), 256);
+
+  // The Litra icon pack (144, and 56 for the pack's own icon)
+  writeIconPack();
 
   console.log("Icons generated.");
 }

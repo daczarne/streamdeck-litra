@@ -22,12 +22,15 @@
   ],
   "scripts": {
     "build": "rollup -c",
+    "check:icons": "node scripts/check-icon-pack.mjs",
     "check:ui": "node scripts/check-ui.mjs",
     "icons": "node scripts/generate-icons.mjs",
     "watch": "rollup -c -w --watch.onEnd=\"streamdeck restart com.daczarne.litra\"",
     "link": "streamdeck link com.daczarne.litra.sdPlugin",
     "unlink": "streamdeck unlink com.daczarne.litra",
-    "validate": "npm run check:ui && npm run build && streamdeck validate com.daczarne.litra.sdPlugin",
+    "link:icons": "ln -sfn \"$PWD/com.daczarne.litra.sdIconPack\" \"$HOME/Library/Application Support/com.elgato.StreamDeck/IconPacks/com.daczarne.litra.sdIconPack\"",
+    "unlink:icons": "rm \"$HOME/Library/Application Support/com.elgato.StreamDeck/IconPacks/com.daczarne.litra.sdIconPack\"",
+    "validate": "npm run check:ui && npm run check:icons && npm run build && streamdeck validate com.daczarne.litra.sdPlugin",
     "pack": "npm run check:ui && npm run build && streamdeck pack com.daczarne.litra.sdPlugin --force -o release --version 1.0.0.0",
     "test": "vitest run",
     "test:browser": "vitest run --config vitest.browser.config.mjs"

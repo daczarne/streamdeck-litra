@@ -1,0 +1,44 @@
+[
+  {
+    "path": "brightness.svg",
+    "name": "Brightness",
+    "tags": [
+      "litra",
+      "sun",
+      "light"
+    ]
+  },
+  {
+    "path": "temperature.svg",
+    "name": "Temperature",
+    "tags": [
+      "litra",
+      "thermometer",
+      "kelvin"
+    ]
+  },
+  {
+    "path": "power-on.svg",
+    "name": "Power on",
+    "tags": [
+      "litra",
+      "power"
+    ]
+  },
+  {
+    "path": "power-off.svg",
+    "name": "Power off",
+    "tags": [
+      "litra",
+      "power"
+    ]
+  },
+  {
+    "path": "lamp.svg",
+    "name": "Lamp",
+    "tags": [
+      "litra",
+      "light"
+    ]
+  }
+]
