@@ -105,7 +105,7 @@ export class TemperatureAction extends SingletonAction<TemperatureSettings> {
     const kelvin = result?.representativeTemperatureKelvin;
     if (action.isDial()) {
       await action.setFeedback({
-        title: "Temp",
+        title: "Temperature",
         value: kelvin === undefined ? "—" : `${Math.round(kelvin)}`,
         indicator: result?.representativeTemperaturePercentage ?? 0,
       });

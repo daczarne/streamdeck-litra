@@ -39,7 +39,7 @@ function dialRotate(dial: FakeAction, ticks: number) {
   return { action: dial, payload: { settings: { stepKelvin: 100 }, ticks } } as never;
 }
 
-const TEMPERATURE_SNAPPED = { title: "Temp", value: "4000", indicator: 34 };
+const TEMPERATURE_SNAPPED = { title: "Temperature", value: "4000", indicator: 34 };
 
 /** Waits for a dial's flush, which the fake debouncer starts at once and nobody awaits. */
 function flushed(): Promise<void> {
@@ -88,7 +88,7 @@ describe("TemperatureAction", () => {
       await new TemperatureAction().onKeyDown(keyDown(key, 4050));
 
       expect(key.showAlert).toHaveBeenCalledOnce();
-      expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith({ title: "Temp", value: "—", indicator: 0 });
+      expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith({ title: "Temperature", value: "—", indicator: 0 });
     });
   });
 

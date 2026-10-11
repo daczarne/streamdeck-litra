@@ -26,6 +26,7 @@ npx streamdeck restart com.daczarne.litra
 2. **Every dial shows the same.** Turn one dial a few steps either way. After each step, the other dial shows the same value as the one turned.
 3. **The keys keep their presets.** After checks 1 and 2, each key still shows its own preset, not the dials' value.
 4. **Going down retraces going up.** Set one dial's step to 500 in its settings. Press the 3000 K key, then turn that dial up one step at a time: the strips show 3200, 3700, and so on up to 6200, then 6500. Turn it down one step at a time: 6200, 5700, and so on down to 3200, then 2700, the same temperatures as on the way up ([#16]). Set the step back to 100.
+5. **The dial says what it does.** Both strips show "Temperature" at the top, above the icon and the value. If a strip shows none, check **Show Title** under the **T** menu of the dial's settings, which Stream Deck keeps for each dial. A title typed in the title field replaces it.
 
 [#16]: https://github.com/daczarne/streamdeck-litra/issues/16
 [contributing]: ../contributing.md

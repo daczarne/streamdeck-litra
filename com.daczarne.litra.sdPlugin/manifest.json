@@ -40,7 +40,7 @@
         "Keypad",
         "Encoder"
       ],
-      "UserTitleEnabled": false,
+      "UserTitleEnabled": true,
       "Encoder": {
         "layout": "$B1",
         "Icon": "imgs/actions/brightness/encoder",
@@ -68,7 +68,7 @@
         "Keypad",
         "Encoder"
       ],
-      "UserTitleEnabled": false,
+      "UserTitleEnabled": true,
       "Encoder": {
         "layout": "$B1",
         "Icon": "imgs/actions/temperature/encoder",

@@ -44,6 +44,7 @@ Restarting also clears the caps the plugin has learned, so the checks start from
 6. **Without caps, nothing changes.** Plug both lamps into the Mac, restart the plugin, and repeat checks 1 and 4. The 100% key and the dial both go up to 100%, and both lamps follow every step.
 7. **A lower cap is learned without a restart.** Right after check 6, plug both lamps back into the hub, without restarting the plugin. Press the 100% key: the strips show the brightest lamp's cap again, and checks 4 and 5 pass as before.
 8. **Going down retraces going up.** Set one dial's step to 25 in its settings. Press the 30% key, then turn that dial up one step at a time: the strips show 50%, 75%, then the brightest lamp's cap (about 79%). Turn it down one step at a time: 75%, 50%, 25%, 0%, the same multiples of 25 as on the way up ([#14]). Set the step back to 5.
+9. **The dial says what it does.** Both strips show "Brightness" at the top, above the icon and the value. If a strip shows none, check **Show Title** under the **T** menu of the dial's settings, which Stream Deck keeps for each dial. A title typed in the title field replaces it.
 
 ## Known gap
 
