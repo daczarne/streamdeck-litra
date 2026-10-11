@@ -73,7 +73,7 @@ Daniel treats supply-chain risk as a hard requirement:
 
 ## Testing on the hardware
 
-- Build, enable developer mode (`npx streamdeck dev`), `npm run link`, then `npx streamdeck restart com.daczarne.litra`. The actions appear under the Litra category. Developer mode stays on.
+- Build, enable developer mode (`npx streamdeck dev`), `npm run link`, then `npx streamdeck restart com.daczarne.litra`. The actions appear under the Litra category. Developer mode stays on. After that, the `Build and restart` VS Code task (the default build task) runs the build and the restart in one go.
 - Plugin logs are in `com.daczarne.litra.sdPlugin/logs/`.
 - `docs/manual_testing/` holds the checks to run by hand. For example, `settings_pages.md` covers what the browser tests take for granted about Stream Deck, how to open the pages in DevTools to check it, and the debugging port that has to be closed afterwards.
 - On the Stream Deck + XL's USB hub (7.5 W), each Beam caps its brightness below 100%, at a level that depends on both the port and the lamp: from 58% to 79% for Daniel's two Beams (see the example in `scripts/probes/README.md`). The cap doesn't change with what the other lamp draws. Plugged into the Mac, a Beam reaches 100%.
