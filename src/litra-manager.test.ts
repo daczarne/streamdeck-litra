@@ -30,6 +30,7 @@ import {
   setBrightnessAllPercentage,
   setTemperatureAllInKelvin,
   snapKelvin,
+  stepOnGrid,
   toggleAll,
   turnOffAll,
   turnOnAll,
@@ -176,6 +177,57 @@ describe("snapKelvin", () => {
 
   it("returns the value unchanged when nothing is allowed", () => {
     expect(snapKelvin(3123, [])).toBe(3123);
+  });
+});
+
+describe("stepOnGrid", () => {
+  it("moves a value on the grid by whole steps, either way", () => {
+    expect(stepOnGrid(50, 2, 5, 0, 100)).toBe(60);
+    expect(stepOnGrid(50, -3, 5, 0, 100)).toBe(35);
+  });
+
+  it("counts the grid from the minimum", () => {
+    expect(stepOnGrid(BEAM_MIN_KELVIN, 1, 500, BEAM_MIN_KELVIN, BEAM_MAX_KELVIN)).toBe(3200);
+    expect(stepOnGrid(3200, 2, 500, BEAM_MIN_KELVIN, BEAM_MAX_KELVIN)).toBe(4200);
+  });
+
+  it("clamps to the range", () => {
+    expect(stepOnGrid(90, 5, 10, 0, 100)).toBe(100);
+    expect(stepOnGrid(10, -5, 10, 0, 100)).toBe(0);
+  });
+
+  it("takes a value off the grid to the next grid value in the direction of the turn", () => {
+    // The 79% cap of a Beam on the Stream Deck + XL's hub, with a 5% step.
+    expect(stepOnGrid(79, 1, 5, 0, 100)).toBe(80);
+    expect(stepOnGrid(79, -1, 5, 0, 100)).toBe(75);
+    expect(stepOnGrid(77, -1, 5, 0, 100)).toBe(75);
+    expect(stepOnGrid(79, -2, 5, 0, 100)).toBe(70);
+  });
+
+  it("goes down through the values it went up through, when the step doesn't divide the range (#14, #16)", () => {
+    const up = [0];
+    while (up[up.length - 1] < 100) {
+      up.push(stepOnGrid(up[up.length - 1], 1, 7, 0, 100));
+    }
+    const down = [100];
+    while (down[down.length - 1] > 0) {
+      down.push(stepOnGrid(down[down.length - 1], -1, 7, 0, 100));
+    }
+
+    expect(up).toEqual([0, 7, 14, 21, 28, 35, 42, 49, 56, 63, 70, 77, 84, 91, 98, 100]);
+    expect(down).toEqual(up.toReversed());
+  });
+
+  it("goes down from the clamped top to the grid, when the step doesn't divide the range", () => {
+    expect(stepOnGrid(BEAM_MAX_KELVIN, -1, 500, BEAM_MIN_KELVIN, BEAM_MAX_KELVIN)).toBe(6200);
+    expect(stepOnGrid(BEAM_MAX_KELVIN, -1, 300, BEAM_MIN_KELVIN, BEAM_MAX_KELVIN)).toBe(6300);
+  });
+
+  it("only clamps the value when there are no ticks or the step isn't positive", () => {
+    expect(stepOnGrid(79, 0, 5, 0, 100)).toBe(79);
+    expect(stepOnGrid(79, 2, 0, 0, 100)).toBe(79);
+    expect(stepOnGrid(79, 2, Number.NaN, 0, 100)).toBe(79);
+    expect(stepOnGrid(120, 0, 5, 0, 100)).toBe(100);
   });
 });
 
@@ -677,6 +729,36 @@ describe("adjustBrightnessAllByPercentageSteps", () => {
     ]);
   });
 
+  it("steps from a brightness off the step's multiples to the next one in the direction of the turn", async () => {
+    // 33%, set by a key.
+    const goingUp = beam(153);
+    const goingDown = beam(153);
+
+    connect(goingUp);
+    await adjust(1, 20);
+    connect(goingDown);
+    await adjust(-1, 20);
+
+    expect(vi.mocked(setBrightnessInLumen).mock.calls).toEqual([
+      [goingUp, lumenAt(40)],
+      [goingDown, lumenAt(20)],
+    ]);
+  });
+
+  it("steps down from a lamp's cap to the multiple of the step below it (#14)", async () => {
+    // A Beam capped at 70% on the Stream Deck + XL's USB hub, turned up past it with a 20% step.
+    const device = beam(lumenAt(60), lumenAt(70));
+    connect(device);
+
+    await adjust(1, 20);
+    await adjust(-1, 20);
+
+    expect(vi.mocked(setBrightnessInLumen).mock.calls).toEqual([
+      [device, lumenAt(80)],
+      [device, lumenAt(60)],
+    ]);
+  });
+
   it("reports the brightness the lamp reached, not the one requested (#13)", async () => {
     // On the Stream Deck + XL's USB hub, a Beam stops below what it's asked for.
     const device = beam(lumenAt(70), lumenAt(70));
@@ -844,24 +926,64 @@ describe("setTemperatureAllInKelvin", () => {
 });
 
 describe("adjustTemperatureAllByKelvinSteps", () => {
-  it("moves every lamp from its own temperature, and reports the first lamp's", () => {
+  it("moves every lamp to one target, stepped from the first lamp's temperature, and reports it", () => {
     const first = beam();
     const second = beam();
     connect(first, second);
-    vi.mocked(getTemperatureInKelvin).mockImplementation((device) => (device === first ? 3000 : 2700));
+    vi.mocked(getTemperatureInKelvin).mockImplementation((device) => (device === first ? 3100 : 2700));
 
     // 2 ticks of 200 K, one of the dial's step options.
     expect(adjustTemperatureAllByKelvinSteps(2, 200)).toEqual({
       ok: true,
       deviceCount: 2,
       failures: 0,
-      representativeTemperatureKelvin: 3400,
-      representativeTemperaturePercentage: 18,
+      representativeTemperatureKelvin: 3500,
+      representativeTemperaturePercentage: 21,
     });
     expect(vi.mocked(setTemperatureInKelvin).mock.calls).toEqual([
-      [first, 3400],
-      [second, 3100],
+      [first, 3500],
+      [second, 3500],
     ]);
+    expect(getTemperatureInKelvin).toHaveBeenCalledOnce();
+  });
+
+  it("steps along the grid counted from the lowest allowed value (#16)", () => {
+    connect(beam());
+    // The default preset, off the 200 K grid that starts at 2700 K.
+    vi.mocked(getTemperatureInKelvin).mockReturnValue(4000);
+
+    adjustTemperatureAllByKelvinSteps(1, 200);
+    adjustTemperatureAllByKelvinSteps(-1, 200);
+
+    expect(vi.mocked(setTemperatureInKelvin).mock.calls.map(([, kelvin]) => kelvin)).toEqual([4100, 3900]);
+  });
+
+  it("steps down from the highest allowed value to the grid, when the step doesn't divide the range (#16)", () => {
+    connect(beam());
+    vi.mocked(getTemperatureInKelvin).mockReturnValue(BEAM_MAX_KELVIN);
+
+    expect(adjustTemperatureAllByKelvinSteps(-1, 500).representativeTemperatureKelvin).toBe(6200);
+  });
+
+  it("steps from the next lamp when the first can't be read", () => {
+    const first = beam();
+    const second = beam();
+    connect(first, second);
+    vi.mocked(getTemperatureInKelvin).mockImplementation((device) => {
+      if (device === first) {
+        throw new Error("HID read failed");
+      }
+      return 3000;
+    });
+
+    expect(adjustTemperatureAllByKelvinSteps(1, 100)).toEqual({
+      ok: false,
+      deviceCount: 2,
+      failures: 1,
+      representativeTemperatureKelvin: 3100,
+      representativeTemperaturePercentage: 11,
+    });
+    expect(vi.mocked(setTemperatureInKelvin).mock.calls).toEqual([[second, 3100]]);
   });
 
   it("moves down for negative ticks, and stops at the lowest allowed value", () => {

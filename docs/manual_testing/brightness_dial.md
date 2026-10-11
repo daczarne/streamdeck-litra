@@ -19,7 +19,7 @@ Finding a higher cap would take asking for more than the stored one. On a lamp s
 
 ## When to run these checks
 
-- After a change to how the plugin reads or writes brightness, to the dial's debouncing, or to what the dials show.
+- After a change to how the plugin reads or writes brightness, to how the dial steps or debounces, or to what the dials show.
 - After a Stream Deck or lamp firmware update.
 - When a lamp moves to another power supply for good.
 
@@ -43,6 +43,7 @@ Restarting also clears the caps the plugin has learned, so the checks start from
 5. **A lamp at its cap isn't asked for more.** With both lamps at their caps, turn a dial up and then straight back down. The lamps dim on the way down and stay there. Then press the 100% key, and right after it the 30% key: both lamps end at 30%. Press the 100% key again: both lamps go back to their caps, not to 30%.
 6. **Without caps, nothing changes.** Plug both lamps into the Mac, restart the plugin, and repeat checks 1 and 4. The 100% key and the dial both go up to 100%, and both lamps follow every step.
 7. **A lower cap is learned without a restart.** Right after check 6, plug both lamps back into the hub, without restarting the plugin. Press the 100% key: the strips show the brightest lamp's cap again, and checks 4 and 5 pass as before.
+8. **Going down retraces going up.** Set one dial's step to 25 in its settings. Press the 30% key, then turn that dial up one step at a time: the strips show 50%, 75%, then the brightest lamp's cap (about 79%). Turn it down one step at a time: 75%, 50%, 25%, 0%, the same multiples of 25 as on the way up ([#14]). Set the step back to 5.
 
 ## Known gap
 
@@ -51,6 +52,7 @@ Both are tracked in [#55]:
 - **The first request above a cap.** The plugin learns a lamp's cap by asking for more than the lamp can do, from a dial or a key. For about a second after that request, the lamp can undo a lower brightness written in the meantime, so turning down right after the first turn or key press past the caps can leave a lamp at its cap while the strip shows less. It can happen each time a cap is learned: after a restart, or after a lamp moves to a weaker supply.
 - **A cap that goes up.** A lamp moved from the hub to the Mac keeps its old cap until the plugin restarts, as described in [How the plugin learns caps](#how-the-plugin-learns-caps).
 
+[#14]: https://github.com/daczarne/streamdeck-litra/issues/14
 [#55]: https://github.com/daczarne/streamdeck-litra/issues/55
 [contributing]: ../contributing.md
 [probe]: ../../scripts/probes/README.md

@@ -131,6 +131,21 @@ export function percentageToLumen(percentage: number, min: number, max: number):
   return Math.ceil((percentage / 100) * (max - min) + min);
 }
 
+/**
+ * Moves a value by a number of steps along the grid min, min + step, min + 2 × step, …, clamped to min–max, so a dial
+ * stops on the same values going up as going down (#14, #16). From a value off the grid, such as a lamp's cap or a
+ * clamped end, the first step goes to the grid's next value in the direction of the turn.
+ */
+export function stepOnGrid(value: number, ticks: number, step: number, min: number, max: number): number {
+  const clamp = (x: number): number => Math.max(min, Math.min(max, x));
+  if (ticks === 0 || !(step > 0)) {
+    return clamp(value);
+  }
+  const position = (value - min) / step;
+  const index = ticks > 0 ? Math.floor(position) + ticks : Math.ceil(position) + ticks;
+  return clamp(min + index * step);
+}
+
 export function snapKelvin(value: number, allowed: number[]): number {
   if (allowed.length === 0) {
     return value;
@@ -287,14 +302,17 @@ export function setBrightnessAllPercentage(
   return oneBrightnessChangeAtATime(() => moveBrightnessAll(percentage, settleMs));
 }
 
-/** Moves every lamp to one target, stepped from the brightest lamp, as {@link moveBrightnessAll} does. */
+/**
+ * Moves every lamp to one target, stepped from the brightest lamp along the multiples of the step, as
+ * {@link moveBrightnessAll} does.
+ */
 export function adjustBrightnessAllByPercentageSteps(
   ticks: number,
   stepPercentage: number,
   settleMs = BRIGHTNESS_SETTLE_MS,
 ): Promise<BroadcastResult> {
   return oneBrightnessChangeAtATime(() =>
-    moveBrightnessAll((brightest) => brightest + ticks * stepPercentage, settleMs),
+    moveBrightnessAll((brightest) => stepOnGrid(brightest, ticks, stepPercentage, 0, 100), settleMs),
   );
 }
 
@@ -434,13 +452,24 @@ export function setTemperatureAllInKelvin(kelvin: number): BroadcastResult {
   };
 }
 
+/**
+ * Moves every lamp to one target, stepped from the first lamp's temperature (the one the dial shows) along the grid
+ * lowest + k × step. When the first lamp can't be read, the next one becomes the starting point.
+ */
 export function adjustTemperatureAllByKelvinSteps(ticks: number, stepKelvin: number): BroadcastResult {
+  let target: number | undefined;
   let representative: number | undefined;
   let representativePercentage: number | undefined;
   const result = forEachDevice((device) => {
-    const current = getTemperatureInKelvin(device);
     const allowed = getAllowedTemperaturesInKelvinForDevice(device);
-    const snapped = snapKelvin(current + ticks * stepKelvin, allowed);
+    target ??= stepOnGrid(
+      getTemperatureInKelvin(device),
+      ticks,
+      stepKelvin,
+      allowed[0],
+      allowed[allowed.length - 1],
+    );
+    const snapped = snapKelvin(target, allowed);
     setTemperatureInKelvin(device, snapped);
     drainAck(device);
     if (representative === undefined) {
