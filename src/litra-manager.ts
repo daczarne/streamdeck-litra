@@ -47,6 +47,9 @@ const MAX_SKIPPED_REPORTS = 10;
  */
 const brightnessCapsInLumen = new Map<string, number>();
 
+/** The last brightness change queued by {@link oneBrightnessChangeAtATime}, which the next one waits for. */
+let brightnessChanges: Promise<unknown> = Promise.resolve();
+
 function asHid(device: Device): ClosableHid {
   return device.hid as ClosableHid;
 }
@@ -274,40 +277,46 @@ function brightnessLumen(device: Device, percentage: number): number {
 }
 
 /**
- * Sets every lamp to the percentage, or to its cap when it has a lower one. Reports the percentage asked for: a key
- * shows its preset, not what the lamps reached.
+ * Sets every lamp to the percentage, and reports the brightest lamp once they've settled, as
+ * {@link moveBrightnessAll} does. A lamp at its cap stays there, so the report can be lower than the percentage.
  */
-export function setBrightnessAllPercentage(percentage: number): BroadcastResult {
-  const pct = Math.max(0, Math.min(100, percentage));
-  let representative: number | undefined;
-  let representativeLumen: number | undefined;
-  const result = forEachDevice((device) => {
-    ensureOn(device);
-    const lumen = brightnessLumen(device, pct);
-    setBrightnessInLumen(device, withinCap(device, lumen));
-    drainAck(device);
-    if (representative === undefined) {
-      representativeLumen = lumen;
-      representative = pct;
-    }
-  });
-  return {
-    ...result,
-    representativeBrightnessPercentage: representative,
-    representativeBrightnessLumen: representativeLumen,
-  };
+export function setBrightnessAllPercentage(
+  percentage: number,
+  settleMs = BRIGHTNESS_SETTLE_MS,
+): Promise<BroadcastResult> {
+  return oneBrightnessChangeAtATime(() => moveBrightnessAll(percentage, settleMs));
 }
 
-/**
- * Moves every lamp to one target, stepped from the brightest lamp, and reports the brightest lamp once they've settled.
- * Each lamp is sent the target or its cap, whichever is lower, and a lamp that reaches less than it was sent has its
- * cap learned. The lamps stay open from the first read to the last, so calls mustn't overlap: the dial's debouncer
- * runs them one at a time.
- */
-export async function adjustBrightnessAllByPercentageSteps(
+/** Moves every lamp to one target, stepped from the brightest lamp, as {@link moveBrightnessAll} does. */
+export function adjustBrightnessAllByPercentageSteps(
   ticks: number,
   stepPercentage: number,
   settleMs = BRIGHTNESS_SETTLE_MS,
+): Promise<BroadcastResult> {
+  return oneBrightnessChangeAtATime(() =>
+    moveBrightnessAll((brightest) => brightest + ticks * stepPercentage, settleMs),
+  );
+}
+
+/**
+ * Runs brightness changes one at a time, in the order they were asked for. A change holds the lamps open while they
+ * settle, and its read-back would take a later change's lower write for a cap.
+ */
+function oneBrightnessChangeAtATime(change: () => Promise<BroadcastResult>): Promise<BroadcastResult> {
+  const result = brightnessChanges.then(change);
+  brightnessChanges = result.catch(() => undefined);
+  return result;
+}
+
+/**
+ * Moves every lamp to one target and reports the brightest lamp once they've settled. The target is a percentage, or
+ * a function of the brightest lamp's percentage, which is then read first. Each lamp is sent the target or its cap,
+ * whichever is lower, and a lamp that reaches less than it was sent has its cap learned. The lamps stay open from the
+ * first read to the last, so calls mustn't overlap: they go through {@link oneBrightnessChangeAtATime}.
+ */
+async function moveBrightnessAll(
+  target: number | ((brightest: number) => number),
+  settleMs: number,
 ): Promise<BroadcastResult> {
   const devices = openDevices();
   if (devices.length === 0) {
@@ -333,17 +342,21 @@ export async function adjustBrightnessAllByPercentageSteps(
     for (const device of devices) {
       attempt(device, () => {
         ensureOn(device);
-        const pct = brightnessPercentage(device, getBrightnessInLumenSafe(device));
-        brightest = Math.max(brightest ?? pct, pct);
+        if (typeof target === "function") {
+          const pct = brightnessPercentage(device, getBrightnessInLumenSafe(device));
+          brightest = Math.max(brightest ?? pct, pct);
+        }
       });
     }
 
+    const targetPercentage =
+      typeof target === "number" ? target : brightest === undefined ? undefined : target(brightest);
     const sent = new Map<Device, number>();
-    if (brightest !== undefined) {
-      const target = Math.max(0, Math.min(100, brightest + ticks * stepPercentage));
+    if (targetPercentage !== undefined) {
+      const pct = Math.max(0, Math.min(100, targetPercentage));
       for (const device of devices) {
         attempt(device, () => {
-          const lumen = withinCap(device, brightnessLumen(device, target));
+          const lumen = withinCap(device, brightnessLumen(device, pct));
           setBrightnessInLumen(device, lumen);
           drainAck(device);
           sent.set(device, lumen);
