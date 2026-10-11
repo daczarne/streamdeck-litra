@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Generates Litra plugin icons (SVG masters + PNG sizes required by Stream Deck).
+ * Generates the plugin's icons: each is drawn as SVG and rendered to the PNG sizes Stream Deck requires (1x and @2x).
  */
 import { mkdirSync } from "node:fs";
 import path from "node:path";
