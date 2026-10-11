@@ -47,6 +47,7 @@ Restarting also clears the caps the plugin has learned, so the checks start from
 7. **A lower cap is learned without a restart.** Right after check 6, plug both lamps back into the hub, without restarting the plugin. Press the 100% key: the strips show the brightest lamp's cap again, and checks 4 and 5 pass as before.
 8. **Going down retraces going up.** Set one dial's step to 25 in its settings. Press the 30% key, then turn that dial up one step at a time: the strips show 50%, 75%, then the brightest lamp's cap (about 79%). Turn it down one step at a time: 75%, 50%, 25%, 0%, the same multiples of 25 as on the way up ([#14]). Set the step back to 5.
 9. **The dial says what it does.** Both strips show "Brightness" at the top, above the icon and the value. If a strip shows none, check **Show Title** under the **T** menu of the dial's settings, which Stream Deck keeps for each dial. A title typed in the title field replaces it.
+10. **The bar shows where each lamp stops.** Press the 100% key: each strip's bar is white up to the dimmer lamp's cap (about 63% on the second port), and light grey from there to the brightest lamp's cap, with a sharp edge between them ([#59]). Turn a dial down below the dimmer lamp's cap: the bar turns plain white.
 
 ## Known gap
 
@@ -57,5 +58,6 @@ Both are tracked in [#55]:
 
 [#14]: https://github.com/daczarne/streamdeck-litra/issues/14
 [#55]: https://github.com/daczarne/streamdeck-litra/issues/55
+[#59]: https://github.com/daczarne/streamdeck-litra/issues/59
 [contributing]: ../contributing.md
 [probe]: ../../scripts/probes/README.md
