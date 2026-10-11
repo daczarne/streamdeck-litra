@@ -2,7 +2,7 @@
 /**
  * Generates Litra plugin icons (SVG masters + PNG sizes required by Stream Deck).
  */
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 import path from "node:path";
 import sharp from "sharp";
 
