@@ -20,7 +20,7 @@
       "key": "brightnessIcon",
       "type": "pixmap",
       "rect": [12, 40, 22, 22],
-      "value": "imgs/actions/brightness/encoder@2x.png"
+      "value": "imgs/actions/brightness/icon@2x.png"
     },
     {
       "key": "brightness",
