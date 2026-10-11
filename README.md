@@ -1,6 +1,6 @@
 # Litra for Stream Deck
 
-A Stream Deck plugin that controls Logitech Litra lights over USB, without Logitech's software. It is a personal fork of a plugin by Seth Sheppard. It isn't published: it runs linked from this repository, so the Deck always runs whatever is built from the checked-out branch.
+A Stream Deck plugin that controls Logitech Litra lights over USB, without Logitech's software. It is a personal fork of an abandoned plugin by Seth Sheppard. It isn't published: it runs linked from this repository, so the Deck always runs whatever is built from the checked-out branch.
 
 Not an official Logitech or Elgato product.
 
@@ -19,7 +19,7 @@ Not an official Logitech or Elgato product.
 
 |                       | Action          | Key                     | Dial (Stream Deck +)                                               |
 |:---------------------:|:----------------|:------------------------|:-------------------------------------------------------------------|
-| ![Power][power]       | **Power**       | On, off or toggle       | None                                                               |
+|    ![Power][power]    | **Power**       | On, off or toggle       | None                                                               |
 | ![Brightness][bright] | **Brightness**  | Jump to a preset %      | Rotate to adjust, press toggles power, tap the strip for each lamp |
 | ![Temperature][temp]  | **Temperature** | Jump to a preset Kelvin | Rotate to adjust, press toggles power, tap the strip for each lamp |
 
