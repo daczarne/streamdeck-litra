@@ -67,8 +67,12 @@ export class BrightnessAction extends SingletonAction<BrightnessSettings> {
     await this.lampScreens.refresh();
   }
 
-  /** Dial press toggles power; rotate adjusts brightness. */
+  /** Dial press toggles power, or blinks the lamp on a lamp screen; rotate adjusts brightness. */
   override async onDialDown(ev: DialDownEvent<BrightnessSettings>): Promise<void> {
+    if (this.lampScreens.isShowing(ev.action.id)) {
+      await this.lampScreens.identify(ev.action);
+      return;
+    }
     const result = toggleAll();
     if (!result.ok) {
       await ev.action.showAlert();

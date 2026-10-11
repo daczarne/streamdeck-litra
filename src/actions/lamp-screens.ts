@@ -1,6 +1,6 @@
 import streamDeck, { type TouchTapEvent } from "@elgato/streamdeck";
 
-import { type LampStatus, readLampStatuses } from "../litra-manager";
+import { identifyLamp, type LampStatus, readLampStatuses } from "../litra-manager";
 
 /** What the lamp screens use of a dial, whichever action it belongs to. */
 export type LampScreenDial = Pick<
@@ -21,7 +21,7 @@ export const MAIN_LAYOUT = "$B1";
 const LAMP_LAYOUT = "layouts/lamp.json";
 
 // Turning the dial does nothing on a lamp screen, so it gets no description.
-const LAMP_TRIGGER_DESCRIPTIONS = { push: "Power", touch: "Next lamp", longTouch: "Back" };
+const LAMP_TRIGGER_DESCRIPTIONS = { push: "Identify", touch: "Next lamp", longTouch: "Back" };
 
 /**
  * The lamp screens of every Brightness and Temperature dial (#48). Tapping a dial's strip shows each lamp in turn, in
@@ -56,6 +56,20 @@ export class LampScreens {
         return;
       }
       await this.show(dial, next, lamps, showMain);
+    });
+  }
+
+  /** Blinks the lamp on a dial's screen, so the user can tell which one it is. */
+  identify(dial: LampScreenDial): Promise<void> {
+    return this.enqueue(async () => {
+      const screen = this.screens.get(dial.id);
+      if (screen === undefined) {
+        return;
+      }
+      const result = await identifyLamp(screen.serialNumber);
+      if (!result.ok) {
+        await dial.showAlert();
+      }
     });
   }
 

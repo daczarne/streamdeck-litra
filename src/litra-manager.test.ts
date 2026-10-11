@@ -21,6 +21,7 @@ import {
   forEachDevice,
   forgetBrightnessCaps,
   getBrightnessInLumenSafe,
+  identifyLamp,
   isOnAll,
   percentageInRange,
   readLampStatuses,
@@ -1171,6 +1172,71 @@ describe("readLampStatuses", () => {
     const [, statuses] = await Promise.all([setBrightnessAllPercentage(100, 0), readLampStatuses()]);
 
     expect(statuses.lamps[0].brightnessLumen).toBe(BEAM_MAX_LUMEN);
+  });
+});
+
+describe("identifyLamp", () => {
+  it("switches a lamp that is on off and back on, and leaves the other lamps alone", async () => {
+    const target = beam();
+    const other = beam();
+    connect(other, target);
+
+    expect(await identifyLamp(target.serialNumber, 0)).toEqual({ ok: true, deviceCount: 1, failures: 0 });
+
+    expect(vi.mocked(turnOff).mock.calls).toEqual([[target]]);
+    expect(vi.mocked(turnOn).mock.calls).toEqual([[target]]);
+    expect(firstCall(vi.mocked(turnOff))).toBeLessThan(firstCall(vi.mocked(turnOn)));
+    expect(target.hid.close).toHaveBeenCalledOnce();
+    expect(other.hid.close).toHaveBeenCalledOnce();
+  });
+
+  it("switches a lamp that is off on and back off", async () => {
+    const device = beam();
+    connect(device);
+    vi.mocked(isOn).mockReturnValue(false);
+
+    await identifyLamp(device.serialNumber, 0);
+
+    expect(firstCall(vi.mocked(turnOn))).toBeLessThan(firstCall(vi.mocked(turnOff)));
+  });
+
+  it("writes no brightness", async () => {
+    const device = beam();
+    connect(device);
+
+    await identifyLamp(device.serialNumber, 0);
+
+    expect(setBrightnessInLumen).not.toHaveBeenCalled();
+  });
+
+  it("fails when the lamp isn't connected, and closes the lamps it opened", async () => {
+    const other = beam();
+    connect(other);
+
+    expect(await identifyLamp("GONE", 0)).toEqual({ ok: false, deviceCount: 0, failures: 1 });
+    expect(turnOff).not.toHaveBeenCalled();
+    expect(other.hid.close).toHaveBeenCalledOnce();
+  });
+
+  it("fails when the lamp can't be switched, and still closes it", async () => {
+    const device = beam();
+    connect(device);
+    vi.mocked(turnOff).mockImplementation(() => {
+      throw new Error("HID write failed");
+    });
+
+    expect(await identifyLamp(device.serialNumber, 0)).toEqual({ ok: false, deviceCount: 1, failures: 1 });
+    expect(device.hid.close).toHaveBeenCalledOnce();
+  });
+
+  it("waits for the brightness change in progress", async () => {
+    const device = beam();
+    connect(device);
+
+    await Promise.all([setBrightnessAllPercentage(100, 0), identifyLamp(device.serialNumber, 0)]);
+
+    // The change reads its lamp back before the blink starts.
+    expect(device.hid.readSync.mock.invocationCallOrder[0]).toBeLessThan(firstCall(vi.mocked(turnOff)));
   });
 });
 

@@ -4,10 +4,12 @@ import {
   adjustTemperatureAllByKelvinSteps,
   type BroadcastResult,
   createDialDebouncer,
+  identifyLamp,
   type LampStatus,
   readLampStatuses,
   readRepresentativeTemperatureKelvin,
   setTemperatureAllInKelvin,
+  toggleAll,
 } from "../litra-manager";
 import { createFakeDial, createFakeKey, type FakeAction, show } from "../test-support/fake-stream-deck";
 import { LampScreens } from "./lamp-screens";
@@ -21,6 +23,7 @@ vi.mock("@elgato/streamdeck", () => import("../test-support/fake-stream-deck"));
 vi.mock("../litra-manager", () => ({
   adjustTemperatureAllByKelvinSteps: vi.fn(),
   createDialDebouncer: vi.fn(),
+  identifyLamp: vi.fn(),
   readLampStatuses: vi.fn(),
   readRepresentativeTemperatureKelvin: vi.fn(),
   setTemperatureAllInKelvin: vi.fn(),
@@ -158,6 +161,19 @@ describe("TemperatureAction", () => {
 
       expect(dial.setFeedbackLayout).toHaveBeenLastCalledWith("$B1");
       expect(dial.setFeedback).toHaveBeenLastCalledWith(TEMPERATURE_SNAPPED);
+    });
+
+    it("blinks the lamp on screen on a push, instead of toggling every lamp", async () => {
+      const dial = createFakeDial();
+      show(dial);
+      const temperature = new TemperatureAction(lampScreens);
+      await temperature.onTouchTap(touchTap(dial));
+      vi.mocked(identifyLamp).mockResolvedValue({ ok: true, deviceCount: 1, failures: 0 });
+
+      await temperature.onDialDown({ action: dial, payload: { settings: {} } } as never);
+
+      expect(identifyLamp).toHaveBeenCalledExactlyOnceWith(BEAM.serialNumber);
+      expect(toggleAll).not.toHaveBeenCalled();
     });
 
     it("does nothing when the dial is turned on a lamp screen", async () => {
