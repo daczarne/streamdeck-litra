@@ -2,5 +2,6 @@ appspot
 codespace
 imgs
 killall
+Noto
 osascript
 readback
