@@ -13,7 +13,7 @@ This document describes how work on this repository is done: how changes reach `
 
 ## Changes go through pull requests
 
-Nothing is pushed to `main`. Every change, however small, is made on its own branch and reaches `main` through a pull request, which is squash-merged. Pushing and merging are Daniel's.
+Nothing is pushed to `main`. Every change, however small, is made on its own branch and reaches `main` through a pull request, which is squash-merged. Pushing and merging are Daniel's. `.github/CODEOWNERS` makes Daniel the owner of every file, so a pull request from anyone else needs his approval before it can be merged.
 
 Branch names are flat kebab-case, without `/`: `settings-pages-csp`, not `feature/settings-pages-csp`.
 
