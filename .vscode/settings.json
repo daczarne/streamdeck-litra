@@ -8,7 +8,7 @@
   /* JSON schemas */
   "json.schemas": [
     {
-      // Only the plugin's: the icon pack's manifest is another format, which Elgato publishes no schema for.
+      // Only the plugin's manifest, the one this schema describes.
       "fileMatch": [
         "**/*.sdPlugin/manifest.json"
       ],
