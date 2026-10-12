@@ -1,8 +1,8 @@
 gitignore: true
 showFound: true
 globs:
+  - "**/*.md"
   - "!LICENSE"
   - "!node_modules"
   - "!ref/**/*.md"
   - "!ref/*.md"
-  - "**/*.md"
