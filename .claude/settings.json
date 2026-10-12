@@ -2,9 +2,12 @@
   "permissions": {
     "allow": [
       "Bash(cspell lint *)",
-      "Bash(gh issue list *)",
-      "Bash(gh issue list)",
-      "Bash(gh issue view *)",
+      "Bash(gh issue list --repo daczarne/streamdeck-icons *)",
+      "Bash(gh issue list --repo daczarne/streamdeck-icons)",
+      "Bash(gh issue list --repo daczarne/streamdeck-litra *)",
+      "Bash(gh issue list --repo daczarne/streamdeck-litra)",
+      "Bash(gh issue view --repo daczarne/streamdeck-icons *)",
+      "Bash(gh issue view --repo daczarne/streamdeck-litra *)",
       "Bash(git add *)",
       "Bash(git cherry-pick *)",
       "Bash(git commit *)",
@@ -91,7 +94,6 @@
       "Bash(gh gist *)",
       "Bash(gh gpg-key *)",
       "Bash(gh issue * -R *)",
-      "Bash(gh issue *--repo*)",
       "Bash(gh issue close *)",
       "Bash(gh issue comment *--delete-last*)",
       "Bash(gh issue comment *--edit-last*)",
