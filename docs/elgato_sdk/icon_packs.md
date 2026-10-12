@@ -30,6 +30,7 @@ Stream Deck loads every folder in `~/Library/Application Support/com.elgato.Stre
 
 - **The pack.** Its icon, its `Name` and how many icons it has. The pack list capitalizes the name ("Litra (Test)" for "Litra (test)"), while search results show it as written. The `Author` doesn't show anywhere.
 - **An icon.** Hovering over it shows its `name` and the pack's name.
+- **Opaque icons.** The library draws each icon slightly inset on its own grey key, so an icon that fills its canvas, such as a tile, shows a ring of that grey around it, as icons from the Marketplace do. On the Deck, the icon fills the key, with no ring.
 - **Search.** It matches an icon's `name` and its `tags`, ignoring case, and groups the results by pack, next to matching icons from every other pack.
 
 ## Keys keep a copy of their icon

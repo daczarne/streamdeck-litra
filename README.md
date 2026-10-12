@@ -111,7 +111,7 @@ This runs `check:ui`, builds, and writes `release/com.daczarne.litra.streamDeckP
 
 ## Icon pack
 
-`com.daczarne.litra.sdIconPack/` is an icon pack: it adds the plugin's icons to Stream Deck's Icon Library, so any key or dial can pick them, the Litra actions' included. `scripts/generate-icons.mjs` draws its icons with the same code as the plugin's, as 144 × 144 px SVGs, and writes `icons.json` from the same list. `manifest.json` is written by hand.
+`com.daczarne.litra.sdIconPack/` is an icon pack: it adds icons for the Litra lights to Stream Deck's Icon Library, so any key or dial can pick them, the Litra actions' included. Besides the plugin's glyphs, it has variants for presets, such as a dimmer sun and a cool, warm or hot thermometer. Every glyph comes in three sets: on transparent, and on a charcoal or a grey tile that fills the key, in the palette kept in `scripts/icon-style.mjs`. `scripts/generate-icons.mjs` draws them with the same code as the plugin's images, but smaller, so that they leave room around them on a key. It writes them as 144 × 144 px SVGs and writes `icons.json` from the same list. `manifest.json` is written by hand.
 
 Like the plugin, the pack runs linked from the repository:
 
