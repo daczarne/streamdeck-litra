@@ -3,5 +3,5 @@ showFound: true
 globs:
   - "!LICENSE"
   - "!node_modules"
-  - "!ref/"
+  - "!ref/**/*.md"
   - "**/*.md"
