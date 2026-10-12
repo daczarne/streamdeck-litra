@@ -22,15 +22,12 @@
   ],
   "scripts": {
     "build": "rollup -c",
-    "check:icons": "node scripts/check-icon-pack.mjs",
     "check:ui": "node scripts/check-ui.mjs",
     "icons": "node scripts/generate-icons.mjs",
     "watch": "rollup -c -w --watch.onEnd=\"streamdeck restart com.daczarne.litra\"",
     "link": "streamdeck link com.daczarne.litra.sdPlugin",
     "unlink": "streamdeck unlink com.daczarne.litra",
-    "link:icons": "ln -sfn \"$PWD/com.daczarne.litra.sdIconPack\" \"$HOME/Library/Application Support/com.elgato.StreamDeck/IconPacks/com.daczarne.litra.sdIconPack\"",
-    "unlink:icons": "rm \"$HOME/Library/Application Support/com.elgato.StreamDeck/IconPacks/com.daczarne.litra.sdIconPack\"",
-    "validate": "npm run check:ui && npm run check:icons && npm run build && streamdeck validate com.daczarne.litra.sdPlugin",
+    "validate": "npm run check:ui && npm run build && streamdeck validate com.daczarne.litra.sdPlugin",
     "pack": "npm run check:ui && npm run build && streamdeck pack com.daczarne.litra.sdPlugin --force -o release --version 1.0.0.0",
     "test": "vitest run",
     "test:browser": "vitest run --config vitest.browser.config.mjs"
@@ -40,6 +37,7 @@
     "node": "24.15.0"
   },
   "devDependencies": {
+    "@daczarne/streamdeck-icons": "github:daczarne/streamdeck-icons#b8759c6bc42ae6ad0c5ccaa1e7576acfcc3311da",
     "@elgato/cli": "1.10.1",
     "@rollup/plugin-commonjs": "29.0.3",
     "@rollup/plugin-node-resolve": "16.0.3",

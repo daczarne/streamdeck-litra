@@ -10,7 +10,7 @@ Not an official Logitech or Elgato product.
 - [Setting up on a new computer](#setting-up-on-a-new-computer)
 - [Working on the plugin](#working-on-the-plugin)
 - [Packaging](#packaging)
-- [Icon pack](#icon-pack)
+- [Icons](#icons)
 - [Usage tips](#usage-tips)
 - [Settings pages](#settings-pages)
 - [Third-party code](#third-party-code)
@@ -65,16 +65,15 @@ Lamps connect over USB only: the underlying HID stack doesn't support Bluetooth.
     npm run build
     ```
 
-4. Turn on Stream Deck's developer mode, link the plugin folder and the icon pack into Stream Deck, and restart the plugin:
+4. Turn on Stream Deck's developer mode, link the plugin folder into Stream Deck, and restart the plugin:
 
     ```shell
     npx streamdeck dev
     npm run link
-    npm run link:icons
     npx streamdeck restart com.daczarne.litra
     ```
 
-5. In Stream Deck, the actions appear under the **Litra** category. Drag them onto keys or dials, or restore a Stream Deck backup that already has them: the layout lives in Stream Deck's profiles, not in this repository. Quit and reopen Stream Deck once, so it finds the icon pack: its icons then show in the Icon Library, under **Litra**.
+5. In Stream Deck, the actions appear under the **Litra** category. Drag them onto keys or dials, or restore a Stream Deck backup that already has them: the layout lives in Stream Deck's profiles, not in this repository.
 
 Developer mode stays on afterwards.
 
@@ -90,9 +89,8 @@ npx tsc --noEmit -p .     # type-check only
 npm test                  # run the unit tests
 npm run test:browser      # run the browser tests of the settings pages, which need Google Chrome
 npm run check:ui          # settings pages: no remote resources, CSP on every page, vendored file matches its hash
-npm run check:icons       # icon pack: manifest complete, every icon listed, sized and present
-npm run validate          # check:ui, check:icons, build and streamdeck validate
-npm run icons             # regenerate the icons in imgs/ and the icon pack from scripts/generate-icons.mjs
+npm run validate          # check:ui, build and streamdeck validate
+npm run icons             # regenerate the icons in imgs/ from scripts/generate-icons.mjs
 ```
 
 In VS Code, the `Build and restart` task builds once and restarts the plugin. It's the default build task, so **Tasks: Run Build Task** (⇧⌘B) starts it.
@@ -109,18 +107,11 @@ npm run pack
 
 This runs `check:ui`, builds, and writes `release/com.daczarne.litra.streamDeckPlugin`. A packaged plugin can't fall back on the repository's `node_modules` the way a linked one does, so it needs testing as an installed plugin before any release ([#21]).
 
-## Icon pack
+## Icons
 
-`com.daczarne.litra.sdIconPack/` is an icon pack: it adds icons for the Litra lights to Stream Deck's Icon Library, so any key or dial can pick them, the Litra actions' included. Besides the plugin's glyphs, it has variants for presets, such as a dimmer sun and a cool, warm or hot thermometer. Every glyph comes in three sets: on transparent, and on a charcoal or a grey tile that fills the key, in the palette kept in `scripts/icon-style.mjs`. `scripts/generate-icons.mjs` draws them with the same code as the plugin's images, but smaller, so that they leave room around them on a key. It writes them as 144 × 144 px SVGs and writes `icons.json` from the same list. `manifest.json` is written by hand.
+The plugin's images are drawn by code, from the glyphs of [`streamdeck-icons`][streamdeck-icons], a development dependency pinned to a commit. That repository also holds the palette, and the Litra icon pack, which adds these icons and variants of them to Stream Deck's Icon Library. `scripts/generate-icons.mjs` decides which glyph goes where, and renders each to the PNG sizes Stream Deck needs.
 
-Like the plugin, the pack runs linked from the repository:
-
-```shell
-npm run link:icons        # link the pack into Stream Deck's IconPacks folder (macOS)
-npm run unlink:icons      # remove the link
-```
-
-Stream Deck only finds a new pack when it starts, so quit and reopen it after the first link. After that, a change to the pack shows the next time the Icon Library is opened. In VS Code, the `Build icons` task regenerates the icons and checks the pack. A key keeps the icon it was given even when the pack changes, until the icon is assigned again. [`docs/elgato_sdk/icon_packs.md`][icon-packs] describes the format and how Stream Deck loads a pack, and [`docs/manual_testing/icon_pack.md`][icon-pack-test] the checks to run on the Deck.
+To take a change to the glyphs, update the commit the dependency is pinned to, run `npm run icons`, and commit the regenerated images with it.
 
 ## Usage tips
 
@@ -177,8 +168,7 @@ The plugin is MIT licensed: see [`LICENSE`][license].
 [check-ui]: scripts/check-ui.mjs
 [hid-notes]: ref/hid-captures/NOTES.md
 [license]: LICENSE
-[icon-pack-test]: docs/manual_testing/icon_pack.md
-[icon-packs]: docs/elgato_sdk/icon_packs.md
+[streamdeck-icons]: https://github.com/daczarne/streamdeck-icons
 [litra]: https://github.com/timrogers/litra
 [manual-test]: docs/manual_testing/settings_pages.md
 [n]: https://github.com/tj/n
