@@ -30,5 +30,6 @@ The first time the pack is linked, quit and reopen Stream Deck: it only finds a 
 2. **Every icon shows.** Expand the pack: its icons show in the order of `icons.json`, each as drawn by `scripts/generate-icons.mjs`. Hovering over an icon shows its name and "Litra".
 3. **Search finds the icons.** Searching for an icon's name finds it, and so does searching for one of its tags. Searching for "litra" finds every icon in the pack.
 4. **An icon works on a key.** Assign one of the pack's icons to a key: the key shows it on the Deck, with the same colors as in the library.
+5. **Tiles fill the key.** Assign a charcoal and a grey icon to keys: each tile fills its key on the Deck, with no ring around it, though the Icon Library shows one. Its glyph is the same size as the plain icon's, and the power symbols' amber and red read clearly on both tiles.
 
 [icon-packs]: ../elgato_sdk/icon_packs.md
