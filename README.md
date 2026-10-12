@@ -166,13 +166,17 @@ To update it, download `dist/sdpi-components.js` from the new upstream tag (not 
 
 ## Credits
 
+- Seth Sheppard: the original plugin this repository forked, and the notes in `ref/`: its v1 scope, its implementation notes and the Beam LX back-light research.
 - [timrogers/litra][litra]: the HID protocol and Node library.
 - [Elgato Stream Deck SDK][sdk].
+
+The plugin is MIT licensed: see [`LICENSE`][license].
 
 [#21]: https://github.com/daczarne/streamdeck-litra/issues/21
 [bright]: com.daczarne.litra.sdPlugin/imgs/actions/brightness/icon@2x.png
 [check-ui]: scripts/check-ui.mjs
 [hid-notes]: ref/hid-captures/NOTES.md
+[license]: LICENSE
 [icon-pack-test]: docs/manual_testing/icon_pack.md
 [icon-packs]: docs/elgato_sdk/icon_packs.md
 [litra]: https://github.com/timrogers/litra
