@@ -248,32 +248,35 @@ function hotGlyph(size, { color = "#FFFFFF" } = {}) {
 
 /**
  * The tiled schemes: a glyph in `ink` on a `tile` that fills the icon, like the monitor keys. The Deck's keys round the
- * corners themselves, so the tile doesn't. `lit` is the color of lights that are on, readable on the tile.
+ * corners themselves, so the tile doesn't. Besides its `ink`, each tile has its own shade of the glyphs' other tones,
+ * readable on it: `lit` for lights that are on, and `red`.
  */
 const TILE_SCHEMES = [
-  { name: "charcoal", tile: TILES.charcoal, ink: WHITE, lit: ACCENTS.gold },
-  { name: "grey", tile: TILES.grey, ink: INK, lit: ACCENTS.ochre },
+  { name: "charcoal", tile: TILES.charcoal, ink: WHITE, lit: ACCENTS.gold, red: ACCENTS.scarlet },
+  { name: "grey", tile: TILES.grey, ink: INK, lit: ACCENTS.ochre, red: ACCENTS.crimson },
 ];
 
 /**
  * The pack's glyphs, each drawn by `draw(size, { color })`. Every glyph comes plain, in its default colors on
- * transparent like the plugin's keys, and on every tile of {@link TILE_SCHEMES}.
+ * transparent, and on every tile of {@link TILE_SCHEMES}, at the same size in all of them.
  *
- * `span` is how much of its own canvas a glyph covers at its widest or tallest, strokes included, and `tileSpan` how
- * much of a tile it covers. The suns match the suns of the monitor keys, and the others are sized to look as large: a
- * thin thermometer needs more room, and the heavy power symbol less. On a tile, `lit` draws a glyph in the tile's color
- * for lights that are on, and `fade` marks the off state, drawn in an ink faded toward the tile.
+ * `span` is how much of its own canvas a glyph covers at its widest or tallest, strokes included, and `packSpan` how
+ * much of a pack icon it covers. The suns match the suns of the monitor keys, and the others are sized to look as
+ * large: a thin thermometer needs more room, and the heavy power symbol less. That's smaller than the plugin draws them
+ * on its own keys, where a glyph fills the key, and leaves the room around the glyph that the tiles need. On a tile,
+ * `tone` draws a glyph in the tile's shade of that tone rather than in its ink, and `fade` marks the off state, drawn
+ * in an ink faded toward the tile.
  */
 const PACK_GLYPHS = [
-  { id: "brightness", name: "Brightness", tags: ["sun", "light"], draw: brightnessGlyph, span: 0.865, tileSpan: 0.57 },
-  { id: "brightness-low", name: "Brightness low", tags: ["sun", "dim"], draw: dimGlyph, span: 0.865, tileSpan: 0.57 },
+  { id: "brightness", name: "Brightness", tags: ["sun", "light"], draw: brightnessGlyph, span: 0.865, packSpan: 0.57 },
+  { id: "brightness-low", name: "Brightness low", tags: ["sun", "dim"], draw: dimGlyph, span: 0.865, packSpan: 0.57 },
   {
     id: "temperature",
     name: "Temperature",
     tags: ["thermometer", "kelvin"],
     draw: temperatureGlyph,
     span: 0.815,
-    tileSpan: 0.62,
+    packSpan: 0.62,
   },
   {
     id: "temperature-cool",
@@ -281,7 +284,7 @@ const PACK_GLYPHS = [
     tags: ["thermometer", "kelvin", "snowflake", "cold"],
     draw: coolGlyph,
     span: 0.815,
-    tileSpan: 0.62,
+    packSpan: 0.62,
   },
   {
     id: "temperature-warm",
@@ -289,7 +292,7 @@ const PACK_GLYPHS = [
     tags: ["thermometer", "kelvin", "sun", "warm"],
     draw: warmGlyph,
     span: 0.815,
-    tileSpan: 0.62,
+    packSpan: 0.62,
   },
   {
     id: "temperature-hot",
@@ -297,7 +300,7 @@ const PACK_GLYPHS = [
     tags: ["thermometer", "kelvin", "flame", "hot"],
     draw: hotGlyph,
     span: 0.815,
-    tileSpan: 0.62,
+    packSpan: 0.62,
   },
   {
     id: "power-on",
@@ -305,8 +308,8 @@ const PACK_GLYPHS = [
     tags: ["power"],
     draw: (size, options) => powerGlyph(size, { ...options, on: true }),
     span: 0.54,
-    tileSpan: 0.52,
-    lit: true,
+    packSpan: 0.52,
+    tone: "lit",
   },
   {
     id: "power-off",
@@ -314,19 +317,28 @@ const PACK_GLYPHS = [
     tags: ["power"],
     draw: (size, options) => powerGlyph(size, { ...options, on: false }),
     span: 0.54,
-    tileSpan: 0.52,
+    packSpan: 0.52,
     fade: true,
+  },
+  {
+    id: "power-red",
+    name: "Power red",
+    tags: ["power", "off", "red"],
+    // Off's shape, without the dot that marks lights that are on. Plain, it's the palette's own red.
+    draw: (size, options) => powerGlyph(size, { color: TILES.red, ...options, on: false }),
+    span: 0.54,
+    packSpan: 0.52,
+    tone: "red",
   },
 ];
 
 // How far an off glyph fades toward its tile: dimmer than an on one, and still readable.
 const OFF_FADE = 0.5;
 
-/** A glyph drawn at `size` on a tile of that size, scaled from its own span to its span on the tile. */
-function onTile(size, tile, glyph, span, tileSpan) {
+/** A glyph drawn at `size`, scaled about the center from its own span to its span in the pack. */
+function scaled(size, glyph, span, packSpan) {
   const c = size / 2;
-  return `<rect width="${size}" height="${size}" fill="${tile}"/>
-    <g transform="translate(${c} ${c}) scale(${tileSpan / span}) translate(${-c} ${-c})">${glyph}</g>`;
+  return `<g transform="translate(${c} ${c}) scale(${packSpan / span}) translate(${-c} ${-c})">${glyph}</g>`;
 }
 
 /** The color `share` of the way from `from` to `to`, both as six-digit hex colors. */
@@ -336,14 +348,16 @@ function mix(from, to, share) {
   return `#${a.map((v, i) => Math.round(v + (b[i] - v) * share).toString(16).padStart(2, "0")).join("").toUpperCase()}`;
 }
 
-/** The pack entry of a glyph on one tile. */
-function tiledIcon({ id, name, tags, draw, span, tileSpan, lit, fade }, { name: tileName, tile, ink, lit: litColor }) {
-  const color = lit ? litColor : fade ? mix(ink, tile, OFF_FADE) : ink;
+/** The pack entry of a glyph on one tile, which fills the icon. */
+function tiledIcon({ id, name, tags, draw, span, packSpan, tone, fade }, scheme) {
+  const { name: tileName, tile, ink } = scheme;
+  const color = tone ? scheme[tone] : fade ? mix(ink, tile, OFF_FADE) : ink;
   return {
     path: `${id}-${tileName}.svg`,
     name: `${name} (${tileName})`,
     tags: ["litra", "tile", tileName, ...tags],
-    draw: (size) => onTile(size, tile, draw(size, { color }), span, tileSpan),
+    draw: (size) => `<rect width="${size}" height="${size}" fill="${tile}"/>
+      ${scaled(size, draw(size, { color }), span, packSpan)}`,
   };
 }
 
@@ -353,7 +367,12 @@ function tiledIcon({ id, name, tags, draw, span, tileSpan, lit, fade }, { name: 
  * plugin's category.
  */
 const PACK_ICONS = [
-  ...PACK_GLYPHS.map(({ id, name, tags, draw }) => ({ path: `${id}.svg`, name, tags: ["litra", ...tags], draw })),
+  ...PACK_GLYPHS.map(({ id, name, tags, draw, span, packSpan }) => ({
+    path: `${id}.svg`,
+    name,
+    tags: ["litra", ...tags],
+    draw: (size) => scaled(size, draw(size), span, packSpan),
+  })),
   { path: "lamp.svg", name: "Lamp", tags: ["litra", "light"], draw: categoryGlyph },
   ...TILE_SCHEMES.flatMap((scheme) => PACK_GLYPHS.map((glyph) => tiledIcon(glyph, scheme))),
 ];

@@ -76,6 +76,16 @@
     ]
   },
   {
+    "path": "power-red.svg",
+    "name": "Power red",
+    "tags": [
+      "litra",
+      "power",
+      "off",
+      "red"
+    ]
+  },
+  {
     "path": "lamp.svg",
     "name": "Lamp",
     "tags": [
@@ -176,6 +186,18 @@
     ]
   },
   {
+    "path": "power-red-charcoal.svg",
+    "name": "Power red (charcoal)",
+    "tags": [
+      "litra",
+      "tile",
+      "charcoal",
+      "power",
+      "off",
+      "red"
+    ]
+  },
+  {
     "path": "brightness-grey.svg",
     "name": "Brightness (grey)",
     "tags": [
@@ -265,6 +287,18 @@
       "tile",
       "grey",
       "power"
+    ]
+  },
+  {
+    "path": "power-red-grey.svg",
+    "name": "Power red (grey)",
+    "tags": [
+      "litra",
+      "tile",
+      "grey",
+      "power",
+      "off",
+      "red"
     ]
   }
 ]

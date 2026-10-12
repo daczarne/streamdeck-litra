@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
     <svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144" fill="none">
-    <g transform="translate(-31.679999999999996 0)"><path
+    <g transform="translate(72 72) scale(0.7607361963190185) translate(-72 -72)"><g transform="translate(-31.679999999999996 0)"><path
     d="M 60.480000000000004 28.8
     A 11.52 11.52 0 0 1 83.52 28.8
     V 85.40844834175269
@@ -44,5 +44,5 @@
 <line x1="88.32262535102255" y1="40.9248" x2="86.31004845630535" y2="33.4137607747762"
     stroke="#FFFFFF" stroke-width="5.4719999999999995" stroke-linecap="round"/>
 <line x1="88.32262535102255" y1="40.9248" x2="80.81158612579875" y2="42.9373768947172"
-    stroke="#FFFFFF" stroke-width="5.4719999999999995" stroke-linecap="round"/>
+    stroke="#FFFFFF" stroke-width="5.4719999999999995" stroke-linecap="round"/></g>
     </svg>

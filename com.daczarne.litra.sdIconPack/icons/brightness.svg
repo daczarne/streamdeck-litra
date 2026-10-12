@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
     <svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144" fill="none">
-    <circle cx="72" cy="72" r="27.72" fill="#FFFFFF"/>
+    <g transform="translate(72 72) scale(0.6589595375722543) translate(-72 -72)"><circle cx="72" cy="72" r="27.72" fill="#FFFFFF"/>
 <line x1="72" y1="33.12"
       x2="72" y2="14.399999999999999"
       stroke="#FFFFFF" stroke-width="9.36" stroke-linecap="round"/>
@@ -24,5 +24,5 @@
       stroke="#FFFFFF" stroke-width="9.36" stroke-linecap="round"/>
 <line x1="44.507688347467024" y1="44.50768834746704"
       x2="31.27064940365485" y2="31.270649403654865"
-      stroke="#FFFFFF" stroke-width="9.36" stroke-linecap="round"/>
+      stroke="#FFFFFF" stroke-width="9.36" stroke-linecap="round"/></g>
     </svg>
