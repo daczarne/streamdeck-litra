@@ -88,7 +88,7 @@ Daniel treats supply-chain risk as a hard requirement:
 - Commit messages explain the why and end with the `Co-Authored-By` trailer for Claude. Commit only when Daniel asks.
 - `.github/workflows/main.yaml` runs the type check, the unit tests, the browser tests, `npm run validate`, Markdown lint and CSpell on every pull request and on `main`. Locally, the same checks run in two parts, both as Claude commands and as VS Code tasks: `/lint` and the `Lint` task run the linters (everything but the tests), `/test` and the `Test` task run the unit tests and then the browser tests, and `/ci` and the `CI` task run both. `Test` is VS Code's default test task, so **Tasks: Run Test Task** starts it.
 - Write the pull request title and description with the `pr-description` skill.
-- Draft issues with the `github-issues` skill, and post them only when Daniel asks.
+- Draft issues with the `github-issues` skill, and post them only when Daniel asks. The skill works on the issues of both this repository and `daczarne/streamdeck-icons`, whichever the session started in.
 
 ## Style
 
