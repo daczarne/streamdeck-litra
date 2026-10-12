@@ -1,7 +1,8 @@
 gitignore: true
 showFound: true
 globs:
+  # Order matters. The entry **/*.md must stay first on the list.
+  - "**/*.md"
   - "!LICENSE"
   - "!node_modules"
-  - "!ref/"
-  - "**/*.md"
+  - "!ref/**/*.md"
