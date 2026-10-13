@@ -37,6 +37,7 @@ import {
   turnOffAll,
   turnOnAll,
 } from "./litra-manager";
+import { logger } from "./logging";
 import { createFakeDevice, type FakeDevice } from "./test-support/fake-device";
 
 //* Fakes
@@ -378,7 +379,7 @@ describe("forEachDevice", () => {
   it("fails without running the operation when no lamp is connected", () => {
     const operation = vi.fn();
 
-    expect(forEachDevice(operation)).toEqual({ ok: false, deviceCount: 0, failures: 1 });
+    expect(forEachDevice("test", operation)).toEqual({ ok: false, deviceCount: 0, failures: 1 });
     expect(operation).not.toHaveBeenCalled();
   });
 
@@ -388,7 +389,7 @@ describe("forEachDevice", () => {
     });
     const operation = vi.fn();
 
-    expect(forEachDevice(operation)).toEqual({ ok: false, deviceCount: 0, failures: 1 });
+    expect(forEachDevice("test", operation)).toEqual({ ok: false, deviceCount: 0, failures: 1 });
     expect(operation).not.toHaveBeenCalled();
   });
 
@@ -398,7 +399,7 @@ describe("forEachDevice", () => {
     connect(first, second);
     const operation = vi.fn();
 
-    expect(forEachDevice(operation)).toEqual({ ok: true, deviceCount: 2, failures: 0 });
+    expect(forEachDevice("test", operation)).toEqual({ ok: true, deviceCount: 2, failures: 0 });
     expect(operation.mock.calls).toEqual([[first], [second]]);
   });
 
@@ -408,7 +409,7 @@ describe("forEachDevice", () => {
     connect(first, second);
     const operation = vi.fn(failFor(first));
 
-    expect(forEachDevice(operation)).toEqual({ ok: false, deviceCount: 2, failures: 1 });
+    expect(forEachDevice("test", operation)).toEqual({ ok: false, deviceCount: 2, failures: 1 });
     expect(operation).toHaveBeenCalledWith(second);
   });
 
@@ -418,7 +419,7 @@ describe("forEachDevice", () => {
     connect(first, second);
     const operation = vi.fn(failFor(first));
 
-    forEachDevice(operation);
+    forEachDevice("test", operation);
 
     for (const device of [first, second]) {
       expect(device.hid.close).toHaveBeenCalledOnce();
@@ -435,7 +436,7 @@ describe("forEachDevice", () => {
     connect(first, second);
     const operation = vi.fn();
 
-    expect(forEachDevice(operation)).toEqual({ ok: true, deviceCount: 2, failures: 0 });
+    expect(forEachDevice("test", operation)).toEqual({ ok: true, deviceCount: 2, failures: 0 });
     expect(operation).toHaveBeenCalledWith(second);
   });
 });
@@ -1387,5 +1388,261 @@ describe("readRepresentativeTemperatureKelvin", () => {
     expect(vi.mocked(getTemperatureInKelvin).mock.calls).toEqual([[first]]);
     expect(first.hid.close).toHaveBeenCalledOnce();
     expect(second.hid.close).toHaveBeenCalledOnce();
+  });
+});
+
+//* Logs
+
+describe("logs", () => {
+  type Level = "error" | "warn" | "info" | "debug";
+
+  /** How the logs name a fake Beam: its model and the end of its serial number. */
+  function labelOf(device: FakeDevice): string {
+    return `Beam …${device.serialNumber.slice(-4)}`;
+  }
+
+  /** The messages logged at a level, each as its arguments joined. */
+  function messages(level: Level): string[] {
+    return vi.mocked(logger[level]).mock.calls.map((args) => args.map(String).join(" "));
+  }
+
+  /** The one message logged at a level, which a test then checks for what it must include. */
+  function onlyMessage(level: Level): string {
+    expect(messages(level)).toHaveLength(1);
+    return messages(level)[0];
+  }
+
+  /** Every public operation, by the name the logs give it. */
+  const OPERATIONS: Array<[string, () => unknown]> = [
+    ["turn on", () => turnOnAll()],
+    ["turn off", () => turnOffAll()],
+    ["toggle", () => toggleAll()],
+    ["read power", () => isOnAll()],
+    ["set brightness", () => setBrightnessAllPercentage(50, 0)],
+    ["adjust brightness", () => adjustBrightnessAllByPercentageSteps(1, 5, 0)],
+    ["read brightness", () => readRepresentativeBrightnessPercentage()],
+    ["read lamp status", () => readLampStatuses()],
+    ["identify", () => identifyLamp("FAKE9999", 0)],
+    ["set temperature", () => setTemperatureAllInKelvin(4000)],
+    ["adjust temperature", () => adjustTemperatureAllByKelvinSteps(1, 100)],
+    ["read temperature", () => readRepresentativeTemperatureKelvin()],
+  ];
+
+  beforeEach(() => {
+    vi.mocked(getTemperatureInKelvin).mockReturnValue(4000);
+  });
+
+  it.each(OPERATIONS)("warns when %s finds no lamps", async (operation, run) => {
+    await run();
+
+    expect(messages("warn")).toContainEqual(expect.stringContaining(operation));
+    expect(logger.error).not.toHaveBeenCalled();
+  });
+
+  it.each(OPERATIONS)("logs an error, with the error, when %s can't look for lamps", async (operation, run) => {
+    vi.mocked(findDevices).mockImplementation(() => {
+      throw new Error("HID enumeration failed");
+    });
+
+    await run();
+
+    const message = onlyMessage("error");
+    expect(message).toContain(operation);
+    expect(message).toContain("HID enumeration failed");
+  });
+
+  it.each<[string, () => unknown, (...args: never[]) => unknown]>([
+    ["turn on", () => turnOnAll(), turnOn],
+    ["turn off", () => turnOffAll(), turnOff],
+    ["toggle", () => toggleAll(), turnOff],
+    ["read power", () => isOnAll(), isOn],
+    ["set brightness", () => setBrightnessAllPercentage(50, 0), setBrightnessInLumen],
+    ["adjust brightness", () => adjustBrightnessAllByPercentageSteps(1, 5, 0), setBrightnessInLumen],
+    ["read brightness", () => readRepresentativeBrightnessPercentage(), getMaximumBrightnessInLumenForDevice],
+    ["read lamp status", () => readLampStatuses(), getTemperatureInKelvin],
+    ["set temperature", () => setTemperatureAllInKelvin(4000), setTemperatureInKelvin],
+    ["adjust temperature", () => adjustTemperatureAllByKelvinSteps(1, 100), setTemperatureInKelvin],
+    ["read temperature", () => readRepresentativeTemperatureKelvin(), getTemperatureInKelvin],
+  ])("logs an error, with the lamp and the error, when %s fails on a lamp", async (operation, run, command) => {
+    const device = beam();
+    connect(device);
+    vi.mocked(command).mockImplementation(failFor(device) as never);
+
+    await run();
+
+    const message = onlyMessage("error");
+    expect(message).toContain(operation);
+    expect(message).toContain(labelOf(device));
+    expect(message).toContain("HID write failed");
+  });
+
+  it("logs an error, with the lamp and the error, when identifying a lamp fails", async () => {
+    const device = beam();
+    connect(device);
+    vi.mocked(isOn).mockImplementation(failFor(device) as never);
+
+    await identifyLamp(device.serialNumber, 0);
+
+    const message = onlyMessage("error");
+    expect(message).toContain("identify");
+    expect(message).toContain(labelOf(device));
+    expect(message).toContain("HID write failed");
+  });
+
+  it("warns, with the lamp and the error, when a handle fails to close", () => {
+    const device = beam();
+    device.hid.close.mockImplementation(() => {
+      throw new Error("already closed");
+    });
+    connect(device);
+
+    turnOnAll();
+
+    const message = onlyMessage("warn");
+    expect(message).toContain(labelOf(device));
+    expect(message).toContain("already closed");
+  });
+
+  it("warns, with the end of its serial number, when the lamp to identify isn't connected", async () => {
+    connect(beam());
+
+    await identifyLamp("2325FE01ABCD", 0);
+
+    expect(onlyMessage("warn")).toContain("…ABCD");
+  });
+
+  it.each<[string, () => unknown, string]>([
+    ["turn on", () => turnOnAll(), ""],
+    ["turn off", () => turnOffAll(), ""],
+    ["toggle", () => toggleAll(), ""],
+    [
+      "set brightness",
+      () => setBrightnessAllPercentage(50, 0),
+      `${percentageToLumen(50, BEAM_MIN_LUMEN, BEAM_MAX_LUMEN)} lm`,
+    ],
+    [
+      "adjust brightness",
+      () => adjustBrightnessAllByPercentageSteps(1, 5, 0),
+      `${percentageToLumen(5, BEAM_MIN_LUMEN, BEAM_MAX_LUMEN)} lm`,
+    ],
+    ["set temperature", () => setTemperatureAllInKelvin(4000), "4000 K"],
+    ["adjust temperature", () => adjustTemperatureAllByKelvinSteps(1, 100), "4100 K"],
+  ])("logs what %s did to each lamp, with the value sent", async (operation, run, value) => {
+    const first = beam(BEAM_MIN_LUMEN);
+    const second = beam(BEAM_MIN_LUMEN);
+    connect(first, second);
+
+    await run();
+
+    for (const device of [first, second]) {
+      const message = messages("info").find((candidate) => candidate.includes(labelOf(device)));
+      expect(message).toContain(operation);
+      expect(message).toContain(value);
+    }
+  });
+
+  it("logs the lamp it blinked when identifying a lamp", async () => {
+    const device = beam();
+    connect(device);
+
+    await identifyLamp(device.serialNumber, 0);
+
+    const message = onlyMessage("info");
+    expect(message).toContain("identify");
+    expect(message).toContain(labelOf(device));
+  });
+
+  it("logs the brightness a lamp reached, and the cap it learns", async () => {
+    const device = beam(BEAM_MIN_LUMEN, 250);
+    connect(device);
+
+    await setBrightnessAllPercentage(100, 0);
+
+    const lampMessages = messages("info").filter((message) => message.includes(labelOf(device)));
+    expect(lampMessages).toContainEqual(expect.stringContaining(`${BEAM_MAX_LUMEN} lm`));
+    expect(lampMessages).toContainEqual(expect.stringContaining("capped at 250 lm"));
+  });
+
+  it("logs a lamp that a brightness change turns on", async () => {
+    const device = beam();
+    connect(device);
+    vi.mocked(isOn).mockReturnValue(false);
+
+    await setBrightnessAllPercentage(50, 0);
+
+    expect(messages("info")).toContainEqual(expect.stringContaining("turned on"));
+  });
+
+  it.each([
+    ["read power", () => isOnAll()],
+    ["read brightness", () => readRepresentativeBrightnessPercentage()],
+    ["read lamp status", () => readLampStatuses()],
+    ["read temperature", () => readRepresentativeTemperatureKelvin()],
+  ])("logs what %s read at debug, not info", async (operation, run) => {
+    const device = beam();
+    connect(device);
+
+    await run();
+
+    const message = onlyMessage("debug");
+    expect(message).toContain(operation);
+    expect(message).toContain(labelOf(device));
+    expect(logger.info).not.toHaveBeenCalled();
+  });
+
+  it("never writes a lamp's whole serial number", async () => {
+    const device = createFakeDevice({ type: DeviceType.LitraBeam, serialNumber: "2325FE01ABCD" });
+    connect(device);
+    device.hid.close.mockImplementation(() => {
+      throw new Error("already closed");
+    });
+
+    turnOnAll();
+    vi.mocked(turnOff).mockImplementation(failFor(device));
+    turnOffAll();
+    await readLampStatuses();
+
+    const everything = (["error", "warn", "info", "debug"] as const).flatMap(messages);
+    expect(everything).toContainEqual(expect.stringContaining("…ABCD"));
+    expect(everything).not.toContainEqual(expect.stringContaining("2325FE01ABCD"));
+  });
+
+  it("logs nothing when there is no ACK to drain", () => {
+    const device = beam();
+    device.hid.readTimeout.mockImplementation(() => {
+      throw new Error("timed out");
+    });
+    connect(device);
+
+    turnOnAll();
+
+    expect(logger.warn).not.toHaveBeenCalled();
+    expect(logger.error).not.toHaveBeenCalled();
+  });
+
+  it("logs a failed listener with its error, for the stack", async () => {
+    const error = new Error("listener broke");
+    const remove = onLampsChanged(() => {
+      throw error;
+    });
+    connect(beam());
+
+    turnOnAll();
+    await new Promise((resolve) => setImmediate(resolve));
+    remove();
+
+    expect(logger.error).toHaveBeenCalledExactlyOnceWith(expect.any(String), error);
+  });
+
+  it("logs a failed dial flush with its error, for the stack", async () => {
+    vi.useFakeTimers();
+    const error = new Error("flush broke");
+    const debounce = createDialDebouncer(vi.fn().mockRejectedValue(error));
+
+    debounce(1);
+    await vi.advanceTimersByTimeAsync(60);
+    vi.useRealTimers();
+
+    expect(logger.error).toHaveBeenCalledExactlyOnceWith(expect.any(String), error);
   });
 });

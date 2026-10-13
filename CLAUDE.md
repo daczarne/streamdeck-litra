@@ -22,15 +22,15 @@ The plugin is for Daniel's own use and isn't published. It runs linked from the 
 
 - `docs/contributing.md`: how work is done here. Changes go through pull requests, features come with their tests, and dependencies are pinned. It also says which unused code stays. This file only adds what is specific to Claude.
 - `docs/style_guide.md`: the conventions the linters don't enforce (see [Style](#style)).
-- `docs/elgato_sdk/`: what the Stream Deck SDK offers and what it doesn't (the interactions a dial receives, its layouts, how Stream Deck loads the settings pages, its logger), checked against the installed version. Read it before designing how an action behaves on the Deck, and add to it when a change finds out something new about the SDK.
-- `docs/logging.md`: where the plugin's logs are written and how the files are rotated.
+- `docs/elgato_sdk/`: what the Stream Deck SDK offers and what it doesn't (the interactions a dial receives, its layouts, how Stream Deck loads the settings pages, its logger, what a key shows), checked against the installed version. Read it before designing how an action behaves on the Deck, and add to it when a change finds out something new about the SDK.
+- `docs/logging.md`: what the plugin logs, at which level and with what in each message, where the logs are written and how the files are rotated. A change that logs something new adds it to the contract there.
 - `docs/manual_testing/`: the checks that only the Deck can prove, one document per area. Before asking Daniel to test on the Deck, point to the matching document. When a feature needs new manual checks, add them there.
 - `ref/`: the original author's notes. Read them before changing behavior that looks odd.
 
 ## Layout
 
 - `src/plugin.ts` registers the actions.
-- `src/litra-manager.ts` is the only module that talks to the `litra` library. Actions import from it, never from `litra` directly. It re-scans the lamps on every call, applies each operation to every connected lamp, and always closes the HID handles. After every operation that writes to the lamps, it calls the listeners registered with `onLampsChanged`, which is how the Power keys and the lamp screens follow changes made by any action.
+- `src/litra-manager.ts` is the only module that talks to the `litra` library. Actions import from it, never from `litra` directly. It re-scans the lamps on every call, applies each operation to every connected lamp, and always closes the HID handles. After every operation that writes to the lamps, it calls the listeners registered with `onLampsChanged`, which is how the Power keys and the lamp screens follow changes made by any action. It logs what each lamp did, while the actions log what was pressed or turned (see `docs/logging.md`).
 - `src/logging.ts` holds the logger every module logs through, instead of `streamDeck.logger`, and the file target that writes it to `logs/litra.log`, rotated by size rather than on every start (see `docs/logging.md`).
 - `src/actions/` holds the Power, Brightness and Temperature actions, and the lamp screens (`lamp-screens.ts`) that the Brightness and Temperature dials share.
 - Unit tests sit next to the file they test (`litra-manager.test.ts`), and run with Vitest. They replace `litra`, `@elgato/streamdeck` and `src/logging.ts` with `vi.mock`, so they need no lamps and create no `logs/` folder. `src/test-support/` holds the shared fakes, such as a lamp whose HID handle records every call.

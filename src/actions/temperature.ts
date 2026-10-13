@@ -19,7 +19,10 @@ import {
   setTemperatureAllInKelvin,
   toggleAll,
 } from "../litra-manager";
+import { logger as pluginLogger } from "../logging";
 import { lampScreens as sharedLampScreens, type LampScreens } from "./lamp-screens";
+
+const logger = pluginLogger.createScope("Temperature");
 
 type TemperatureSettings = {
   presetKelvin?: number;
@@ -59,6 +62,7 @@ export class TemperatureAction extends SingletonAction<TemperatureSettings> {
 
   override async onKeyDown(ev: KeyDownEvent<TemperatureSettings>): Promise<void> {
     const preset = Number(ev.payload.settings.presetKelvin ?? 4000);
+    logger.info(`Key pressed: preset ${preset} K`);
     const result = setTemperatureAllInKelvin(preset);
     if (!result.ok) {
       await ev.action.showAlert();
@@ -70,9 +74,11 @@ export class TemperatureAction extends SingletonAction<TemperatureSettings> {
   /** Dial press toggles power, or blinks the lamp on a lamp screen; rotate adjusts temperature. */
   override async onDialDown(ev: DialDownEvent<TemperatureSettings>): Promise<void> {
     if (this.lampScreens.isShowing(ev.action.id)) {
+      logger.info("Dial pressed: identify");
       await this.lampScreens.identify(ev.action);
       return;
     }
+    logger.info("Dial pressed: toggle");
     const result = toggleAll();
     if (!result.ok) {
       await ev.action.showAlert();
@@ -84,9 +90,11 @@ export class TemperatureAction extends SingletonAction<TemperatureSettings> {
   /** Tapping the strip shows the lamps one by one, and holding it goes back to the main screen. */
   override async onTouchTap(ev: TouchTapEvent<TemperatureSettings>): Promise<void> {
     if (ev.payload.hold) {
+      logger.info("Strip held: back");
       await this.lampScreens.back(ev.action.id);
       return;
     }
+    logger.info("Strip tapped: next screen");
     await this.lampScreens.tap(ev.action, () => this.refreshDisplay(ev.action, ev.payload.settings));
   }
 
@@ -102,6 +110,7 @@ export class TemperatureAction extends SingletonAction<TemperatureSettings> {
       queue = createDialDebouncer(async (ticks) => {
         const settings = this.latestSettings.get(id) ?? {};
         const step = Number(settings.stepKelvin ?? 100);
+        logger.info(`Dial turned: ${ticks} ticks of ${step} K`);
         const result = adjustTemperatureAllByKelvinSteps(ticks, step);
         if (!result.ok) {
           await ev.action.showAlert();

@@ -18,7 +18,10 @@ import {
   setBrightnessAllPercentage,
   toggleAll,
 } from "../litra-manager";
+import { logger as pluginLogger } from "../logging";
 import { lampScreens as sharedLampScreens, type LampScreens } from "./lamp-screens";
+
+const logger = pluginLogger.createScope("Brightness");
 
 type BrightnessSettings = {
   presetPercentage?: number;
@@ -88,6 +91,7 @@ export class BrightnessAction extends SingletonAction<BrightnessSettings> {
 
   override async onKeyDown(ev: KeyDownEvent<BrightnessSettings>): Promise<void> {
     const preset = Number(ev.payload.settings.presetPercentage ?? 100);
+    logger.info(`Key pressed: preset ${preset}%`);
     const result = await setBrightnessAllPercentage(preset);
     if (!result.ok) {
       await ev.action.showAlert();
@@ -99,9 +103,11 @@ export class BrightnessAction extends SingletonAction<BrightnessSettings> {
   /** Dial press toggles power, or blinks the lamp on a lamp screen; rotate adjusts brightness. */
   override async onDialDown(ev: DialDownEvent<BrightnessSettings>): Promise<void> {
     if (this.lampScreens.isShowing(ev.action.id)) {
+      logger.info("Dial pressed: identify");
       await this.lampScreens.identify(ev.action);
       return;
     }
+    logger.info("Dial pressed: toggle");
     const result = toggleAll();
     if (!result.ok) {
       await ev.action.showAlert();
@@ -113,9 +119,11 @@ export class BrightnessAction extends SingletonAction<BrightnessSettings> {
   /** Tapping the strip shows the lamps one by one, and holding it goes back to the main screen. */
   override async onTouchTap(ev: TouchTapEvent<BrightnessSettings>): Promise<void> {
     if (ev.payload.hold) {
+      logger.info("Strip held: back");
       await this.lampScreens.back(ev.action.id);
       return;
     }
+    logger.info("Strip tapped: next screen");
     await this.lampScreens.tap(ev.action, () => this.refreshDisplay(ev.action, ev.payload.settings));
   }
 
@@ -131,6 +139,7 @@ export class BrightnessAction extends SingletonAction<BrightnessSettings> {
       queue = createDialDebouncer(async (ticks) => {
         const settings = this.latestSettings.get(id) ?? {};
         const step = Number(settings.stepPercentage ?? 5);
+        logger.info(`Dial turned: ${ticks} ticks of ${step}%`);
         const result = await adjustBrightnessAllByPercentageSteps(ticks, step);
         if (!result.ok) {
           await ev.action.showAlert();

@@ -1,12 +1,16 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { isOnAll, onLampsChanged, toggleAll, turnOffAll, turnOnAll } from "../litra-manager";
+import { logger } from "../logging";
 import { createFakeDial, createFakeKey, type FakeAction, show } from "../test-support/fake-stream-deck";
 import { PowerAction } from "./power";
 
 //* Fakes
 
 vi.mock("@elgato/streamdeck", () => import("../test-support/fake-stream-deck"));
+
+// The real logger writes to a logs/ folder.
+vi.mock("../logging", () => import("../test-support/fake-logging"));
 
 // The real litra-manager loads node-hid's native binary on import and talks to real lamps.
 vi.mock("../litra-manager", () => ({
@@ -103,6 +107,20 @@ describe("PowerAction", () => {
       await power.onKeyDown(keyDown(key));
 
       expect(key.showAlert).toHaveBeenCalledOnce();
+    });
+
+    it("logs the press, with the key's mode, before switching the lamps", async () => {
+      const key = createFakeKey();
+      show(key);
+      const { power } = createPowerAction();
+      vi.mocked(turnOffAll).mockReturnValue(SWITCHED);
+
+      await power.onKeyDown(keyDown(key, "off"));
+
+      expect(logger.info).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("off"));
+      expect(vi.mocked(logger.info).mock.invocationCallOrder[0]).toBeLessThan(
+        vi.mocked(turnOffAll).mock.invocationCallOrder[0],
+      );
     });
   });
 

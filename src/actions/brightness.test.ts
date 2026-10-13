@@ -11,6 +11,7 @@ import {
   setBrightnessAllPercentage,
   toggleAll,
 } from "../litra-manager";
+import { logger } from "../logging";
 import { createFakeDial, createFakeKey, type FakeAction, show } from "../test-support/fake-stream-deck";
 import { barFill, BrightnessAction } from "./brightness";
 import { LampScreens } from "./lamp-screens";
@@ -18,6 +19,9 @@ import { LampScreens } from "./lamp-screens";
 //* Fakes
 
 vi.mock("@elgato/streamdeck", () => import("../test-support/fake-stream-deck"));
+
+// The real logger writes to a logs/ folder.
+vi.mock("../logging", () => import("../test-support/fake-logging"));
 
 // The real litra-manager loads node-hid's native binary on import and talks to real lamps.
 vi.mock("../litra-manager", () => ({
@@ -278,6 +282,74 @@ describe("BrightnessAction", () => {
 
       expect(dial.setFeedbackLayout).toHaveBeenCalledExactlyOnceWith("$B1");
       expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith(AT_THE_CAPS);
+    });
+  });
+
+  describe("logs", () => {
+    let lampScreens: LampScreens;
+
+    beforeEach(() => {
+      lampScreens = new LampScreens();
+      vi.mocked(readLampStatuses).mockResolvedValue({ ok: true, lamps: [BEAM] });
+      vi.mocked(readRepresentativeBrightnessPercentage).mockReturnValue(REACHED_AT_CAP);
+      vi.mocked(toggleAll).mockReturnValue({ ok: true, deviceCount: 1, failures: 0 });
+      vi.mocked(identifyLamp).mockResolvedValue({ ok: true, deviceCount: 1, failures: 0 });
+    });
+
+    it("a key press, with the key's preset, before changing the lamps", async () => {
+      const key = createFakeKey();
+      show(key);
+      vi.mocked(setBrightnessAllPercentage).mockResolvedValue(REACHED_AT_CAP);
+
+      await new BrightnessAction().onKeyDown(keyDown(key, 80));
+
+      expect(logger.info).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("80%"));
+      expect(vi.mocked(logger.info).mock.invocationCallOrder[0]).toBeLessThan(
+        vi.mocked(setBrightnessAllPercentage).mock.invocationCallOrder[0],
+      );
+    });
+
+    it("a dial turn, with its ticks and the dial's step", async () => {
+      const dial = createFakeDial();
+      show(dial);
+      vi.mocked(adjustBrightnessAllByPercentageSteps).mockResolvedValue(REACHED_AT_CAP);
+
+      await new BrightnessAction().onDialRotate(dialRotate(dial, 3));
+      await flushed();
+
+      const message = vi.mocked(logger.info).mock.calls[0]?.[0];
+      expect(message).toContain("3 ticks");
+      expect(message).toContain("5%");
+    });
+
+    it("a dial push, with what it does", async () => {
+      const dial = createFakeDial();
+      show(dial);
+      const action = new BrightnessAction(lampScreens);
+
+      await action.onDialDown({ action: dial, payload: { settings: {} } } as never);
+      await action.onTouchTap(touchTap(dial));
+      await action.onDialDown({ action: dial, payload: { settings: {} } } as never);
+
+      expect(vi.mocked(logger.info).mock.calls).toEqual([
+        [expect.stringContaining("toggle")],
+        [expect.any(String)],
+        [expect.stringContaining("identify")],
+      ]);
+    });
+
+    it("a tap and a hold on the strip", async () => {
+      const dial = createFakeDial();
+      show(dial);
+      const action = new BrightnessAction(lampScreens);
+
+      await action.onTouchTap(touchTap(dial));
+      await action.onTouchTap(touchTap(dial, true));
+
+      expect(vi.mocked(logger.info).mock.calls).toEqual([
+        [expect.stringContaining("tapped")],
+        [expect.stringContaining("held")],
+      ]);
     });
   });
 });

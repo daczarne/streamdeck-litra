@@ -6,6 +6,9 @@ import {
 } from "@elgato/streamdeck";
 
 import { isOnAll, onLampsChanged, toggleAll, turnOffAll, turnOnAll } from "../litra-manager";
+import { logger as pluginLogger } from "../logging";
+
+const logger = pluginLogger.createScope("Power");
 
 type PowerSettings = {
   mode?: "toggle" | "on" | "off";
@@ -27,6 +30,7 @@ export class PowerAction extends SingletonAction<PowerSettings> {
 
   override async onKeyDown(ev: KeyDownEvent<PowerSettings>): Promise<void> {
     const mode = ev.payload.settings.mode ?? "toggle";
+    logger.info(`Key pressed: ${mode}`);
     const result =
       mode === "on" ? turnOnAll() : mode === "off" ? turnOffAll() : toggleAll();
 

@@ -11,6 +11,7 @@ import {
   setTemperatureAllInKelvin,
   toggleAll,
 } from "../litra-manager";
+import { logger } from "../logging";
 import { createFakeDial, createFakeKey, type FakeAction, show } from "../test-support/fake-stream-deck";
 import { LampScreens } from "./lamp-screens";
 import { TemperatureAction } from "./temperature";
@@ -18,6 +19,9 @@ import { TemperatureAction } from "./temperature";
 //* Fakes
 
 vi.mock("@elgato/streamdeck", () => import("../test-support/fake-stream-deck"));
+
+// The real logger writes to a logs/ folder.
+vi.mock("../logging", () => import("../test-support/fake-logging"));
 
 // The real litra-manager loads node-hid's native binary on import and talks to real lamps.
 vi.mock("../litra-manager", () => ({
@@ -59,8 +63,8 @@ const BEAM: LampStatus = {
   temperatureKelvin: 2700,
 };
 
-function touchTap(dial: FakeAction) {
-  return { action: dial, payload: { settings: {}, hold: false } } as never;
+function touchTap(dial: FakeAction, hold = false) {
+  return { action: dial, payload: { settings: {}, hold } } as never;
 }
 
 /** Waits for a dial's flush, which the fake debouncer starts at once and nobody awaits. */
@@ -202,6 +206,74 @@ describe("TemperatureAction", () => {
 
       expect(onLamp.setFeedback).not.toHaveBeenCalledWith(TEMPERATURE_SNAPPED);
       expect(onMain.setFeedback).toHaveBeenCalledExactlyOnceWith(TEMPERATURE_SNAPPED);
+    });
+  });
+
+  describe("logs", () => {
+    let lampScreens: LampScreens;
+
+    beforeEach(() => {
+      lampScreens = new LampScreens();
+      vi.mocked(readLampStatuses).mockResolvedValue({ ok: true, lamps: [BEAM] });
+      vi.mocked(readRepresentativeTemperatureKelvin).mockReturnValue(SNAPPED);
+      vi.mocked(toggleAll).mockReturnValue({ ok: true, deviceCount: 1, failures: 0 });
+      vi.mocked(identifyLamp).mockResolvedValue({ ok: true, deviceCount: 1, failures: 0 });
+    });
+
+    it("a key press, with the key's preset, before changing the lamps", async () => {
+      const key = createFakeKey();
+      show(key);
+      vi.mocked(setTemperatureAllInKelvin).mockReturnValue(SNAPPED);
+
+      await new TemperatureAction().onKeyDown(keyDown(key, 4050));
+
+      expect(logger.info).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("4050 K"));
+      expect(vi.mocked(logger.info).mock.invocationCallOrder[0]).toBeLessThan(
+        vi.mocked(setTemperatureAllInKelvin).mock.invocationCallOrder[0],
+      );
+    });
+
+    it("a dial turn, with its ticks and the dial's step", async () => {
+      const dial = createFakeDial();
+      show(dial);
+      vi.mocked(adjustTemperatureAllByKelvinSteps).mockReturnValue(SNAPPED);
+
+      await new TemperatureAction().onDialRotate(dialRotate(dial, 3));
+      await flushed();
+
+      const message = vi.mocked(logger.info).mock.calls[0]?.[0];
+      expect(message).toContain("3 ticks");
+      expect(message).toContain("100 K");
+    });
+
+    it("a dial push, with what it does", async () => {
+      const dial = createFakeDial();
+      show(dial);
+      const action = new TemperatureAction(lampScreens);
+
+      await action.onDialDown({ action: dial, payload: { settings: {} } } as never);
+      await action.onTouchTap(touchTap(dial));
+      await action.onDialDown({ action: dial, payload: { settings: {} } } as never);
+
+      expect(vi.mocked(logger.info).mock.calls).toEqual([
+        [expect.stringContaining("toggle")],
+        [expect.any(String)],
+        [expect.stringContaining("identify")],
+      ]);
+    });
+
+    it("a tap and a hold on the strip", async () => {
+      const dial = createFakeDial();
+      show(dial);
+      const action = new TemperatureAction(lampScreens);
+
+      await action.onTouchTap(touchTap(dial));
+      await action.onTouchTap(touchTap(dial, true));
+
+      expect(vi.mocked(logger.info).mock.calls).toEqual([
+        [expect.stringContaining("tapped")],
+        [expect.stringContaining("held")],
+      ]);
     });
   });
 });

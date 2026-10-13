@@ -13,7 +13,7 @@ import {
   turnOn,
 } from "litra";
 
-import { logger } from "./logging";
+import { logger as pluginLogger } from "./logging";
 
 type ClosableHid = {
   write: (values: number[] | Buffer) => number;
@@ -44,6 +44,7 @@ export type LampStatus = {
   temperatureKelvin: number;
 };
 
+const logger = pluginLogger.createScope("Lamps");
 const DIAL_DEBOUNCE_MS = 60;
 
 // litra names each model "Logitech Litra …", too long for the touch strip.
@@ -99,7 +100,7 @@ function announceLampsChanged(): void {
     Promise.resolve()
       .then(listener)
       .catch((error: unknown) => {
-        logger.error(`Lamps changed listener failed: ${String(error)}`);
+        logger.error("Lamps changed listener failed", error);
       });
   }
 }
@@ -108,6 +109,23 @@ function announceLampsChanged(): void {
 function announced<T>(result: T): T {
   announceLampsChanged();
   return result;
+}
+
+/**
+ * A lamp as the logs name it: its model and the end of its serial number, enough to tell lamps apart without writing
+ * the whole serial to a file that may be shared (#41).
+ */
+function lampLabel(device: Device): string {
+  return `${MODEL_BY_DEVICE_TYPE[device.type]} ${serialTail(device.serialNumber)}`;
+}
+
+function serialTail(serialNumber: string): string {
+  return `…${serialNumber.slice(-4)}`;
+}
+
+/** Logs a lamp's part in an operation failing. The other lamps carry on. */
+function logLampFailure(operation: string, device: Device, error: unknown): void {
+  logger.error(`${operation}: ${lampLabel(device)} failed: ${String(error)}`);
 }
 
 function asHid(device: Device): ClosableHid {
@@ -134,7 +152,7 @@ function closeDevice(device: Device): void {
   try {
     asHid(device).close();
   } catch (error) {
-    logger.warn(`Failed to close Litra HID handle: ${String(error)}`);
+    logger.warn(`Closing ${lampLabel(device)} failed: ${String(error)}`);
   }
 }
 
@@ -230,26 +248,30 @@ function temperaturePercentage(kelvin: number, allowed: number[]): number {
   return percentageInRange(kelvin, allowed[0], allowed[allowed.length - 1]);
 }
 
-/** Opens every connected lamp. Returns none when no lamp is connected or finding them fails. */
-function openDevices(): Device[] {
+/**
+ * Opens every connected lamp for an operation, named in the logs. Returns none when no lamp is connected or finding
+ * them fails.
+ */
+function openDevices(operation: string): Device[] {
   let devices: Device[];
   try {
     devices = findDevices();
   } catch (error) {
-    logger.error(`findDevices failed: ${String(error)}`);
+    logger.error(`${operation}: finding the lamps failed: ${String(error)}`);
     return [];
   }
   if (devices.length === 0) {
-    logger.warn("No Litra devices found");
+    logger.warn(`${operation}: no lamps found`);
   }
   return devices;
 }
 
 /**
- * Open devices, run fn per device, always close handles. Zero devices = failure.
+ * Open devices, run fn per device, always close handles. Zero devices = failure. The operation names the call in the
+ * logs, and fn logs what it did to each lamp.
  */
-export function forEachDevice(fn: (device: Device) => void): BroadcastResult {
-  const devices = openDevices();
+export function forEachDevice(operation: string, fn: (device: Device) => void): BroadcastResult {
+  const devices = openDevices(operation);
   if (devices.length === 0) {
     return { ok: false, deviceCount: 0, failures: 1 };
   }
@@ -260,7 +282,7 @@ export function forEachDevice(fn: (device: Device) => void): BroadcastResult {
       fn(device);
     } catch (error) {
       failures += 1;
-      logger.error(`Litra device operation failed: ${String(error)}`);
+      logLampFailure(operation, device, error);
     } finally {
       closeDevice(device);
     }
@@ -274,19 +296,23 @@ export function forEachDevice(fn: (device: Device) => void): BroadcastResult {
 }
 
 export function turnOnAll(): BroadcastResult {
+  const operation = "turn on";
   return announced(
-    forEachDevice((device) => {
+    forEachDevice(operation, (device) => {
       turnOn(device);
       drainAck(device);
+      logger.info(`${operation}: ${lampLabel(device)} turned on`);
     }),
   );
 }
 
 export function turnOffAll(): BroadcastResult {
+  const operation = "turn off";
   return announced(
-    forEachDevice((device) => {
+    forEachDevice(operation, (device) => {
       turnOff(device);
       drainAck(device);
+      logger.info(`${operation}: ${lampLabel(device)} turned off`);
     }),
   );
 }
@@ -297,7 +323,8 @@ export function turnOffAll(): BroadcastResult {
  * {@link isOnAll}, and is still sent the command.
  */
 export function toggleAll(): BroadcastResult {
-  const devices = openDevices();
+  const operation = "toggle";
+  const devices = openDevices(operation);
   if (devices.length === 0) {
     return announced({ ok: false, deviceCount: 0, failures: 1 });
   }
@@ -309,7 +336,7 @@ export function toggleAll(): BroadcastResult {
       return fn();
     } catch (error) {
       failed.add(device);
-      logger.error(`Litra device operation failed: ${String(error)}`);
+      logLampFailure(operation, device, error);
       return fallback;
     }
   };
@@ -326,6 +353,7 @@ export function toggleAll(): BroadcastResult {
             turnOn(device);
           }
           drainAck(device);
+          logger.info(`${operation}: ${lampLabel(device)} turned ${allOn ? "off" : "on"}`);
         },
         undefined,
       );
@@ -344,14 +372,8 @@ export function toggleAll(): BroadcastResult {
  */
 export async function isOnAll(): Promise<{ ok: boolean; allOn: boolean; deviceCount: number }> {
   await brightnessChanges;
-  let devices: Device[] = [];
-  try {
-    devices = findDevices();
-  } catch (error) {
-    logger.error(`findDevices failed: ${String(error)}`);
-    return { ok: false, allOn: false, deviceCount: 0 };
-  }
-
+  const operation = "read power";
+  const devices = openDevices(operation);
   if (devices.length === 0) {
     return { ok: false, allOn: false, deviceCount: 0 };
   }
@@ -360,13 +382,15 @@ export async function isOnAll(): Promise<{ ok: boolean; allOn: boolean; deviceCo
   let failures = 0;
   for (const device of devices) {
     try {
-      if (!isOn(device)) {
+      const on = isOn(device);
+      logger.debug(`${operation}: ${lampLabel(device)} is ${on ? "on" : "off"}`);
+      if (!on) {
         allOn = false;
       }
     } catch (error) {
       failures += 1;
       allOn = false;
-      logger.error(`isOn failed: ${String(error)}`);
+      logLampFailure(operation, device, error);
     } finally {
       closeDevice(device);
     }
@@ -376,10 +400,11 @@ export async function isOnAll(): Promise<{ ok: boolean; allOn: boolean; deviceCo
 }
 
 /** Ensure the device is powered on before a brightness change is visible. */
-function ensureOn(device: Device): void {
+function ensureOn(operation: string, device: Device): void {
   if (!isOn(device)) {
     turnOn(device);
     drainAck(device);
+    logger.info(`${operation}: ${lampLabel(device)} turned on`);
   }
 }
 
@@ -407,7 +432,9 @@ export function setBrightnessAllPercentage(
   percentage: number,
   settleMs = BRIGHTNESS_SETTLE_MS,
 ): Promise<BroadcastResult> {
-  return oneBrightnessChangeAtATime(() => moveBrightnessAll(percentage, settleMs)).finally(announceLampsChanged);
+  return oneBrightnessChangeAtATime(() => moveBrightnessAll("set brightness", percentage, settleMs)).finally(
+    announceLampsChanged,
+  );
 }
 
 /**
@@ -420,7 +447,11 @@ export function adjustBrightnessAllByPercentageSteps(
   settleMs = BRIGHTNESS_SETTLE_MS,
 ): Promise<BroadcastResult> {
   return oneBrightnessChangeAtATime(() =>
-    moveBrightnessAll((brightest) => stepOnGrid(brightest, ticks, stepPercentage, 0, 100), settleMs),
+    moveBrightnessAll(
+      "adjust brightness",
+      (brightest) => stepOnGrid(brightest, ticks, stepPercentage, 0, 100),
+      settleMs,
+    ),
   ).finally(announceLampsChanged);
 }
 
@@ -442,10 +473,11 @@ function oneBrightnessChangeAtATime(change: () => Promise<BroadcastResult>): Pro
  * first read to the last, so calls mustn't overlap: they go through {@link oneBrightnessChangeAtATime}.
  */
 async function moveBrightnessAll(
+  operation: string,
   target: number | ((brightest: number) => number),
   settleMs: number,
 ): Promise<BroadcastResult> {
-  const devices = openDevices();
+  const devices = openDevices(operation);
   if (devices.length === 0) {
     return { ok: false, deviceCount: 0, failures: 1 };
   }
@@ -460,7 +492,7 @@ async function moveBrightnessAll(
       fn();
     } catch (error) {
       failed.add(device);
-      logger.error(`Litra device operation failed: ${String(error)}`);
+      logLampFailure(operation, device, error);
     }
   };
 
@@ -468,7 +500,7 @@ async function moveBrightnessAll(
     let brightest: number | undefined;
     for (const device of devices) {
       attempt(device, () => {
-        ensureOn(device);
+        ensureOn(operation, device);
         if (typeof target === "function") {
           const pct = brightnessPercentage(device, getBrightnessInLumenSafe(device));
           brightest = Math.max(brightest ?? pct, pct);
@@ -498,10 +530,12 @@ async function moveBrightnessAll(
     for (const [device, lumen] of sent) {
       attempt(device, () => {
         const reached = getBrightnessInLumenSafe(device);
+        const pct = brightnessPercentage(device, reached);
+        logger.info(`${operation}: ${lampLabel(device)} sent ${lumen} lm, reached ${reached} lm (${pct}%)`);
         if (reached < lumen) {
           brightnessCapsInLumen.set(device.serialNumber, reached);
+          logger.info(`${operation}: ${lampLabel(device)} capped at ${reached} lm`);
         }
-        const pct = brightnessPercentage(device, reached);
         percentages.push(pct);
         if (representative === undefined || pct > representative) {
           representative = pct;
@@ -530,9 +564,11 @@ export function readRepresentativeBrightnessPercentage(): BroadcastResult {
   let representative: number | undefined;
   let representativeLumen: number | undefined;
   const percentages: number[] = [];
-  const result = forEachDevice((device) => {
+  const operation = "read brightness";
+  const result = forEachDevice(operation, (device) => {
     const lumen = getBrightnessInLumenSafe(device);
     const pct = brightnessPercentage(device, lumen);
+    logger.debug(`${operation}: ${lampLabel(device)} at ${lumen} lm (${pct}%)`);
     percentages.push(pct);
     if (representative === undefined || pct > representative) {
       representative = pct;
@@ -555,16 +591,22 @@ export function readRepresentativeBrightnessPercentage(): BroadcastResult {
 export async function readLampStatuses(): Promise<{ ok: boolean; lamps: LampStatus[] }> {
   await brightnessChanges;
   const lamps: LampStatus[] = [];
-  const result = forEachDevice((device) => {
+  const operation = "read lamp status";
+  const result = forEachDevice(operation, (device) => {
     const on = isOn(device);
     const temperatureKelvin = getTemperatureInKelvin(device);
     const brightnessLumen = getBrightnessInLumenSafe(device);
+    const percentage = brightnessPercentage(device, brightnessLumen);
+    logger.debug(
+      `${operation}: ${lampLabel(device)} is ${on ? "on" : "off"}, at ${brightnessLumen} lm (${percentage}%) ` +
+        `and ${temperatureKelvin} K`,
+    );
     lamps.push({
       serialNumber: device.serialNumber,
       model: MODEL_BY_DEVICE_TYPE[device.type],
       on,
       brightnessLumen,
-      brightnessPercentage: brightnessPercentage(device, brightnessLumen),
+      brightnessPercentage: percentage,
       temperatureKelvin,
     });
   });
@@ -579,10 +621,12 @@ export async function readLampStatuses(): Promise<{ ok: boolean; lamps: LampStat
  */
 export function identifyLamp(serialNumber: string, blinkMs = IDENTIFY_BLINK_MS): Promise<BroadcastResult> {
   return oneBrightnessChangeAtATime(async () => {
-    const devices = openDevices();
+    const operation = "identify";
+    const devices = openDevices(operation);
     try {
       const device = devices.find((candidate) => candidate.serialNumber === serialNumber);
       if (device === undefined) {
+        logger.warn(`${operation}: lamp ${serialTail(serialNumber)} not connected`);
         return { ok: false, deviceCount: 0, failures: 1 };
       }
       const setPower = (on: boolean): void => {
@@ -598,9 +642,10 @@ export function identifyLamp(serialNumber: string, blinkMs = IDENTIFY_BLINK_MS):
         setPower(!wasOn);
         await new Promise((resolve) => setTimeout(resolve, blinkMs));
         setPower(wasOn);
+        logger.info(`${operation}: ${lampLabel(device)} blinked`);
         return { ok: true, deviceCount: 1, failures: 0 };
       } catch (error) {
-        logger.error(`Litra device operation failed: ${String(error)}`);
+        logLampFailure(operation, device, error);
         return { ok: false, deviceCount: 1, failures: 1 };
       }
     } finally {
@@ -614,11 +659,13 @@ export function identifyLamp(serialNumber: string, blinkMs = IDENTIFY_BLINK_MS):
 export function setTemperatureAllInKelvin(kelvin: number): BroadcastResult {
   let representative: number | undefined;
   let representativePercentage: number | undefined;
-  const result = forEachDevice((device) => {
+  const operation = "set temperature";
+  const result = forEachDevice(operation, (device) => {
     const allowed = getAllowedTemperaturesInKelvinForDevice(device);
     const snapped = snapKelvin(kelvin, allowed);
     setTemperatureInKelvin(device, snapped);
     drainAck(device);
+    logger.info(`${operation}: ${lampLabel(device)} set to ${snapped} K`);
     if (representative === undefined) {
       representative = snapped;
       representativePercentage = temperaturePercentage(snapped, allowed);
@@ -639,7 +686,8 @@ export function adjustTemperatureAllByKelvinSteps(ticks: number, stepKelvin: num
   let target: number | undefined;
   let representative: number | undefined;
   let representativePercentage: number | undefined;
-  const result = forEachDevice((device) => {
+  const operation = "adjust temperature";
+  const result = forEachDevice(operation, (device) => {
     const allowed = getAllowedTemperaturesInKelvinForDevice(device);
     target ??= stepOnGrid(
       getTemperatureInKelvin(device),
@@ -651,6 +699,7 @@ export function adjustTemperatureAllByKelvinSteps(ticks: number, stepKelvin: num
     const snapped = snapKelvin(target, allowed);
     setTemperatureInKelvin(device, snapped);
     drainAck(device);
+    logger.info(`${operation}: ${lampLabel(device)} set to ${snapped} K`);
     if (representative === undefined) {
       representative = snapped;
       representativePercentage = temperaturePercentage(snapped, allowed);
@@ -666,11 +715,13 @@ export function adjustTemperatureAllByKelvinSteps(ticks: number, stepKelvin: num
 export function readRepresentativeTemperatureKelvin(): BroadcastResult {
   let representative: number | undefined;
   let representativePercentage: number | undefined;
-  const result = forEachDevice((device) => {
+  const operation = "read temperature";
+  const result = forEachDevice(operation, (device) => {
     if (representative !== undefined) {
       return;
     }
     representative = getTemperatureInKelvin(device);
+    logger.debug(`${operation}: ${lampLabel(device)} at ${representative} K`);
     representativePercentage = temperaturePercentage(representative, getAllowedTemperaturesInKelvinForDevice(device));
   });
   return {
@@ -710,7 +761,7 @@ export function createDialDebouncer(
     timer = setTimeout(() => {
       timer = undefined;
       running = running.then(run).catch((error: unknown) => {
-        logger.error(`Dial flush failed: ${String(error)}`);
+        logger.error("Dial flush failed", error);
       });
     }, delayMs);
   };
