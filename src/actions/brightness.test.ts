@@ -1,3 +1,4 @@
+import type { JsonValue } from "@elgato/utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -47,12 +48,16 @@ const REACHED_AT_CAP: BroadcastResult = {
 
 const NO_LAMP: BroadcastResult = { ok: false, deviceCount: 0, failures: 1 };
 
-function keyDown(key: FakeAction, presetPercentage: number) {
+function keyDown(key: FakeAction, presetPercentage: JsonValue) {
   return { action: key, payload: { settings: { presetPercentage } } } as never;
 }
 
-function dialRotate(dial: FakeAction, ticks: number) {
-  return { action: dial, payload: { settings: { stepPercentage: 5 }, ticks } } as never;
+function willAppear(key: FakeAction, presetPercentage: JsonValue) {
+  return { action: key, payload: { settings: { presetPercentage } } } as never;
+}
+
+function dialRotate(dial: FakeAction, ticks: number, stepPercentage: JsonValue = 5) {
+  return { action: dial, payload: { settings: { stepPercentage }, ticks } } as never;
 }
 
 /** What a dial shows of {@link REACHED_AT_CAP}: 79%, with the bar fainter from 63%, which only one lamp passes. */
@@ -182,6 +187,50 @@ describe("BrightnessAction", () => {
       expect(turned.showAlert).toHaveBeenCalledOnce();
       expect(otherDial.showAlert).not.toHaveBeenCalled();
       expect(otherDial.setFeedback).toHaveBeenCalledExactlyOnceWith(AT_THE_CAPS);
+    });
+  });
+
+  it("shows a key's preset as its title when it appears", async () => {
+    const key = createFakeKey();
+    show(key);
+
+    await new BrightnessAction().onWillAppear(willAppear(key, 40));
+
+    expect(key.setTitle).toHaveBeenCalledExactlyOnceWith("40");
+  });
+
+  describe("with a setting that isn't valid (#22)", () => {
+    it("sets the lamps to the default preset on a key press, with a warning", async () => {
+      const key = createFakeKey();
+      show(key);
+      vi.mocked(setBrightnessAllPercentage).mockResolvedValue(REACHED_AT_CAP);
+
+      await new BrightnessAction().onKeyDown(keyDown(key, "abc"));
+
+      expect(setBrightnessAllPercentage).toHaveBeenCalledExactlyOnceWith(0);
+      expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("presetPercentage"));
+    });
+
+    it("shows the default preset on the key, with a warning", async () => {
+      const key = createFakeKey();
+      show(key);
+
+      await new BrightnessAction().onWillAppear(willAppear(key, "abc"));
+
+      expect(key.setTitle).toHaveBeenCalledExactlyOnceWith("0");
+      expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("presetPercentage"));
+    });
+
+    it("moves the lamps by the default step on a dial turn, with a warning", async () => {
+      const dial = createFakeDial();
+      show(dial);
+      vi.mocked(adjustBrightnessAllByPercentageSteps).mockResolvedValue(REACHED_AT_CAP);
+
+      await new BrightnessAction().onDialRotate(dialRotate(dial, 3, 0));
+      await flushed();
+
+      expect(adjustBrightnessAllByPercentageSteps).toHaveBeenCalledExactlyOnceWith(3, 10);
+      expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("stepPercentage"));
     });
   });
 

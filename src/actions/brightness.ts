@@ -10,6 +10,7 @@ import {
   WillAppearEvent,
   WillDisappearEvent,
 } from "@elgato/streamdeck";
+import type { JsonObject } from "@elgato/utils";
 
 import {
   adjustBrightnessAllByPercentageSteps,
@@ -20,15 +21,11 @@ import {
 } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
 import { lampScreens as sharedLampScreens, type LampScreens } from "./lamp-screens";
+import { brightnessSettings, parseSettings } from "./settings";
 
 const logger = pluginLogger.createScope("Brightness");
 
-type BrightnessSettings = {
-  presetPercentage?: number;
-  stepPercentage?: number;
-};
-
-type ActionRef = WillAppearEvent<BrightnessSettings>["action"];
+type ActionRef = WillAppearEvent["action"];
 
 // Where fewer lamps reach, the bar fades from white towards this grey, never as far as the bar's own background, and
 // light enough to read on the strip.
@@ -61,9 +58,9 @@ export function barFill(levels: number[]): string {
 }
 
 @action({ UUID: "com.daczarne.litra.brightness" })
-export class BrightnessAction extends SingletonAction<BrightnessSettings> {
+export class BrightnessAction extends SingletonAction {
   private readonly dialQueues = new Map<string, (ticks: number) => void>();
-  private readonly latestSettings = new Map<string, BrightnessSettings>();
+  private readonly latestSettings = new Map<string, JsonObject>();
 
   private readonly lampScreens: LampScreens;
 
@@ -72,7 +69,7 @@ export class BrightnessAction extends SingletonAction<BrightnessSettings> {
     this.lampScreens = lampScreens;
   }
 
-  override async onWillAppear(ev: WillAppearEvent<BrightnessSettings>): Promise<void> {
+  override async onWillAppear(ev: WillAppearEvent): Promise<void> {
     this.latestSettings.set(ev.action.id, ev.payload.settings);
     if (ev.action.isDial()) {
       await this.lampScreens.appear(ev.action);
@@ -80,17 +77,17 @@ export class BrightnessAction extends SingletonAction<BrightnessSettings> {
     await this.refreshDisplay(ev.action, ev.payload.settings);
   }
 
-  override async onWillDisappear(ev: WillDisappearEvent<BrightnessSettings>): Promise<void> {
+  override async onWillDisappear(ev: WillDisappearEvent): Promise<void> {
     await this.lampScreens.disappear(ev.action.id);
   }
 
-  override async onDidReceiveSettings(ev: DidReceiveSettingsEvent<BrightnessSettings>): Promise<void> {
+  override async onDidReceiveSettings(ev: DidReceiveSettingsEvent): Promise<void> {
     this.latestSettings.set(ev.action.id, ev.payload.settings);
     await this.refreshDisplay(ev.action, ev.payload.settings);
   }
 
-  override async onKeyDown(ev: KeyDownEvent<BrightnessSettings>): Promise<void> {
-    const preset = Number(ev.payload.settings.presetPercentage ?? 100);
+  override async onKeyDown(ev: KeyDownEvent): Promise<void> {
+    const { presetPercentage: preset } = parseSettings(ev.payload.settings, brightnessSettings, logger);
     logger.info(`Key pressed: preset ${preset}%`);
     const result = await setBrightnessAllPercentage(preset);
     if (!result.ok) {
@@ -101,7 +98,7 @@ export class BrightnessAction extends SingletonAction<BrightnessSettings> {
   }
 
   /** Dial press toggles power, or blinks the lamp on a lamp screen; rotate adjusts brightness. */
-  override async onDialDown(ev: DialDownEvent<BrightnessSettings>): Promise<void> {
+  override async onDialDown(ev: DialDownEvent): Promise<void> {
     if (this.lampScreens.isShowing(ev.action.id)) {
       logger.info("Dial pressed: identify");
       await this.lampScreens.identify(ev.action);
@@ -117,7 +114,7 @@ export class BrightnessAction extends SingletonAction<BrightnessSettings> {
   }
 
   /** Tapping the strip shows the lamps one by one, and holding it goes back to the main screen. */
-  override async onTouchTap(ev: TouchTapEvent<BrightnessSettings>): Promise<void> {
+  override async onTouchTap(ev: TouchTapEvent): Promise<void> {
     if (ev.payload.hold) {
       logger.info("Strip held: back");
       await this.lampScreens.back(ev.action.id);
@@ -127,7 +124,7 @@ export class BrightnessAction extends SingletonAction<BrightnessSettings> {
     await this.lampScreens.tap(ev.action, () => this.refreshDisplay(ev.action, ev.payload.settings));
   }
 
-  override async onDialRotate(ev: DialRotateEvent<BrightnessSettings>): Promise<void> {
+  override async onDialRotate(ev: DialRotateEvent): Promise<void> {
     const id = ev.action.id;
     this.latestSettings.set(id, ev.payload.settings);
     // Turning the dial does nothing on a lamp screen.
@@ -138,7 +135,7 @@ export class BrightnessAction extends SingletonAction<BrightnessSettings> {
     if (!queue) {
       queue = createDialDebouncer(async (ticks) => {
         const settings = this.latestSettings.get(id) ?? {};
-        const step = Number(settings.stepPercentage ?? 5);
+        const { stepPercentage: step } = parseSettings(settings, brightnessSettings, logger);
         logger.info(`Dial turned: ${ticks} ticks of ${step}%`);
         const result = await adjustBrightnessAllByPercentageSteps(ticks, step);
         if (!result.ok) {
@@ -151,9 +148,9 @@ export class BrightnessAction extends SingletonAction<BrightnessSettings> {
     queue(ev.payload.ticks);
   }
 
-  private async refreshDisplay(action: ActionRef, settings: BrightnessSettings): Promise<void> {
+  private async refreshDisplay(action: ActionRef, settings: JsonObject): Promise<void> {
     if (action.isKey()) {
-      await this.showKeyAmount(action, Number(settings.presetPercentage ?? 100));
+      await this.showKeyAmount(action, parseSettings(settings, brightnessSettings, logger).presetPercentage);
       return;
     }
 
@@ -161,7 +158,7 @@ export class BrightnessAction extends SingletonAction<BrightnessSettings> {
     await this.showDialValue(action, result.ok ? result.brightnessPercentages : undefined);
   }
 
-  private async showKeyAmount(action: KeyAction<BrightnessSettings>, percentage: number): Promise<void> {
+  private async showKeyAmount(action: KeyAction<JsonObject>, percentage: number): Promise<void> {
     await action.setTitle(`${Math.round(percentage)}`);
   }
 

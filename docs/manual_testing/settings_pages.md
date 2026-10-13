@@ -56,7 +56,7 @@ Stream Deck treats every page the same way, so one key and one dial are enough: 
     - Pasting `fetch("https://example.com")` into the console logs a red `Refused to connect to ... because it violates the following Content Security Policy directive: "connect-src ws://localhost:*"`. Nothing goes out on the network, so this is safe with Wi-Fi on.
 2. **Stream Deck tells each page where it sits.** The key's panel shows the preset (Brightness), and the dial's panel shows the step (Step).
 3. **Stream Deck passes the settings on to the plugin.** A changed setting takes effect on the Deck: the key jumps to its new preset, and the dial turns by its new step.
-4. **Each slider shows its value.** On both panels, the value sits right of the slider, on the same line, with its unit (75%, 5%). It follows the handle while it's dragged, and after selecting another action and coming back, the panel shows the saved value. Check the Temperature key too: its value is the widest (4000 K).
+4. **Each slider shows its value.** On both panels, the value sits right of the slider, on the same line, with its unit (75%, 10%). It follows the handle while it's dragged, and after selecting another action and coming back, the panel shows the saved value. Check the Temperature key too: its value is the widest (2700 K).
 
 ## Afterwards
 

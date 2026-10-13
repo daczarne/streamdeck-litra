@@ -23,7 +23,7 @@ The log tells, in order, what was pressed or turned on the Deck, what each lamp 
 ### Levels
 
 - `error`: something failed. The lamps couldn't be listed, a lamp's part in an operation failed, or the plugin hit a bug.
-- `warn`: something expected was missing, such as a lamp, or a handle that wouldn't close.
+- `warn`: something expected was missing or wrong, such as a lamp, a handle that wouldn't close, or an action's setting that isn't valid.
 - `info`: what the user did, and every change made to a lamp.
 - `debug`: what was read from the lamps. The plugin reads them after every change, to keep every key and dial up to date, so logging the reads at `info` would about triple the log and add nothing to finding the cause of an alert. To see them, set the level in `src/logging.ts` to `debug`, rebuild and restart.
 
@@ -55,6 +55,7 @@ A press of a Brightness key with one lamp at its cap and the other failing reads
 | No lamps found                                                  | `warn`  | `src/litra-manager.ts`    | The operation                                                             |
 | The lamp to identify isn't connected                            | `warn`  | `src/litra-manager.ts`    | The end of its serial number                                              |
 | A lamp's handle fails to close                                  | `warn`  | `src/litra-manager.ts`    | The lamp, the error                                                       |
+| An action's setting isn't valid, so its default is used         | `warn`  | The action                | The setting, its value, the default                                       |
 | Listing the lamps fails                                         | `error` | `src/litra-manager.ts`    | The operation, the error                                                  |
 | A lamp's part in an operation fails                             | `error` | `src/litra-manager.ts`    | The operation, the lamp, the error                                        |
 | A lamps-changed listener, a dial flush or a lamp screen fails   | `error` | Where the error is caught | What failed, the error with its stack                                     |

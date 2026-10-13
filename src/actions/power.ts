@@ -7,29 +7,26 @@ import {
 
 import { isOnAll, onLampsChanged, toggleAll, turnOffAll, turnOnAll } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
+import { parseSettings, powerSettings } from "./settings";
 
 const logger = pluginLogger.createScope("Power");
 
-type PowerSettings = {
-  mode?: "toggle" | "on" | "off";
-};
-
 @action({ UUID: "com.daczarne.litra.power" })
-export class PowerAction extends SingletonAction<PowerSettings> {
+export class PowerAction extends SingletonAction {
   constructor() {
     super();
     // Every Power key follows the lamps, whichever key or dial changed them, this one included (#57).
     onLampsChanged(() => this.syncEveryKey());
   }
 
-  override async onWillAppear(ev: WillAppearEvent<PowerSettings>): Promise<void> {
+  override async onWillAppear(ev: WillAppearEvent): Promise<void> {
     if (ev.action.isKey()) {
       await ev.action.setState(await this.readState());
     }
   }
 
-  override async onKeyDown(ev: KeyDownEvent<PowerSettings>): Promise<void> {
-    const mode = ev.payload.settings.mode ?? "toggle";
+  override async onKeyDown(ev: KeyDownEvent): Promise<void> {
+    const { mode } = parseSettings(ev.payload.settings, powerSettings, logger);
     logger.info(`Key pressed: ${mode}`);
     const result =
       mode === "on" ? turnOnAll() : mode === "off" ? turnOffAll() : toggleAll();
