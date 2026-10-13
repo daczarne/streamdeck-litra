@@ -1,13 +1,14 @@
-import streamDeck from "@elgato/streamdeck";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { identifyLamp, type LampStatus, onLampsChanged, readLampStatuses } from "../litra-manager";
+import { logger } from "../logging";
 import { createFakeDial } from "../test-support/fake-stream-deck";
 import { LampScreens, MAIN_LAYOUT } from "./lamp-screens";
 
 //* Fakes
 
-vi.mock("@elgato/streamdeck", () => import("../test-support/fake-stream-deck"));
+// The real logger writes to a logs/ folder.
+vi.mock("../logging", () => import("../test-support/fake-logging"));
 
 // The real litra-manager loads node-hid's native binary on import and talks to real lamps.
 vi.mock("../litra-manager", () => ({
@@ -146,7 +147,7 @@ describe("LampScreens", () => {
       await screens.tap(dial, showMain);
       await screens.tap(dial, showMain);
 
-      expect(streamDeck.logger.error).toHaveBeenCalledOnce();
+      expect(logger.error).toHaveBeenCalledOnce();
       // A failure doesn't hold up the next tap.
       expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith(lampScreenOf(A, 1, 2));
     });

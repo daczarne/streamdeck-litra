@@ -1,4 +1,3 @@
-import streamDeck from "@elgato/streamdeck";
 import {
   Device,
   DeviceType,
@@ -13,6 +12,8 @@ import {
   turnOff,
   turnOn,
 } from "litra";
+
+import { logger } from "./logging";
 
 type ClosableHid = {
   write: (values: number[] | Buffer) => number;
@@ -43,7 +44,6 @@ export type LampStatus = {
   temperatureKelvin: number;
 };
 
-const logger = streamDeck.logger;
 const DIAL_DEBOUNCE_MS = 60;
 
 // litra names each model "Logitech Litra …", too long for the touch strip.

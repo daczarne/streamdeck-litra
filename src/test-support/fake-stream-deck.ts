@@ -44,10 +44,6 @@ export function show(...actions: FakeAction[]): void {
   visibleActions = actions;
 }
 
-export default {
-  logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn(), debug: vi.fn(), trace: vi.fn() },
-};
-
 export function action(_definition: { UUID: string }) {
   return <T>(target: T): T => target;
 }

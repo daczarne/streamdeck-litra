@@ -41,12 +41,8 @@ import { createFakeDevice, type FakeDevice } from "./test-support/fake-device";
 
 //* Fakes
 
-// The real SDK creates a logs/ folder on import.
-vi.mock("@elgato/streamdeck", () => ({
-  default: {
-    logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn(), debug: vi.fn(), trace: vi.fn() },
-  },
-}));
+// The real logger writes to a logs/ folder.
+vi.mock("./logging", () => import("./test-support/fake-logging"));
 
 // The real litra loads node-hid's native binary on import and talks to real lamps.
 vi.mock("litra", () => ({
