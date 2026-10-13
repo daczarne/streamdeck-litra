@@ -1,7 +1,7 @@
 import type { TouchTapEvent } from "@elgato/streamdeck";
 
 import { identifyLamp, type LampStatus, onLampsChanged, readLampStatuses } from "../litra-manager";
-import { logger } from "../logging";
+import { logger as pluginLogger } from "../logging";
 
 /** What the lamp screens use of a dial, whichever action it belongs to. */
 export type LampScreenDial = Pick<
@@ -15,6 +15,8 @@ type Screen = {
   /** Draws the dial's main screen again, which only its action knows how to do. */
   showMain: () => Promise<void>;
 };
+
+const logger = pluginLogger.createScope("Lamp screens");
 
 export const MAIN_LAYOUT = "$B1";
 const LAMP_LAYOUT = "layouts/lamp.json";
@@ -119,7 +121,7 @@ export class LampScreens {
 
   private enqueue(operation: () => Promise<void>): Promise<void> {
     this.queue = this.queue.then(operation).catch((error: unknown) => {
-      logger.error(`Lamp screen update failed: ${String(error)}`);
+      logger.error("Lamp screen update failed", error);
     });
     return this.queue;
   }

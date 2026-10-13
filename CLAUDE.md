@@ -23,7 +23,7 @@ The plugin is for Daniel's own use and isn't published. It runs linked from the 
 - `docs/contributing.md`: how work is done here. Changes go through pull requests, features come with their tests, and dependencies are pinned. It also says which unused code stays. This file only adds what is specific to Claude.
 - `docs/style_guide.md`: the conventions the linters don't enforce (see [Style](#style)).
 - `docs/elgato_sdk/`: what the Stream Deck SDK offers and what it doesn't (the interactions a dial receives, its layouts, how Stream Deck loads the settings pages, its logger), checked against the installed version. Read it before designing how an action behaves on the Deck, and add to it when a change finds out something new about the SDK.
-- `docs/logging.md`: where the plugin's logs are written and how the files are rotated.
+- `docs/logging.md`: what the plugin logs, at which level and with what in each message, where the logs are written and how the files are rotated. A change that logs something new adds it to the contract there.
 - `docs/manual_testing/`: the checks that only the Deck can prove, one document per area. Before asking Daniel to test on the Deck, point to the matching document. When a feature needs new manual checks, add them there.
 - `ref/`: the original author's notes. Read them before changing behavior that looks odd.
 

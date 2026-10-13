@@ -1,16 +1,66 @@
 # Logging
 
 - [The logger](#the-logger)
+- [What gets logged](#what-gets-logged)
+  - [Levels](#levels)
+  - [Messages](#messages)
+  - [The contract](#the-contract)
 - [Log files](#log-files)
 - [The SDK's own log files](#the-sdks-own-log-files)
 
-The plugin's logs are the only record of why a key or a dial showed an alert ([#41]). This document describes where they're written and how they're kept.
+The plugin's logs are the only record of why a key or a dial showed an alert ([#41]). This document describes what they record, where they're written and how they're kept.
 
 ## The logger
 
 Every module logs through `logger` from `src/logging.ts`, never through `streamDeck.logger`. It's a `Logger` from `@elgato/utils`, the class the SDK's own logger is built on (see [the SDK's logging][sdk-logging]), with a file target of the plugin's own. It logs at `info` and above.
 
-The unit tests replace `src/logging.ts` with `src/test-support/fake-logging.ts`, whose calls they can inspect, so they write no files.
+The unit tests of the modules that log replace `src/logging.ts` with `src/test-support/fake-logging.ts`, whose calls they can inspect, so they write no files. The tests of `src/logging.ts` itself write to a temporary folder.
+
+## What gets logged
+
+The log tells, in order, what was pressed or turned on the Deck, what each lamp did, and what failed. Each message is written where its context is. The actions log what the user did, since only they know which key or dial it was and with which settings. `src/litra-manager.ts` logs what each lamp did, from inside its loop over the lamps, since only it knows the lamp and the value.
+
+### Levels
+
+- `error`: something failed. The lamps couldn't be listed, a lamp's part in an operation failed, or the plugin hit a bug.
+- `warn`: something expected was missing, such as a lamp, or a handle that wouldn't close.
+- `info`: what the user did, and every change made to a lamp.
+- `debug`: what was read from the lamps. The plugin reads them after every change, to keep every key and dial up to date, so logging the reads at `info` would about triple the log and add nothing to finding the cause of an alert. To see them, set the level in `src/logging.ts` to `debug`, rebuild and restart.
+
+### Messages
+
+- Each line names its source as a scope: `Lamps` for `src/litra-manager.ts`, and the action's name for the others (`Power`, `Brightness`, `Temperature`, `Lamp screens`).
+- A message from `Lamps` starts with the operation (`turn on`, `set brightness`, `read power`, …), so searching for `set brightness:` finds every step of a brightness change.
+- A lamp is named by its model and the last 4 characters of its serial number, such as `Beam …3F2A`. That's enough to tell lamps apart, without writing whole serial numbers to a file that may end up in an issue.
+- An error from a lamp is written as its message alone, since its stack only points inside `node-hid`. An error that means a bug in the plugin is written with its stack.
+
+A press of a Brightness key with one lamp at its cap and the other failing reads:
+
+```text
+2026-10-13T15:04:05.123Z INFO  Brightness: Key pressed: preset 100%
+2026-10-13T15:04:05.130Z ERROR Lamps: set brightness: Beam …91C0 failed: Error: could not read from HID device
+2026-10-13T15:04:05.395Z INFO  Lamps: set brightness: Beam …3F2A sent 400 lm, reached 250 lm (59%)
+2026-10-13T15:04:05.395Z INFO  Lamps: set brightness: Beam …3F2A capped at 250 lm
+```
+
+### The contract
+
+| Situation                                                       | Level   | Logged by                 | Includes                                                                  |
+|-----------------------------------------------------------------|---------|---------------------------|---------------------------------------------------------------------------|
+| The plugin starts                                               | `info`  | `src/plugin.ts`           | Nothing more                                                              |
+| A key press, a dial push, a dial turn, a tap or hold on a strip | `info`  | The action                | What it asks for: the key's mode or preset, the ticks and the dial's step |
+| A change made to a lamp                                         | `info`  | `src/litra-manager.ts`    | The operation, the lamp, the value sent and, for brightness, reached      |
+| A lamp's brightness cap is learned                              | `info`  | `src/litra-manager.ts`    | The operation, the lamp, the cap                                          |
+| A value read from a lamp                                        | `debug` | `src/litra-manager.ts`    | The operation, the lamp, the value                                        |
+| No lamps found                                                  | `warn`  | `src/litra-manager.ts`    | The operation                                                             |
+| The lamp to identify isn't connected                            | `warn`  | `src/litra-manager.ts`    | The end of its serial number                                              |
+| A lamp's handle fails to close                                  | `warn`  | `src/litra-manager.ts`    | The lamp, the error                                                       |
+| Listing the lamps fails                                         | `error` | `src/litra-manager.ts`    | The operation, the error                                                  |
+| A lamp's part in an operation fails                             | `error` | `src/litra-manager.ts`    | The operation, the lamp, the error                                        |
+| A lamps-changed listener, a dial flush or a lamp screen fails   | `error` | Where the error is caught | What failed, the error with its stack                                     |
+| Draining the reply a command leaves fails                       | nothing |                           | By design: the command itself went through                                |
+
+The unit tests check each row's level and what its message includes, never its wording, so a message can be reworded without breaking a test. The plugin's start is the exception, checked by hand (see [the manual checks][manual-checks]). A new situation gets a row here and a test with it.
 
 ## Log files
 
@@ -35,4 +85,5 @@ A line that can't be written, because the disk is full or the folder can't be wr
 The same folder can hold `com.daczarne.litra.<n>.log` files. They belong to the SDK's own logger, which records only what the SDK reports itself, and starts a new file every time the plugin starts and logs something. Most runs leave none. The one to read is an uncaught exception, which the SDK logs there with its stack: when the plugin stops responding, or `litra.log` stops short, look there too. [The SDK's logging][sdk-logging] lists what it logs.
 
 [#41]: https://github.com/daczarne/streamdeck-litra/issues/41
+[manual-checks]: manual_testing/logging.md
 [sdk-logging]: elgato_sdk/logging.md
