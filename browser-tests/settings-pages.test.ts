@@ -37,27 +37,27 @@ const PANELS: Panel[] = [
     controller: "Keypad",
     settings: ["presetPercentage"],
     change: { setting: "presetPercentage", value: "40", saved: 40 },
-    slider: { default: "100%", changed: "40%" },
+    slider: { default: "0%", changed: "40%" },
   },
   {
     page: "ui/brightness.html",
     controller: "Encoder",
     settings: ["stepPercentage"],
-    change: { setting: "stepPercentage", value: "10", saved: 10 },
-    slider: { default: "5%", changed: "10%" },
+    change: { setting: "stepPercentage", value: "20", saved: 20 },
+    slider: { default: "10%", changed: "20%" },
   },
   {
     page: "ui/temperature.html",
     controller: "Keypad",
     settings: ["presetKelvin"],
     change: { setting: "presetKelvin", value: "5000", saved: 5000 },
-    slider: { default: "4000 K", changed: "5000 K" },
+    slider: { default: "2700 K", changed: "5000 K" },
   },
   {
     page: "ui/temperature.html",
     controller: "Encoder",
     settings: ["stepKelvin"],
-    change: { setting: "stepKelvin", value: "300", saved: "300" },
+    change: { setting: "stepKelvin", value: "500", saved: "500" },
   },
 ];
 
