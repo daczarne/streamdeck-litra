@@ -95,7 +95,7 @@ npm run icons             # regenerate the icons in imgs/ from scripts/generate-
 
 In VS Code, the `Build and restart` task builds once and restarts the plugin. It's the default build task, so **Tasks: Run Build Task** (⇧⌘B) starts it.
 
-The plugin's logs are in `com.daczarne.litra.sdPlugin/logs/`.
+The plugin's logs are in `com.daczarne.litra.sdPlugin/logs/`: `litra.log` holds the newest lines, and [the logging document][logging] describes how the files are kept.
 
 ## Packaging
 
@@ -170,6 +170,7 @@ The plugin is MIT licensed: see [`LICENSE`][license].
 [license]: LICENSE
 [streamdeck-icons]: https://github.com/daczarne/streamdeck-icons
 [litra]: https://github.com/timrogers/litra
+[logging]: docs/logging.md
 [manual-test]: docs/manual_testing/settings_pages.md
 [n]: https://github.com/tj/n
 [power]: com.daczarne.litra.sdPlugin/imgs/actions/power/icon@2x.png

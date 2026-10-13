@@ -54,6 +54,7 @@
   },
   "dependencies": {
     "@elgato/streamdeck": "3.0.1",
+    "@elgato/utils": "0.6.0",
     "litra": "4.5.1"
   }
 }

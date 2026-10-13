@@ -1,6 +1,7 @@
-import streamDeck, { type TouchTapEvent } from "@elgato/streamdeck";
+import type { TouchTapEvent } from "@elgato/streamdeck";
 
 import { identifyLamp, type LampStatus, onLampsChanged, readLampStatuses } from "../litra-manager";
+import { logger } from "../logging";
 
 /** What the lamp screens use of a dial, whichever action it belongs to. */
 export type LampScreenDial = Pick<
@@ -14,8 +15,6 @@ type Screen = {
   /** Draws the dial's main screen again, which only its action knows how to do. */
   showMain: () => Promise<void>;
 };
-
-const logger = streamDeck.logger;
 
 export const MAIN_LAYOUT = "$B1";
 const LAMP_LAYOUT = "layouts/lamp.json";
