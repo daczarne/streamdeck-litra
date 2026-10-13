@@ -1,3 +1,4 @@
+import type { JsonValue } from "@elgato/utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -44,12 +45,16 @@ const SNAPPED: BroadcastResult = {
   representativeTemperaturePercentage: 34,
 };
 
-function keyDown(key: FakeAction, presetKelvin: number) {
+function keyDown(key: FakeAction, presetKelvin: JsonValue) {
   return { action: key, payload: { settings: { presetKelvin } } } as never;
 }
 
-function dialRotate(dial: FakeAction, ticks: number) {
-  return { action: dial, payload: { settings: { stepKelvin: 100 }, ticks } } as never;
+function willAppear(key: FakeAction, presetKelvin: JsonValue) {
+  return { action: key, payload: { settings: { presetKelvin } } } as never;
+}
+
+function dialRotate(dial: FakeAction, ticks: number, stepKelvin: JsonValue = 100) {
+  return { action: dial, payload: { settings: { stepKelvin }, ticks } } as never;
 }
 
 const TEMPERATURE_SNAPPED = { title: "Temperature", value: "4000", indicator: 34 };
@@ -144,6 +149,62 @@ describe("TemperatureAction", () => {
 
       expect(turned.showAlert).toHaveBeenCalledOnce();
       expect(otherDial.showAlert).not.toHaveBeenCalled();
+    });
+  });
+
+  it("moves the lamps by a step saved as text, as the step's select saves it", async () => {
+    const dial = createFakeDial();
+    show(dial);
+    vi.mocked(adjustTemperatureAllByKelvinSteps).mockReturnValue(SNAPPED);
+
+    await new TemperatureAction().onDialRotate(dialRotate(dial, 2, "200"));
+    await flushed();
+
+    expect(adjustTemperatureAllByKelvinSteps).toHaveBeenCalledExactlyOnceWith(2, 200);
+    expect(logger.warn).not.toHaveBeenCalled();
+  });
+
+  it("shows a key's preset as its title when it appears", async () => {
+    const key = createFakeKey();
+    show(key);
+
+    await new TemperatureAction().onWillAppear(willAppear(key, 5000));
+
+    expect(key.setTitle).toHaveBeenCalledExactlyOnceWith("5000");
+  });
+
+  describe("with a setting that isn't valid (#22)", () => {
+    it("sets the lamps to the default preset on a key press, with a warning", () => {
+      const key = createFakeKey();
+      show(key);
+      vi.mocked(setTemperatureAllInKelvin).mockReturnValue(SNAPPED);
+
+      void new TemperatureAction().onKeyDown(keyDown(key, "warm"));
+
+      expect(setTemperatureAllInKelvin).toHaveBeenCalledExactlyOnceWith(2700);
+      expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("presetKelvin"));
+    });
+
+    it("shows the default preset on the key, with a warning", async () => {
+      const key = createFakeKey();
+      show(key);
+
+      await new TemperatureAction().onWillAppear(willAppear(key, "warm"));
+
+      expect(key.setTitle).toHaveBeenCalledExactlyOnceWith("2700");
+      expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("presetKelvin"));
+    });
+
+    it("moves the lamps by the default step on a dial turn, with a warning", async () => {
+      const dial = createFakeDial();
+      show(dial);
+      vi.mocked(adjustTemperatureAllByKelvinSteps).mockReturnValue(SNAPPED);
+
+      await new TemperatureAction().onDialRotate(dialRotate(dial, 2, 0));
+      await flushed();
+
+      expect(adjustTemperatureAllByKelvinSteps).toHaveBeenCalledExactlyOnceWith(2, 300);
+      expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("stepKelvin"));
     });
   });
 

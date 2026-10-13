@@ -1,3 +1,4 @@
+import type { JsonValue } from "@elgato/utils";
 import { describe, expect, it, vi } from "vitest";
 
 import { isOnAll, onLampsChanged, toggleAll, turnOffAll, turnOnAll } from "../litra-manager";
@@ -23,7 +24,7 @@ vi.mock("../litra-manager", () => ({
 
 const SWITCHED = { ok: true, deviceCount: 2, failures: 0 };
 
-function keyDown(key: FakeAction, mode?: "toggle" | "on" | "off") {
+function keyDown(key: FakeAction, mode?: JsonValue) {
   return { action: key, payload: { settings: { mode } } } as never;
 }
 
@@ -96,6 +97,18 @@ describe("PowerAction", () => {
       expect(operation).toHaveBeenCalledOnce();
       expect(key.setState).not.toHaveBeenCalled();
       expect(key.showAlert).not.toHaveBeenCalled();
+    });
+
+    it("toggles the lamps in a mode that isn't valid, with a warning (#22)", async () => {
+      const key = createFakeKey();
+      show(key);
+      const { power } = createPowerAction();
+      vi.mocked(toggleAll).mockReturnValue(SWITCHED);
+
+      await power.onKeyDown(keyDown(key, "blink"));
+
+      expect(toggleAll).toHaveBeenCalledOnce();
+      expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("mode"));
     });
 
     it("shows an alert when a lamp fails", async () => {

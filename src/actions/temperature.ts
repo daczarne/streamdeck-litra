@@ -10,6 +10,7 @@ import {
   WillAppearEvent,
   WillDisappearEvent,
 } from "@elgato/streamdeck";
+import type { JsonObject } from "@elgato/utils";
 
 import {
   adjustTemperatureAllByKelvinSteps,
@@ -21,20 +22,16 @@ import {
 } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
 import { lampScreens as sharedLampScreens, type LampScreens } from "./lamp-screens";
+import { parseSettings, temperatureSettings } from "./settings";
 
 const logger = pluginLogger.createScope("Temperature");
 
-type TemperatureSettings = {
-  presetKelvin?: number;
-  stepKelvin?: number | string;
-};
-
-type ActionRef = WillAppearEvent<TemperatureSettings>["action"];
+type ActionRef = WillAppearEvent["action"];
 
 @action({ UUID: "com.daczarne.litra.temperature" })
-export class TemperatureAction extends SingletonAction<TemperatureSettings> {
+export class TemperatureAction extends SingletonAction {
   private readonly dialQueues = new Map<string, (ticks: number) => void>();
-  private readonly latestSettings = new Map<string, TemperatureSettings>();
+  private readonly latestSettings = new Map<string, JsonObject>();
 
   private readonly lampScreens: LampScreens;
 
@@ -43,7 +40,7 @@ export class TemperatureAction extends SingletonAction<TemperatureSettings> {
     this.lampScreens = lampScreens;
   }
 
-  override async onWillAppear(ev: WillAppearEvent<TemperatureSettings>): Promise<void> {
+  override async onWillAppear(ev: WillAppearEvent): Promise<void> {
     this.latestSettings.set(ev.action.id, ev.payload.settings);
     if (ev.action.isDial()) {
       await this.lampScreens.appear(ev.action);
@@ -51,17 +48,17 @@ export class TemperatureAction extends SingletonAction<TemperatureSettings> {
     await this.refreshDisplay(ev.action, ev.payload.settings);
   }
 
-  override async onWillDisappear(ev: WillDisappearEvent<TemperatureSettings>): Promise<void> {
+  override async onWillDisappear(ev: WillDisappearEvent): Promise<void> {
     await this.lampScreens.disappear(ev.action.id);
   }
 
-  override async onDidReceiveSettings(ev: DidReceiveSettingsEvent<TemperatureSettings>): Promise<void> {
+  override async onDidReceiveSettings(ev: DidReceiveSettingsEvent): Promise<void> {
     this.latestSettings.set(ev.action.id, ev.payload.settings);
     await this.refreshDisplay(ev.action, ev.payload.settings);
   }
 
-  override async onKeyDown(ev: KeyDownEvent<TemperatureSettings>): Promise<void> {
-    const preset = Number(ev.payload.settings.presetKelvin ?? 4000);
+  override async onKeyDown(ev: KeyDownEvent): Promise<void> {
+    const { presetKelvin: preset } = parseSettings(ev.payload.settings, temperatureSettings, logger);
     logger.info(`Key pressed: preset ${preset} K`);
     const result = setTemperatureAllInKelvin(preset);
     if (!result.ok) {
@@ -72,7 +69,7 @@ export class TemperatureAction extends SingletonAction<TemperatureSettings> {
   }
 
   /** Dial press toggles power, or blinks the lamp on a lamp screen; rotate adjusts temperature. */
-  override async onDialDown(ev: DialDownEvent<TemperatureSettings>): Promise<void> {
+  override async onDialDown(ev: DialDownEvent): Promise<void> {
     if (this.lampScreens.isShowing(ev.action.id)) {
       logger.info("Dial pressed: identify");
       await this.lampScreens.identify(ev.action);
@@ -88,7 +85,7 @@ export class TemperatureAction extends SingletonAction<TemperatureSettings> {
   }
 
   /** Tapping the strip shows the lamps one by one, and holding it goes back to the main screen. */
-  override async onTouchTap(ev: TouchTapEvent<TemperatureSettings>): Promise<void> {
+  override async onTouchTap(ev: TouchTapEvent): Promise<void> {
     if (ev.payload.hold) {
       logger.info("Strip held: back");
       await this.lampScreens.back(ev.action.id);
@@ -98,7 +95,7 @@ export class TemperatureAction extends SingletonAction<TemperatureSettings> {
     await this.lampScreens.tap(ev.action, () => this.refreshDisplay(ev.action, ev.payload.settings));
   }
 
-  override async onDialRotate(ev: DialRotateEvent<TemperatureSettings>): Promise<void> {
+  override async onDialRotate(ev: DialRotateEvent): Promise<void> {
     const id = ev.action.id;
     this.latestSettings.set(id, ev.payload.settings);
     // Turning the dial does nothing on a lamp screen.
@@ -109,7 +106,7 @@ export class TemperatureAction extends SingletonAction<TemperatureSettings> {
     if (!queue) {
       queue = createDialDebouncer(async (ticks) => {
         const settings = this.latestSettings.get(id) ?? {};
-        const step = Number(settings.stepKelvin ?? 100);
+        const { stepKelvin: step } = parseSettings(settings, temperatureSettings, logger);
         logger.info(`Dial turned: ${ticks} ticks of ${step} K`);
         const result = adjustTemperatureAllByKelvinSteps(ticks, step);
         if (!result.ok) {
@@ -122,9 +119,9 @@ export class TemperatureAction extends SingletonAction<TemperatureSettings> {
     queue(ev.payload.ticks);
   }
 
-  private async refreshDisplay(action: ActionRef, settings: TemperatureSettings): Promise<void> {
+  private async refreshDisplay(action: ActionRef, settings: JsonObject): Promise<void> {
     if (action.isKey()) {
-      await this.showKeyAmount(action, Number(settings.presetKelvin ?? 4000));
+      await this.showKeyAmount(action, parseSettings(settings, temperatureSettings, logger).presetKelvin);
       return;
     }
 
@@ -132,7 +129,7 @@ export class TemperatureAction extends SingletonAction<TemperatureSettings> {
     await this.showDialValue(action, result.ok ? result : undefined);
   }
 
-  private async showKeyAmount(action: KeyAction<TemperatureSettings>, kelvin: number): Promise<void> {
+  private async showKeyAmount(action: KeyAction<JsonObject>, kelvin: number): Promise<void> {
     await action.setTitle(`${Math.round(kelvin)}`);
   }
 
