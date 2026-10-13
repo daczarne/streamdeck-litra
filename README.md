@@ -120,7 +120,7 @@ To take a change to the glyphs, update the commit the dependency is pinned to, r
 - Dials look like Stream Deck's own volume dials: the value, with a bar under it. The keys, and the dials' pictures in the Stream Deck app, show the same line icon as the strip. The temperature bar runs from the lamp's warmest setting (empty) to its coolest (full). The brightness bar is white up to the dimmest lamp's level, and a lighter grey from there to the brightest lamp's, the part only some lamps reach. Their title says what they control ("Brightness", "Temperature"), and can be replaced or hidden like a key's. Rotating adjusts, pressing toggles the front light.
 - Tapping a dial's part of the strip shows one screen per lamp: its model, whether it's on, its brightness in % and lumens, and its temperature. Each tap shows the next lamp, in the order of their serial numbers, and the dial's own screen after the last. The dial stays on a lamp screen until the strip is held, which goes back to the dial's own screen right away. On a lamp screen, pressing the dial blinks that lamp once, to show which one it is, and turning does nothing.
 - A dial turns by the step in its settings, and stops on the multiples of that step counted from the bottom of the range (0% or 2700 K), the same values going up as going down. From a value between two of them, such as a lamp's cap or a key's preset, the first step goes to the next one in the direction of the turn. When the step doesn't divide the range, the last step to 100% or 6500 K is shorter.
-- With no lamp connected, actions show Stream Deck's alert indicator.
+- With no lamp connected, actions show Stream Deck's alert indicator. A Power key redraws its state right after, over the alert, so it shows only for an instant (see [Stream Deck keys][keys]).
 
 ## Settings pages
 
@@ -167,6 +167,7 @@ The plugin is MIT licensed: see [`LICENSE`][license].
 [bright]: com.daczarne.litra.sdPlugin/imgs/actions/brightness/icon@2x.png
 [check-ui]: scripts/check-ui.mjs
 [hid-notes]: ref/hid-captures/NOTES.md
+[keys]: docs/elgato_sdk/keys.md
 [license]: LICENSE
 [streamdeck-icons]: https://github.com/daczarne/streamdeck-icons
 [litra]: https://github.com/timrogers/litra
