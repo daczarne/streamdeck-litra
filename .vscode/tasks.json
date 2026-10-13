@@ -1,12 +1,17 @@
 {
   "version": "2.0.0",
+  // Every task's terminal closes when the task exits, going back to the terminal that was open before. run-task.sh
+  // keeps it open on failure, until Enter is pressed.
+  "presentation": {
+    "close": true,
+  },
   "tasks": [
     // The default build task, so "Tasks: Run Build Task" runs it. The linked plugin runs the new build once restarted.
     {
       "label": "Build and restart",
       "detail": "Build the plugin, then restart it on the Deck",
       "type": "shell",
-      "command": "npm run build && npx streamdeck restart com.daczarne.litra",
+      "command": "sh .vscode/run-task.sh 'npm run build && npx streamdeck restart com.daczarne.litra'",
       "group": {
         "kind": "build",
         "isDefault": true,
@@ -39,19 +44,19 @@
     {
       "label": "Lint: Markdown",
       "type": "shell",
-      "command": "markdownlint-cli2 --config .markdownlint.yaml .",
+      "command": "sh .vscode/run-task.sh 'markdownlint-cli2 --config .markdownlint.yaml .'",
       "problemMatcher": [ ],
     },
     {
       "label": "Lint: spelling",
       "type": "shell",
-      "command": "cspell lint --config .cspell.json --dot --no-progress .",
+      "command": "sh .vscode/run-task.sh 'cspell lint --config .cspell.json --dot --no-progress .'",
       "problemMatcher": [ ],
     },
     {
       "label": "Lint: types",
       "type": "shell",
-      "command": "npx tsc --noEmit -p .",
+      "command": "sh .vscode/run-task.sh 'npx tsc --noEmit -p .'",
       "problemMatcher": [
         "$tsc",
       ],
@@ -60,7 +65,7 @@
       "label": "Lint: validate",
       "detail": "check:ui, build and streamdeck validate",
       "type": "shell",
-      "command": "npm run validate",
+      "command": "sh .vscode/run-task.sh 'npm run validate'",
       "problemMatcher": [ ],
     },
     // The default test task, so "Tasks: Run Test Task" runs it.
@@ -81,14 +86,14 @@
     {
       "label": "Test: unit",
       "type": "shell",
-      "command": "npm test",
+      "command": "sh .vscode/run-task.sh 'npm test'",
       "problemMatcher": [ ],
     },
     {
       "label": "Test: browser",
       "detail": "Drive the settings pages in a headless Chrome",
       "type": "shell",
-      "command": "npm run test:browser",
+      "command": "sh .vscode/run-task.sh 'npm run test:browser'",
       "problemMatcher": [ ],
     },
   ],
