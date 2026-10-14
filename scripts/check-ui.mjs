@@ -48,7 +48,7 @@ for (const name of readdirSync(uiDir).filter((f) => f.endsWith(".html"))) {
     }
   });
 
-  const policy = html.match(CSP_META)?.[1].trim().replace(/\s+/g, " ");
+  const policy = html.match(CSP_META)?.[1]?.trim().replace(/\s+/g, " ");
   if (policy === undefined) {
     errors.push(`ui/${name}: no Content-Security-Policy <meta>`);
   } else if (policy !== CSP) {

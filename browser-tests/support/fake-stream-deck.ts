@@ -75,8 +75,8 @@ export class FakeStreamDeck {
   /** Decodes every complete frame at the start of `buffer`, and returns what is left of it. */
   private readFrames(buffer: Buffer, socket: Socket): Buffer {
     while (buffer.length >= 2) {
-      const opcode = buffer[0] & 0x0f;
-      let length = buffer[1] & 0x7f;
+      const opcode = buffer.readUInt8(0) & 0x0f;
+      let length = buffer.readUInt8(1) & 0x7f;
       let offset = 2;
       if (length === 126) {
         if (buffer.length < 4) break;
@@ -89,7 +89,7 @@ export class FakeStreamDeck {
       if (buffer.length < offset + 4 + length) break;
       const mask = buffer.subarray(offset, offset + 4);
       const masked = buffer.subarray(offset + 4, offset + 4 + length);
-      const payload = Buffer.from(masked.map((byte, i) => byte ^ mask[i % 4]));
+      const payload = Buffer.from(masked.map((byte, i) => byte ^ mask.readUInt8(i % 4)));
       buffer = buffer.subarray(offset + 4 + length);
 
       if (opcode === 0x1) {

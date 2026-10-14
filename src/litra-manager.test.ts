@@ -38,6 +38,7 @@ import {
   turnOnAll,
 } from "./litra-manager";
 import { logger } from "./logging";
+import { at } from "./test-support/at";
 import { createFakeDevice, type FakeDevice } from "./test-support/fake-device";
 
 //* Fakes
@@ -94,7 +95,7 @@ function failFor(target: FakeDevice): (device: Device) => void {
 
 /** Position of a mock's first call among all mock calls, to check the order of calls across mocks. */
 function firstCall(mock: Mock): number {
-  return mock.mock.invocationCallOrder[0];
+  return at(mock.mock.invocationCallOrder, 0);
 }
 
 beforeEach(() => {
@@ -203,13 +204,16 @@ describe("stepOnGrid", () => {
   });
 
   it("goes down through the values it went up through, when the step doesn't divide the range (#14, #16)", () => {
-    const up = [0];
-    while (up[up.length - 1] < 100) {
-      up.push(stepOnGrid(up[up.length - 1], 1, 7, 0, 100));
+    let value = 0;
+    const up = [value];
+    while (value < 100) {
+      value = stepOnGrid(value, 1, 7, 0, 100);
+      up.push(value);
     }
-    const down = [100];
-    while (down[down.length - 1] > 0) {
-      down.push(stepOnGrid(down[down.length - 1], -1, 7, 0, 100));
+    const down = [value];
+    while (value > 0) {
+      value = stepOnGrid(value, -1, 7, 0, 100);
+      down.push(value);
     }
 
     expect(up).toEqual([0, 7, 14, 21, 28, 35, 42, 49, 56, 63, 70, 77, 84, 91, 98, 100]);
@@ -431,7 +435,7 @@ describe("forEachDevice", () => {
     for (const device of [first, second]) {
       expect(device.hid.close).toHaveBeenCalledOnce();
     }
-    expect(firstCall(first.hid.close)).toBeLessThan(operation.mock.invocationCallOrder[1]);
+    expect(firstCall(first.hid.close)).toBeLessThan(at(operation.mock.invocationCallOrder, 1));
   });
 
   it("ignores a handle that fails to close", () => {
@@ -706,7 +710,7 @@ describe("onLampsChanged", () => {
     await setBrightnessAllPercentage(50, 0);
     await announced();
 
-    expect(device.hid.readSync.mock.invocationCallOrder.at(-1)!).toBeLessThan(listener.mock.invocationCallOrder[0]);
+    expect(at(device.hid.readSync.mock.invocationCallOrder, -1)).toBeLessThan(at(listener.mock.invocationCallOrder, 0));
   });
 
   it("calls the listeners after an operation that found no lamp", async () => {
@@ -904,8 +908,8 @@ describe("brightness changes", () => {
       [device, BEAM_MAX_LUMEN],
       [device, lumenAt(20)],
     ]);
-    expect(device.hid.readSync.mock.invocationCallOrder[0]).toBeLessThan(
-      vi.mocked(setBrightnessInLumen).mock.invocationCallOrder[1],
+    expect(at(device.hid.readSync.mock.invocationCallOrder, 0)).toBeLessThan(
+      at(vi.mocked(setBrightnessInLumen).mock.invocationCallOrder, 1),
     );
   });
 
@@ -1328,7 +1332,7 @@ describe("readLampStatuses", () => {
 
     const [, statuses] = await Promise.all([setBrightnessAllPercentage(100, 0), readLampStatuses()]);
 
-    expect(statuses.lamps[0].brightnessLumen).toBe(BEAM_MAX_LUMEN);
+    expect(at(statuses.lamps, 0).brightnessLumen).toBe(BEAM_MAX_LUMEN);
   });
 });
 
@@ -1435,7 +1439,7 @@ describe("logs", () => {
   /** The one message logged at a level, which a test then checks for what it must include. */
   function onlyMessage(level: Level): string {
     expect(messages(level)).toHaveLength(1);
-    return messages(level)[0];
+    return at(messages(level), 0);
   }
 
   /** Every public operation, by the name the logs give it. */

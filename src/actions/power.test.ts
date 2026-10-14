@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { isOnAll, onLampsChanged, toggleAll, turnOffAll, turnOnAll } from "../litra-manager";
 import { logger } from "../logging";
+import { at } from "../test-support/at";
 import { createFakeDial, createFakeKey, type FakeAction, show } from "../test-support/fake-stream-deck";
 import { PowerAction } from "./power";
 
@@ -131,8 +132,8 @@ describe("PowerAction", () => {
       await power.onKeyDown(keyDown(key, "off"));
 
       expect(logger.info).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("off"));
-      expect(vi.mocked(logger.info).mock.invocationCallOrder[0]).toBeLessThan(
-        vi.mocked(turnOffAll).mock.invocationCallOrder[0],
+      expect(at(vi.mocked(logger.info).mock.invocationCallOrder, 0)).toBeLessThan(
+        at(vi.mocked(turnOffAll).mock.invocationCallOrder, 0),
       );
     });
   });
