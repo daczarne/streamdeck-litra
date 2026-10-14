@@ -1,8 +1,8 @@
 import {
   action,
-  KeyDownEvent,
+  type KeyDownEvent,
   SingletonAction,
-  WillAppearEvent,
+  type WillAppearEvent,
 } from "@elgato/streamdeck";
 
 import { isOnAll, onLampsChanged, toggleAll, turnOffAll, turnOnAll } from "../litra-manager";

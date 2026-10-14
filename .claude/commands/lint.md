@@ -1,6 +1,6 @@
 ---
 description: Run every linter, fix formatting findings and report the rest
-allowed-tools: Bash(markdownlint-cli2 *), Bash(cspell lint *), Bash(git grep *), Bash(npx tsc --noEmit -p .), Bash(npm run validate)
+allowed-tools: Bash(markdownlint-cli2 *), Bash(cspell lint *), Bash(git grep *), Bash(npm run typecheck), Bash(npm run validate)
 ---
 
 # Lint
@@ -9,7 +9,7 @@ Run the linters from CI, from the repository root, in this order: those of the `
 
 1. `markdownlint-cli2 --config ".markdownlint.yaml" .`
 1. `cspell lint --config ".cspell.json" --dot --no-progress .`
-1. `npx tsc --noEmit -p .`
+1. `npm run typecheck`, which checks the TypeScript and the build and check scripts.
 1. `npm run validate`, which runs `check:ui`, the build and `streamdeck validate`.
 
 Then check the length of Markdown headings, which no linter covers (see `docs/style_guide.md`). `git grep -n -P '^(?=.{81})#{1,6} ' -- '*.md'` lists every heading over 80 characters. Skip matches inside code blocks, where `#` starts a comment, and shorten the rest without changing their meaning. When a shortened heading is linked from a table of contents or another document, update those links too.

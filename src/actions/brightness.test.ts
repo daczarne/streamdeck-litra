@@ -13,6 +13,7 @@ import {
   toggleAll,
 } from "../litra-manager";
 import { logger } from "../logging";
+import { at } from "../test-support/at";
 import { createFakeDial, createFakeKey, type FakeAction, show } from "../test-support/fake-stream-deck";
 import { barFill, BrightnessAction } from "./brightness";
 import { LampScreens } from "./lamp-screens";
@@ -353,8 +354,8 @@ describe("BrightnessAction", () => {
       await new BrightnessAction().onKeyDown(keyDown(key, 80));
 
       expect(logger.info).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("80%"));
-      expect(vi.mocked(logger.info).mock.invocationCallOrder[0]).toBeLessThan(
-        vi.mocked(setBrightnessAllPercentage).mock.invocationCallOrder[0],
+      expect(at(vi.mocked(logger.info).mock.invocationCallOrder, 0)).toBeLessThan(
+        at(vi.mocked(setBrightnessAllPercentage).mock.invocationCallOrder, 0),
       );
     });
 

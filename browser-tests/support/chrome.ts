@@ -15,7 +15,7 @@ type Message = {
   params?: any;
   result?: any;
   error?: { message: string };
-  sessionId?: string;
+  sessionId?: string | undefined;
 };
 type Listener = (params: any) => void;
 

@@ -5,9 +5,9 @@ type FakeDeviceOptions = {
   type: DeviceType;
   serialNumber?: string;
   /** Brightness the lamp reports when queried over HID. Defaults to a Beam's minimum. */
-  brightnessInLumen?: number;
+  brightnessInLumen?: number | undefined;
   /** Brightness the lamp can't go above, like a lamp on a low-power supply. None by default. */
-  capInLumen?: number;
+  capInLumen?: number | undefined;
 };
 
 // Learned caps are kept by serial number, so every fake lamp gets its own.

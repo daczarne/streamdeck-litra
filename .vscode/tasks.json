@@ -56,7 +56,7 @@
     {
       "label": "Lint: types",
       "type": "shell",
-      "command": "sh .vscode/run-task.sh 'npx tsc --noEmit -p .'",
+      "command": "sh .vscode/run-task.sh 'npm run typecheck'",
       "problemMatcher": [
         "$tsc",
       ],

@@ -3,6 +3,8 @@ import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+
+import { at } from "../src/test-support/at";
 import { Chrome, type Page } from "./support/chrome";
 import { FakeStreamDeck } from "./support/fake-stream-deck";
 
@@ -73,7 +75,7 @@ beforeAll(async () => {
   // On a cold machine, such as a CI runner, Chrome's first page is slow too: once, about 9 s from launch to the end
   // of the first panel's load, against 100-350 ms for the next ones. Opening one panel here gets it out of the way
   // under the hook's timeout, so no test pays for it within its own.
-  const { page } = await openPanel(PANELS[0]);
+  const { page } = await openPanel(at(PANELS, 0));
   await page.close();
 });
 

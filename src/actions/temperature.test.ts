@@ -13,6 +13,7 @@ import {
   toggleAll,
 } from "../litra-manager";
 import { logger } from "../logging";
+import { at } from "../test-support/at";
 import { createFakeDial, createFakeKey, type FakeAction, show } from "../test-support/fake-stream-deck";
 import { LampScreens } from "./lamp-screens";
 import { TemperatureAction } from "./temperature";
@@ -289,8 +290,8 @@ describe("TemperatureAction", () => {
       await new TemperatureAction().onKeyDown(keyDown(key, 4050));
 
       expect(logger.info).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("4050 K"));
-      expect(vi.mocked(logger.info).mock.invocationCallOrder[0]).toBeLessThan(
-        vi.mocked(setTemperatureAllInKelvin).mock.invocationCallOrder[0],
+      expect(at(vi.mocked(logger.info).mock.invocationCallOrder, 0)).toBeLessThan(
+        at(vi.mocked(setTemperatureAllInKelvin).mock.invocationCallOrder, 0),
       );
     });
 

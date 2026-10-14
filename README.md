@@ -85,7 +85,7 @@ Since the plugin is linked, a change takes effect as soon as it's built and the 
 npm run watch             # rebuild and restart the plugin on every change
 npm run build             # build once
 npx streamdeck restart com.daczarne.litra   # load the new build
-npx tsc --noEmit -p .     # type-check only
+npm run typecheck         # type-check the sources, the tests, and the build and check scripts
 npm test                  # run the unit tests
 npm run test:browser      # run the browser tests of the settings pages, which need Google Chrome
 npm run check:ui          # settings pages: no remote resources, CSP on every page, vendored file matches its hash

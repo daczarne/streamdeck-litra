@@ -1,5 +1,5 @@
 import {
-  Device,
+  type Device,
   DeviceType,
   findDevices,
   getAllowedTemperaturesInKelvinForDevice,
@@ -26,12 +26,12 @@ export type BroadcastResult = {
   ok: boolean;
   deviceCount: number;
   failures: number;
-  representativeBrightnessPercentage?: number;
-  representativeBrightnessLumen?: number;
+  representativeBrightnessPercentage?: number | undefined;
+  representativeBrightnessLumen?: number | undefined;
   /** Every lamp's brightness, in % of its range, for the lamps that could be read. */
   brightnessPercentages?: number[];
-  representativeTemperatureKelvin?: number;
-  representativeTemperaturePercentage?: number;
+  representativeTemperatureKelvin?: number | undefined;
+  representativeTemperaturePercentage?: number | undefined;
 };
 
 /** What a lamp screen shows about one lamp (#48). */
@@ -174,9 +174,10 @@ export function getBrightnessInLumenSafe(device: Device): number {
   const featureIndex = device.type === DeviceType.LitraBeamLX ? 0x06 : 0x04;
   device.hid.write(padRight([0x11, 0xff, featureIndex, 0x31], 20));
   for (let skipped = 0; skipped <= MAX_SKIPPED_REPORTS; skipped += 1) {
-    const data = device.hid.readSync();
-    if (data[2] === featureIndex && data[3] === 0x31) {
-      return data[4] * 256 + data[5];
+    const [, , feature, operation, high, low] = device.hid.readSync();
+    // A report too short to hold the brightness can't be the reply, whatever its header says.
+    if (feature === featureIndex && operation === 0x31 && high !== undefined && low !== undefined) {
+      return high * 256 + low;
     }
   }
   throw new Error(`No brightness reply after ${MAX_SKIPPED_REPORTS} other reports`);
@@ -225,11 +226,8 @@ export function stepOnGrid(value: number, ticks: number, step: number, min: numb
 }
 
 export function snapKelvin(value: number, allowed: number[]): number {
-  if (allowed.length === 0) {
-    return value;
-  }
-  let best = allowed[0];
-  let bestDelta = Math.abs(value - best);
+  let best = value;
+  let bestDelta = Infinity;
   for (const candidate of allowed) {
     const delta = Math.abs(value - candidate);
     if (delta < bestDelta) {
@@ -242,10 +240,12 @@ export function snapKelvin(value: number, allowed: number[]): number {
 
 /** Where a temperature sits between the lowest and the highest allowed for a lamp, from 0 to 100. */
 function temperaturePercentage(kelvin: number, allowed: number[]): number {
-  if (allowed.length === 0) {
+  const lowest = allowed[0];
+  const highest = allowed.at(-1);
+  if (lowest === undefined || highest === undefined) {
     return 0;
   }
-  return percentageInRange(kelvin, allowed[0], allowed[allowed.length - 1]);
+  return percentageInRange(kelvin, lowest, highest);
 }
 
 /**
@@ -689,13 +689,12 @@ export function adjustTemperatureAllByKelvinSteps(ticks: number, stepKelvin: num
   const operation = "adjust temperature";
   const result = forEachDevice(operation, (device) => {
     const allowed = getAllowedTemperaturesInKelvinForDevice(device);
-    target ??= stepOnGrid(
-      getTemperatureInKelvin(device),
-      ticks,
-      stepKelvin,
-      allowed[0],
-      allowed[allowed.length - 1],
-    );
+    const lowest = allowed[0];
+    const highest = allowed.at(-1);
+    if (lowest === undefined || highest === undefined) {
+      throw new Error("Lamp reports no allowed temperatures");
+    }
+    target ??= stepOnGrid(getTemperatureInKelvin(device), ticks, stepKelvin, lowest, highest);
     const snapped = snapKelvin(target, allowed);
     setTemperatureInKelvin(device, snapped);
     drainAck(device);

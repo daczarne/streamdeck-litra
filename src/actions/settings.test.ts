@@ -1,5 +1,5 @@
 import type { JsonValue } from "@elgato/utils";
-import { describe, expect, it, vi } from "vitest";
+import { assert, describe, expect, it, vi } from "vitest";
 
 import { brightnessSettings, parseSettings, powerSettings, temperatureSettings } from "./settings";
 
@@ -82,7 +82,9 @@ describe("parseSettings", () => {
     ];
 
     it.each(invalid)("%s set to %j", (name, schema, value) => {
-      const fallback = schema[name].default;
+      const setting = schema[name];
+      assert.isDefined(setting, `${name} isn't a setting`);
+      const fallback = setting.default;
 
       expect(parseSettings({ [name]: value }, schema, logger)).toMatchObject({ [name]: fallback });
 
