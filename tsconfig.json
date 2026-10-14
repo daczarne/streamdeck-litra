@@ -1,15 +1,24 @@
 {
   "extends": "@tsconfig/node24/tsconfig.json",
   "compilerOptions": {
+    "allowUnreachableCode": false,
+    "allowUnusedLabels": false,
     "customConditions": [
       "node"
     ],
+    "exactOptionalPropertyTypes": true,
     "module": "ES2022",
     "moduleResolution": "Bundler",
+    "noFallthroughCasesInSwitch": true,
     "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noUncheckedSideEffectImports": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
     "types": [
       "node"
-    ]
+    ],
+    "verbatimModuleSyntax": true
   },
   "include": [
     "src/**/*.ts",

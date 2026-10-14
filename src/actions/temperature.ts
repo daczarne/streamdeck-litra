@@ -1,14 +1,14 @@
 import {
   action,
-  DialDownEvent,
-  DialRotateEvent,
-  DidReceiveSettingsEvent,
-  KeyAction,
-  KeyDownEvent,
+  type DialDownEvent,
+  type DialRotateEvent,
+  type DidReceiveSettingsEvent,
+  type KeyAction,
+  type KeyDownEvent,
   SingletonAction,
-  TouchTapEvent,
-  WillAppearEvent,
-  WillDisappearEvent,
+  type TouchTapEvent,
+  type WillAppearEvent,
+  type WillDisappearEvent,
 } from "@elgato/streamdeck";
 import type { JsonObject } from "@elgato/utils";
 

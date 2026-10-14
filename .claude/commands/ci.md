@@ -1,6 +1,6 @@
 ---
 description: Run every check from CI, the linters and then the tests
-allowed-tools: Read(.claude/commands/*), Bash(markdownlint-cli2 *), Bash(cspell lint *), Bash(git grep *), Bash(npx tsc --noEmit -p .), Bash(npm run validate), Bash(npm test), Bash(npm test -- *), Bash(npm run test:browser), Bash(npm run test:browser -- *)
+allowed-tools: Read(.claude/commands/*), Bash(markdownlint-cli2 *), Bash(cspell lint *), Bash(git grep *), Bash(npm run typecheck), Bash(npm run validate), Bash(npm test), Bash(npm test -- *), Bash(npm run test:browser), Bash(npm run test:browser -- *)
 ---
 
 # CI

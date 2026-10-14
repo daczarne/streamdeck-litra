@@ -29,6 +29,7 @@
     "unlink": "streamdeck unlink com.daczarne.litra",
     "validate": "npm run check:ui && npm run build && streamdeck validate com.daczarne.litra.sdPlugin",
     "pack": "npm run check:ui && npm run build && streamdeck pack com.daczarne.litra.sdPlugin --force -o release --version 1.0.0.0",
+    "typecheck": "tsc --noEmit -p . && tsc -p tsconfig.scripts.json",
     "test": "vitest run",
     "test:browser": "vitest run --config vitest.browser.config.mjs"
   },

@@ -365,6 +365,13 @@ describe("getBrightnessInLumenSafe", () => {
     expect(getBrightnessInLumenSafe(device)).toBe(244);
   });
 
+  it("skips a report too short to hold the brightness, even with the reply's header", () => {
+    const device = beam(244);
+    device.queueReport([0x11, 0xff, 0x04, 0x31, 0x00]);
+
+    expect(getBrightnessInLumenSafe(device)).toBe(244);
+  });
+
   it("gives up when the reply doesn't come", () => {
     const device = beam();
     device.hid.readSync.mockReturnValue([0x11, 0xff, 0x04, 0x40, 0x01, 0x00, 0xf4, ...Array(13).fill(0)]);
@@ -1240,6 +1247,25 @@ describe("adjustTemperatureAllByKelvinSteps", () => {
 
     expect(result.representativeTemperatureKelvin).toBe(BEAM_MAX_KELVIN);
     expect(result.representativeTemperaturePercentage).toBe(100);
+  });
+
+  it("fails a lamp that reports no allowed temperatures, and leaves it alone", () => {
+    const first = beam();
+    const second = beam();
+    connect(first, second);
+    vi.mocked(getAllowedTemperaturesInKelvinForDevice).mockImplementation((device) =>
+      device === first ? [] : BEAM_ALLOWED_KELVIN,
+    );
+    vi.mocked(getTemperatureInKelvin).mockReturnValue(3000);
+
+    expect(adjustTemperatureAllByKelvinSteps(1, 100)).toEqual({
+      ok: false,
+      deviceCount: 2,
+      failures: 1,
+      representativeTemperatureKelvin: 3100,
+      representativeTemperaturePercentage: 11,
+    });
+    expect(vi.mocked(setTemperatureInKelvin).mock.calls).toEqual([[second, 3100]]);
   });
 });
 
