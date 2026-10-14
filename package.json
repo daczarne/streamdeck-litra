@@ -30,6 +30,8 @@
     "validate": "npm run check:ui && npm run build && streamdeck validate com.daczarne.litra.sdPlugin",
     "pack": "npm run check:ui && npm run build && streamdeck pack com.daczarne.litra.sdPlugin --force -o release --version 1.0.0.0",
     "typecheck": "tsc --noEmit -p . && tsc -p tsconfig.scripts.json",
+    "lint": "biome ci",
+    "format": "biome check --write --linter-enabled=false",
     "test": "vitest run",
     "test:browser": "vitest run --config vitest.browser.config.mjs"
   },
@@ -38,6 +40,7 @@
     "node": "24.15.0"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.5.15",
     "@daczarne/streamdeck-icons": "github:daczarne/streamdeck-icons#b8759c6bc42ae6ad0c5ccaa1e7576acfcc3311da",
     "@elgato/cli": "1.10.1",
     "@rollup/plugin-commonjs": "29.0.3",

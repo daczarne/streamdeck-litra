@@ -53,6 +53,8 @@ npm run icons             # regenerate the icons in imgs/ from scripts/generate-
 npm run link              # link the plugin folder into Stream Deck
 npm run watch             # rebuild and restart the plugin on change
 npm run typecheck         # type-check the sources, the tests, and the build and check scripts
+npm run lint              # Biome: lint rules, formatting and import order, without changing anything
+npm run format            # Biome: apply the formatting and the import order
 npm test                  # run the unit tests
 npm run test:browser      # run the browser tests, which need Chrome
 ```
@@ -63,6 +65,7 @@ npm run test:browser      # run the browser tests, which need Chrome
 - The Node used to build is pinned in `.node-version` (24.15.0), and `n auto` switches to it. `package.json` declares the same version in `engines`, and `engine-strict=true` in `.npmrc` makes `npm ci` refuse any other Node. CI reads `.node-version` too.
 - The repo pins TypeScript 6.0, which no longer loads `@types/*` automatically, hence `"types": ["node"]` in `tsconfig.json`. `.vscode/settings.json` points the editor at the repo's TypeScript, so the editor and the build check types with the same version.
 - `tsconfig.json` adds stricter checks to `strict`, such as `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes` and `verbatimModuleSyntax`, for the sources and the tests. `tsconfig.scripts.json` extends it to check, as JavaScript, `rollup.config.mjs`, the Vitest configs and `scripts/check-ui.mjs`. `scripts/generate-icons.mjs` and the probes aren't checked yet ([#35]). `npm run typecheck` runs both configs.
+- Biome lints and formats the TypeScript and JavaScript, from `biome.json` (2.5 replaced its `recommended` field with `preset`). Its config has to stay at the repository root: from anywhere else, its type-aware rules report nothing, without a warning. `noFloatingPromises` and `noMisusedPromises` catch unhandled promises, though not an async callback whose promise is ignored, such as one passed to `setTimeout`. The plugin's callback APIs are typed to accept a promise instead (`void | Promise<void>`).
 - `node-hid` ships native binaries, so Rollup keeps it external and `copyNativeRuntime` in `rollup.config.mjs` copies it and its runtime dependencies into the plugin folder. A dependency missing from that list breaks the installed plugin but not a linked one, because a linked plugin also finds the repo's top-level `node_modules`. Since the plugin only runs linked, that list is untested ([#21]).
 
 ## Supply chain
@@ -89,13 +92,13 @@ Daniel treats supply-chain risk as a hard requirement:
 
 - Create branches with `git switch -c`.
 - Commit messages explain the why and end with the `Co-Authored-By` trailer for Claude. Commit only when Daniel asks.
-- `.github/workflows/main.yaml` runs the type check, the unit tests, the browser tests, `npm run validate`, Markdown lint and CSpell on every pull request and on `main`. Locally, the same checks run in two parts, both as Claude commands and as VS Code tasks: `/lint` and the `Lint` task run the linters (everything but the tests), `/test` and the `Test` task run the unit tests and then the browser tests, and `/ci` and the `CI` task run both. `Test` is VS Code's default test task, so **Tasks: Run Test Task** starts it.
+- `.github/workflows/main.yaml` runs the type check, Biome, the unit tests, the browser tests, `npm run validate`, Markdown lint and CSpell on every pull request and on `main`. Locally, the same checks run in two parts, both as Claude commands and as VS Code tasks: `/lint` and the `Lint` task run the linters (everything but the tests), `/test` and the `Test` task run the unit tests and then the browser tests, and `/ci` and the `CI` task run both. `Test` is VS Code's default test task, so **Tasks: Run Test Task** starts it.
 - Write the pull request title and description with the `pr-description` skill.
 - Draft issues with the `github-issues` skill, and post them only when Daniel asks. The skill works on the issues of both this repository and `daczarne/streamdeck-icons`, whichever the session started in.
 
 ## Style
 
-`docs/style_guide.md`, `.editorconfig`, the Markdown lint configuration and CSpell (with the dictionaries in `.cspell/`) are the authority on style.
+`docs/style_guide.md`, `.editorconfig`, `biome.json`, the Markdown lint configuration and CSpell (with the dictionaries in `.cspell/`) are the authority on style.
 
 [#3]: https://github.com/daczarne/streamdeck-litra/issues/3
 [#8]: https://github.com/daczarne/streamdeck-litra/issues/8
