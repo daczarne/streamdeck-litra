@@ -110,8 +110,9 @@ async function openPanel(
   page.on("Runtime.exceptionThrown", ({ exceptionDetails }) =>
     errors.push(exceptionDetails.exception?.description ?? exceptionDetails.text),
   );
-  page.on("Runtime.consoleAPICalled", ({ type, args }) =>
-    type === "error" && errors.push(args.map((arg: any) => arg.value ?? arg.description).join(" ")),
+  page.on(
+    "Runtime.consoleAPICalled",
+    ({ type, args }) => type === "error" && errors.push(args.map((arg: any) => arg.value ?? arg.description).join(" ")),
   );
   // Runs before the page's own scripts, so it records every violation of the policy from the start.
   await page.send("Page.addScriptToEvaluateOnNewDocument", {
@@ -162,7 +163,9 @@ describe("settings pages", () => {
   it("cover every action and controller in the manifest", () => {
     const declared = manifest.Actions.flatMap((a) => a.Controllers.map((c) => `${a.PropertyInspectorPath} ${c}`));
     expect(PANELS.map((p) => `${p.page} ${p.controller}`).sort()).toEqual(declared.sort());
-    const pages = readdirSync(path.join(pluginDir, "ui")).filter((f) => f.endsWith(".html")).map((f) => `ui/${f}`);
+    const pages = readdirSync(path.join(pluginDir, "ui"))
+      .filter((f) => f.endsWith(".html"))
+      .map((f) => `ui/${f}`);
     expect([...new Set(PANELS.map((p) => p.page))].sort()).toEqual(pages.sort());
   });
 

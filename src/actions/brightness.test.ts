@@ -15,7 +15,7 @@ import {
 import { logger } from "../logging";
 import { at } from "../test-support/at";
 import { createFakeDial, createFakeKey, type FakeAction, show } from "../test-support/fake-stream-deck";
-import { barFill, BrightnessAction } from "./brightness";
+import { BrightnessAction, barFill } from "./brightness";
 import { LampScreens } from "./lamp-screens";
 
 //* Fakes

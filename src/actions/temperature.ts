@@ -21,7 +21,7 @@ import {
   toggleAll,
 } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
-import { lampScreens as sharedLampScreens, type LampScreens } from "./lamp-screens";
+import { type LampScreens, lampScreens as sharedLampScreens } from "./lamp-screens";
 import { parseSettings, temperatureSettings } from "./settings";
 
 const logger = pluginLogger.createScope("Temperature");

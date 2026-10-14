@@ -41,7 +41,9 @@ describe("parseSettings", () => {
 
   it("reads text that is a number as the number, as a select saves it", () => {
     expect(parseSettings({ stepKelvin: "200" }, temperatureSettings, logger)).toMatchObject({ stepKelvin: 200 });
-    expect(parseSettings({ presetPercentage: "40" }, brightnessSettings, logger)).toMatchObject({ presetPercentage: 40 });
+    expect(parseSettings({ presetPercentage: "40" }, brightnessSettings, logger)).toMatchObject({
+      presetPercentage: 40,
+    });
     expect(logger.warn).not.toHaveBeenCalled();
   });
 
