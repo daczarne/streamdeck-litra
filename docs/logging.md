@@ -48,6 +48,7 @@ A press of a Brightness key with one lamp at its cap and the other failing reads
 | Situation                                                       | Level   | Logged by                 | Includes                                                                  |
 |-----------------------------------------------------------------|---------|---------------------------|---------------------------------------------------------------------------|
 | The plugin starts                                               | `info`  | `src/plugin.ts`           | Nothing more                                                              |
+| The plugin can't connect to Stream Deck, so it ends             | `error` | `src/plugin.ts`           | The error with its stack                                                  |
 | A key press, a dial push, a dial turn, a tap or hold on a strip | `info`  | The action                | What it asks for: the key's mode or preset, the ticks and the dial's step |
 | A change made to a lamp                                         | `info`  | `src/litra-manager.ts`    | The operation, the lamp, the value sent and, for brightness, reached      |
 | A lamp's brightness cap is learned                              | `info`  | `src/litra-manager.ts`    | The operation, the lamp, the cap                                          |

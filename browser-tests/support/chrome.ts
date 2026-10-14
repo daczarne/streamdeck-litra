@@ -12,12 +12,15 @@ const DEFAULT_CHROME: Partial<Record<NodeJS.Platform, string>> = {
 type Message = {
   id?: number;
   method?: string;
-  params?: any;
-  result?: any;
+  params?: unknown;
+  result?: unknown;
   error?: { message: string };
   sessionId?: string | undefined;
 };
-type Listener = (params: any) => void;
+type Listener = (params: unknown) => void;
+
+/** The parts of the protocol's `Runtime.ExceptionDetails` that the tests read. */
+export type ExceptionDetails = { text: string; exception?: { description?: string } };
 
 /**
  * A headless Chrome, driven over the DevTools protocol through a pipe (`--remote-debugging-pipe`): Chrome reads
@@ -26,7 +29,7 @@ type Listener = (params: any) => void;
  */
 export class Chrome {
   private nextId = 1;
-  private readonly pending = new Map<number, { resolve: (result: any) => void; reject: (error: Error) => void }>();
+  private readonly pending = new Map<number, { resolve: (result: unknown) => void; reject: (error: Error) => void }>();
   private readonly listeners = new Map<string, Set<Listener>>();
   private buffer = "";
   private stderr = "";
@@ -38,7 +41,7 @@ export class Chrome {
   ) {
     const toChrome = process.stdio[3] as Writable;
     const fromChrome = process.stdio[4] as Readable;
-    this.write = (message) => toChrome.write(JSON.stringify(message) + "\0");
+    this.write = (message) => toChrome.write(`${JSON.stringify(message)}\0`);
     fromChrome.setEncoding("utf8");
     fromChrome.on("data", (chunk: string) => this.receive(chunk));
     process.stderr?.setEncoding("utf8");
@@ -87,26 +90,33 @@ export class Chrome {
     return chrome;
   }
 
-  /** Sends a command, to the browser or, with `sessionId`, to one page. */
-  send(method: string, params: object = {}, sessionId?: string): Promise<any> {
+  /**
+   * Sends a command, to the browser or, with `sessionId`, to one page. The protocol's replies are untyped JSON, so the
+   * caller states the shape of the result it reads.
+   */
+  send<Result = unknown>(method: string, params: object = {}, sessionId?: string): Promise<Result> {
     const id = this.nextId++;
     return new Promise((resolve, reject) => {
-      this.pending.set(id, { resolve, reject });
+      this.pending.set(id, { resolve: (result) => resolve(result as Result), reject });
       this.write({ id, method, params, sessionId });
     });
   }
 
-  /** Calls `listener` with the parameters of every `method` event from the given page. */
-  on(sessionId: string, method: string, listener: Listener): void {
+  /** Calls `listener` with the parameters of every `method` event from the given page, in the shape it states. */
+  on<Params>(sessionId: string, method: string, listener: (params: Params) => void): void {
     const key = `${sessionId}:${method}`;
-    if (!this.listeners.has(key)) this.listeners.set(key, new Set());
-    this.listeners.get(key)!.add(listener);
+    let listeners = this.listeners.get(key);
+    if (listeners === undefined) {
+      listeners = new Set();
+      this.listeners.set(key, listeners);
+    }
+    listeners.add((params) => listener(params as Params));
   }
 
   /** Opens a blank page and returns the session that drives it, with its page, console and network events on. */
   async newPage(): Promise<Page> {
-    const { targetId } = await this.send("Target.createTarget", { url: "about:blank" });
-    const { sessionId } = await this.send("Target.attachToTarget", { targetId, flatten: true });
+    const { targetId } = await this.send<{ targetId: string }>("Target.createTarget", { url: "about:blank" });
+    const { sessionId } = await this.send<{ sessionId: string }>("Target.attachToTarget", { targetId, flatten: true });
     const page = new Page(this, targetId, sessionId);
     await Promise.all(["Page", "Runtime", "Log", "Network"].map((domain) => page.send(`${domain}.enable`)));
     return page;
@@ -121,8 +131,7 @@ export class Chrome {
 
   private receive(chunk: string): void {
     this.buffer += chunk;
-    let end: number;
-    while ((end = this.buffer.indexOf("\0")) !== -1) {
+    for (let end = this.buffer.indexOf("\0"); end !== -1; end = this.buffer.indexOf("\0")) {
       const message: Message = JSON.parse(this.buffer.slice(0, end));
       this.buffer = this.buffer.slice(end + 1);
       if (message.id !== undefined) {
@@ -147,18 +156,18 @@ export class Page {
     readonly sessionId: string,
   ) {}
 
-  send(method: string, params: object = {}): Promise<any> {
-    return this.chrome.send(method, params, this.sessionId);
+  send<Result = unknown>(method: string, params: object = {}): Promise<Result> {
+    return this.chrome.send<Result>(method, params, this.sessionId);
   }
 
-  on(method: string, listener: Listener): void {
+  on<Params>(method: string, listener: (params: Params) => void): void {
     this.chrome.on(this.sessionId, method, listener);
   }
 
   /** Navigates to `url` and resolves once the page has loaded. */
   async goto(url: string): Promise<void> {
     const loaded = new Promise<void>((resolve) => this.on("Page.loadEventFired", () => resolve()));
-    const { errorText } = await this.send("Page.navigate", { url });
+    const { errorText } = await this.send<{ errorText?: string }>("Page.navigate", { url });
     if (errorText) throw new Error(`Can't load ${url}: ${errorText}`);
     await loaded;
   }
@@ -168,7 +177,10 @@ export class Page {
    * subject to the page's Content-Security-Policy, but what it asks the page to load or connect to is.
    */
   async evaluate<T = unknown>(expression: string): Promise<T> {
-    const { result, exceptionDetails } = await this.send("Runtime.evaluate", {
+    const { result, exceptionDetails } = await this.send<{
+      result: { value?: unknown };
+      exceptionDetails?: ExceptionDetails;
+    }>("Runtime.evaluate", {
       expression,
       awaitPromise: true,
       returnByValue: true,
@@ -177,7 +189,7 @@ export class Page {
     return result.value as T;
   }
 
-  close(): Promise<void> {
-    return this.chrome.send("Target.closeTarget", { targetId: this.targetId });
+  async close(): Promise<void> {
+    await this.chrome.send("Target.closeTarget", { targetId: this.targetId });
   }
 }
