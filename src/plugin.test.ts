@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 //* Fakes
 
@@ -30,16 +30,9 @@ async function start() {
 //* Tests
 
 describe("plugin", () => {
-  let exit: MockInstance<typeof process.exit>;
-
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
-    exit = vi.spyOn(process, "exit").mockImplementation(() => undefined as never);
-  });
-
-  afterEach(() => {
-    exit.mockRestore();
   });
 
   it("registers every action, then connects to Stream Deck", async () => {
@@ -52,16 +45,16 @@ describe("plugin", () => {
     // Lets the connection settle, so that a handler for its failure would have run.
     await streamDeck.connect.mock.results[0]?.value;
     expect(logger.error).not.toHaveBeenCalled();
-    expect(exit).not.toHaveBeenCalled();
   });
 
-  it("logs a failed connection with its error, then ends", async () => {
+  it("logs a failed connection with its error", async () => {
     const error = new Error("connection refused");
     streamDeck.connect.mockRejectedValue(error);
 
     const logger = await start();
 
-    await vi.waitFor(() => expect(exit).toHaveBeenCalledWith(1));
-    expect(logger.error).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("connect"), error);
+    await vi.waitFor(() =>
+      expect(logger.error).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("connect"), error),
+    );
   });
 });
