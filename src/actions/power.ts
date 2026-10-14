@@ -1,9 +1,4 @@
-import {
-  action,
-  type KeyDownEvent,
-  SingletonAction,
-  type WillAppearEvent,
-} from "@elgato/streamdeck";
+import { action, type KeyDownEvent, SingletonAction, type WillAppearEvent } from "@elgato/streamdeck";
 
 import { isOnAll, onLampsChanged, toggleAll, turnOffAll, turnOnAll } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
@@ -28,8 +23,7 @@ export class PowerAction extends SingletonAction {
   override async onKeyDown(ev: KeyDownEvent): Promise<void> {
     const { mode } = parseSettings(ev.payload.settings, powerSettings, logger);
     logger.info(`Key pressed: ${mode}`);
-    const result =
-      mode === "on" ? turnOnAll() : mode === "off" ? turnOffAll() : toggleAll();
+    const result = mode === "on" ? turnOnAll() : mode === "off" ? turnOffAll() : toggleAll();
 
     if (!result.ok) {
       await ev.action.showAlert();

@@ -5,7 +5,7 @@ import { pathToFileURL } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { at } from "../src/test-support/at";
-import { Chrome, type Page } from "./support/chrome";
+import { Chrome, type ExceptionDetails, type Page } from "./support/chrome";
 import { FakeStreamDeck } from "./support/fake-stream-deck";
 
 const pluginDir = path.resolve("com.daczarne.litra.sdPlugin");
@@ -15,6 +15,9 @@ const manifest = JSON.parse(readFileSync(path.join(pluginDir, "manifest.json"), 
 
 type Controller = "Keypad" | "Encoder";
 
+/** The value shown next to a slider by default, and once it is at its panel's `change.value`. */
+type Slider = { default: string; changed: string };
+
 type Panel = {
   page: string;
   controller: Controller;
@@ -22,8 +25,7 @@ type Panel = {
   settings: string[];
   /** A setting to change through its control, and the value Stream Deck should receive for it. */
   change: { setting: string; value: string; saved: unknown };
-  /** For a slider: the value shown next to it by default, and once it is at `change.value`. */
-  slider?: { default: string; changed: string };
+  slider?: Slider;
 };
 
 // What each settings page shows on each controller its action supports, as listed in manifest.json.
@@ -105,13 +107,17 @@ async function openPanel(
   const uuid = randomUUID();
   const requests: string[] = [];
   const errors: string[] = [];
-  page.on("Network.requestWillBeSent", ({ request }) => requests.push(request.url));
-  page.on("Log.entryAdded", ({ entry }) => entry.level === "error" && errors.push(entry.text));
-  page.on("Runtime.exceptionThrown", ({ exceptionDetails }) =>
+  page.on<{ request: { url: string } }>("Network.requestWillBeSent", ({ request }) => requests.push(request.url));
+  page.on<{ entry: { level: string; text: string } }>(
+    "Log.entryAdded",
+    ({ entry }) => entry.level === "error" && errors.push(entry.text),
+  );
+  page.on<{ exceptionDetails: ExceptionDetails }>("Runtime.exceptionThrown", ({ exceptionDetails }) =>
     errors.push(exceptionDetails.exception?.description ?? exceptionDetails.text),
   );
-  page.on("Runtime.consoleAPICalled", ({ type, args }) =>
-    type === "error" && errors.push(args.map((arg: any) => arg.value ?? arg.description).join(" ")),
+  page.on<{ type: string; args: { value?: unknown; description?: string }[] }>(
+    "Runtime.consoleAPICalled",
+    ({ type, args }) => type === "error" && errors.push(args.map((arg) => arg.value ?? arg.description).join(" ")),
   );
   // Runs before the page's own scripts, so it records every violation of the policy from the start.
   await page.send("Page.addScriptToEvaluateOnNewDocument", {
@@ -123,7 +129,8 @@ async function openPanel(
   });
 
   await page.goto(pathToFileURL(path.join(pluginDir, file)).href);
-  const action = manifest.Actions.find((a) => a.PropertyInspectorPath === file)!;
+  const action = manifest.Actions.find((a) => a.PropertyInspectorPath === file);
+  if (action === undefined) throw new Error(`No action in manifest.json uses ${file}`);
   const info = {
     application: { language: "en", platform: "mac", version: "7.6" },
     plugin: { uuid: "com.daczarne.litra" },
@@ -138,7 +145,7 @@ async function openPanel(
     `connectElgatoStreamDeckSocket(${streamDeck.port}, "${uuid}", "registerPropertyInspector", ` +
       `${JSON.stringify(JSON.stringify(info))}, ${JSON.stringify(JSON.stringify(actionInfo))})`,
   );
-  await streamDeck.waitFor((m) => m.event === "registerPropertyInspector" && (m as any).uuid === uuid);
+  await streamDeck.waitFor((m) => m.event === "registerPropertyInspector" && "uuid" in m && m.uuid === uuid);
   return { page, uuid, requests, errors };
 }
 
@@ -162,7 +169,9 @@ describe("settings pages", () => {
   it("cover every action and controller in the manifest", () => {
     const declared = manifest.Actions.flatMap((a) => a.Controllers.map((c) => `${a.PropertyInspectorPath} ${c}`));
     expect(PANELS.map((p) => `${p.page} ${p.controller}`).sort()).toEqual(declared.sort());
-    const pages = readdirSync(path.join(pluginDir, "ui")).filter((f) => f.endsWith(".html")).map((f) => `ui/${f}`);
+    const pages = readdirSync(path.join(pluginDir, "ui"))
+      .filter((f) => f.endsWith(".html"))
+      .map((f) => `ui/${f}`);
     expect([...new Set(PANELS.map((p) => p.page))].sort()).toEqual(pages.sort());
   });
 
@@ -230,8 +239,9 @@ describe("settings pages", () => {
     });
   });
 
-  describe.each(PANELS.filter((panel) => panel.slider))("the slider of $page on $controller", (panel) => {
-    const slider = panel.slider!;
+  const withSlider = PANELS.filter((panel): panel is Panel & { slider: Slider } => panel.slider !== undefined);
+  describe.each(withSlider)("the slider of $page on $controller", (panel) => {
+    const { slider } = panel;
 
     it("shows its default value next to it", async () => {
       const { page } = await openPanel(panel);

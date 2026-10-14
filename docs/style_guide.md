@@ -14,6 +14,7 @@ This guide collects the conventions that the linters do not enforce, or only enf
 | Tool          | Configuration                                        |
 |---------------|------------------------------------------------------|
 | EditorConfig  | `.editorconfig`                                      |
+| Biome         | `biome.json`                                         |
 | Markdown lint | `.markdownlint.yaml` and `.markdownlint-cli2.yaml`   |
 | CSpell        | `.cspell.json` and the dictionaries under `.cspell/` |
 

@@ -20,7 +20,7 @@ import {
   toggleAll,
 } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
-import { lampScreens as sharedLampScreens, type LampScreens } from "./lamp-screens";
+import { type LampScreens, lampScreens as sharedLampScreens } from "./lamp-screens";
 import { brightnessSettings, parseSettings } from "./settings";
 
 const logger = pluginLogger.createScope("Brightness");
@@ -48,7 +48,9 @@ export function barFill(levels: number[]): string {
   let start = 0;
   for (const level of distinct) {
     const reaching = levels.filter((other) => other >= level).length / levels.length;
-    const grey = Math.round(FAINTEST_BAR_GREY + (0xff - FAINTEST_BAR_GREY) * reaching).toString(16).padStart(2, "0");
+    const grey = Math.round(FAINTEST_BAR_GREY + (0xff - FAINTEST_BAR_GREY) * reaching)
+      .toString(16)
+      .padStart(2, "0");
     const color = `#${grey}${grey}${grey}`;
     const end = level / brightest;
     stops.push(`${offset(start)}:${color}`, `${offset(end)}:${color}`);

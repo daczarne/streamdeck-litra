@@ -56,7 +56,9 @@ for (const name of readdirSync(uiDir).filter((f) => f.endsWith(".html"))) {
   }
 }
 
-const actual = createHash("sha256").update(readFileSync(path.join(uiDir, VENDORED.file))).digest("hex");
+const actual = createHash("sha256")
+  .update(readFileSync(path.join(uiDir, VENDORED.file)))
+  .digest("hex");
 if (actual !== VENDORED.sha256) {
   errors.push(`ui/${VENDORED.file}: sha256 ${actual} does not match pinned ${VENDORED.sha256}`);
 }

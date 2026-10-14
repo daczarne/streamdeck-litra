@@ -6,4 +6,4 @@
   const isDial = controller === "Encoder";
   document.getElementById("key-settings").hidden = isDial;
   document.getElementById("dial-settings").hidden = !isDial;
-})();
+})().catch((error) => console.error("Can't tell whether the action is on a key or a dial", error));

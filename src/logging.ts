@@ -1,6 +1,6 @@
-import { type LogEntry, type LogEntryFormatter, Logger, type LogTarget, stringFormatter } from "@elgato/utils/logging";
 import fs from "node:fs";
 import path from "node:path";
+import { type LogEntry, type LogEntryFormatter, Logger, type LogTarget, stringFormatter } from "@elgato/utils/logging";
 
 export type RotatingFileTargetOptions = {
   /** The folder the files are written to, created on the first write. */

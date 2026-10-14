@@ -111,6 +111,9 @@ jobs:
       - name: Type check 🧪
         id: type_check
         run: npm run typecheck
+      - name: Lint and format check 🧪
+        id: lint_code
+        run: npm run lint
       - name: Test 🧪
         id: test
         run: npm test

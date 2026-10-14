@@ -25,8 +25,8 @@ import {
   isOnAll,
   onLampsChanged,
   percentageInRange,
-  readLampStatuses,
   percentageToLumen,
+  readLampStatuses,
   readRepresentativeBrightnessPercentage,
   readRepresentativeTemperatureKelvin,
   setBrightnessAllPercentage,
@@ -640,7 +640,9 @@ describe("isOnAll", () => {
     await Promise.all([setBrightnessAllPercentage(100, 0), isOnAll()]);
 
     // The change reads its lamp back before the lamps are opened again to read their power.
-    expect(device.hid.readSync.mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(isOn).mock.invocationCallOrder.at(-1)!);
+    expect(at(device.hid.readSync.mock.invocationCallOrder, 0)).toBeLessThan(
+      at(vi.mocked(isOn).mock.invocationCallOrder, -1),
+    );
   });
 });
 
