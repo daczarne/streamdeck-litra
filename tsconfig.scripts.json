@@ -10,6 +10,7 @@
     "vitest.config.mjs",
     "vitest.browser.config.mjs",
     "scripts/check-docs.mjs",
-    "scripts/check-ui.mjs"
+    "scripts/check-ui.mjs",
+    "scripts/probes/*.mjs"
   ]
 }

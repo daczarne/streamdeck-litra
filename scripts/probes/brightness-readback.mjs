@@ -55,7 +55,7 @@ const SETTLE_MS = 300;
  * @returns {string}
  */
 function timestamp(date) {
-  const pad = (value) => String(value).padStart(2, "0");
+  const pad = (/** @type {number} */ value) => String(value).padStart(2, "0");
   const day = `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}`;
   const time = `${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
   return `${day}_${time}`;
@@ -89,16 +89,31 @@ function featureIndex(device) {
 }
 
 /**
- * The first 8 bytes of a report in hex, which is where every report this probe reads keeps its data.
+ * The first 8 bytes of a report in hex, which is where every report this probe reads keeps its data. A byte the report
+ * is too short to hold shows as `--`.
  *
- * @param {number[]} bytes
+ * @param {Array<number | undefined>} bytes
  * @returns {string}
  */
 function hex(bytes) {
   return bytes
     .slice(0, 8)
-    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .map((byte) => (byte === undefined ? "--" : byte.toString(16).padStart(2, "0")))
     .join(" ");
+}
+
+/**
+ * The two bytes at `index` as one number, high byte first, as the lamps send a brightness. Undefined when the report is
+ * too short to hold them.
+ *
+ * @param {number[]} bytes
+ * @param {number} index
+ * @returns {number | undefined}
+ */
+function word(bytes, index) {
+  const high = bytes[index];
+  const low = bytes[index + 1];
+  return high === undefined || low === undefined ? undefined : high * 256 + low;
 }
 
 /**
@@ -131,14 +146,27 @@ function describe(device, bytes) {
   }
   switch (bytes[3]) {
     case 0x31:
-      return `${hex(bytes)}  brightness reply: ${lumenAndPercentage(device, bytes[4] * 256 + bytes[5])}`;
+      return `${hex(bytes)}  brightness reply: ${lumenIn(device, bytes, 4)}`;
     case 0x40:
-      return `${hex(bytes)}  change notice: ${lumenAndPercentage(device, bytes[5] * 256 + bytes[6])}`;
+      return `${hex(bytes)}  change notice: ${lumenIn(device, bytes, 5)}`;
     case 0x4c:
       return `${hex(bytes)}  set-brightness ACK`;
     default:
       return `${hex(bytes)}  other (function 0x${hex([bytes[3]])})`;
   }
+}
+
+/**
+ * The brightness a report holds at `index`, with its place in the lamp's range.
+ *
+ * @param {Lamp} device
+ * @param {number[]} bytes
+ * @param {number} index
+ * @returns {string}
+ */
+function lumenIn(device, bytes, index) {
+  const lumen = word(bytes, index);
+  return lumen === undefined ? "(report too short)" : lumenAndPercentage(device, lumen);
 }
 
 //* HID
@@ -168,8 +196,10 @@ function readBrightness(device, onSkipped = () => {}) {
     if (bytes.length === 0) {
       throw new Error("no brightness reply within 1 s");
     }
-    if (bytes[2] !== 0xff && bytes[3] === 0x31) {
-      return bytes[4] * 256 + bytes[5];
+    const lumen = word(bytes, 4);
+    // A report too short to hold the brightness can't be the reply, whatever its header says.
+    if (bytes[2] !== 0xff && bytes[3] === 0x31 && lumen !== undefined) {
+      return lumen;
     }
     onSkipped(bytes);
   }
@@ -384,7 +414,7 @@ function probeWithinCap(device) {
   ];
   for (const { label, writes } of variants) {
     log(`     ${label}`);
-    const lastWrite = writes[writes.length - 1].at;
+    const lastWrite = Math.max(...writes.map((write) => write.at));
     for (const delay of WITHIN_CAP_LOWER_AFTER_MS) {
       litra.setBrightnessInLumen(device, minimum);
       drainAll(device, SETTLE_MS);
@@ -413,7 +443,7 @@ async function probeTogether(devices) {
       litra.turnOn(device);
       drainAll(device, SETTLE_MS);
     }
-    return { wasOn, beforeLumen };
+    return { device, wasOn, beforeLumen };
   });
 
   for (const device of devices) {
@@ -426,8 +456,8 @@ async function probeTogether(devices) {
     log(`  lamp ${index + 1} (${device.serialNumber}): ${reached}`);
   }
 
-  for (const [index, device] of devices.entries()) {
-    restore(device, saved[index].beforeLumen, saved[index].wasOn);
+  for (const { device, beforeLumen, wasOn } of saved) {
+    restore(device, beforeLumen, wasOn);
   }
 }
 
