@@ -19,6 +19,9 @@ tools:
           - .markdownlint-cli2.yaml
           - .markdownlint.yaml
           - .vscode/**
+          - biome.json
+          - tsconfig.json
+          - tsconfig.scripts.json
 workflows:
   - changed-files:
       - any-glob-to-any-file:
