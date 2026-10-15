@@ -35,8 +35,8 @@
       "dependsOn": [
         "Lint: Markdown",
         "Lint: spelling",
-        "Lint: code",
         "Lint: types",
+        "Lint: code",
         "Lint: validate",
       ],
       "dependsOrder": "sequence",
