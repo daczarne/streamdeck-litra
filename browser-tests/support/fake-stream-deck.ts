@@ -17,6 +17,7 @@ export class FakeStreamDeck {
   private readonly sockets = new Set<Socket>();
   private readonly waiters = new Set<() => void>();
 
+  /** Answers the WebSocket handshake of every page that connects, and reads what it sends. Use `start`. */
   private constructor(private readonly server: Server) {
     server.on("upgrade", (request, socket: Socket) => {
       const accept = createHash("sha1")
@@ -44,6 +45,7 @@ export class FakeStreamDeck {
     return new FakeStreamDeck(server);
   }
 
+  /** The port the pages connect to, which Stream Deck passes them when it opens them. */
   get port(): number {
     return (this.server.address() as AddressInfo).port;
   }
@@ -67,6 +69,7 @@ export class FakeStreamDeck {
     });
   }
 
+  /** Drops every page's connection and stops listening. */
   async close(): Promise<void> {
     for (const socket of this.sockets) socket.destroy();
     await new Promise((resolve) => this.server.close(resolve));

@@ -39,10 +39,12 @@ export class LampScreens {
   private readonly screens = new Map<string, Screen>();
   private queue: Promise<void> = Promise.resolve();
 
+  /** Subscribes to every change made to the lamps, to redraw the lamp screens. */
   constructor() {
     onLampsChanged(() => this.refresh());
   }
 
+  /** Whether a dial is on a lamp screen rather than its main screen. */
   isShowing(dialId: string): boolean {
     return this.screens.has(dialId);
   }
@@ -79,6 +81,7 @@ export class LampScreens {
     });
   }
 
+  /** Takes a dial back to its main screen. */
   back(dialId: string): Promise<void> {
     return this.enqueue(() => this.backToMain(dialId));
   }
@@ -113,12 +116,14 @@ export class LampScreens {
     });
   }
 
+  /** Forgets a dial that is no longer shown, so it isn't redrawn. */
   disappear(dialId: string): Promise<void> {
     return this.enqueue(async () => {
       this.screens.delete(dialId);
     });
   }
 
+  /** Runs an operation after the ones before it, and logs it if it fails, so the queue carries on. */
   private enqueue(operation: () => Promise<void>): Promise<void> {
     this.queue = this.queue.then(operation).catch((error: unknown) => {
       logger.error("Lamp screen update failed", error);
@@ -126,6 +131,7 @@ export class LampScreens {
     return this.queue;
   }
 
+  /** Draws a lamp on a dial, switching it to the lamp layout first if it was on its main screen. */
   private async show(
     dial: LampScreenDial,
     lamp: LampStatus,
@@ -141,6 +147,7 @@ export class LampScreens {
     await draw(dial, lamp, lamps);
   }
 
+  /** Switches a dial back to the main layout and lets its action draw it. Does nothing on the main screen. */
   private async backToMain(dialId: string): Promise<void> {
     const screen = this.screens.get(dialId);
     if (screen === undefined) {

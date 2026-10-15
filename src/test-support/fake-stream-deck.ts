@@ -28,10 +28,12 @@ function createFakeAction(controller: "Keypad" | "Encoder") {
 
 export type FakeAction = ReturnType<typeof createFakeAction>;
 
+/** A key, as an action placed on it sees it. */
 export function createFakeKey(): FakeAction {
   return createFakeAction("Keypad");
 }
 
+/** A dial, as an action placed on it sees it. */
 export function createFakeDial(): FakeAction {
   return createFakeAction("Encoder");
 }
@@ -44,11 +46,14 @@ export function show(...actions: FakeAction[]): void {
   visibleActions = actions;
 }
 
+/** The SDK's decorator for an action class, which the fake leaves as it is. */
 export function action(_definition: { UUID: string }) {
   return <T>(target: T): T => target;
 }
 
+/** The SDK's base class for an action, which reports the keys and dials the test has placed. */
 export class SingletonAction {
+  /** The keys and dials this action is placed on, which a test sets with `show`. */
   get actions(): FakeAction[] {
     return visibleActions;
   }

@@ -30,14 +30,17 @@ function target(options: Partial<RotatingFileTargetOptions> = {}): RotatingFileT
   });
 }
 
+/** A log entry holding a message, which the test format writes as it is. */
 function entry(message: string): LogEntry {
   return { level: "info", data: [message], scope: "" };
 }
 
+/** The content of one of the log files. */
 function read(name: string): string {
   return fs.readFileSync(path.join(dest, name), "utf8");
 }
 
+/** The names of the files in the log folder, sorted. */
 function files(): string[] {
   return fs.readdirSync(dest).sort();
 }

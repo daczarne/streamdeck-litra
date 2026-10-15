@@ -9,6 +9,7 @@
     "rollup.config.mjs",
     "vitest.config.mjs",
     "vitest.browser.config.mjs",
+    "scripts/check-docs.mjs",
     "scripts/check-ui.mjs"
   ]
 }

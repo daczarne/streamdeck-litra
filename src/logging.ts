@@ -25,10 +25,12 @@ export type RotatingFileTargetOptions = {
 export class RotatingFileTarget implements LogTarget {
   private readonly options: RotatingFileTargetOptions;
 
+  /** Takes where to write and how much to keep. Nothing is written until the first entry. */
   constructor(options: RotatingFileTargetOptions) {
     this.options = options;
   }
 
+  /** Appends an entry to the current file, rotating the files first if it wouldn't fit. */
   write(entry: LogEntry): void {
     const line = `${this.options.format(entry)}\n`;
     try {
@@ -44,11 +46,13 @@ export class RotatingFileTarget implements LogTarget {
     }
   }
 
+  /** The path of the current file (0) or of a rotated one (1 and up, oldest last). */
   private filePath(index: number): string {
     const suffix = index === 0 ? "" : `.${index}`;
     return path.join(this.options.dest, `${this.options.fileName}${suffix}.log`);
   }
 
+  /** The size of the current file, 0 when there is none yet. */
   private currentSize(): number {
     try {
       return fs.statSync(this.filePath(0)).size;
@@ -57,6 +61,7 @@ export class RotatingFileTarget implements LogTarget {
     }
   }
 
+  /** Moves every file up one, dropping the oldest, so the current file starts empty. */
   private rotate(): void {
     fs.rmSync(this.filePath(this.options.backupCount), { force: true });
     for (let index = this.options.backupCount - 1; index >= 0; index -= 1) {

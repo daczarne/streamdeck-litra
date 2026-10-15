@@ -119,6 +119,7 @@ function lampLabel(device: Device): string {
   return `${MODEL_BY_DEVICE_TYPE[device.type]} ${serialTail(device.serialNumber)}`;
 }
 
+/** The last 4 characters of a serial number, marked as a tail. */
 function serialTail(serialNumber: string): string {
   return `…${serialNumber.slice(-4)}`;
 }
@@ -128,6 +129,7 @@ function logLampFailure(operation: string, device: Device, error: unknown): void
   logger.error(`${operation}: ${lampLabel(device)} failed: ${String(error)}`);
 }
 
+/** A lamp's HID handle with the methods node-hid has at runtime, which litra's type leaves out. */
 function asHid(device: Device): ClosableHid {
   return device.hid as ClosableHid;
 }
@@ -156,6 +158,7 @@ function closeDevice(device: Device): void {
   }
 }
 
+/** Pads a report with zeros to the length a lamp expects. */
 function padRight(values: number[], length: number): number[] {
   if (values.length >= length) {
     return values;
@@ -225,6 +228,7 @@ export function stepOnGrid(value: number, ticks: number, step: number, min: numb
   return clamp(min + index * step);
 }
 
+/** The allowed temperature nearest to a value, or the value itself when none is allowed. */
 export function snapKelvin(value: number, allowed: number[]): number {
   let best = value;
   let bestDelta = Infinity;
@@ -295,6 +299,7 @@ export function forEachDevice(operation: string, fn: (device: Device) => void): 
   };
 }
 
+/** Turns every lamp on. */
 export function turnOnAll(): BroadcastResult {
   const operation = "turn on";
   return announced(
@@ -306,6 +311,7 @@ export function turnOnAll(): BroadcastResult {
   );
 }
 
+/** Turns every lamp off. */
 export function turnOffAll(): BroadcastResult {
   const operation = "turn off";
   return announced(
@@ -408,6 +414,7 @@ function ensureOn(operation: string, device: Device): void {
   }
 }
 
+/** Where a brightness in lumens sits in a lamp's range, from 0 to 100. */
 function brightnessPercentage(device: Device, lumen: number): number {
   return percentageInRange(
     lumen,
@@ -416,6 +423,7 @@ function brightnessPercentage(device: Device, lumen: number): number {
   );
 }
 
+/** The lumens litra sends a lamp for a percentage of its range. */
 function brightnessLumen(device: Device, percentage: number): number {
   return percentageToLumen(
     percentage,
@@ -656,6 +664,7 @@ export function identifyLamp(serialNumber: string, blinkMs = IDENTIFY_BLINK_MS):
   });
 }
 
+/** Sets every lamp to the allowed temperature nearest to `kelvin`, and reports the first lamp's. */
 export function setTemperatureAllInKelvin(kelvin: number): BroadcastResult {
   let representative: number | undefined;
   let representativePercentage: number | undefined;
@@ -711,6 +720,7 @@ export function adjustTemperatureAllByKelvinSteps(ticks: number, stepKelvin: num
   });
 }
 
+/** Reads the first lamp that answers, whose temperature the dial shows. */
 export function readRepresentativeTemperatureKelvin(): BroadcastResult {
   let representative: number | undefined;
   let representativePercentage: number | undefined;

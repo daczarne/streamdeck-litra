@@ -6,20 +6,24 @@ import { parseSettings, powerSettings } from "./settings";
 
 const logger = pluginLogger.createScope("Power");
 
+/** The Power key: turns the lamps on or off, or toggles them, and shows whether they are all on. */
 @action({ UUID: "com.daczarne.litra.power" })
 export class PowerAction extends SingletonAction {
+  /** Subscribes the keys to every change made to the lamps. */
   constructor() {
     super();
     // Every Power key follows the lamps, whichever key or dial changed them, this one included (#57).
     onLampsChanged(() => this.syncEveryKey());
   }
 
+  /** Shows the lamps' state on a key as soon as it is placed or shown. */
   override async onWillAppear(ev: WillAppearEvent): Promise<void> {
     if (ev.action.isKey()) {
       await ev.action.setState(await this.readState());
     }
   }
 
+  /** Turns the lamps on or off, or toggles them, as the key's mode says. The keys follow through the subscription. */
   override async onKeyDown(ev: KeyDownEvent): Promise<void> {
     const { mode } = parseSettings(ev.payload.settings, powerSettings, logger);
     logger.info(`Key pressed: ${mode}`);

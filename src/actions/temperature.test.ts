@@ -46,14 +46,17 @@ const SNAPPED: BroadcastResult = {
   representativeTemperaturePercentage: 34,
 };
 
+/** The event of a press on a key, with the preset it has saved. */
 function keyDown(key: FakeAction, presetKelvin: JsonValue) {
   return { action: key, payload: { settings: { presetKelvin } } } as never;
 }
 
+/** The event of a key appearing, with the preset it has saved. */
 function willAppear(key: FakeAction, presetKelvin: JsonValue) {
   return { action: key, payload: { settings: { presetKelvin } } } as never;
 }
 
+/** The event of a dial turned by some ticks, with the step it has saved. */
 function dialRotate(dial: FakeAction, ticks: number, stepKelvin: JsonValue = 100) {
   return { action: dial, payload: { settings: { stepKelvin }, ticks } } as never;
 }
@@ -69,6 +72,7 @@ const BEAM: LampStatus = {
   temperatureKelvin: 2700,
 };
 
+/** The event of a tap on a dial's strip, or of a hold with `hold`. */
 function touchTap(dial: FakeAction, hold = false) {
   return { action: dial, payload: { settings: {}, hold } } as never;
 }
