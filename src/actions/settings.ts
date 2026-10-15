@@ -25,6 +25,7 @@ function toNumber(value: JsonValue): number | undefined {
   return Number.isFinite(number) ? number : undefined;
 }
 
+/** A setting that takes any number from `min` to `max`, both included. */
 function numberFrom(min: number, max: number, fallback: number): Setting<number> {
   return {
     default: fallback,
@@ -36,6 +37,7 @@ function numberFrom(min: number, max: number, fallback: number): Setting<number>
   };
 }
 
+/** A setting that takes a whole number from `min` to `max`, both included. */
 function wholeNumberFrom(min: number, max: number, fallback: number): Setting<number> {
   const inRange = numberFrom(min, max, fallback);
   return {
@@ -48,6 +50,7 @@ function wholeNumberFrom(min: number, max: number, fallback: number): Setting<nu
   };
 }
 
+/** A setting that takes one of a list of numbers, given as a number or as text. */
 function oneOfNumbers(allowed: readonly number[], fallback: number): Setting<number> {
   return {
     default: fallback,
@@ -59,6 +62,7 @@ function oneOfNumbers(allowed: readonly number[], fallback: number): Setting<num
   };
 }
 
+/** A setting that takes one of a list of texts, as written. */
 function oneOf<T extends string>(allowed: readonly T[], fallback: T): Setting<T> {
   return {
     default: fallback,

@@ -35,6 +35,7 @@ export class Chrome {
   private stderr = "";
   private readonly write: (message: Message) => void;
 
+  /** Connects to a Chrome just spawned with its pipes open. Use `launch`. */
   private constructor(
     private readonly process: ChildProcess,
     private readonly profileDir: string,
@@ -122,6 +123,7 @@ export class Chrome {
     return page;
   }
 
+  /** Ends Chrome and deletes its temporary profile. */
   async close(): Promise<void> {
     const exited = new Promise((resolve) => this.process.once("exit", resolve));
     this.process.kill();
@@ -129,6 +131,10 @@ export class Chrome {
     rmSync(this.profileDir, { recursive: true, force: true });
   }
 
+  /**
+   * Takes what Chrome wrote, which can hold several messages or part of one, and hands each complete message to the
+   * command it answers or to the listeners of its event.
+   */
   private receive(chunk: string): void {
     this.buffer += chunk;
     for (let end = this.buffer.indexOf("\0"); end !== -1; end = this.buffer.indexOf("\0")) {
@@ -150,16 +156,19 @@ export class Chrome {
 
 /** One page of a `Chrome`, with the commands the tests need. */
 export class Page {
+  /** Wraps a page Chrome has opened. Use `Chrome.newPage`. */
   constructor(
     private readonly chrome: Chrome,
     private readonly targetId: string,
     readonly sessionId: string,
   ) {}
 
+  /** Sends a command to this page, in the shape of `Chrome.send`. */
   send<Result = unknown>(method: string, params: object = {}): Promise<Result> {
     return this.chrome.send<Result>(method, params, this.sessionId);
   }
 
+  /** Calls `listener` with the parameters of every `method` event from this page. */
   on<Params>(method: string, listener: (params: Params) => void): void {
     this.chrome.on(this.sessionId, method, listener);
   }
@@ -189,6 +198,7 @@ export class Page {
     return result.value as T;
   }
 
+  /** Closes this page. */
   async close(): Promise<void> {
     await this.chrome.send("Target.closeTarget", { targetId: this.targetId });
   }

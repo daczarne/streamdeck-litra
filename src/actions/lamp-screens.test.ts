@@ -37,6 +37,7 @@ function connect(...lamps: LampStatus[]): void {
   vi.mocked(readLampStatuses).mockResolvedValue({ ok: lamps.length > 0, lamps });
 }
 
+/** What a dial's lamp screen shows for a lamp, the `position`-th of `count`. */
 function lampScreenOf(lamp: LampStatus, position: number, count: number) {
   return {
     lamp: `${lamp.model} · ${position} of ${count}`,

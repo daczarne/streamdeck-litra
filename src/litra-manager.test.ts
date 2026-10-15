@@ -72,10 +72,12 @@ const BEAM_ALLOWED_KELVIN = Array.from(
   (_, index) => BEAM_MIN_KELVIN + index * BEAM_KELVIN_STEP,
 );
 
+/** Makes these fake lamps the ones litra finds. */
 function connect(...devices: FakeDevice[]): void {
   vi.mocked(findDevices).mockReturnValue(devices);
 }
 
+/** A fake Beam, at a brightness and with a cap if given. */
 function beam(brightnessInLumen?: number, capInLumen?: number): FakeDevice {
   return createFakeDevice({ type: DeviceType.LitraBeam, brightnessInLumen, capInLumen });
 }
@@ -85,6 +87,7 @@ function lumenAt(percentage: number): number {
   return BEAM_MIN_LUMEN + ((BEAM_MAX_LUMEN - BEAM_MIN_LUMEN) * percentage) / 100;
 }
 
+/** A stand-in for a litra command that fails for one lamp only, as a lamp unplugged mid-operation would. */
 function failFor(target: FakeDevice): (device: Device) => void {
   return (device) => {
     if (device === target) {

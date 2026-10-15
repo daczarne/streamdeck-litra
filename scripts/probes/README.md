@@ -5,7 +5,7 @@
   - [Reading the results](#reading-the-results)
   - [Example](#example)
 
-These scripts talk to the lamps directly, to answer questions about how they behave that the unit tests can't: the tests use fake lamps, which only do what we assume a real one does. They aren't part of the plugin, the build or CI, and are run by hand with the lamps connected.
+These scripts talk to the lamps directly, to answer questions about how they behave that the unit tests can't: the tests use fake lamps, which only do what we assume a real one does. They aren't part of the plugin or the build, and are run by hand with the lamps connected. CI only type-checks them.
 
 ## brightness-readback.mjs
 
@@ -49,7 +49,7 @@ The results go to a file in `out/`, named after the time the run started (`YYYYM
 
 ### Reading the results
 
-Each report is printed as its first 8 bytes in hex, followed by its name and value. Byte 2 is the feature (`04` on the Beam and the Glow, `06` on the Beam LX), and byte 3 says what the report is:
+Each report is printed as its first 8 bytes in hex, followed by its name and value. A byte past the end of a short report shows as `--`, and a value it's too short to hold as `(report too short)`. The lamps have always sent full 20-byte reports, so neither should appear. Byte 2 is the feature (`04` on the Beam and the Glow, `06` on the Beam LX), and byte 3 says what the report is:
 
 | Report             | Starts with      | Value in                    | What it is                                                         |
 |--------------------|------------------|-----------------------------|--------------------------------------------------------------------|

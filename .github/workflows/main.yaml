@@ -114,6 +114,9 @@ jobs:
       - name: Lint and format check 🧪
         id: lint_code
         run: npm run lint
+      - name: Doc comments check 🧪
+        id: check_docs
+        run: npm run check:docs
       - name: Test 🧪
         id: test
         run: npm test

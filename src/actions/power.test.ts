@@ -25,6 +25,7 @@ vi.mock("../litra-manager", () => ({
 
 const SWITCHED = { ok: true, deviceCount: 2, failures: 0 };
 
+/** The event of a press on a key, with the mode it has saved. */
 function keyDown(key: FakeAction, mode?: JsonValue) {
   return { action: key, payload: { settings: { mode } } } as never;
 }

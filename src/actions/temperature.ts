@@ -28,6 +28,10 @@ const logger = pluginLogger.createScope("Temperature");
 
 type ActionRef = WillAppearEvent["action"];
 
+/**
+ * The Temperature action. On a key, it sets every lamp to the key's preset. On a dial, it steps the temperature as the
+ * dial turns, toggles the lamps when pressed, and shows each lamp on its own screen when the strip is tapped.
+ */
 @action({ UUID: "com.daczarne.litra.temperature" })
 export class TemperatureAction extends SingletonAction {
   private readonly dialQueues = new Map<string, (ticks: number) => void>();
@@ -35,11 +39,13 @@ export class TemperatureAction extends SingletonAction {
 
   private readonly lampScreens: LampScreens;
 
+  /** Takes the lamp screens that every dial shares, or the tests' own. */
   constructor(lampScreens: LampScreens = sharedLampScreens) {
     super();
     this.lampScreens = lampScreens;
   }
 
+  /** Shows the key's preset, or starts a dial on its main screen with the lamps' value, when the action appears. */
   override async onWillAppear(ev: WillAppearEvent): Promise<void> {
     this.latestSettings.set(ev.action.id, ev.payload.settings);
     if (ev.action.isDial()) {
@@ -48,15 +54,18 @@ export class TemperatureAction extends SingletonAction {
     await this.refreshDisplay(ev.action, ev.payload.settings);
   }
 
+  /** Forgets the dial's lamp screen, so the lamp screens stop redrawing a dial that isn't shown. */
   override async onWillDisappear(ev: WillDisappearEvent): Promise<void> {
     await this.lampScreens.disappear(ev.action.id);
   }
 
+  /** Takes the settings changed on the settings page, and redraws the action with them. */
   override async onDidReceiveSettings(ev: DidReceiveSettingsEvent): Promise<void> {
     this.latestSettings.set(ev.action.id, ev.payload.settings);
     await this.refreshDisplay(ev.action, ev.payload.settings);
   }
 
+  /** Sets every lamp to the key's preset, and shows the result on every dial. */
   override async onKeyDown(ev: KeyDownEvent): Promise<void> {
     const { presetKelvin: preset } = parseSettings(ev.payload.settings, temperatureSettings, logger);
     logger.info(`Key pressed: preset ${preset} K`);
@@ -95,6 +104,10 @@ export class TemperatureAction extends SingletonAction {
     await this.lampScreens.tap(ev.action, () => this.refreshDisplay(ev.action, ev.payload.settings));
   }
 
+  /**
+   * Steps the temperature by the dial's ticks, gathered for a moment so a quick turn moves the lamps once, with the
+   * settings the dial has when they are applied.
+   */
   override async onDialRotate(ev: DialRotateEvent): Promise<void> {
     const id = ev.action.id;
     this.latestSettings.set(id, ev.payload.settings);
@@ -119,6 +132,7 @@ export class TemperatureAction extends SingletonAction {
     queue(ev.payload.ticks);
   }
 
+  /** Shows the preset on a key, or what the lamps are at on a dial. */
   private async refreshDisplay(action: ActionRef, settings: JsonObject): Promise<void> {
     if (action.isKey()) {
       await this.showKeyAmount(action, parseSettings(settings, temperatureSettings, logger).presetKelvin);
@@ -129,6 +143,7 @@ export class TemperatureAction extends SingletonAction {
     await this.showDialValue(action, result.ok ? result : undefined);
   }
 
+  /** Writes the preset as the key's title, which the user can replace or hide. */
   private async showKeyAmount(action: KeyAction<JsonObject>, kelvin: number): Promise<void> {
     await action.setTitle(`${Math.round(kelvin)}`);
   }

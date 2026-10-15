@@ -44,6 +44,16 @@ Linters usually require a space after the comment character (ruff's `E265`, for 
 
 Comments explain intent and stay general. They don't repeat specifics the code already states (which files, which values, which paths), because such comments go stale the moment the code changes and nobody remembers to update them. They should, however, explain the mechanics of non-obvious code. Code that is hard to read is refactored first. If it can't be, it gets a comment explaining what it is expected to do.
 
+### Doc comments
+
+Every function, class, method and constructor declared at the top of a file, or in a class there, has a doc comment (`/** … */`): in the plugin, its tests, the scripts and the settings pages' scripts. A closure inside a function is read with the function around it and needs none. `npm run check:docs` checks this over the files Biome covers.
+
+A doc comment says what the declaration does or why it exists, and follows the rules for comments above: it doesn't repeat what the code states.
+
+- In TypeScript, the signature gives the types. `@param` and `@returns` appear only where a name doesn't explain itself, and never with a type.
+- In JavaScript (the `.mjs` scripts and `ui/*.js`), every parameter has a `@param` and every function a `@returns`, with its type, which `checkJs` checks in the files `tsconfig.scripts.json` covers.
+- A doc comment goes above a class's decorator, not between the decorator and the class: TypeScript only attaches it there.
+
 ### Spelling
 
 Every new word must pass CSpell. Real terms go into the matching dictionary under `.cspell/`, in alphabetical order.

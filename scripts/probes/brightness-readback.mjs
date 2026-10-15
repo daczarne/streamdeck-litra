@@ -25,6 +25,12 @@ import { fileURLToPath } from "node:url";
 
 import litra from "litra";
 
+/**
+ * A lamp as litra finds it, with the HID methods node-hid has at runtime, which litra's type leaves out.
+ *
+ * @typedef {import("litra").Device & { hid: { readTimeout(timeoutMs: number): number[], close(): void } }} Lamp
+ */
+
 const TARGET_PERCENTAGE = Number(process.argv[2] ?? 90);
 const DELAYS_MS = [0, 100, 250, 500, 1000];
 const LOWER_AFTER_MS = [50, 150, 300, 1000];
@@ -42,8 +48,14 @@ const SETTLE_MS = 300;
 
 //* Output
 
+/**
+ * The time a run started, as the name of its file: YYYYMMDD_HHMMSS, in local time.
+ *
+ * @param {Date} date
+ * @returns {string}
+ */
 function timestamp(date) {
-  const pad = (value) => String(value).padStart(2, "0");
+  const pad = (/** @type {number} */ value) => String(value).padStart(2, "0");
   const day = `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}`;
   const time = `${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
   return `${day}_${time}`;
@@ -54,24 +66,63 @@ const outDir = fileURLToPath(new URL("out/", import.meta.url));
 const outFile = `${outDir}${timestamp(startedAt)}.txt`;
 mkdirSync(outDir, { recursive: true });
 
-/** Appends a line to the run's file as soon as it's known, so a run that crashes keeps what it found. */
+/**
+ * Appends a line to the run's file as soon as it's known, so a run that crashes keeps what it found.
+ *
+ * @param {string} line
+ * @returns {void}
+ */
 function log(line) {
   appendFileSync(outFile, `${line}\n`);
 }
 
 //* Reports
 
+/**
+ * Where the lamp's brightness feature sits among its HID features, which differs on the Beam LX.
+ *
+ * @param {Lamp} device
+ * @returns {number}
+ */
 function featureIndex(device) {
   return device.type === litra.DeviceType.LitraBeamLX ? 0x06 : 0x04;
 }
 
+/**
+ * The first 8 bytes of a report in hex, which is where every report this probe reads keeps its data. A byte the report
+ * is too short to hold shows as `--`.
+ *
+ * @param {Array<number | undefined>} bytes
+ * @returns {string}
+ */
 function hex(bytes) {
   return bytes
     .slice(0, 8)
-    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .map((byte) => (byte === undefined ? "--" : byte.toString(16).padStart(2, "0")))
     .join(" ");
 }
 
+/**
+ * The two bytes at `index` as one number, high byte first, as the lamps send a brightness. Undefined when the report is
+ * too short to hold them.
+ *
+ * @param {number[]} bytes
+ * @param {number} index
+ * @returns {number | undefined}
+ */
+function word(bytes, index) {
+  const high = bytes[index];
+  const low = bytes[index + 1];
+  return high === undefined || low === undefined ? undefined : high * 256 + low;
+}
+
+/**
+ * A brightness in lumens, with its place in the lamp's range.
+ *
+ * @param {Lamp} device
+ * @param {number} lumen
+ * @returns {string}
+ */
 function lumenAndPercentage(device, lumen) {
   const min = litra.getMinimumBrightnessInLumenForDevice(device);
   const max = litra.getMaximumBrightnessInLumenForDevice(device);
@@ -79,7 +130,13 @@ function lumenAndPercentage(device, lumen) {
   return `${lumen} lm (${percentage}%)`;
 }
 
-/** Names a report and decodes its value. Each kind keeps its value in different bytes. */
+/**
+ * Names a report and decodes its value. Each kind keeps its value in different bytes.
+ *
+ * @param {Lamp} device
+ * @param {number[]} bytes a report, or [] for none
+ * @returns {string}
+ */
 function describe(device, bytes) {
   if (bytes.length === 0) {
     return "(nothing)";
@@ -89,9 +146,9 @@ function describe(device, bytes) {
   }
   switch (bytes[3]) {
     case 0x31:
-      return `${hex(bytes)}  brightness reply: ${lumenAndPercentage(device, bytes[4] * 256 + bytes[5])}`;
+      return `${hex(bytes)}  brightness reply: ${lumenIn(device, bytes, 4)}`;
     case 0x40:
-      return `${hex(bytes)}  change notice: ${lumenAndPercentage(device, bytes[5] * 256 + bytes[6])}`;
+      return `${hex(bytes)}  change notice: ${lumenIn(device, bytes, 5)}`;
     case 0x4c:
       return `${hex(bytes)}  set-brightness ACK`;
     default:
@@ -99,15 +156,39 @@ function describe(device, bytes) {
   }
 }
 
+/**
+ * The brightness a report holds at `index`, with its place in the lamp's range.
+ *
+ * @param {Lamp} device
+ * @param {number[]} bytes
+ * @param {number} index
+ * @returns {string}
+ */
+function lumenIn(device, bytes, index) {
+  const lumen = word(bytes, index);
+  return lumen === undefined ? "(report too short)" : lumenAndPercentage(device, lumen);
+}
+
 //* HID
 
-/** Sends the get-brightness query and returns the next report, whatever it is, or [] after 1 s. */
+/**
+ * Sends the get-brightness query and returns the next report, whatever it is, or [] after 1 s.
+ *
+ * @param {Lamp} device
+ * @returns {number[]}
+ */
 function query(device) {
   device.hid.write([0x11, 0xff, featureIndex(device), 0x31, ...Array(16).fill(0)]);
   return device.hid.readTimeout(1000);
 }
 
-/** Sends the get-brightness query and skips every other report until the reply arrives, passing them to `onSkipped`. */
+/**
+ * Sends the get-brightness query and skips every other report until the reply arrives, passing them to `onSkipped`.
+ *
+ * @param {Lamp} device
+ * @param {(bytes: number[]) => void} [onSkipped]
+ * @returns {number} the brightness, in lumens
+ */
 function readBrightness(device, onSkipped = () => {}) {
   device.hid.write([0x11, 0xff, featureIndex(device), 0x31, ...Array(16).fill(0)]);
   for (;;) {
@@ -115,18 +196,33 @@ function readBrightness(device, onSkipped = () => {}) {
     if (bytes.length === 0) {
       throw new Error("no brightness reply within 1 s");
     }
-    if (bytes[2] !== 0xff && bytes[3] === 0x31) {
-      return bytes[4] * 256 + bytes[5];
+    const lumen = word(bytes, 4);
+    // A report too short to hold the brightness can't be the reply, whatever its header says.
+    if (bytes[2] !== 0xff && bytes[3] === 0x31 && lumen !== undefined) {
+      return lumen;
     }
     onSkipped(bytes);
   }
 }
 
+/**
+ * The time since `start`, padded so the log's columns line up.
+ *
+ * @param {number} start a time from `performance.now()`
+ * @returns {string}
+ */
 function elapsed(start) {
   return `+${String(Math.round(performance.now() - start)).padStart(4)} ms:`;
 }
 
-/** Logs every report the lamp sends until `untilMs` after `start`, with the time it arrived. */
+/**
+ * Logs every report the lamp sends until `untilMs` after `start`, with the time it arrived.
+ *
+ * @param {Lamp} device
+ * @param {number} start a time from `performance.now()`
+ * @param {number} untilMs
+ * @returns {void}
+ */
 function listen(device, start, untilMs) {
   for (;;) {
     const remaining = untilMs - (performance.now() - start);
@@ -140,7 +236,13 @@ function listen(device, start, untilMs) {
   }
 }
 
-/** Reads every pending report until the lamp has been silent for `quietMs`. */
+/**
+ * Reads every pending report until the lamp has been silent for `quietMs`.
+ *
+ * @param {Lamp} device
+ * @param {number} [quietMs]
+ * @returns {number[][]} the reports read
+ */
 function drainAll(device, quietMs = 50) {
   const drained = [];
   for (;;) {
@@ -152,7 +254,12 @@ function drainAll(device, quietMs = 50) {
   }
 }
 
-/** The lumens litra's setBrightnessPercentage sends for the target %. */
+/**
+ * The lumens litra's setBrightnessPercentage sends for the target %.
+ *
+ * @param {Lamp} device
+ * @returns {number}
+ */
 function targetLumen(device) {
   const min = litra.getMinimumBrightnessInLumenForDevice(device);
   const max = litra.getMaximumBrightnessInLumenForDevice(device);
@@ -162,6 +269,11 @@ function targetLumen(device) {
 /**
  * Makes each write at its time, lowers the lamp to its minimum at `lowerAfter`, then reads it every 250 ms for 3 s.
  * Times count from the first write, and every report is logged with the time it arrived.
+ *
+ * @param {Lamp} device
+ * @param {Array<{ at: number, lumen: number }>} writes each write's time in ms and lumens
+ * @param {number} lowerAfter in ms
+ * @returns {void}
  */
 function writeThenLower(device, writes, lowerAfter) {
   const minimum = litra.getMinimumBrightnessInLumenForDevice(device);
@@ -182,13 +294,28 @@ function writeThenLower(device, writes, lowerAfter) {
   listen(device, start, lowerAfter + WATCH_MS + SETTLE_MS);
 }
 
+/**
+ * Logs the reports a drain read, each after a label.
+ *
+ * @param {Lamp} device
+ * @param {string} label
+ * @param {number[][]} reports
+ * @returns {void}
+ */
 function printDrained(device, label, reports) {
   for (const bytes of reports) {
     log(`     ${label} ${describe(device, bytes)}`);
   }
 }
 
-/** Puts the lamp back to its brightness and power, then reads it to check. */
+/**
+ * Puts the lamp back to its brightness and power, then reads it to check.
+ *
+ * @param {Lamp} device
+ * @param {number} lumen
+ * @param {boolean} wasOn
+ * @returns {void}
+ */
 function restore(device, lumen, wasOn) {
   litra.setBrightnessInLumen(device, lumen);
   printDrained(device, "after restore:", drainAll(device, SETTLE_MS));
@@ -203,6 +330,13 @@ function restore(device, lumen, wasOn) {
 
 //* Probes
 
+/**
+ * Steps 1 to 4 on one lamp, which it leaves at the brightness and power it had.
+ *
+ * @param {Lamp} device
+ * @param {number} index the lamp's place in the list, from 0
+ * @returns {Promise<void>}
+ */
 async function probe(device, index) {
   log(`\nLamp ${index + 1}: ${litra.getNameForDevice(device)}, serial ${device.serialNumber}`);
 
@@ -246,6 +380,9 @@ async function probe(device, index) {
 /**
  * Step 4: whether writes that don't go above the cap can be undone too, and whether writing the cap right after a
  * request above it stops the lamp from going back to its cap later. Only lamps that are capped take part.
+ *
+ * @param {Lamp} device
+ * @returns {void}
  */
 function probeWithinCap(device) {
   log(`  4. writes within the cap, each lowered to the minimum after a delay, then read every 250 ms for 3 s`);
@@ -277,7 +414,7 @@ function probeWithinCap(device) {
   ];
   for (const { label, writes } of variants) {
     log(`     ${label}`);
-    const lastWrite = writes[writes.length - 1].at;
+    const lastWrite = Math.max(...writes.map((write) => write.at));
     for (const delay of WITHIN_CAP_LOWER_AFTER_MS) {
       litra.setBrightnessInLumen(device, minimum);
       drainAll(device, SETTLE_MS);
@@ -288,6 +425,12 @@ function probeWithinCap(device) {
   }
 }
 
+/**
+ * Sets every lamp to the target at once, reads what each reached, then restores them.
+ *
+ * @param {Lamp[]} devices
+ * @returns {Promise<void>}
+ */
 async function probeTogether(devices) {
   log(`\nAll lamps at once: set ${TARGET_PERCENTAGE}% on every lamp, then read each 1 s later`);
   const saved = devices.map((device, index) => {
@@ -300,7 +443,7 @@ async function probeTogether(devices) {
       litra.turnOn(device);
       drainAll(device, SETTLE_MS);
     }
-    return { wasOn, beforeLumen };
+    return { device, wasOn, beforeLumen };
   });
 
   for (const device of devices) {
@@ -313,8 +456,8 @@ async function probeTogether(devices) {
     log(`  lamp ${index + 1} (${device.serialNumber}): ${reached}`);
   }
 
-  for (const [index, device] of devices.entries()) {
-    restore(device, saved[index].beforeLumen, saved[index].wasOn);
+  for (const { device, beforeLumen, wasOn } of saved) {
+    restore(device, beforeLumen, wasOn);
   }
 }
 
@@ -323,7 +466,7 @@ async function probeTogether(devices) {
 console.log(`Probing, writing to ${outFile}`);
 log(`brightness-readback, ${startedAt.toISOString()}, target ${TARGET_PERCENTAGE}%`);
 
-const devices = litra.findDevices();
+const devices = /** @type {Lamp[]} */ (litra.findDevices());
 if (devices.length === 0) {
   log("No Litra found.");
 }
@@ -338,7 +481,7 @@ for (const [index, device] of devices.entries()) {
 }
 
 if (devices.length > 1) {
-  const together = litra.findDevices();
+  const together = /** @type {Lamp[]} */ (litra.findDevices());
   try {
     await probeTogether(together);
   } catch (error) {
