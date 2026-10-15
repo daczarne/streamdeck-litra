@@ -1,4 +1,7 @@
 {
+  "env": {
+    "CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD": "1"
+  },
   "permissions": {
     "allow": [
       "Bash(cspell lint *)",
@@ -80,7 +83,6 @@
       "Bash(/Users/daniel.czarnievicz/.dotfiles/install.sh*)",
       "Bash(~/.dotfiles/install.sh*)",
       "Bash(bash *install.sh*)",
-      "Bash(cd *)",
       "Bash(chsh *)",
       "Bash(defaults delete *)",
       "Bash(defaults write *)",
@@ -131,6 +133,7 @@
       "Bash(gh ssh-key *)",
       "Bash(gh variable *)",
       "Bash(gh workflow *)",
+      "Bash(git -C *)",
       "Bash(git branch *)",
       "Bash(git checkout *)",
       "Bash(git clean *)",
