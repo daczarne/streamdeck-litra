@@ -15,9 +15,7 @@ streamDeck.actions.registerAction(new PowerAction());
 streamDeck.actions.registerAction(new BrightnessAction());
 streamDeck.actions.registerAction(new TemperatureAction());
 
-// Without a connection the plugin can do nothing, so it ends, as an unhandled rejection would, but logged first. The
-// log is written synchronously, so exiting right after doesn't lose the line.
+// Logged here rather than left to the SDK, which logs an unhandled rejection to its own files, not to litra.log.
 streamDeck.connect().catch((error: unknown) => {
   logger.error("Can't connect to Stream Deck", error);
-  process.exit(1);
 });

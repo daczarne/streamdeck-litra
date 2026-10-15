@@ -5,12 +5,12 @@ allowed-tools: Bash(markdownlint-cli2 *), Bash(cspell lint *), Bash(git grep *),
 
 # Lint
 
-Run the linters from CI, from the repository root, in this order: those of the `lint` and `spell-check` jobs, then the type check and `npm run validate` from the `tests` job. The tests have their own command, `/test`, and `/ci` runs both.
+Run the linters from CI, from the repository root, in this order: those of the `lint` and `spell-check` jobs, then the type check, Biome and `npm run validate` from the `tests` job. The tests have their own command, `/test`, and `/ci` runs both.
 
 1. `markdownlint-cli2 --config ".markdownlint.yaml" .`
 1. `cspell lint --config ".cspell.json" --dot --no-progress .`
-1. `npm run lint`, which runs Biome on the TypeScript and JavaScript: its lint rules, formatting and import order.
 1. `npm run typecheck`, which checks the TypeScript and the build and check scripts.
+1. `npm run lint`, which runs Biome on the TypeScript and JavaScript: its lint rules, formatting and import order.
 1. `npm run validate`, which runs `check:ui`, the build and `streamdeck validate`.
 
 Then check the length of Markdown headings, which no linter covers (see `docs/style_guide.md`). `git grep -n -P '^(?=.{81})#{1,6} ' -- '*.md'` lists every heading over 80 characters. Skip matches inside code blocks, where `#` starts a comment, and shorten the rest without changing their meaning. When a shortened heading is linked from a table of contents or another document, update those links too.
