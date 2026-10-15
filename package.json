@@ -22,6 +22,7 @@
   ],
   "scripts": {
     "build": "rollup -c",
+    "check:docs": "node scripts/check-docs.mjs",
     "check:ui": "node scripts/check-ui.mjs",
     "icons": "node scripts/generate-icons.mjs",
     "watch": "rollup -c -w --watch.onEnd=\"streamdeck restart com.daczarne.litra\"",
