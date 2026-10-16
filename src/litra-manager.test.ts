@@ -236,6 +236,20 @@ describe("stepOnGrid", () => {
   });
 });
 
+/** What a dial action gives the debouncer to run with the ticks it gathered. */
+type Flush = (ticks: number) => void | Promise<void>;
+
+// The two ways a flush fails: an async flush rejects, and one that isn't async throws before returning anything.
+const failedFlushes: [string, (error: Error) => Flush][] = [
+  ["rejects", (error) => () => Promise.reject(error)],
+  [
+    "throws",
+    (error) => () => {
+      throw error;
+    },
+  ],
+];
+
 describe("createDialDebouncer", () => {
   it("flushes once, 60 ms after the last tick", async () => {
     const flush = vi.fn();
@@ -321,8 +335,8 @@ describe("createDialDebouncer", () => {
     expect(flush.mock.calls).toEqual([[1], [5]]);
   });
 
-  it("keeps flushing after a flush fails", async () => {
-    const flush = vi.fn().mockRejectedValueOnce(new Error("HID write failed"));
+  it.each(failedFlushes)("keeps flushing after a flush that %s (#46)", async (_how, failing) => {
+    const flush = vi.fn<Flush>().mockImplementationOnce(failing(new Error("HID write failed")));
     const debounce = manager.createDialDebouncer(flush);
 
     debounce(1);
@@ -1567,9 +1581,9 @@ describe("logs", () => {
     expect(logger.error).toHaveBeenCalledExactlyOnceWith(expect.any(String), error);
   });
 
-  it("logs a failed dial flush with its error, for the stack", async () => {
+  it.each(failedFlushes)("logs a dial flush that %s with its error, for the stack (#46)", async (_how, failing) => {
     const error = new Error("flush broke");
-    const debounce = manager.createDialDebouncer(vi.fn().mockRejectedValue(error));
+    const debounce = manager.createDialDebouncer(failing(error));
 
     debounce(1);
     await vi.advanceTimersByTimeAsync(60);
