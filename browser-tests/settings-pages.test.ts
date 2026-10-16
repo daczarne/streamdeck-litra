@@ -2,8 +2,10 @@ import { randomUUID } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import type { JsonValue } from "@elgato/utils";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
+import { brightnessSettings, parseSettings, powerSettings, temperatureSettings } from "../src/actions/settings";
 import { at } from "../src/test-support/at";
 import { Chrome, type ExceptionDetails, type Page } from "./support/chrome";
 import { FakeStreamDeck } from "./support/fake-stream-deck";
@@ -15,8 +17,8 @@ const manifest = JSON.parse(readFileSync(path.join(pluginDir, "manifest.json"), 
 
 type Controller = "Keypad" | "Encoder";
 
-/** The value shown next to a slider by default, and once it is at its panel's `change.value`. */
-type Slider = { default: string; changed: string };
+/** What a slider shows after its value, next to it. */
+type Slider = { suffix: string };
 
 type Panel = {
   page: string;
@@ -41,21 +43,21 @@ const PANELS: Panel[] = [
     controller: "Keypad",
     settings: ["presetPercentage"],
     change: { setting: "presetPercentage", value: "40", saved: 40 },
-    slider: { default: "0%", changed: "40%" },
+    slider: { suffix: "%" },
   },
   {
     page: "ui/brightness.html",
     controller: "Encoder",
     settings: ["stepPercentage"],
     change: { setting: "stepPercentage", value: "20", saved: 20 },
-    slider: { default: "10%", changed: "20%" },
+    slider: { suffix: "%" },
   },
   {
     page: "ui/temperature.html",
     controller: "Keypad",
     settings: ["presetKelvin"],
     change: { setting: "presetKelvin", value: "5000", saved: 5000 },
-    slider: { default: "2700 K", changed: "5000 K" },
+    slider: { suffix: " K" },
   },
   {
     page: "ui/temperature.html",
@@ -64,6 +66,34 @@ const PANELS: Panel[] = [
     change: { setting: "stepKelvin", value: "500", saved: "500" },
   },
 ];
+
+// What the plugin accepts for each setting, by its name, and the default it takes: settings.ts says these are what
+// each page offers, and the pages' own defaults.
+const SCHEMA = { ...powerSettings, ...brightnessSettings, ...temperatureSettings };
+
+/** The setting's schema in settings.ts, alone, as parseSettings takes it. */
+function schemaOf(setting: string) {
+  const schema = SCHEMA[setting as keyof typeof SCHEMA];
+  if (schema === undefined) {
+    throw new Error(`settings.ts has no setting ${setting}`);
+  }
+  return { [setting]: schema };
+}
+
+/** The setting's default in settings.ts. */
+function defaultOf(setting: string): unknown {
+  return at(Object.values(schemaOf(setting)), 0).default;
+}
+
+/**
+ * Reads a value as the plugin reads it from what Stream Deck sends: what it takes, and whether it was valid, as
+ * opposed to replaced by the default with a warning.
+ */
+function read(setting: string, value: JsonValue): { value: unknown; valid: boolean } {
+  const warn = vi.fn();
+  const parsed = parseSettings({ [setting]: value }, schemaOf(setting), { warn });
+  return { value: parsed[setting], valid: warn.mock.calls.length === 0 };
+}
 
 // Addresses on the internet that each kind of resource tries to reach. The policy blocks them before any request is
 // sent, so the tests need no network.
@@ -158,6 +188,37 @@ function visibleSettings(page: Page): Promise<string[]> {
   `);
 }
 
+/** A control as the page declares it: its default, a slider's ends and step, a select's options. */
+type Control = {
+  tag: string;
+  default: string | null;
+  min: string | null;
+  max: string | null;
+  step: string | null;
+  options: string[];
+};
+
+/** Reads the control of a setting from the page. */
+function controlOf(page: Page, setting: string): Promise<Control> {
+  return page.evaluate(`(() => {
+    const control = document.querySelector('[setting="${setting}"]');
+    const attribute = (name) => control.getAttribute(name);
+    return {
+      tag: control.tagName.toLowerCase(),
+      default: attribute("default"),
+      min: attribute("min"),
+      max: attribute("max"),
+      step: attribute("step"),
+      options: [...control.querySelectorAll("option")].map((option) => option.value),
+    };
+  })()`);
+}
+
+/** A value as a control saves it: a slider as a number, a select as its option's text. */
+function saved(control: Control, value: string): JsonValue {
+  return control.tag === "sdpi-range" ? Number(value) : value;
+}
+
 /** The value shown next to the slider of a setting. */
 function shownValue(page: Page, setting: string): Promise<string> {
   return page.evaluate(`
@@ -239,20 +300,62 @@ describe("settings pages", () => {
     });
   });
 
+  describe.each(PANELS)("what $page on $controller offers", (panel) => {
+    const setting = at(panel.settings, 0);
+
+    it(`defaults ${setting} to its default in settings.ts`, async () => {
+      const { page } = await openPanel(panel);
+      const control = await controlOf(page, setting);
+      await page.close();
+
+      expect(control.default).not.toBeNull();
+      expect(read(setting, saved(control, control.default ?? ""))).toEqual({ value: defaultOf(setting), valid: true });
+    });
+
+    it(`offers only values of ${setting} that settings.ts accepts`, async () => {
+      const { page } = await openPanel(panel);
+      const control = await controlOf(page, setting);
+      await page.close();
+
+      const offered =
+        control.tag === "sdpi-range"
+          ? Array.from({ length: (Number(control.max) - Number(control.min)) / Number(control.step) + 1 }, (_, index) =>
+              String(Number(control.min) + index * Number(control.step)),
+            )
+          : control.options;
+      expect(offered.length).toBeGreaterThan(0);
+      for (const value of offered) {
+        expect(read(setting, saved(control, value)), `${setting} set to ${value}`).toMatchObject({ valid: true });
+      }
+    });
+  });
+
   const withSlider = PANELS.filter((panel): panel is Panel & { slider: Slider } => panel.slider !== undefined);
   describe.each(withSlider)("the slider of $page on $controller", (panel) => {
     const { slider } = panel;
 
+    it("ends where settings.ts does", async () => {
+      const { page } = await openPanel(panel);
+      const control = await controlOf(page, panel.change.setting);
+      await page.close();
+
+      const [min, max, step] = [Number(control.min), Number(control.max), Number(control.step)];
+      expect(read(panel.change.setting, min - step).valid).toBe(false);
+      expect(read(panel.change.setting, max + step).valid).toBe(false);
+    });
+
     it("shows its default value next to it", async () => {
       const { page } = await openPanel(panel);
-      await expect.poll(() => shownValue(page, panel.change.setting)).toBe(slider.default);
+      await expect
+        .poll(() => shownValue(page, panel.change.setting))
+        .toBe(`${defaultOf(panel.change.setting)}${slider.suffix}`);
       await page.close();
     });
 
     it("shows the saved value next to it", async () => {
       const { setting, saved } = panel.change;
       const { page } = await openPanel(panel, { [setting]: saved });
-      await expect.poll(() => shownValue(page, setting)).toBe(slider.changed);
+      await expect.poll(() => shownValue(page, setting)).toBe(`${saved}${slider.suffix}`);
       await page.close();
     });
 
@@ -266,7 +369,7 @@ describe("settings pages", () => {
         control.value = "${value}";
         control.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
       })()`);
-      expect(await shownValue(page, setting)).toBe(slider.changed);
+      expect(await shownValue(page, setting)).toBe(`${value}${slider.suffix}`);
       await page.close();
     });
   });
