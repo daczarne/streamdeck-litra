@@ -15,6 +15,17 @@ export default defineConfig({
     // Only our own tests: ref/ may hold local clones of upstream projects, with their own test suites.
     include: ["src/**/*.test.ts"],
     mockReset: true,
+    // What npm run coverage measures: the plugin's code under the unit and integration tests. The settings pages'
+    // scripts run in Chrome, under the browser tests, out of V8's reach here.
+    coverage: {
+      provider: "v8",
+      include: ["src/**/*.ts"],
+      exclude: ["src/**/*.test.ts", "src/test-support/**"],
+      // Every file in the table, even under an agent like Claude Code, for which Vitest leaves out the fully covered
+      // ones.
+      reporter: [["text", { skipFull: false }], "html"],
+      reportsDirectory: "coverage",
+    },
     server: {
       deps: {
         // Vitest leaves dependencies to Node, out of vi.mock's reach. Through Vitest, litra's import of node-hid gets
