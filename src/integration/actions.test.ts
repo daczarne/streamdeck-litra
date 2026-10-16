@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { at } from "../test-support/at";
@@ -318,5 +320,73 @@ describe("the lamp screens", () => {
 
     expect(dial.setFeedbackLayout).toHaveBeenLastCalledWith("$B1");
     expect(feedbackOf(dial)).toMatchObject({ title: "Brightness", value: "50%" });
+  });
+});
+
+describe("what the dials show", () => {
+  const PLUGIN = "com.daczarne.litra.sdPlugin";
+  const MANIFEST = JSON.parse(fs.readFileSync(path.join(PLUGIN, "manifest.json"), "utf8")) as {
+    Actions: { UUID: string; Encoder?: { layout: string } }[];
+  };
+
+  // The slots of Stream Deck's built-in layouts the dials use, as docs/elgato_sdk/layouts.md lists them.
+  const BUILT_IN_SLOTS: Record<string, string[]> = { $B1: ["title", "icon", "value", "indicator"] };
+
+  /** The keys a dial can fill on a layout: a built-in one's slots, or the items of a layout file in the plugin folder. */
+  function slotsOf(layout: string): string[] {
+    const builtIn = BUILT_IN_SLOTS[layout];
+    if (builtIn !== undefined) {
+      return builtIn;
+    }
+    const file = path.join(PLUGIN, layout);
+    expect(fs.existsSync(file), `layout ${layout} isn't in the plugin folder`).toBe(true);
+    const { items } = JSON.parse(fs.readFileSync(file, "utf8")) as { items: { key: string }[] };
+    return items.map((item) => item.key);
+  }
+
+  /**
+   * Everything a dial was told to show, with the layout it was on at the time: the one its action has in the
+   * manifest, until the plugin set another.
+   */
+  function shownWithLayouts(dial: Awaited<ReturnType<FakeDeck["dial"]>>, manifestId: string) {
+    const manifestLayout = MANIFEST.Actions.find((entry) => entry.UUID === manifestId)?.Encoder?.layout;
+    expect(manifestLayout, `${manifestId} has no dial layout in the manifest`).toBeDefined();
+    const layouts = dial.setFeedbackLayout.mock.calls.map(([layout], index) => ({
+      layout,
+      order: at(dial.setFeedbackLayout.mock.invocationCallOrder, index),
+    }));
+    return dial.setFeedback.mock.calls.map(([feedback], index) => {
+      const order = at(dial.setFeedback.mock.invocationCallOrder, index);
+      const layout = layouts.filter((set) => set.order < order).at(-1)?.layout ?? manifestLayout ?? "";
+      return { layout, keys: Object.keys(feedback) };
+    });
+  }
+
+  it.each([
+    ["Brightness", BRIGHTNESS, { presetPercentage: 50 }],
+    ["Temperature", TEMPERATURE, { presetKelvin: 5000 }],
+  ])("fits the layout the %s dial is on, on every screen it shows", async (_name, manifestId, keySettings) => {
+    plugIn(beam({ serialNumber: "SERIAL-A" }), beam({ serialNumber: "SERIAL-B" }));
+    const dial = await deck.dial(manifestId);
+    const key = await deck.key(manifestId, keySettings);
+
+    // The main screen, redrawn by a turn, a key and a push.
+    await deck.turn(dial, 1);
+    await deck.press(key);
+    await deck.push(dial);
+    // A lamp screen, redrawn when the lamps change, then the next one, and back to the main screen past the last.
+    await deck.tap(dial);
+    await deck.press(key);
+    await deck.tap(dial);
+    await deck.tap(dial);
+    // A lamp screen left with a hold.
+    await deck.tap(dial);
+    await deck.hold(dial);
+
+    const shown = shownWithLayouts(dial, manifestId);
+    expect(new Set(shown.map(({ layout }) => layout))).toEqual(new Set(["$B1", "layouts/lamp.json"]));
+    for (const { layout, keys } of shown) {
+      expect(slotsOf(layout)).toEqual(expect.arrayContaining(keys));
+    }
   });
 });

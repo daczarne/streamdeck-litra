@@ -39,6 +39,7 @@ Items can't overlap unless their `zOrder` differs. Stream Deck refuses a layout 
 
 - `Encoder.layout` in `manifest.json` sets a dial's layout, by name or by the path to a custom one. `setFeedbackLayout` replaces it at runtime.
 - `setFeedback` fills the slots, keyed by their `key`. A slot takes either a plain value (a string or a number) or an object that changes its other properties too, such as a text's color, except its `key`, `rect` and `type`, which are fixed.
+- The integration tests check that every key the plugin sends is one of its layout's: a custom layout's items, read from its file, and a built-in layout's slots, as listed in this document. A screen that uses another built-in layout needs its slots added to the tests.
 - A bar's `bar_fill_c` takes a single color or a gradient of `{offset}:{color}` stops. The stops span the bar's filled part, not the whole bar, so a point at a given level sits at that level divided by the bar's `value`. Two stops 0.001 apart draw a sharp edge between two colors.
 
 ## The dial in the app
