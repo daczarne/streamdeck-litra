@@ -1,3 +1,4 @@
+debouncer
 frida
 Frida
 lghub
