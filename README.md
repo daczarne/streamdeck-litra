@@ -88,7 +88,7 @@ npx streamdeck restart com.daczarne.litra   # load the new build
 npm run typecheck         # type-check the sources, the tests, and the build and check scripts
 npm run lint              # Biome: lint rules, formatting and import order, without changing anything
 npm run format            # Biome: apply the formatting and the import order
-npm test                  # run the unit tests
+npm test                  # run the unit tests and the integration tests
 npm run test:browser      # run the browser tests of the settings pages, which need Google Chrome
 npm run check:docs        # every function, class, method and constructor has a doc comment
 npm run check:ui          # settings pages: no remote resources, CSP on every page, vendored file matches its hash

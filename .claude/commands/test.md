@@ -1,5 +1,5 @@
 ---
-description: Run the unit tests and the browser tests, and report the failures
+description: Run the unit and integration tests and the browser tests, and report the failures
 allowed-tools: Bash(npm test), Bash(npm test -- *), Bash(npm run test:browser), Bash(npm run test:browser -- *)
 ---
 
@@ -7,8 +7,8 @@ allowed-tools: Bash(npm test), Bash(npm test -- *), Bash(npm run test:browser), 
 
 Run the tests from CI's `tests` job, from the repository root, in this order:
 
-1. The unit tests, with `npm test`.
-1. The browser tests, with `npm run test:browser`. They drive the settings pages in a headless Chrome, so they need Chrome installed. Run them even when the unit tests fail.
+1. The unit tests and the integration tests, with `npm test`.
+1. The browser tests, with `npm run test:browser`. They drive the settings pages in a headless Chrome, so they need Chrome installed. Run them even when the unit or integration tests fail.
 
 To rerun a single file while looking into a failure, pass it after `--` (`npm test -- src/litra-manager.test.ts`). The linters have their own command, `/lint`, and `/ci` runs both.
 
