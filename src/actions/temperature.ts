@@ -16,6 +16,7 @@ import {
   adjustTemperatureAllByKelvinSteps,
   type BroadcastResult,
   createDialDebouncer,
+  onLampsChanged,
   readRepresentativeTemperatureKelvin,
   setTemperatureAllInKelvin,
   toggleAll,
@@ -39,10 +40,12 @@ export class TemperatureAction extends SingletonAction {
 
   private readonly lampScreens: LampScreens;
 
-  /** Takes the lamp screens that every dial shares, or the tests' own. */
+  /** Takes the lamp screens that every dial shares, or the tests' own, and subscribes the dials to every change. */
   constructor(lampScreens: LampScreens = sharedLampScreens) {
     super();
     this.lampScreens = lampScreens;
+    // Every dial follows the lamps, whichever key or dial changed them, this action's own included.
+    onLampsChanged(() => this.syncEveryDial());
   }
 
   /** Shows the key's preset, or starts a dial on its main screen with the lamps' value, when the action appears. */
@@ -65,7 +68,10 @@ export class TemperatureAction extends SingletonAction {
     await this.refreshDisplay(ev.action, ev.payload.settings);
   }
 
-  /** Sets every lamp to the key's preset, and shows the result on every dial. */
+  /**
+   * Sets every lamp to the key's preset. The key keeps showing its preset, and the dials follow through the subscription
+   * with the temperature the lamps were set to: the preset snapped to an allowed one.
+   */
   override async onKeyDown(ev: KeyDownEvent): Promise<void> {
     const { presetKelvin: preset } = parseSettings(ev.payload.settings, temperatureSettings, logger);
     logger.info(`Key pressed: preset ${preset} K`);
@@ -73,8 +79,6 @@ export class TemperatureAction extends SingletonAction {
     if (!result.ok) {
       await ev.action.showAlert();
     }
-    // The key shows its preset, and the dials the temperature the lamps were set to: the preset snapped to an allowed one.
-    await this.showOnEveryDial(result);
   }
 
   /** Dial press toggles power, or blinks the lamp on a lamp screen; rotate adjusts temperature. */
@@ -88,9 +92,7 @@ export class TemperatureAction extends SingletonAction {
     const result = toggleAll();
     if (!result.ok) {
       await ev.action.showAlert();
-      return;
     }
-    await this.refreshDisplay(ev.action, ev.payload.settings);
   }
 
   /** Tapping the strip shows the lamps one by one, and holding it goes back to the main screen. */
@@ -106,7 +108,7 @@ export class TemperatureAction extends SingletonAction {
 
   /**
    * Steps the temperature by the dial's ticks, gathered for a moment so a quick turn moves the lamps once, with the
-   * settings the dial has when they are applied.
+   * settings the dial has when they are applied. The dials follow through the subscription.
    */
   override async onDialRotate(ev: DialRotateEvent): Promise<void> {
     const id = ev.action.id;
@@ -125,7 +127,6 @@ export class TemperatureAction extends SingletonAction {
         if (!result.ok) {
           await ev.action.showAlert();
         }
-        await this.showOnEveryDial(result);
       });
       this.dialQueues.set(id, queue);
     }
@@ -139,8 +140,7 @@ export class TemperatureAction extends SingletonAction {
       return;
     }
 
-    const result = readRepresentativeTemperatureKelvin();
-    await this.showDialValue(action, result.ok ? result : undefined);
+    await this.showDialValue(action, await readRepresentativeTemperatureKelvin());
   }
 
   /** Writes the preset as the key's title, which the user can replace or hide. */
@@ -148,10 +148,18 @@ export class TemperatureAction extends SingletonAction {
     await action.setTitle(`${Math.round(kelvin)}`);
   }
 
-  /** Shows the temperature on every visible dial of this action, since they all describe the same lamps. */
-  private async showOnEveryDial(result: BroadcastResult): Promise<void> {
-    for (const action of this.actions) {
-      await this.showDialValue(action, result);
+  /**
+   * Shows what the lamps are at on every visible dial of this action, from one read, since they all describe the same
+   * lamps. The first lamp that answers stands for them, and nothing is read when no dial shows the temperature.
+   */
+  private async syncEveryDial(): Promise<void> {
+    const dials = [...this.actions].filter((action) => action.isDial() && !this.lampScreens.isShowing(action.id));
+    if (dials.length === 0) {
+      return;
+    }
+    const result = await readRepresentativeTemperatureKelvin();
+    for (const dial of dials) {
+      await this.showDialValue(dial, result);
     }
   }
 

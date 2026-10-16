@@ -603,8 +603,12 @@ async function moveBrightnessAll(
   }
 }
 
-/** Reads every lamp and reports the brightest, and every lamp's percentage. */
-export function readRepresentativeBrightnessPercentage(): BroadcastResult {
+/**
+ * Reads every lamp and reports the brightest, and every lamp's percentage. Waits for the brightness change in progress,
+ * if any, which holds the lamps open until it has read them back.
+ */
+export async function readRepresentativeBrightnessPercentage(): Promise<BroadcastResult> {
+  await brightnessChanges;
   let representative: number | undefined;
   let representativeLumen: number | undefined;
   const percentages: number[] = [];
@@ -756,8 +760,12 @@ export function adjustTemperatureAllByKelvinSteps(ticks: number, stepKelvin: num
   });
 }
 
-/** Reads the first lamp that answers, whose temperature the dial shows. */
-export function readRepresentativeTemperatureKelvin(): BroadcastResult {
+/**
+ * Reads the first lamp that answers, whose temperature the dial shows. Waits for the brightness change in progress, if
+ * any, which holds the lamps open until it has read them back.
+ */
+export async function readRepresentativeTemperatureKelvin(): Promise<BroadcastResult> {
+  await brightnessChanges;
   let representative: number | undefined;
   let representativePercentage: number | undefined;
   const operation = "read temperature";
