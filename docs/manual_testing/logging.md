@@ -4,7 +4,7 @@
 - [Setup](#setup)
 - [Checks](#checks)
 
-The unit tests check against a temporary folder how the log files are written and rotated, and against fake lamps what each situation logs (see [the logging document][logging]). The checks below cover what they take for granted: that the plugin, as Stream Deck starts it, writes its log to the plugin folder, that a restart carries the file on instead of starting a new one, and that the lines read as a story of what happened on the Deck.
+The unit tests check against a temporary folder how the log files are written and rotated, and against emulated lamps what each situation logs (see [the logging document][logging]). The checks below cover what they take for granted: that the plugin, as Stream Deck starts it, writes its log to the plugin folder, that a restart carries the file on instead of starting a new one, and that the lines read as a story of what happened on the Deck.
 
 ## When to run these checks
 
