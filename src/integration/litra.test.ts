@@ -13,7 +13,7 @@ let connect: (...lamps: EmulatedLitra[]) => void;
 beforeEach(async () => {
   ({
     loaded: { litra, manager },
-    connect,
+    hid: { connect },
   } = await loadOnEmulatedLamps(async () => ({
     litra: await import("litra"),
     manager: await import("../litra-manager"),
