@@ -10,6 +10,7 @@
       "src/**/*.ts",
       "browser-tests/**/*.ts",
       "scripts/**/*.mjs",
+      "scripts/**/*.test.ts",
       "*.mjs",
       "com.daczarne.litra.sdPlugin/ui/*.js"
     ]
