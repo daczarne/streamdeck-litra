@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Guards the Property Inspector pages against remote code:
- * - no `src` / `href` in ui/*.html may point at a remote URL
+ * - no `src` / `href` in ui/*.html may point at a remote URL, even in a tag split across lines
  * - every ui/*.html must declare the Content-Security-Policy below, and have no inline script it would block
  * - the vendored sdpi-components build must match its pinned sha256
  */
@@ -32,21 +32,44 @@ const CSP = [
 
 const REMOTE_ATTR = /\b(?:src|href)\s*=\s*["']?\s*(?:[a-z][a-z0-9+.-]*:)?\/\//gi;
 const CSP_META = /<meta\s+http-equiv="Content-Security-Policy"\s+content="([^"]*)"/i;
-const INLINE_SCRIPT = /<script\b(?![^>]*\bsrc\s*=)[^>]*>/i;
+const INLINE_SCRIPT = /<script\b(?![^>]*\bsrc\s*=)[^>]*>/gi;
 
 const errors = [];
 
+/**
+ * The line a position in a page falls on, counted from 1.
+ *
+ * @param {string} html the page
+ * @param {number} index the position, in characters from the start
+ * @returns {number}
+ */
+function lineAt(html, index) {
+  return html.slice(0, index).split("\n").length;
+}
+
+/**
+ * The tag around a position in a page, with its whitespace collapsed, since a tag may span several lines.
+ *
+ * @param {string} html the page
+ * @param {number} index a position inside the tag
+ * @returns {string}
+ */
+function tagAt(html, index) {
+  const start = html.lastIndexOf("<", index);
+  const end = html.indexOf(">", index);
+  return html.slice(start, end === -1 ? undefined : end + 1).replace(/\s+/g, " ");
+}
+
 for (const name of readdirSync(uiDir).filter((f) => f.endsWith(".html"))) {
   const html = readFileSync(path.join(uiDir, name), "utf8");
-  html.split("\n").forEach((line, i) => {
-    if (REMOTE_ATTR.test(line)) {
-      errors.push(`ui/${name}:${i + 1}: remote resource: ${line.trim()}`);
-    }
-    REMOTE_ATTR.lastIndex = 0;
-    if (INLINE_SCRIPT.test(line)) {
-      errors.push(`ui/${name}:${i + 1}: inline script, which the Content-Security-Policy blocks: ${line.trim()}`);
-    }
-  });
+  // Matched against the whole page, so that a tag split across lines is checked like one on a single line.
+  for (const { index } of html.matchAll(REMOTE_ATTR)) {
+    errors.push(`ui/${name}:${lineAt(html, index)}: remote resource: ${tagAt(html, index)}`);
+  }
+  for (const { index } of html.matchAll(INLINE_SCRIPT)) {
+    const tag = tagAt(html, index);
+    errors.push(`ui/${name}:${lineAt(html, index)}: inline script, which the Content-Security-Policy blocks: ${tag}`);
+  }
 
   const policy = html.match(CSP_META)?.[1]?.trim().replace(/\s+/g, " ");
   if (policy === undefined) {
