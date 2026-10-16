@@ -71,6 +71,10 @@ const BRIGHTNESS_CHANGED = 0x40;
 // How long a capped lamp keeps the brightness it was sent before it lowers it to its cap, as the probes measured.
 export const CAP_DELAY_MS = 100;
 
+// How long after a request above its cap a capped lamp goes back to its cap, undoing a lower brightness written in
+// between. The probes saw it happen between 0.5 s and 1.25 s after the request.
+export const CAP_REVERSAL_MS = 1000;
+
 // An error report has 0xff where the feature goes, then the feature and function it refuses, then its code. The lamps
 // have been seen sending 0x02 (invalid argument). The other codes are HID++ 2.0's, and unchecked on a lamp.
 const ERROR = 0xff;
@@ -115,9 +119,9 @@ function bigEndian(value: number): [number, number] {
  *
  * A capped lamp, like a Beam on a low-power supply, also behaves as measured: sent more than its cap, it takes the
  * brightness it was sent, then lowers it to its cap after {@link CAP_DELAY_MS} and sends a change notice. Sent more
- * than its cap while already at it, it refuses with an error report, followed by a change notice. Some lamps also go
- * back to their cap up to about a second after a request above it, undoing a lower brightness written in between: that
- * isn't emulated.
+ * than its cap while already at it, it refuses with an error report, followed by a change notice. Either way, it goes
+ * back to its cap {@link CAP_REVERSAL_MS} after the request, without a notice, undoing a lower brightness written in
+ * between, as three of the four lamp and port pairs measured did.
  */
 export class EmulatedLitra {
   /** The lamp as node-hid lists it. */
@@ -131,6 +135,8 @@ export class EmulatedLitra {
   readonly written: number[][] = [];
   // The lowering to the cap that a write above it has started, which a later brightness write replaces.
   private lowerToCap: ReturnType<typeof setTimeout> | undefined;
+  // The return to the cap that a request above it has started, which a later request above it restarts.
+  private backToCap: ReturnType<typeof setTimeout> | undefined;
   // The reports waiting on each open handle, to be read.
   private readonly inputs = new Set<number[][]>();
   private readonly failingCalls = new Set<FailingCall>();
@@ -281,6 +287,11 @@ export class EmulatedLitra {
       this.brightnessInLumen = lumen;
       return [padded([REPORT_ID, DEVICE_INDEX, feature, BRIGHTNESS_SET])];
     }
+    clearTimeout(this.backToCap);
+    this.backToCap = setTimeout(() => {
+      this.backToCap = undefined;
+      this.brightnessInLumen = cap;
+    }, CAP_REVERSAL_MS);
     const notice = padded([REPORT_ID, DEVICE_INDEX, feature, BRIGHTNESS_CHANGED, 0x01, ...bigEndian(cap)]);
     if (this.brightnessInLumen === cap) {
       return [padded([REPORT_ID, DEVICE_INDEX, ERROR, feature, BRIGHTNESS_SET, INVALID_ARGUMENT]), notice];

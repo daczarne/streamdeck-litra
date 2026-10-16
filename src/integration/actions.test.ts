@@ -130,6 +130,24 @@ describe("the Brightness action", () => {
     });
   });
 
+  it("keeps the lamps where a dial turned down right after a press past their caps leaves them (#55)", async () => {
+    // Two Beams on the Stream Deck + XL's USB hub, which stop at 63% and 79%, and can go back to their caps for about a
+    // second after being asked for more.
+    const pair = [beam({ capInLumen: 264 }), beam({ capInLumen: 324 })];
+    plugIn(...pair);
+    const key = await deck.key(BRIGHTNESS, { presetPercentage: 100 });
+    const dial = await deck.dial(BRIGHTNESS, { stepPercentage: 10 });
+
+    await deck.quickly(() => {
+      void deck.press(key);
+      void deck.turn(dial, -3);
+    });
+
+    // Three steps of 10% down from 79%.
+    expect(pair.map((lamp) => lamp.brightnessInLumen)).toEqual([LUMEN_AT_50, LUMEN_AT_50]);
+    expect(feedbackOf(dial)).toMatchObject({ value: "50%" });
+  });
+
   it("moves the lamps once for a quick turn, with the step the dial has by then", async () => {
     const pair = [beam(), beam()];
     plugIn(...pair);
