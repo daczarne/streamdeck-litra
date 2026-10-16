@@ -18,11 +18,12 @@ Not an official Logitech or Elgato product.
 
 ## Actions
 
-|                       | Action          | Key                     | Dial (Stream Deck +)                                               |
-|:---------------------:|:----------------|:------------------------|:-------------------------------------------------------------------|
-|    ![Power][power]    | **Power**       | On, off or toggle       | None                                                               |
-| ![Brightness][bright] | **Brightness**  | Jump to a preset %      | Rotate to adjust, press toggles power, tap the strip for each lamp |
-| ![Temperature][temp]  | **Temperature** | Jump to a preset Kelvin | Rotate to adjust, press toggles power, tap the strip for each lamp |
+|                       | Action          | Key                                        | Dial (Stream Deck +)                                               |
+|:---------------------:|:----------------|:-------------------------------------------|:-------------------------------------------------------------------|
+|    ![Power][power]    | **Power**       | On, off or toggle                          | None                                                               |
+| ![Brightness][bright] | **Brightness**  | Jump to a preset %                         | Rotate to adjust, press toggles power, tap the strip for each lamp |
+| ![Temperature][temp]  | **Temperature** | Jump to a preset Kelvin                    | Rotate to adjust, press toggles power, tap the strip for each lamp |
+|    ![Scene][scene]    | **Scene**       | Turn the lamps on at a preset % and Kelvin | None                                                               |
 
 - Every action applies to all connected lamps at once. There is no per-lamp picker yet.
 - The plugin talks to the lamps in-process over USB HID, through the [`litra`][litra] Node library, with no CLI subprocess.
@@ -123,6 +124,7 @@ To take a change to the glyphs, update the commit the dependency is pinned to, r
 
 - A Power key shows on only when every lamp is on. Every Power key, dial and lamp screen follows changes made by any key or dial. Changes made with a lamp's own buttons show at the next change made through the plugin.
 - Brightness and temperature keys show their preset value, as a bare number at the bottom of the key, set by the plugin. A title typed in the key's settings replaces it, and the **Show Title** box under the **T** menu hides it.
+- A Scene key turns every lamp on, then sets its temperature and brightness in one press, so one key goes to a setup and another comes back. It shows only its image: a title typed in its settings shows at the bottom.
 - Dials look like Stream Deck's own volume dials: the value, with a bar under it. The keys, and the dials' pictures in the Stream Deck app, show the same line icon as the strip. The temperature bar runs from the lamp's warmest setting (empty) to its coolest (full). The brightness bar is white up to the dimmest lamp's level, and a lighter grey from there to the brightest lamp's, the part only some lamps reach. Their title says what they control ("Brightness", "Temperature"), and can be replaced or hidden like a key's. Rotating adjusts, pressing toggles the front light.
 - Tapping a dial's part of the strip shows one screen per lamp: its model, whether it's on, its brightness in % and lumens, and its temperature. Each tap shows the next lamp, in the order of their serial numbers, and the dial's own screen after the last. The dial stays on a lamp screen until the strip is held, which goes back to the dial's own screen right away. On a lamp screen, pressing the dial blinks that lamp once, to show which one it is, and turning does nothing.
 - A dial turns by the step in its settings, and stops on the multiples of that step counted from the bottom of the range (0% or 2700 K), the same values going up as going down. From a value between two of them, such as a lamp's cap or a key's preset, the first step goes to the next one in the direction of the turn. When the step doesn't divide the range, the last step to 100% or 6500 K is shorter.
@@ -149,7 +151,7 @@ The policy allows only what the pages need:
 | `base-uri 'none'`              | No `<base>` element, which would change where relative paths point.                 |
 | `form-action 'none'`           | No form submissions.                                                                |
 
-Since inline scripts are blocked, the scripts shared by the brightness and temperature pages live in `ui/`: `controller-toggle.js` shows the key or the dial settings, and `range-value.js` shows each slider's value. The policy is repeated in each page and in [`scripts/check-ui.mjs`][check-ui], so a change to it updates all of them and the table above.
+Since inline scripts are blocked, the pages' scripts live in `ui/`: `controller-toggle.js` shows the key or the dial settings on the Brightness and Temperature pages, and `range-value.js` shows each slider's value. The policy is repeated in each page and in [`scripts/check-ui.mjs`][check-ui], so a change to it updates all of them and the table above.
 
 ## Third-party code
 
@@ -182,6 +184,7 @@ The plugin is MIT licensed: see [`LICENSE`][license].
 [manual-test]: docs/manual_testing/settings_pages.md
 [n]: https://github.com/tj/n
 [power]: com.daczarne.litra.sdPlugin/imgs/actions/power/icon@2x.png
+[scene]: com.daczarne.litra.sdPlugin/imgs/actions/scene/icon@2x.png
 [sdk]: https://docs.elgato.com/streamdeck
 [sdpi]: https://github.com/GeekyEggo/sdpi-components
 [sdpi-source]: https://github.com/GeekyEggo/sdpi-components/blob/v4.0.1/dist/sdpi-components.js
