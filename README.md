@@ -1,6 +1,6 @@
 # Litra for Stream Deck
 
-A Stream Deck plugin that controls Logitech Litra lights over USB, without Logitech's software. It is a personal fork of an abandoned plugin by Seth Sheppard. It isn't published: it runs linked from this repository, so the Deck always runs whatever is built from the checked-out branch.
+A Stream Deck plugin that controls Logitech Litra lights over USB, without Logitech's software. It is a fork of an abandoned plugin by Seth Sheppard. It isn't published: it runs linked from this repository, so the Deck always runs whatever is built from the checked-out branch.
 
 Not an official Logitech or Elgato product.
 
@@ -26,7 +26,7 @@ Not an official Logitech or Elgato product.
 
 - Every action applies to all connected lamps at once. There is no per-lamp picker yet.
 - The plugin talks to the lamps in-process over USB HID, through the [`litra`][litra] Node library, with no CLI subprocess.
-- The brightness is read from two bytes. The stock `litra` library only reads the low one, which truncates values above 255 lumens, where both Beams go.
+- The brightness is read from two bytes. The stock `litra` library only reads the low one, which truncates values above 255 lumens, where a Beam goes.
 
 ## Supported hardware
 
@@ -40,7 +40,7 @@ The plugin is made and checked on Litra Beams. The Beam LX and the Glow take the
 
 The Beam LX back light (RGB and G HUB effect presets) isn't supported. The research notes are in [`ref/hid-captures/NOTES.md`][hid-notes].
 
-Lamps connect over USB only: the underlying HID stack doesn't support Bluetooth. A lamp plugged into a hub with limited power may cap its brightness. On the Stream Deck + XL's hub (7.5 W), a Beam stops between about 60% and 80%, depending on the port and the lamp, while plugged into the computer it reaches 100%. The plugin learns each lamp's cap the first time the lamp falls short of what it was sent, and never asks it for more until the lamp is plugged in again, which is how it moves to another power supply. Right after it learns one, the next brightness change waits about a second, since until then the lamp can undo it.
+Lamps connect over USB only: the underlying HID stack doesn't support Bluetooth. A lamp plugged into a hub with limited power may cap its brightness. On a Stream Deck + XL's hub (7.5 W), a Beam stops between about 60% and 80%, depending on the port and the lamp, while plugged into the computer it reaches 100%. The plugin learns each lamp's cap the first time the lamp falls short of what it was sent, and never asks it for more until the lamp is plugged in again, which is how it moves to another power supply. Right after it learns one, the next brightness change waits about a second, since until then the lamp can undo it.
 
 ## Requirements
 

@@ -69,6 +69,6 @@ defaults delete com.elgato.StreamDeck html_remote_debugging_enabled
 Remove `localhost:23654` from the targets in `chrome://inspect` too.
 
 > [!WARNING]
-> The port has no authentication: while it's open, any process on the Mac can connect to it and run code in the pages.
+> The port has no authentication: while it's open, any process on the computer can connect to it and run code in the pages.
 
 [property-inspector]: ../elgato_sdk/property_inspector.md

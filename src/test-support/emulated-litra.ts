@@ -97,7 +97,7 @@ type EmulatedLitraOptions = {
   on?: boolean | undefined;
   brightnessInLumen?: number | undefined;
   temperatureInKelvin?: number | undefined;
-  /** The brightness the lamp can't go above, like a Beam on the Stream Deck + XL's USB hub. None by default. */
+  /** The brightness the lamp can't go above, like a Beam on a Stream Deck + XL's USB hub. None by default. */
   capInLumen?: number | undefined;
 };
 

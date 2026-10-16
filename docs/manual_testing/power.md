@@ -13,7 +13,7 @@ The unit tests check against emulated lamps how a toggle chooses one state for e
 
 ## Setup
 
-Plug in both Beams. Place two Power keys in their default toggle mode, a Brightness key, a Brightness dial and a Temperature dial on the Deck. Build the branch and restart the plugin:
+Plug in two Beams. Place two Power keys in their default toggle mode, a Brightness key, a Brightness dial and a Temperature dial on the Deck. Build the branch and restart the plugin:
 
 ```shell
 npm run build

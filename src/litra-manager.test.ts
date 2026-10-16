@@ -200,7 +200,7 @@ describe("stepOnGrid", () => {
   });
 
   it("takes a value off the grid to the next grid value in the direction of the turn", () => {
-    // The 79% cap of a Beam on the Stream Deck + XL's hub, with a 5% step.
+    // The 79% cap of a Beam on a Stream Deck + XL's hub, with a 5% step.
     expect(manager.stepOnGrid(79, 1, 5, 0, 100)).toBe(80);
     expect(manager.stepOnGrid(79, -1, 5, 0, 100)).toBe(75);
     expect(manager.stepOnGrid(77, -1, 5, 0, 100)).toBe(75);
@@ -792,7 +792,7 @@ describe("setBrightnessAllPercentage", () => {
   });
 
   it("reports the brightness the lamps reached, not the percentage asked for (#29)", async () => {
-    // On the Stream Deck + XL's USB hub, a Beam stops below what it's asked for.
+    // On a Stream Deck + XL's USB hub, a Beam stops below what it's asked for.
     connect(beam({ capInLumen: 244 }), beam({ capInLumen: 324 }));
 
     const result = await set(100);
@@ -823,17 +823,17 @@ describe("setBrightnessAllPercentage", () => {
   });
 
   it("forgets a lamp's cap once it's plugged in again, and sends it more (#55)", async () => {
-    // A Beam on the Stream Deck + XL's USB hub, then plugged into the Mac, where it isn't capped.
-    const onTheHub = beam({ capInLumen: 244 });
-    connect(onTheHub);
+    // A Beam on a Stream Deck + XL's USB hub, then plugged into the computer, where it isn't capped.
+    const onAHub = beam({ capInLumen: 244 });
+    connect(onAHub);
     await set(100);
 
-    const onTheMac = beam({ serialNumber: onTheHub.serialNumber });
-    connect(onTheMac);
+    const onTheComputer = beam({ serialNumber: onAHub.serialNumber });
+    connect(onTheComputer);
     await set(100);
 
-    expect(onTheMac.writes("brightness")).toEqual([BEAM_MAX_LUMEN]);
-    expect(onTheMac.brightnessInLumen).toBe(BEAM_MAX_LUMEN);
+    expect(onTheComputer.writes("brightness")).toEqual([BEAM_MAX_LUMEN]);
+    expect(onTheComputer.brightnessInLumen).toBe(BEAM_MAX_LUMEN);
   });
 
   it("keeps a lamp's cap while it stays plugged in, when another lamp is plugged in again (#55)", async () => {
@@ -991,7 +991,7 @@ describe("adjustBrightnessAllByPercentageSteps", () => {
   });
 
   it("steps down from a lamp's cap to the multiple of the step below it (#14)", async () => {
-    // A Beam capped at 70% on the Stream Deck + XL's USB hub, turned up past it with a 20% step.
+    // A Beam capped at 70% on a Stream Deck + XL's USB hub, turned up past it with a 20% step.
     const lamp = beam({ brightnessInLumen: lumenAt(60), capInLumen: lumenAt(70) });
     connect(lamp);
 
@@ -1002,7 +1002,7 @@ describe("adjustBrightnessAllByPercentageSteps", () => {
   });
 
   it("reports the brightness the lamp reached, not the one requested (#13)", async () => {
-    // On the Stream Deck + XL's USB hub, a Beam stops below what it's asked for.
+    // On a Stream Deck + XL's USB hub, a Beam stops below what it's asked for.
     const lamp = beam({ brightnessInLumen: lumenAt(70), capInLumen: lumenAt(70) });
     connect(lamp);
 
