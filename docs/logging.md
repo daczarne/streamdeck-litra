@@ -48,22 +48,22 @@ A run that presses a 100% key with both lamps on the hub, again once the left la
 ```text
 2026-10-16T21:07:22.384Z INFO  Plugin started
 2026-10-16T21:07:25.269Z INFO  Brightness: Key pressed: preset 100%
-2026-10-16T21:07:25.287Z INFO  Lamps: set brightness: Beam …<leftSerial> turned on
-2026-10-16T21:07:25.291Z INFO  Lamps: set brightness: Beam …<rightSerial> turned on
-2026-10-16T21:07:25.549Z INFO  Lamps: set brightness: Beam …<leftSerial> sent 400 lm, reached 324 lm (79%)
-2026-10-16T21:07:25.550Z INFO  Lamps: set brightness: Beam …<leftSerial> capped at 324 lm
-2026-10-16T21:07:25.552Z INFO  Lamps: set brightness: Beam …<rightSerial> sent 400 lm, reached 244 lm (58%)
-2026-10-16T21:07:25.553Z INFO  Lamps: set brightness: Beam …<rightSerial> capped at 244 lm
+2026-10-16T21:07:25.287Z INFO  Lamps: set brightness: Beam …<serialNumber> turned on
+2026-10-16T21:07:25.291Z INFO  Lamps: set brightness: Beam …<serialNumber> turned on
+2026-10-16T21:07:25.549Z INFO  Lamps: set brightness: Beam …<serialNumber> sent 400 lm, reached 324 lm (79%)
+2026-10-16T21:07:25.550Z INFO  Lamps: set brightness: Beam …<serialNumber> capped at 324 lm
+2026-10-16T21:07:25.552Z INFO  Lamps: set brightness: Beam …<serialNumber> sent 400 lm, reached 244 lm (58%)
+2026-10-16T21:07:25.553Z INFO  Lamps: set brightness: Beam …<serialNumber> capped at 244 lm
 2026-10-16T21:07:45.328Z INFO  Brightness: Key pressed: preset 100%
-2026-10-16T21:07:45.347Z INFO  Lamps: set brightness: Beam …<leftSerial> turned on
-2026-10-16T21:07:45.350Z INFO  Lamps: set brightness: Beam …<leftSerial> was plugged in again, its cap of 324 lm is forgotten
-2026-10-16T21:07:45.606Z INFO  Lamps: set brightness: Beam …<rightSerial> sent 244 lm, reached 244 lm (58%)
-2026-10-16T21:07:45.609Z INFO  Lamps: set brightness: Beam …<leftSerial> sent 400 lm, reached 400 lm (100%)
+2026-10-16T21:07:45.347Z INFO  Lamps: set brightness: Beam …<serialNumber> turned on
+2026-10-16T21:07:45.350Z INFO  Lamps: set brightness: Beam …<serialNumber> was plugged in again, its cap of 324 lm is forgotten
+2026-10-16T21:07:45.606Z INFO  Lamps: set brightness: Beam …<serialNumber> sent 244 lm, reached 244 lm (58%)
+2026-10-16T21:07:45.609Z INFO  Lamps: set brightness: Beam …<serialNumber> sent 400 lm, reached 400 lm (100%)
 2026-10-16T21:08:02.633Z INFO  Brightness: Key pressed: preset 100%
-2026-10-16T21:08:02.651Z INFO  Lamps: set brightness: Beam …<leftSerial> turned on
-2026-10-16T21:08:02.909Z INFO  Lamps: set brightness: Beam …<rightSerial> sent 244 lm, reached 244 lm (58%)
-2026-10-16T21:08:02.911Z INFO  Lamps: set brightness: Beam …<leftSerial> sent 400 lm, reached 320 lm (78%)
-2026-10-16T21:08:02.912Z INFO  Lamps: set brightness: Beam …<leftSerial> capped at 320 lm
+2026-10-16T21:08:02.651Z INFO  Lamps: set brightness: Beam …<serialNumber> turned on
+2026-10-16T21:08:02.909Z INFO  Lamps: set brightness: Beam …<serialNumber> sent 244 lm, reached 244 lm (58%)
+2026-10-16T21:08:02.911Z INFO  Lamps: set brightness: Beam …<serialNumber> sent 400 lm, reached 320 lm (78%)
+2026-10-16T21:08:02.912Z INFO  Lamps: set brightness: Beam …<serialNumber> capped at 320 lm
 ```
 
 A lamp plugged in again starts off, so it's turned on first. Back on the hub, the left lamp has no cap to forget, since it never fell short on the Mac.
