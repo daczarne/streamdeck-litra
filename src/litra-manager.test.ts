@@ -1152,11 +1152,11 @@ describe("a lamp going back to its cap (#55)", () => {
 });
 
 describe("readRepresentativeBrightnessPercentage", () => {
-  it("reads every lamp and reports the brightest, with its lumens", () => {
+  it("reads every lamp and reports the brightest, with its lumens", async () => {
     const [first, second] = [beam({ brightnessInLumen: lumenAt(20) }), beam({ brightnessInLumen: lumenAt(50) })];
     connect(first, second);
 
-    expect(manager.readRepresentativeBrightnessPercentage()).toEqual({
+    expect(await manager.readRepresentativeBrightnessPercentage()).toEqual({
       ok: true,
       deviceCount: 2,
       failures: 0,
@@ -1167,12 +1167,12 @@ describe("readRepresentativeBrightnessPercentage", () => {
     expect([closes(first), closes(second)]).toEqual([1, 1]);
   });
 
-  it("reports the lamps it could read when one can't be read", () => {
+  it("reports the lamps it could read when one can't be read", async () => {
     const first = beam({ brightnessInLumen: lumenAt(50) });
     first.fail("readSync");
     connect(first, beam({ brightnessInLumen: lumenAt(20) }));
 
-    expect(manager.readRepresentativeBrightnessPercentage()).toEqual({
+    expect(await manager.readRepresentativeBrightnessPercentage()).toEqual({
       ok: false,
       deviceCount: 2,
       failures: 1,
@@ -1180,6 +1180,16 @@ describe("readRepresentativeBrightnessPercentage", () => {
       representativeBrightnessLumen: lumenAt(20),
       brightnessPercentages: [20],
     });
+  });
+
+  it("waits for the brightness change in progress", async () => {
+    connect(beam());
+
+    const [, read] = await settled(
+      Promise.all([manager.setBrightnessAllPercentage(40), manager.readRepresentativeBrightnessPercentage()]),
+    );
+
+    expect(read.representativeBrightnessPercentage).toBe(40);
   });
 });
 
@@ -1400,11 +1410,11 @@ describe("identifyLamp", () => {
 });
 
 describe("readRepresentativeTemperatureKelvin", () => {
-  it("reads only the first lamp, with its place in the range, but closes every handle", () => {
+  it("reads only the first lamp, with its place in the range, but closes every handle", async () => {
     const [first, second] = [beam({ temperatureInKelvin: 3500 }), beam({ temperatureInKelvin: 3500 })];
     connect(first, second);
 
-    expect(manager.readRepresentativeTemperatureKelvin()).toEqual({
+    expect(await manager.readRepresentativeTemperatureKelvin()).toEqual({
       ok: true,
       deviceCount: 2,
       failures: 0,
@@ -1413,6 +1423,20 @@ describe("readRepresentativeTemperatureKelvin", () => {
     });
     expect([first.queries("temperature"), second.queries("temperature")]).toEqual([1, 0]);
     expect([closes(first), closes(second)]).toEqual([1, 1]);
+  });
+
+  it("waits for the brightness change in progress", async () => {
+    const lamp = beam();
+    connect(lamp);
+
+    await settled(
+      Promise.all([manager.setBrightnessAllPercentage(100), manager.readRepresentativeTemperatureKelvin()]),
+    );
+
+    // The change reads its lamp back before the lamps are opened again to read their temperature.
+    expect(at(positions(lamp, "write", "brightness query"), -1)).toBeLessThan(
+      at(positions(lamp, "write", "temperature query"), -1),
+    );
   });
 });
 

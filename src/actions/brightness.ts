@@ -15,6 +15,7 @@ import type { JsonObject } from "@elgato/utils";
 import {
   adjustBrightnessAllByPercentageSteps,
   createDialDebouncer,
+  onLampsChanged,
   readRepresentativeBrightnessPercentage,
   setBrightnessAllPercentage,
   toggleAll,
@@ -70,10 +71,12 @@ export class BrightnessAction extends SingletonAction {
 
   private readonly lampScreens: LampScreens;
 
-  /** Takes the lamp screens that every dial shares, or the tests' own. */
+  /** Takes the lamp screens that every dial shares, or the tests' own, and subscribes the dials to every change. */
   constructor(lampScreens: LampScreens = sharedLampScreens) {
     super();
     this.lampScreens = lampScreens;
+    // Every dial follows the lamps, whichever key or dial changed them, this action's own included.
+    onLampsChanged(() => this.syncEveryDial());
   }
 
   /** Shows the key's preset, or starts a dial on its main screen with the lamps' value, when the action appears. */
@@ -96,7 +99,10 @@ export class BrightnessAction extends SingletonAction {
     await this.refreshDisplay(ev.action, ev.payload.settings);
   }
 
-  /** Sets every lamp to the key's preset, and shows the result on every dial. */
+  /**
+   * Sets every lamp to the key's preset. The key keeps showing its preset, and the dials follow through the subscription
+   * with what the lamps reached, which is less for a lamp at its cap.
+   */
   override async onKeyDown(ev: KeyDownEvent): Promise<void> {
     const { presetPercentage: preset } = parseSettings(ev.payload.settings, brightnessSettings, logger);
     logger.info(`Key pressed: preset ${preset}%`);
@@ -104,8 +110,6 @@ export class BrightnessAction extends SingletonAction {
     if (!result.ok) {
       await ev.action.showAlert();
     }
-    // The key shows its preset, and the dials what the lamps reached, which is less for a lamp at its cap.
-    await this.showOnEveryDial(result.brightnessPercentages);
   }
 
   /** Dial press toggles power, or blinks the lamp on a lamp screen; rotate adjusts brightness. */
@@ -119,9 +123,7 @@ export class BrightnessAction extends SingletonAction {
     const result = toggleAll();
     if (!result.ok) {
       await ev.action.showAlert();
-      return;
     }
-    await this.refreshDisplay(ev.action, ev.payload.settings);
   }
 
   /** Tapping the strip shows the lamps one by one, and holding it goes back to the main screen. */
@@ -137,7 +139,7 @@ export class BrightnessAction extends SingletonAction {
 
   /**
    * Steps the brightness by the dial's ticks, gathered for a moment so a quick turn moves the lamps once, with the
-   * settings the dial has when they are applied.
+   * settings the dial has when they are applied. The dials follow through the subscription.
    */
   override async onDialRotate(ev: DialRotateEvent): Promise<void> {
     const id = ev.action.id;
@@ -156,7 +158,6 @@ export class BrightnessAction extends SingletonAction {
         if (!result.ok) {
           await ev.action.showAlert();
         }
-        await this.showOnEveryDial(result.brightnessPercentages);
       });
       this.dialQueues.set(id, queue);
     }
@@ -170,8 +171,7 @@ export class BrightnessAction extends SingletonAction {
       return;
     }
 
-    const result = readRepresentativeBrightnessPercentage();
-    await this.showDialValue(action, result.ok ? result.brightnessPercentages : undefined);
+    await this.showDialValue(action, (await readRepresentativeBrightnessPercentage()).brightnessPercentages);
   }
 
   /** Writes the preset as the key's title, which the user can replace or hide. */
@@ -179,10 +179,18 @@ export class BrightnessAction extends SingletonAction {
     await action.setTitle(`${Math.round(percentage)}`);
   }
 
-  /** Shows the brightness on every visible dial of this action, since they all describe the same lamps. */
-  private async showOnEveryDial(levels: number[] | undefined): Promise<void> {
-    for (const action of this.actions) {
-      await this.showDialValue(action, levels);
+  /**
+   * Shows what the lamps are at on every visible dial of this action, from one read, since they all describe the same
+   * lamps. A lamp that can't be read is left out, and nothing is read when no dial shows the brightness.
+   */
+  private async syncEveryDial(): Promise<void> {
+    const dials = [...this.actions].filter((action) => action.isDial() && !this.lampScreens.isShowing(action.id));
+    if (dials.length === 0) {
+      return;
+    }
+    const { brightnessPercentages } = await readRepresentativeBrightnessPercentage();
+    for (const dial of dials) {
+      await this.showDialValue(dial, brightnessPercentages);
     }
   }
 
