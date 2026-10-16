@@ -72,10 +72,16 @@ export class HID {
     }
   }
 
-  /** Fails, like node-hid, when the handle is used after it was closed. */
+  /**
+   * Fails, like node-hid, when the handle is used after it was closed, or on a lamp that was unplugged or is set to
+   * fail.
+   */
   private ensureOpen(): void {
     if (this.closed) {
       throw new Error("Cannot use a closed device");
+    }
+    if (this.lamp.failing || !connected.includes(this.lamp)) {
+      throw new Error("Cannot write to hid device");
     }
   }
 }
