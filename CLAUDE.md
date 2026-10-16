@@ -95,7 +95,7 @@ Supply-chain risk is a hard requirement here:
 
 - Create branches with `git switch -c`.
 - Commit messages explain the why and end with the `Co-Authored-By` trailer for Claude. Commit only when asked.
-- `.github/workflows/main.yaml` runs the type check, Biome, the doc comments check, the unit and integration tests, the browser tests, `npm run validate`, Markdown lint and CSpell on every pull request and on `main`. Locally, the same checks run in two parts, both as Claude commands and as VS Code tasks: `/lint` and the `Lint` task run the linters (everything but the tests), `/test` and the `Test` task run the unit and integration tests and then the browser tests, and `/ci` and the `CI` task run both. `Test` is VS Code's default test task, so **Tasks: Run Test Task** starts it.
+- `.github/workflows/main.yaml` runs the type check, Biome, the doc comments check, a regeneration of the icons that must change nothing, the unit and integration tests, the browser tests, `npm run validate`, Markdown lint and CSpell on every pull request and on `main`. Locally, the same checks run in two parts, both as Claude commands and as VS Code tasks: `/lint` and the `Lint` task run the linters (everything but the tests), `/test` and the `Test` task run the unit and integration tests and then the browser tests, and `/ci` and the `CI` task run both. `Test` is VS Code's default test task, so **Tasks: Run Test Task** starts it.
 - Write the pull request title and description with the `pr-description` skill.
 - Draft issues with the `github-issues` skill, and post them only when asked.
 

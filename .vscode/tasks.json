@@ -38,6 +38,7 @@
         "Lint: types",
         "Lint: code",
         "Lint: doc comments",
+        "Lint: icons",
         "Lint: validate",
       ],
       "dependsOrder": "sequence",
@@ -67,6 +68,13 @@
       "detail": "Every function, class, method and constructor has a doc comment",
       "type": "shell",
       "command": "sh .vscode/run-task.sh 'npm run check:docs'",
+      "problemMatcher": [ ],
+    },
+    {
+      "label": "Lint: icons",
+      "detail": "Regenerate the icons, which must change nothing in imgs/",
+      "type": "shell",
+      "command": "sh .vscode/run-task.sh 'npm run icons && git status --porcelain -- com.daczarne.litra.sdPlugin/imgs && test -z \"$(git status --porcelain -- com.daczarne.litra.sdPlugin/imgs)\"'",
       "problemMatcher": [ ],
     },
     {
