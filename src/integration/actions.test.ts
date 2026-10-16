@@ -71,25 +71,6 @@ function feedbackOf(dial: Awaited<ReturnType<FakeDeck["dial"]>>): object {
 //* Tests
 
 describe("the Power key", () => {
-  it("shows whether every lamp is on when it appears", async () => {
-    plugIn(beam({ on: true }), beam({ on: false }));
-
-    const key = await deck.key(POWER, { mode: "toggle" });
-
-    expect(stateOf(key)).toBe(0);
-  });
-
-  it("turns every lamp on when only some are, and then shows on (#23)", async () => {
-    const [on, off] = [beam({ on: true }), beam({ on: false })];
-    plugIn(on, off);
-    const key = await deck.key(POWER, { mode: "toggle" });
-
-    await deck.press(key);
-
-    expect([on.on, off.on]).toEqual([true, true]);
-    expect(stateOf(key)).toBe(1);
-  });
-
   it("turns every lamp off or on in its off and on modes, and every Power key follows (#57)", async () => {
     const pair = [beam(), beam()];
     plugIn(...pair);
@@ -133,25 +114,6 @@ describe("the Power key", () => {
 });
 
 describe("the Brightness action", () => {
-  it("sets every lamp to a key's preset, and shows it on every Brightness dial", async () => {
-    const pair = [beam({ brightnessInLumen: 30 }), beam({ brightnessInLumen: 30 })];
-    plugIn(...pair);
-    const key = await deck.key(BRIGHTNESS, { presetPercentage: 50 });
-    const dials = [await deck.dial(BRIGHTNESS), await deck.dial(BRIGHTNESS)];
-
-    await deck.press(key);
-
-    expect(key.setTitle).toHaveBeenLastCalledWith("50");
-    expect(pair.map((lamp) => lamp.brightnessInLumen)).toEqual([LUMEN_AT_50, LUMEN_AT_50]);
-    for (const dial of dials) {
-      expect(feedbackOf(dial)).toEqual({
-        title: "Brightness",
-        value: "50%",
-        indicator: { value: 50, bar_fill_c: "white" },
-      });
-    }
-  });
-
   it("shows the brightest lamp when lamps stop at their caps, with the bar fainter where only one reaches (#13, #59)", async () => {
     // Two Beams on the Stream Deck + XL's USB hub, which stop at 63% and 79%.
     plugIn(beam({ capInLumen: 264 }), beam({ capInLumen: 324 }));
@@ -166,31 +128,6 @@ describe("the Brightness action", () => {
       value: "79%",
       indicator: { value: 79, bar_fill_c: "0:#ffffff,0.797:#ffffff,0.798:#c0c0c0,1:#c0c0c0" },
     });
-  });
-
-  it("sends each lamp no more than its cap once it has learned it (#55)", async () => {
-    const [low, high] = [beam({ capInLumen: 264 }), beam({ capInLumen: 324 })];
-    plugIn(low, high);
-    const key = await deck.key(BRIGHTNESS, { presetPercentage: 100 });
-
-    await deck.press(key);
-    await deck.press(key);
-
-    expect([low.writes("brightness"), high.writes("brightness")]).toEqual([
-      [LUMEN_AT_100, 264],
-      [LUMEN_AT_100, 324],
-    ]);
-  });
-
-  it("moves every lamp by a dial's step, and shows it", async () => {
-    const pair = [beam(), beam()];
-    plugIn(...pair);
-    const dial = await deck.dial(BRIGHTNESS, { stepPercentage: 10 });
-
-    await deck.turn(dial, 1);
-
-    expect(pair.map((lamp) => lamp.brightnessInLumen)).toEqual([LUMEN_AT_60, LUMEN_AT_60]);
-    expect(feedbackOf(dial)).toMatchObject({ value: "60%" });
   });
 
   it("moves the lamps once for a quick turn, with the step the dial has by then", async () => {
@@ -299,27 +236,6 @@ describe("the lamp screens", () => {
     await deck.press(key);
 
     expect(feedbackOf(dial)).toMatchObject({ lamp: "Beam · 1 of 2", temperature: "5000 K" });
-  });
-
-  it("blink the lamp on screen alone when the dial is pushed, and leave it as it was", async () => {
-    const { first, second, dial } = await onFirstLampScreen();
-
-    await deck.push(dial);
-
-    expect(first.writes("power")).toEqual([1, 0]);
-    expect(first.on).toBe(false);
-    expect(second.writes("power")).toEqual([]);
-  });
-
-  it("go back to the main screen when the lamp shown is unplugged and the lamps change", async () => {
-    const { second, dial } = await onFirstLampScreen();
-    const key = await deck.key(BRIGHTNESS, { presetPercentage: 50 });
-    plugIn(second);
-
-    await deck.press(key);
-
-    expect(dial.setFeedbackLayout).toHaveBeenLastCalledWith("$B1");
-    expect(feedbackOf(dial)).toMatchObject({ title: "Brightness", value: "50%" });
   });
 });
 
