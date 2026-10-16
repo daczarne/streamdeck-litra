@@ -151,16 +151,23 @@ describe("check-ui", () => {
     expect(stderr).toContain("ui/second.html: no Content-Security-Policy");
   });
 
-  // check-ui reads each page one line at a time, so it misses a tag split across lines (#111).
-  it.fails("refuses an inline script whose tag spans several lines (#111)", () => {
+  it("refuses an inline script whose tag spans several lines, reporting the line it starts on (#111)", () => {
     writePage("page.html", page({ head: "    <script\n      type=\"module\">document.title = 'x';</script>" }));
 
-    expect(check().status).toBe(1);
+    const { status, stderr } = check();
+
+    expect(status).toBe(1);
+    expect(stderr).toContain(
+      'ui/page.html:6: inline script, which the Content-Security-Policy blocks: <script type="module">',
+    );
   });
 
-  it.fails("refuses a remote resource whose address is on the line after its attribute (#111)", () => {
+  it("refuses a remote resource whose address is on the line after its attribute (#111)", () => {
     writePage("page.html", page({ head: '    <script src=\n      "https://example.com/page.js"></script>' }));
 
-    expect(check().status).toBe(1);
+    const { status, stderr } = check();
+
+    expect(status).toBe(1);
+    expect(stderr).toContain('ui/page.html:6: remote resource: <script src= "https://example.com/page.js">');
   });
 });
