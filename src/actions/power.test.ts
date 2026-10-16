@@ -1,10 +1,9 @@
-import type { JsonValue } from "@elgato/utils";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { isOnAll, onLampsChanged, toggleAll, turnOffAll, turnOnAll } from "../litra-manager";
 import { logger } from "../logging";
 import { at } from "../test-support/at";
-import { createFakeDial, createFakeKey, type FakeAction, show } from "../test-support/fake-stream-deck";
+import { FakeDeck } from "../test-support/fake-deck";
 import { PowerAction } from "./power";
 
 //* Fakes
@@ -23,33 +22,44 @@ vi.mock("../litra-manager", () => ({
   turnOnAll: vi.fn(),
 }));
 
+const POWER = "com.daczarne.litra.power";
+
 const SWITCHED = { ok: true, deviceCount: 2, failures: 0 };
 
-/** The event of a press on a key, with the mode it has saved. */
-function keyDown(key: FakeAction, mode?: JsonValue) {
-  return { action: key, payload: { settings: { mode } } } as never;
-}
+let deck: FakeDeck;
+// What the action does when litra-manager announces that the lamps changed.
+let lampsChanged: () => Promise<void>;
 
-/** Creates the action, and returns what it does when litra-manager announces that the lamps changed. */
-function createPowerAction(): { power: PowerAction; lampsChanged: () => Promise<void> } {
+beforeEach(() => {
+  vi.useFakeTimers();
+  // The lamps as a key that appears reads them, unless a test says otherwise: some on, some off.
+  vi.mocked(isOnAll).mockResolvedValue({ ok: true, allOn: false, deviceCount: 2 });
   const power = new PowerAction();
   const listener = vi.mocked(onLampsChanged).mock.lastCall?.[0];
   if (listener === undefined) {
     throw new Error("PowerAction didn't listen for lamp changes");
   }
-  return { power, lampsChanged: async () => listener() };
+  lampsChanged = async () => listener();
+  deck = new FakeDeck([power]);
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
+
+/** Forgets what placing the keys did, so that a test checks only what its own interaction does. */
+function clearCalls(): void {
+  vi.clearAllMocks();
 }
 
 //* Tests
 
 describe("PowerAction", () => {
   describe("when the lamps change", () => {
-    it("shows the lamps' state on every Power key, not only the one pressed (#57)", async () => {
-      const key = createFakeKey();
-      const otherKey = createFakeKey();
-      const dial = createFakeDial();
-      show(key, dial, otherKey);
-      const { lampsChanged } = createPowerAction();
+    it("shows the lamps' state on every Power key, not only the one pressed, from one read (#57)", async () => {
+      const key = await deck.key(POWER);
+      const otherKey = await deck.key(POWER);
+      clearCalls();
       vi.mocked(isOnAll).mockResolvedValue({ ok: true, allOn: true, deviceCount: 2 });
 
       await lampsChanged();
@@ -60,9 +70,8 @@ describe("PowerAction", () => {
     });
 
     it("shows off when only some lamps are on", async () => {
-      const key = createFakeKey();
-      show(key);
-      const { lampsChanged } = createPowerAction();
+      const key = await deck.key(POWER);
+      clearCalls();
       vi.mocked(isOnAll).mockResolvedValue({ ok: true, allOn: false, deviceCount: 2 });
 
       await lampsChanged();
@@ -71,9 +80,8 @@ describe("PowerAction", () => {
     });
 
     it("shows off when no lamp is connected", async () => {
-      const key = createFakeKey();
-      show(key);
-      const { lampsChanged } = createPowerAction();
+      const key = await deck.key(POWER);
+      clearCalls();
       vi.mocked(isOnAll).mockResolvedValue({ ok: false, allOn: false, deviceCount: 0 });
 
       await lampsChanged();
@@ -89,12 +97,11 @@ describe("PowerAction", () => {
       ["on" as const, turnOnAll],
       ["off" as const, turnOffAll],
     ])("in mode %s, switches the lamps, and leaves showing the result to the notice", async (mode, operation) => {
-      const key = createFakeKey();
-      show(key);
-      const { power } = createPowerAction();
+      const key = await deck.key(POWER, mode === undefined ? {} : { mode });
+      clearCalls();
       vi.mocked(operation).mockReturnValue(SWITCHED);
 
-      await power.onKeyDown(keyDown(key, mode));
+      await deck.press(key);
 
       expect(operation).toHaveBeenCalledOnce();
       expect(key.setState).not.toHaveBeenCalled();
@@ -102,35 +109,31 @@ describe("PowerAction", () => {
     });
 
     it("toggles the lamps in a mode that isn't valid, with a warning (#22)", async () => {
-      const key = createFakeKey();
-      show(key);
-      const { power } = createPowerAction();
+      const key = await deck.key(POWER, { mode: "blink" });
+      clearCalls();
       vi.mocked(toggleAll).mockReturnValue(SWITCHED);
 
-      await power.onKeyDown(keyDown(key, "blink"));
+      await deck.press(key);
 
       expect(toggleAll).toHaveBeenCalledOnce();
       expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("mode"));
     });
 
     it("shows an alert when a lamp fails", async () => {
-      const key = createFakeKey();
-      show(key);
-      const { power } = createPowerAction();
+      const key = await deck.key(POWER);
       vi.mocked(toggleAll).mockReturnValue({ ok: false, deviceCount: 0, failures: 1 });
 
-      await power.onKeyDown(keyDown(key));
+      await deck.press(key);
 
       expect(key.showAlert).toHaveBeenCalledOnce();
     });
 
     it("logs the press, with the key's mode, before switching the lamps", async () => {
-      const key = createFakeKey();
-      show(key);
-      const { power } = createPowerAction();
+      const key = await deck.key(POWER, { mode: "off" });
+      clearCalls();
       vi.mocked(turnOffAll).mockReturnValue(SWITCHED);
 
-      await power.onKeyDown(keyDown(key, "off"));
+      await deck.press(key);
 
       expect(logger.info).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("off"));
       expect(at(vi.mocked(logger.info).mock.invocationCallOrder, 0)).toBeLessThan(
@@ -140,12 +143,9 @@ describe("PowerAction", () => {
   });
 
   it("shows the lamps' state on a key that appears", async () => {
-    const key = createFakeKey();
-    show(key);
-    const { power } = createPowerAction();
     vi.mocked(isOnAll).mockResolvedValue({ ok: true, allOn: true, deviceCount: 2 });
 
-    await power.onWillAppear({ action: key, payload: { settings: {} } } as never);
+    const key = await deck.key(POWER);
 
     expect(key.setState).toHaveBeenCalledExactlyOnceWith(1);
   });

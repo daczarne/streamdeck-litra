@@ -13,9 +13,9 @@ import { vi } from "vitest";
 let nextId = 1;
 
 /**
- * A key or a dial an action is placed on, as the plugin sees it: it records what the plugin tells it to show. Given
- * the id of an action in the manifest, it belongs to that action alone, as on the Deck. Without one, every action
- * counts it as its own, which is enough for tests of one action.
+ * A key or a dial an action is placed on, as the plugin sees it: it records what the plugin tells it to show. It
+ * belongs to the action whose id in the manifest it's given, as on the Deck. The tests of what sits below the actions,
+ * such as the lamp screens, create it without one.
  */
 function createFakeAction(controller: "Keypad" | "Encoder", manifestId?: string) {
   return {
@@ -67,7 +67,7 @@ export class SingletonAction {
 
   /** The keys and dials this action is placed on, which a test sets with `show`. */
   get actions(): FakeAction[] {
-    return visibleActions.filter((placed) => placed.manifestId === undefined || placed.manifestId === this.manifestId);
+    return visibleActions.filter((placed) => placed.manifestId === this.manifestId);
   }
 }
 
