@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+
+  <head lang="en">
+    <title>Litra Scene</title>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="
+        default-src 'none';
+        script-src 'self';
+        style-src 'unsafe-inline';
+        img-src data:;
+        connect-src ws://localhost:*;
+        base-uri 'none';
+        form-action 'none'
+      "
+    />
+    <script src="vendor/sdpi-components.js"></script>
+    <style>
+      /* A slider with its value on its right, shown by range-value.js. */
+      .range {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .range sdpi-range {
+        flex: 1;
+      }
+
+      .range output {
+        min-width: 6ch;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- The scene a press sets every lamp to, on: the same presets as the Brightness and Temperature keys. -->
+    <sdpi-item label="Brightness">
+      <div class="range">
+        <sdpi-range
+          id="preset-percentage"
+          setting="presetPercentage"
+          min="0"
+          max="100"
+          step="1"
+          default="0"
+        ></sdpi-range>
+        <output for="preset-percentage" data-suffix="%"></output>
+      </div>
+    </sdpi-item>
+    <sdpi-item label="Temperature">
+      <div class="range">
+        <sdpi-range
+          id="preset-kelvin"
+          setting="presetKelvin"
+          min="2700"
+          max="6500"
+          step="100"
+          default="2700"
+        ></sdpi-range>
+        <output for="preset-kelvin" data-suffix=" K"></output>
+      </div>
+    </sdpi-item>
+    <script src="range-value.js"></script>
+  </body>
+
+</html>

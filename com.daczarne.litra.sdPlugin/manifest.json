@@ -87,6 +87,25 @@
           "TitleColor": "#ffffff"
         }
       ]
+    },
+    {
+      "Name": "Scene",
+      "UUID": "com.daczarne.litra.scene",
+      "Icon": "imgs/actions/scene/icon",
+      "Tooltip": "Turn Litra lights on at a brightness and a color temperature.",
+      "PropertyInspectorPath": "ui/scene.html",
+      "Controllers": [
+        "Keypad"
+      ],
+      "UserTitleEnabled": true,
+      "States": [
+        {
+          "Image": "imgs/actions/scene/key",
+          "TitleAlignment": "bottom",
+          "FontSize": 12,
+          "TitleColor": "#ffffff"
+        }
+      ]
     }
   ],
   "Category": "Litra",

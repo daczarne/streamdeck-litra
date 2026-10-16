@@ -90,6 +90,12 @@ export const temperatureSettings = {
   stepKelvin: oneOfNumbers([100, 200, 300, 500], 300),
 };
 
+// A scene sets both presets, taken as the Brightness and Temperature keys take theirs.
+export const sceneSettings = {
+  presetPercentage: brightnessSettings.presetPercentage,
+  presetKelvin: temperatureSettings.presetKelvin,
+};
+
 /**
  * Reads an action's settings, as Stream Deck sent them, against the action's schema (#22). A setting that is missing
  * takes its default. One that isn't valid, from an older or edited profile, takes its default too, with a warning.
