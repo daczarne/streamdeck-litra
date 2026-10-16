@@ -10,11 +10,13 @@ import path from "node:path";
 import {
   actionIconBrightness,
   actionIconPower,
+  actionIconScene,
   actionIconTemperature,
   brightnessGlyph,
   categoryGlyph,
   marketplaceGlyph,
   powerGlyph,
+  sceneGlyph,
   svgDoc,
   temperatureGlyph,
 } from "@daczarne/streamdeck-icons";
@@ -65,10 +67,14 @@ async function main() {
   await writePair(path.join(root, "actions/brightness/glyph"), (s) => brightnessGlyph(s), 72);
   await writePair(path.join(root, "actions/temperature/glyph"), (s) => temperatureGlyph(s), 72);
 
+  // Scene key (72 / 144)
+  await writePair(path.join(root, "actions/scene/key"), (s) => sceneGlyph(s), 72);
+
   // Action list icons (20 / 40) — monochrome white
   await writePair(path.join(root, "actions/power/icon"), (s) => actionIconPower(s), 20);
   await writePair(path.join(root, "actions/brightness/icon"), (s) => actionIconBrightness(s), 20);
   await writePair(path.join(root, "actions/temperature/icon"), (s) => actionIconTemperature(s), 20);
+  await writePair(path.join(root, "actions/scene/icon"), (s) => actionIconScene(s), 20);
 
   // Category (28 / 56)
   await writePair(path.join(root, "plugin/category-icon"), (s) => categoryGlyph(s), 28);

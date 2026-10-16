@@ -490,6 +490,21 @@ export function adjustBrightnessAllByPercentageSteps(
 }
 
 /**
+ * Turns every lamp on and sets it to a scene in one pass: the temperature, snapped to one the lamp allows, then the
+ * percentage, as {@link setBrightnessAllPercentage} sets it, caps included. Reports the brightest lamp once they've
+ * settled, as {@link moveBrightnessAll} does, and announces the change once.
+ */
+export function setSceneAll(
+  percentage: number,
+  kelvin: number,
+  settleMs = BRIGHTNESS_SETTLE_MS,
+): Promise<BroadcastResult> {
+  return oneBrightnessChangeAtATime(() => moveBrightnessAll("set scene", percentage, settleMs, kelvin)).finally(
+    announceLampsChanged,
+  );
+}
+
+/**
  * Runs brightness changes one at a time, in the order they were asked for. A change holds the lamps open while they
  * settle, and its read-back would take a later change's lower write for a cap. {@link identifyLamp} goes through it
  * too, since it holds a lamp open during its blink.
@@ -502,16 +517,17 @@ function oneBrightnessChangeAtATime(change: () => Promise<BroadcastResult>): Pro
 
 /**
  * Moves every lamp to one target and reports the brightest lamp once they've settled. The target is a percentage, or
- * a function of the brightest lamp's percentage, which is then read first. Each lamp is sent the target or its cap,
- * whichever is lower, and a lamp that reaches less than it was sent has its cap learned. Right after a lamp's cap is
- * learned, the next change waits until the lamp can no longer go back to its cap (see {@link capReversalEndsAt}). The
- * lamps stay open from the first read to the last, so calls mustn't overlap: they go through
- * {@link oneBrightnessChangeAtATime}.
+ * a function of the brightest lamp's percentage, which is then read first. A temperature, when given, is set on each
+ * lamp before its brightness. Each lamp is sent the target or its cap, whichever is lower, and a lamp that reaches less
+ * than it was sent has its cap learned. Right after a lamp's cap is learned, the next change waits until the lamp can
+ * no longer go back to its cap (see {@link capReversalEndsAt}). The lamps stay open from the first read to the last,
+ * so calls mustn't overlap: they go through {@link oneBrightnessChangeAtATime}.
  */
 async function moveBrightnessAll(
   operation: string,
   target: number | ((brightest: number) => number),
   settleMs: number,
+  kelvin?: number,
 ): Promise<BroadcastResult> {
   const reversalMs = capReversalEndsAt - Date.now();
   if (reversalMs > 0) {
@@ -543,6 +559,9 @@ async function moveBrightnessAll(
     for (const device of devices) {
       attempt(device, () => {
         ensureOn(operation, device);
+        if (kelvin !== undefined) {
+          setSnappedTemperature(operation, device, kelvin);
+        }
         if (typeof target === "function") {
           const pct = brightnessPercentage(device, getBrightnessInLumenSafe(device));
           brightest = Math.max(brightest ?? pct, pct);
@@ -704,6 +723,15 @@ export function identifyLamp(serialNumber: string, blinkMs = IDENTIFY_BLINK_MS):
   });
 }
 
+/** Sets a lamp to the temperature it allows nearest to `kelvin`, and returns that temperature. */
+function setSnappedTemperature(operation: string, device: Device, kelvin: number): number {
+  const snapped = snapKelvin(kelvin, getAllowedTemperaturesInKelvinForDevice(device));
+  setTemperatureInKelvin(device, snapped);
+  drainAck(device);
+  logger.info(`${operation}: ${lampLabel(device)} set to ${snapped} K`);
+  return snapped;
+}
+
 /** Sets every lamp to the allowed temperature nearest to `kelvin`, and reports the first lamp's. */
 export function setTemperatureAllInKelvin(kelvin: number): BroadcastResult {
   let representative: number | undefined;
@@ -711,10 +739,7 @@ export function setTemperatureAllInKelvin(kelvin: number): BroadcastResult {
   const operation = "set temperature";
   const result = forEachDevice(operation, (device) => {
     const allowed = getAllowedTemperaturesInKelvinForDevice(device);
-    const snapped = snapKelvin(kelvin, allowed);
-    setTemperatureInKelvin(device, snapped);
-    drainAck(device);
-    logger.info(`${operation}: ${lampLabel(device)} set to ${snapped} K`);
+    const snapped = setSnappedTemperature(operation, device, kelvin);
     if (representative === undefined) {
       representative = snapped;
       representativePercentage = temperaturePercentage(snapped, allowed);

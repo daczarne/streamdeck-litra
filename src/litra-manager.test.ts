@@ -669,6 +669,7 @@ describe("onLampsChanged", () => {
     ["adjustBrightnessAllByPercentageSteps", () => manager.adjustBrightnessAllByPercentageSteps(1, 5)],
     ["setTemperatureAllInKelvin", () => manager.setTemperatureAllInKelvin(4000)],
     ["adjustTemperatureAllByKelvinSteps", () => manager.adjustTemperatureAllByKelvinSteps(1, 100)],
+    ["setSceneAll", () => manager.setSceneAll(50, 4000)],
   ])("calls every listener once after %s", async (_, operation) => {
     connect(beam(), beam());
     const listener = vi.fn();
@@ -1193,6 +1194,55 @@ describe("readRepresentativeBrightnessPercentage", () => {
   });
 });
 
+describe("setSceneAll", () => {
+  const scene = (percentage: number, kelvin: number) => settled(manager.setSceneAll(percentage, kelvin));
+
+  it("turns every lamp on, then sets its temperature, snapped to an allowed one, then its brightness", async () => {
+    const pair = [beam({ on: false }), beam({ on: false })];
+    connect(...pair);
+
+    const result = await scene(40, 4040);
+
+    for (const lamp of pair) {
+      expect([lamp.writes("power"), lamp.writes("temperature"), lamp.writes("brightness")]).toEqual([
+        [1],
+        [4000],
+        [lumenAt(40)],
+      ]);
+      expect(at(positions(lamp, "write", "power"), 0)).toBeLessThan(at(positions(lamp, "write", "temperature"), 0));
+      expect(at(positions(lamp, "write", "temperature"), 0)).toBeLessThan(
+        at(positions(lamp, "write", "brightness"), 0),
+      );
+    }
+    expect(result).toMatchObject({ ok: true, deviceCount: 2, failures: 0, representativeBrightnessPercentage: 40 });
+  });
+
+  it("stops a lamp at its cap, learns it, and sends it no more than its cap afterwards", async () => {
+    const lamp = beam({ capInLumen: 244 });
+    connect(lamp);
+
+    const result = await scene(100, 6500);
+    await scene(100, 6500);
+
+    expect(result.representativeBrightnessLumen).toBe(244);
+    expect(lamp.writes("brightness")).toEqual([BEAM_MAX_LUMEN, 244]);
+  });
+
+  it("runs after the brightness change in progress, and waits for a lamp that can still go back to its cap", async () => {
+    // A Beam on a hub, asked for more than its cap right before the scene asks for less.
+    const lamp = beam({ capInLumen: 244 });
+    connect(lamp);
+
+    await settled(Promise.all([manager.setBrightnessAllPercentage(100), manager.setSceneAll(30, 2700)]));
+
+    expect(lamp.brightnessInLumen).toBe(lumenAt(30));
+  });
+
+  it("fails without writing when no lamp is connected", async () => {
+    expect(await scene(40, 4000)).toEqual({ ok: false, deviceCount: 0, failures: 1 });
+  });
+});
+
 describe("setTemperatureAllInKelvin", () => {
   it("sets every lamp to the temperature, snapped to an allowed value, and reports it and its %", () => {
     const pair = [beam(), beam()];
@@ -1474,6 +1524,7 @@ describe("logs", () => {
     ["read power", () => manager.isOnAll()],
     ["set brightness", () => manager.setBrightnessAllPercentage(50)],
     ["adjust brightness", () => manager.adjustBrightnessAllByPercentageSteps(1, 5)],
+    ["set scene", () => manager.setSceneAll(50, 4000)],
     ["read brightness", () => manager.readRepresentativeBrightnessPercentage()],
     ["read lamp status", () => manager.readLampStatuses()],
     ["identify", () => manager.identifyLamp("FAKE9999")],
@@ -1505,6 +1556,7 @@ describe("logs", () => {
     ["toggle", () => manager.toggleAll(), (lamp) => lamp.failWrites("power"), "write"],
     ["read power", () => manager.isOnAll(), (lamp) => lamp.fail("readSync"), "read"],
     ["set brightness", () => manager.setBrightnessAllPercentage(50), (lamp) => lamp.failWrites("brightness"), "write"],
+    ["set scene", () => manager.setSceneAll(50, 4000), (lamp) => lamp.failWrites("temperature"), "write"],
     [
       "adjust brightness",
       () => manager.adjustBrightnessAllByPercentageSteps(1, 5),

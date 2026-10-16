@@ -5,7 +5,13 @@ import { pathToFileURL } from "node:url";
 import type { JsonValue } from "@elgato/utils";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
-import { brightnessSettings, parseSettings, powerSettings, temperatureSettings } from "../src/actions/settings";
+import {
+  brightnessSettings,
+  parseSettings,
+  powerSettings,
+  sceneSettings,
+  temperatureSettings,
+} from "../src/actions/settings";
 import { at } from "../src/test-support/at";
 import { Chrome, type ExceptionDetails, type Page } from "./support/chrome";
 import { FakeStreamDeck } from "./support/fake-stream-deck";
@@ -17,8 +23,8 @@ const manifest = JSON.parse(readFileSync(path.join(pluginDir, "manifest.json"), 
 
 type Controller = "Keypad" | "Encoder";
 
-/** What a slider shows after its value, next to it. */
-type Slider = { suffix: string };
+/** A slider: its setting, what it shows after its value, next to it, and a value to move it to. */
+type Slider = { setting: string; suffix: string; value: string };
 
 type Panel = {
   page: string;
@@ -27,7 +33,7 @@ type Panel = {
   settings: string[];
   /** A setting to change through its control, and the value Stream Deck should receive for it. */
   change: { setting: string; value: string; saved: unknown };
-  slider?: Slider;
+  sliders?: Slider[];
 };
 
 // What each settings page shows on each controller its action supports, as listed in manifest.json.
@@ -43,21 +49,21 @@ const PANELS: Panel[] = [
     controller: "Keypad",
     settings: ["presetPercentage"],
     change: { setting: "presetPercentage", value: "40", saved: 40 },
-    slider: { suffix: "%" },
+    sliders: [{ setting: "presetPercentage", suffix: "%", value: "40" }],
   },
   {
     page: "ui/brightness.html",
     controller: "Encoder",
     settings: ["stepPercentage"],
     change: { setting: "stepPercentage", value: "20", saved: 20 },
-    slider: { suffix: "%" },
+    sliders: [{ setting: "stepPercentage", suffix: "%", value: "20" }],
   },
   {
     page: "ui/temperature.html",
     controller: "Keypad",
     settings: ["presetKelvin"],
     change: { setting: "presetKelvin", value: "5000", saved: 5000 },
-    slider: { suffix: " K" },
+    sliders: [{ setting: "presetKelvin", suffix: " K", value: "5000" }],
   },
   {
     page: "ui/temperature.html",
@@ -65,11 +71,21 @@ const PANELS: Panel[] = [
     settings: ["stepKelvin"],
     change: { setting: "stepKelvin", value: "500", saved: "500" },
   },
+  {
+    page: "ui/scene.html",
+    controller: "Keypad",
+    settings: ["presetPercentage", "presetKelvin"],
+    change: { setting: "presetKelvin", value: "5000", saved: 5000 },
+    sliders: [
+      { setting: "presetPercentage", suffix: "%", value: "40" },
+      { setting: "presetKelvin", suffix: " K", value: "5000" },
+    ],
+  },
 ];
 
 // What the plugin accepts for each setting, by its name, and the default it takes: settings.ts says these are what
 // each page offers, and the pages' own defaults.
-const SCHEMA = { ...powerSettings, ...brightnessSettings, ...temperatureSettings };
+const SCHEMA = { ...powerSettings, ...brightnessSettings, ...temperatureSettings, ...sceneSettings };
 
 /** The setting's schema in settings.ts, alone, as parseSettings takes it. */
 function schemaOf(setting: string) {
@@ -301,9 +317,7 @@ describe("settings pages", () => {
   });
 
   describe.each(PANELS)("what $page on $controller offers", (panel) => {
-    const setting = at(panel.settings, 0);
-
-    it(`defaults ${setting} to its default in settings.ts`, async () => {
+    it.each(panel.settings)("defaults %s to its default in settings.ts", async (setting) => {
       const { page } = await openPanel(panel);
       const control = await controlOf(page, setting);
       await page.close();
@@ -312,7 +326,7 @@ describe("settings pages", () => {
       expect(read(setting, saved(control, control.default ?? ""))).toEqual({ value: defaultOf(setting), valid: true });
     });
 
-    it(`offers only values of ${setting} that settings.ts accepts`, async () => {
+    it.each(panel.settings)("offers only values of %s that settings.ts accepts", async (setting) => {
       const { page } = await openPanel(panel);
       const control = await controlOf(page, setting);
       await page.close();
@@ -330,38 +344,36 @@ describe("settings pages", () => {
     });
   });
 
-  const withSlider = PANELS.filter((panel): panel is Panel & { slider: Slider } => panel.slider !== undefined);
-  describe.each(withSlider)("the slider of $page on $controller", (panel) => {
-    const { slider } = panel;
+  const sliders = PANELS.flatMap((panel) => (panel.sliders ?? []).map((slider) => ({ ...slider, panel })));
+  describe.each(sliders)("the $setting slider of $panel.page on $panel.controller", (slider) => {
+    const { panel, setting, suffix } = slider;
 
     it("ends where settings.ts does", async () => {
       const { page } = await openPanel(panel);
-      const control = await controlOf(page, panel.change.setting);
+      const control = await controlOf(page, setting);
       await page.close();
 
       const [min, max, step] = [Number(control.min), Number(control.max), Number(control.step)];
-      expect(read(panel.change.setting, min - step).valid).toBe(false);
-      expect(read(panel.change.setting, max + step).valid).toBe(false);
+      expect(read(setting, min - step).valid).toBe(false);
+      expect(read(setting, max + step).valid).toBe(false);
     });
 
     it("shows its default value next to it", async () => {
       const { page } = await openPanel(panel);
-      await expect
-        .poll(() => shownValue(page, panel.change.setting))
-        .toBe(`${defaultOf(panel.change.setting)}${slider.suffix}`);
+      await expect.poll(() => shownValue(page, setting)).toBe(`${defaultOf(setting)}${suffix}`);
       await page.close();
     });
 
     it("shows the saved value next to it", async () => {
-      const { setting, saved } = panel.change;
+      const saved = Number(slider.value);
       const { page } = await openPanel(panel, { [setting]: saved });
-      await expect.poll(() => shownValue(page, setting)).toBe(`${saved}${slider.suffix}`);
+      await expect.poll(() => shownValue(page, setting)).toBe(`${saved}${suffix}`);
       await page.close();
     });
 
     it("follows it while it's dragged, before it's released", async () => {
       const { page } = await openPanel(panel);
-      const { setting, value } = panel.change;
+      const { value } = slider;
       await page.evaluate(`(async () => {
         const host = document.querySelector('[setting="${setting}"]');
         await host.updateComplete;
@@ -369,7 +381,7 @@ describe("settings pages", () => {
         control.value = "${value}";
         control.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
       })()`);
-      expect(await shownValue(page, setting)).toBe(`${value}${slider.suffix}`);
+      expect(await shownValue(page, setting)).toBe(`${value}${suffix}`);
       await page.close();
     });
   });

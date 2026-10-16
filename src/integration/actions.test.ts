@@ -12,6 +12,7 @@ import type { FakeDeck } from "../test-support/fake-deck";
 const POWER = "com.daczarne.litra.power";
 const BRIGHTNESS = "com.daczarne.litra.brightness";
 const TEMPERATURE = "com.daczarne.litra.temperature";
+const SCENE = "com.daczarne.litra.scene";
 
 // A Beam's brightness in lumens at a percentage of its range (30–400 lm), as litra rounds it.
 const LUMEN_AT_50 = 215;
@@ -230,6 +231,27 @@ describe("the Temperature action", () => {
 
     expect(pair.map((lamp) => lamp.temperatureInKelvin)).toEqual([3300, 3300]);
     expect(feedbackOf(dial)).toMatchObject({ value: "3300" });
+  });
+});
+
+describe("the Scene key", () => {
+  it("turns every lamp on at its brightness and temperature, and every dial and Power key follows (#86)", async () => {
+    const pair = [beam({ on: false }), beam({ on: false })];
+    plugIn(...pair);
+    const powerKey = await deck.key(POWER, { mode: "toggle" });
+    const brightnessDial = await deck.dial(BRIGHTNESS);
+    const temperatureDial = await deck.dial(TEMPERATURE);
+    const key = await deck.key(SCENE, { presetPercentage: 100, presetKelvin: 6500 });
+
+    await deck.press(key);
+
+    expect(pair.map((lamp) => [lamp.on, lamp.brightnessInLumen, lamp.temperatureInKelvin])).toEqual([
+      [true, LUMEN_AT_100, 6500],
+      [true, LUMEN_AT_100, 6500],
+    ]);
+    expect(stateOf(powerKey)).toBe(1);
+    expect(feedbackOf(brightnessDial)).toMatchObject({ value: "100%" });
+    expect(feedbackOf(temperatureDial)).toMatchObject({ value: "6500" });
   });
 });
 
