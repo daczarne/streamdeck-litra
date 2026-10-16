@@ -6,7 +6,7 @@
 - [Checks](#checks)
 - [Known gap](#known-gap)
 
-The unit tests check the logic of the dial and the Brightness keys against fake lamps. The integration tests check it from a key press or a turn to what every dial is told to show, against emulated lamps. Both kinds of lamp stop at their cap on a low-power supply, as [the brightness probe][probe] measured a real lamp do. The emulated lamps also follow the probe's timing: they report the brightness they were sent for about 100 ms, then the one they reached. The unit tests' fake lamps reach their cap right away. The tests take that behavior for granted, along with how the touch strip shows the result. The checks below cover both, on the Deck, with every connected lamp managed as one group (see "Lamps are managed together" in [the contributing guide][contributing]).
+The unit tests check the logic of the dial and the Brightness keys, and the integration tests check it from a key press or a turn to what every dial is told to show. Wherever they reach a lamp, it's an emulated one, which does what [the brightness probe][probe] measured a real lamp do: a lamp on a low-power supply stops at its cap, reports the brightness it was sent for about 100 ms, then the one it reached. The tests take that for granted, along with how the touch strip shows the result. The checks below cover both, on the Deck, with every connected lamp managed as one group (see "Lamps are managed together" in [the contributing guide][contributing]).
 
 ## How the plugin learns caps
 
