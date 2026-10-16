@@ -1,12 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { at } from "../test-support/at";
+import { loadOnEmulatedLamps } from "../test-support/emulated-lamps";
 import { EmulatedLitra } from "../test-support/emulated-litra";
 import type { FakeDeck } from "../test-support/fake-deck";
 
 //* Fakes
-
-// Set when litra imports node-hid and gets the fake one.
-let nodeHidFaked = false;
 
 const POWER = "com.daczarne.litra.power";
 const BRIGHTNESS = "com.daczarne.litra.brightness";
@@ -25,29 +24,16 @@ let lamps: EmulatedLitra[];
 
 beforeEach(async () => {
   vi.useFakeTimers();
-  // A fresh plugin for every test, as Stream Deck starts it: no learned caps, listeners or lamp screens carried over.
-  // The fakes are mocked here, after the reset, rather than with vi.mock, whose modules outlive it: the plugin and
-  // the test then share this test's fakes.
-  vi.resetModules();
-  nodeHidFaked = false;
-  // The real node-hid opens the lamps plugged into the machine. litra gets emulated ones instead.
-  vi.doMock("node-hid", () => {
-    nodeHidFaked = true;
-    return import("../test-support/fake-node-hid");
-  });
-  // The real SDK connects to Stream Deck. The fake one records the actions plugin.ts registers, for the fake Deck.
-  vi.doMock("@elgato/streamdeck", () => import("../test-support/fake-stream-deck"));
-  // The real logger writes to a logs/ folder.
-  vi.doMock("../logging", () => import("../test-support/fake-logging"));
-
-  ({ connect } = await import("../test-support/fake-node-hid"));
-  const { FakeDeck } = await import("../test-support/fake-deck");
-  await import("../plugin");
-  //! Without the fake, these tests would write to whatever lamps are plugged in. Loading the plugin opens nothing.
-  if (!nodeHidFaked) {
-    throw new Error("litra imported the real node-hid: see the alias and server.deps.inline in vitest.config.mjs");
-  }
-  deck = new FakeDeck();
+  // A fresh plugin for every test, started as Stream Deck starts it, which registers its actions with the fake SDK
+  // that the fake Deck sends events through.
+  ({ loaded: deck, connect } = await loadOnEmulatedLamps(
+    async () => {
+      const { FakeDeck } = await import("../test-support/fake-deck");
+      await import("../plugin");
+      return new FakeDeck();
+    },
+    { streamDeck: true },
+  ));
   lamps = [];
 });
 
@@ -69,22 +55,22 @@ function beam(options: ConstructorParameters<typeof EmulatedLitra>[1] = {}): Emu
 
 /** The brightness written to a lamp, in lumens, in order. */
 function brightnessWrites(lamp: EmulatedLitra): number[] {
-  return lamp.written.filter((report) => report[3] === 0x4c).map(([, , , , high = 0, low = 0]) => high * 256 + low);
+  return lamp.written.filter((report) => at(report, 3) === 0x4c).map((report) => at(report, 4) * 256 + at(report, 5));
 }
 
 /** The power written to a lamp, on (1) or off (0), in order. */
 function powerWrites(lamp: EmulatedLitra): number[] {
-  return lamp.written.filter((report) => report[3] === 0x1c).map((report) => report[4] ?? 0);
+  return lamp.written.filter((report) => at(report, 3) === 0x1c).map((report) => at(report, 4));
 }
 
 /** The state a key was last set to: on (1) or off (0). */
-function stateOf(key: Awaited<ReturnType<FakeDeck["key"]>>): number | undefined {
-  return key.setState.mock.lastCall?.[0];
+function stateOf(key: Awaited<ReturnType<FakeDeck["key"]>>): number {
+  return at(key.setState.mock.calls, -1)[0];
 }
 
 /** What a dial was last told to show. */
-function feedbackOf(dial: Awaited<ReturnType<FakeDeck["dial"]>>): object | undefined {
-  return dial.setFeedback.mock.lastCall?.[0];
+function feedbackOf(dial: Awaited<ReturnType<FakeDeck["dial"]>>): object {
+  return at(dial.setFeedback.mock.calls, -1)[0];
 }
 
 //* Tests
