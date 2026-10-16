@@ -132,7 +132,7 @@ To take a change to the glyphs, update the commit the dependency is pinned to, r
 
 The settings pages (Property Inspector), in `com.daczarne.litra.sdPlugin/ui/`, load nothing remote, and two layers keep it that way:
 
-- **When building.** `npm run check:ui` (also run by `validate` and `pack`) fails if any `ui/*.html` loads a remote resource, lacks the Content-Security-Policy below or declares a different one, or has an inline script. It also fails if the vendored sdpi-components doesn't match its pinned hash (see [Third-party code](#third-party-code)).
+- **When building.** `npm run check:ui` (also run by `validate` and `pack`) fails if any `ui/*.html` loads a remote resource, lacks the Content-Security-Policy below or declares a different one, or has an inline script. It also fails if the vendored sdpi-components doesn't match its pinned hash (see [Third-party code](#third-party-code)). It reads each page one line at a time, so a tag split across lines escapes it ([#111]), which the policy still blocks.
 - **When Stream Deck shows them.** Each page declares a Content-Security-Policy in a `<meta>`, so Stream Deck refuses whatever the policy doesn't allow, even if it slipped past the check.
 
 The browser tests (`npm run test:browser`, also run in CI) check that the policy works. They load each page in a headless Chrome, as Stream Deck would, and confirm that it refuses remote scripts, styles, images and connections, and inline scripts. They also check the controls each page shows, the settings it sends, and the value shown next to each slider. They run in Chrome rather than in Stream Deck itself, so [`docs/manual_testing/settings_pages.md`][manual-test] lists the checks that only the Deck can prove.
@@ -170,6 +170,7 @@ To update it, download `dist/sdpi-components.js` from the new upstream tag (not 
 The plugin is MIT licensed: see [`LICENSE`][license].
 
 [#21]: https://github.com/daczarne/streamdeck-litra/issues/21
+[#111]: https://github.com/daczarne/streamdeck-litra/issues/111
 [bright]: com.daczarne.litra.sdPlugin/imgs/actions/brightness/icon@2x.png
 [check-ui]: scripts/check-ui.mjs
 [contributing]: docs/contributing.md
