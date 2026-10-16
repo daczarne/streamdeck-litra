@@ -45,22 +45,23 @@ A press of a Brightness key with one lamp at its cap and the other failing reads
 
 ### The contract
 
-| Situation                                                       | Level   | Logged by                 | Includes                                                                  |
-|-----------------------------------------------------------------|---------|---------------------------|---------------------------------------------------------------------------|
-| The plugin starts                                               | `info`  | `src/plugin.ts`           | Nothing more                                                              |
-| The plugin can't connect to Stream Deck                         | `error` | `src/plugin.ts`           | The error with its stack                                                  |
-| A key press, a dial push, a dial turn, a tap or hold on a strip | `info`  | The action                | What it asks for: the key's mode or preset, the ticks and the dial's step |
-| A change made to a lamp                                         | `info`  | `src/litra-manager.ts`    | The operation, the lamp, the value sent and, for brightness, reached      |
-| A lamp's brightness cap is learned                              | `info`  | `src/litra-manager.ts`    | The operation, the lamp, the cap                                          |
-| A value read from a lamp                                        | `debug` | `src/litra-manager.ts`    | The operation, the lamp, the value                                        |
-| No lamps found                                                  | `warn`  | `src/litra-manager.ts`    | The operation                                                             |
-| The lamp to identify isn't connected                            | `warn`  | `src/litra-manager.ts`    | The end of its serial number                                              |
-| A lamp's handle fails to close                                  | `warn`  | `src/litra-manager.ts`    | The lamp, the error                                                       |
-| An action's setting isn't valid, so its default is used         | `warn`  | The action                | The setting, its value, the default                                       |
-| Listing the lamps fails                                         | `error` | `src/litra-manager.ts`    | The operation, the error                                                  |
-| A lamp's part in an operation fails                             | `error` | `src/litra-manager.ts`    | The operation, the lamp, the error                                        |
-| A lamps-changed listener, a dial flush or a lamp screen fails   | `error` | Where the error is caught | What failed, the error with its stack                                     |
-| Draining the reply a command leaves fails                       | nothing |                           | By design: the command itself went through                                |
+| Situation                                                              | Level   | Logged by                 | Includes                                                                  |
+|------------------------------------------------------------------------|---------|---------------------------|---------------------------------------------------------------------------|
+| The plugin starts                                                      | `info`  | `src/plugin.ts`           | Nothing more                                                              |
+| The plugin can't connect to Stream Deck                                | `error` | `src/plugin.ts`           | The error with its stack                                                  |
+| A key press, a dial push, a dial turn, a tap or hold on a strip        | `info`  | The action                | What it asks for: the key's mode or preset, the ticks and the dial's step |
+| A change made to a lamp                                                | `info`  | `src/litra-manager.ts`    | The operation, the lamp, the value sent and, for brightness, reached      |
+| A lamp's brightness cap is learned                                     | `info`  | `src/litra-manager.ts`    | The operation, the lamp, the cap                                          |
+| A brightness change waits for a lamp that can still go back to its cap | `debug` | `src/litra-manager.ts`    | The operation, how long it waits                                          |
+| A value read from a lamp                                               | `debug` | `src/litra-manager.ts`    | The operation, the lamp, the value                                        |
+| No lamps found                                                         | `warn`  | `src/litra-manager.ts`    | The operation                                                             |
+| The lamp to identify isn't connected                                   | `warn`  | `src/litra-manager.ts`    | The end of its serial number                                              |
+| A lamp's handle fails to close                                         | `warn`  | `src/litra-manager.ts`    | The lamp, the error                                                       |
+| An action's setting isn't valid, so its default is used                | `warn`  | The action                | The setting, its value, the default                                       |
+| Listing the lamps fails                                                | `error` | `src/litra-manager.ts`    | The operation, the error                                                  |
+| A lamp's part in an operation fails                                    | `error` | `src/litra-manager.ts`    | The operation, the lamp, the error                                        |
+| A lamps-changed listener, a dial flush or a lamp screen fails          | `error` | Where the error is caught | What failed, the error with its stack                                     |
+| Draining the reply a command leaves fails                              | nothing |                           | By design: the command itself went through                                |
 
 The unit tests check each row's level and what its message includes, never its wording, so a message can be reworded without breaking a test. The plugin's start is the exception, checked by hand (see [the manual checks][manual-checks]). A new situation gets a row here and a test with it.
 
