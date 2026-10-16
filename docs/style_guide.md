@@ -4,7 +4,9 @@
 - [General](#general)
   - [Lines and indentation](#lines-and-indentation)
   - [Comments](#comments)
+  - [Doc comments](#doc-comments)
   - [Spelling](#spelling)
+  - [Setups](#setups)
 - [Markdown](#markdown)
 
 ## How to use this guide
@@ -57,6 +59,10 @@ A doc comment says what the declaration does or why it exists, and follows the r
 ### Spelling
 
 Every new word must pass CSpell. Real terms go into the matching dictionary under `.cspell/`, in alphabetical order.
+
+### Setups
+
+Docs, comments and test names describe what any reader could have, not one person's setup: "the computer" rather than a model of it, "a hub" rather than the one a lamp happened to be on, and "lamp 1" and "lamp 2" rather than where each lamp sits. A log or a probe's output quoted in a doc has its serial numbers, even their last characters, replaced with placeholders such as `<serialNumber1>` and `<serialNumber2>`. The setup the plugin is checked on, and what was measured on it, are stated as such, with what a reader's own lamps may do differently.
 
 ## Markdown
 
