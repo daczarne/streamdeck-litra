@@ -167,8 +167,8 @@ function padRight(values: number[], length: number): number[] {
 }
 
 /**
- * Stock litra getBrightnessInLumen only returns data[5], which truncates Beam LX
- * above 255 lm. Mirror litra-rs / temperature parsing: data[4]*256 + data[5].
+ * Stock litra getBrightnessInLumen only returns data[5], which truncates the Beam and
+ * the Beam LX above 255 lm. Mirror litra-rs / temperature parsing: data[4]*256 + data[5].
  *
  * It also takes the first report that arrives, which can be an ACK or a change notice instead of the reply, so this
  * skips every report that isn't the reply.

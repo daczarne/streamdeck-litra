@@ -87,9 +87,9 @@
     // The default test task, so "Tasks: Run Test Task" runs it.
     {
       "label": "Test",
-      "detail": "Run the unit tests, then the browser tests",
+      "detail": "Run the unit and integration tests, then the browser tests",
       "dependsOn": [
-        "Test: unit",
+        "Test: unit and integration",
         "Test: browser",
       ],
       "dependsOrder": "sequence",
@@ -100,7 +100,7 @@
       "problemMatcher": [ ],
     },
     {
-      "label": "Test: unit",
+      "label": "Test: unit and integration",
       "type": "shell",
       "command": "sh .vscode/run-task.sh 'npm test'",
       "problemMatcher": [ ],

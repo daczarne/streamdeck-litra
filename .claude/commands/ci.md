@@ -8,7 +8,7 @@ allowed-tools: Read(.claude/commands/*), Bash(markdownlint-cli2 *), Bash(cspell 
 Run every check from CI locally, in two parts:
 
 1. The linters, following `.claude/commands/lint.md`, including its fixes of formatting findings.
-1. The unit tests and the browser tests, following `.claude/commands/test.md`.
+1. The unit and integration tests and the browser tests, following `.claude/commands/test.md`.
 
 Run the tests even when the linters report findings, so that one run shows everything CI would.
 

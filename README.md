@@ -26,7 +26,7 @@ Not an official Logitech or Elgato product.
 
 - Every action applies to all connected lamps at once. There is no per-lamp picker yet.
 - The plugin talks to the lamps in-process over USB HID, through the [`litra`][litra] Node library, with no CLI subprocess.
-- The Beam LX front brightness is read from two bytes. The stock `litra` library only reads the low one, which truncates values above 255 lumens.
+- The brightness is read from two bytes. The stock `litra` library only reads the low one, which truncates values above 255 lumens, where both Beams go.
 
 ## Supported hardware
 
@@ -88,7 +88,7 @@ npx streamdeck restart com.daczarne.litra   # load the new build
 npm run typecheck         # type-check the sources, the tests, and the build and check scripts
 npm run lint              # Biome: lint rules, formatting and import order, without changing anything
 npm run format            # Biome: apply the formatting and the import order
-npm test                  # run the unit tests
+npm test                  # run the unit tests and the integration tests
 npm run test:browser      # run the browser tests of the settings pages, which need Google Chrome
 npm run check:docs        # every function, class, method and constructor has a doc comment
 npm run check:ui          # settings pages: no remote resources, CSP on every page, vendored file matches its hash

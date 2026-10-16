@@ -5,9 +5,23 @@ export default defineConfig({
   // tests replace @action with a decorator that returns the class unchanged, which works the same either way. The
   // build compiles with tsc, which keeps the standard ones.
   oxc: { decorator: { legacy: true } },
+  resolve: {
+    // The plugin's bundle runs litra's ESM build, which Rollup takes from its `module` field, where Vitest would take
+    // the CommonJS one from `main`. The tests run the same build, which is also the one whose import of node-hid
+    // vi.mock can replace: the CommonJS build's require() is out of its reach.
+    alias: [{ find: /^litra$/, replacement: "litra/dist/esm/driver.js" }],
+  },
   test: {
     // Only our own tests: ref/ may hold local clones of upstream projects, with their own test suites.
     include: ["src/**/*.test.ts"],
     mockReset: true,
+    server: {
+      deps: {
+        // Vitest leaves dependencies to Node, out of vi.mock's reach. Through Vitest, litra's import of node-hid gets
+        // the fake one, so the integration tests run litra against emulated lamps rather than the ones plugged in.
+        // Vitest already takes litra's ESM build in, since Node can't run it, but the tests' safety mustn't rest on it.
+        inline: ["litra"],
+      },
+    },
   },
 });
