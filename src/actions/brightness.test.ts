@@ -189,6 +189,14 @@ describe("BrightnessAction", () => {
     expect(key.setTitle).toHaveBeenCalledExactlyOnceWith("40");
   });
 
+  it("shows no brightness on a dial that appears while no lamp can be read", async () => {
+    vi.mocked(readRepresentativeBrightnessPercentage).mockReturnValue(NO_LAMP);
+
+    const dial = await deck.dial(BRIGHTNESS);
+
+    expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith(UNKNOWN_BRIGHTNESS);
+  });
+
   describe("when the settings page changes a setting", () => {
     it("shows a key's new preset as its title", async () => {
       const key = await deck.key(BRIGHTNESS, { presetPercentage: 40 });

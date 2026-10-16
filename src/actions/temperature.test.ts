@@ -162,6 +162,14 @@ describe("TemperatureAction", () => {
     expect(key.setTitle).toHaveBeenCalledExactlyOnceWith("5000");
   });
 
+  it("shows no temperature on a dial that appears while no lamp can be read", async () => {
+    vi.mocked(readRepresentativeTemperatureKelvin).mockReturnValue({ ok: false, deviceCount: 0, failures: 1 });
+
+    const dial = await deck.dial(TEMPERATURE);
+
+    expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith({ title: "Temperature", value: "—", indicator: 0 });
+  });
+
   describe("when the settings page changes a setting", () => {
     it("shows a key's new preset as its title", async () => {
       const key = await deck.key(TEMPERATURE, { presetKelvin: 5000 });
