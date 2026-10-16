@@ -9,6 +9,7 @@
     "com.daczarne.litra.sdPlugin/logs/**",
     "com.daczarne.litra.sdPlugin/node_modules/**",
     "com.daczarne.litra.sdPlugin/**/vendor/**",
+    "coverage/**",
     "node_modules/**",
     "ref/**",
     "scripts/probes/out/**",

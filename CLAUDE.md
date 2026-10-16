@@ -58,6 +58,7 @@ npm run typecheck         # type-check the sources, the tests, and the build and
 npm run lint              # Biome: lint rules, formatting and import order, without changing anything
 npm run format            # Biome: apply the formatting and the import order
 npm test                  # run the unit tests and the integration tests
+npm run coverage          # the same tests, with a coverage report in the terminal and in coverage/
 npm run test:browser      # run the browser tests, which need Chrome
 ```
 

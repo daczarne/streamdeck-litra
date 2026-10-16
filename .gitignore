@@ -12,6 +12,9 @@ ref/litra/
 release/
 *.streamDeckPlugin
 
+# Test coverage reports
+coverage/
+
 # Probe results, which hold the lamps' serial numbers
 scripts/probes/out/*.txt
 
