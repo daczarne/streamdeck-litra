@@ -7,10 +7,33 @@ docs:
   - changed-files:
       - any-glob-to-any-file:
           - docs/**
+          - CLAUDE.md
           - README.md
+litra:
+  - any:
+      - changed-files:
+          - any-glob-to-any-file:
+              - com.daczarne.litra.sdPlugin/**
+              - rollup.config.mjs
+              - scripts/check-ui.mjs
+              - scripts/generate-icons.mjs
+              - scripts/probes/**
+          - all-globs-to-any-file:
+              - src/**
+              - "!src/**/*.test.ts"
+              - "!src/test-support/**"
+tests:
+  - changed-files:
+      - any-glob-to-any-file:
+          - browser-tests/**
+          - src/**/*.test.ts
+          - src/test-support/**
+          - vitest.browser.config.mjs
+          - vitest.config.mjs
 tools:
   - changed-files:
       - any-glob-to-any-file:
+          - .claude/**
           - .cspell.json
           - .cspell/**
           - .editorconfig
@@ -18,8 +41,11 @@ tools:
           - .gitignore
           - .markdownlint-cli2.yaml
           - .markdownlint.yaml
+          - .node-version
+          - .npmrc
           - .vscode/**
           - biome.json
+          - scripts/check-docs.mjs
           - tsconfig.json
           - tsconfig.scripts.json
 workflows:
