@@ -8,6 +8,27 @@ docs:
       - any-glob-to-any-file:
           - docs/**
           - README.md
+litra:
+  - any:
+      - changed-files:
+          - any-glob-to-any-file:
+              - com.daczarne.litra.sdPlugin/**
+              - rollup.config.mjs
+              - scripts/check-ui.mjs
+              - scripts/generate-icons.mjs
+              - scripts/probes/**
+          - all-globs-to-any-file:
+              - src/**
+              - "!src/**/*.test.ts"
+              - "!src/test-support/**"
+tests:
+  - changed-files:
+      - any-glob-to-any-file:
+          - browser-tests/**
+          - src/**/*.test.ts
+          - src/test-support/**
+          - vitest.browser.config.mjs
+          - vitest.config.mjs
 tools:
   - changed-files:
       - any-glob-to-any-file:

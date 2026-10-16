@@ -3,3 +3,4 @@ napi
 npmjs
 prebuilds
 rollup
+vitest
