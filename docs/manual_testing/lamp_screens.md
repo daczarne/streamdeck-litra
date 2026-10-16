@@ -13,7 +13,7 @@ Tapping a Brightness or Temperature dial's part of the touch strip shows one scr
 
 ## Setup
 
-Plug in both Beams, turned on at different brightness and temperature, using their own buttons if needed. Place a Brightness dial and a Temperature dial on the Deck, and a Power key. Build the branch and restart the plugin:
+Plug in two Beams, turned on at different brightness and temperature, using their own buttons if needed. Place a Brightness dial and a Temperature dial on the Deck, and a Power key. Build the branch and restart the plugin:
 
 ```shell
 npm run build

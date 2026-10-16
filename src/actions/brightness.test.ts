@@ -38,7 +38,7 @@ vi.mock("../litra-manager", () => ({
 
 const BRIGHTNESS = "com.daczarne.litra.brightness";
 
-/** Two Beams on the Stream Deck + XL's USB hub, which stop at 63% and 79%. */
+/** Two Beams on a Stream Deck + XL's USB hub, which stop at 63% and 79%. */
 const REACHED_AT_CAP: BroadcastResult = {
   ok: true,
   deviceCount: 2,

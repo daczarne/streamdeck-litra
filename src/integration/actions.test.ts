@@ -115,7 +115,7 @@ describe("the Power key", () => {
 
 describe("the Brightness action", () => {
   it("shows the brightest lamp when lamps stop at their caps, with the bar fainter where only one reaches (#13, #59)", async () => {
-    // Two Beams on the Stream Deck + XL's USB hub, which stop at 63% and 79%.
+    // Two Beams on a Stream Deck + XL's USB hub, which stop at 63% and 79%.
     plugIn(beam({ capInLumen: 264 }), beam({ capInLumen: 324 }));
     const key = await deck.key(BRIGHTNESS, { presetPercentage: 100 });
     const dial = await deck.dial(BRIGHTNESS);
@@ -131,7 +131,7 @@ describe("the Brightness action", () => {
   });
 
   it("keeps the lamps where a dial turned down right after a press past their caps leaves them (#55)", async () => {
-    // Two Beams on the Stream Deck + XL's USB hub, which stop at 63% and 79%, and can go back to their caps for about a
+    // Two Beams on a Stream Deck + XL's USB hub, which stop at 63% and 79%, and can go back to their caps for about a
     // second after being asked for more.
     const pair = [beam({ capInLumen: 264 }), beam({ capInLumen: 324 })];
     plugIn(...pair);
@@ -148,18 +148,18 @@ describe("the Brightness action", () => {
     expect(feedbackOf(dial)).toMatchObject({ value: "50%" });
   });
 
-  it("lets the lamps reach 100% once moved from the hub to the Mac, without a restart (#55)", async () => {
-    const onTheHub = [beam({ capInLumen: 264 }), beam({ capInLumen: 324 })];
-    plugIn(...onTheHub);
+  it("lets the lamps reach 100% once moved from a hub to the computer, without a restart (#55)", async () => {
+    const onAHub = [beam({ capInLumen: 264 }), beam({ capInLumen: 324 })];
+    plugIn(...onAHub);
     const key = await deck.key(BRIGHTNESS, { presetPercentage: 100 });
     const dial = await deck.dial(BRIGHTNESS);
     await deck.press(key);
 
-    const onTheMac = onTheHub.map((lamp) => beam({ serialNumber: lamp.serialNumber }));
-    plugIn(...onTheMac);
+    const onTheComputer = onAHub.map((lamp) => beam({ serialNumber: lamp.serialNumber }));
+    plugIn(...onTheComputer);
     await deck.press(key);
 
-    expect(onTheMac.map((lamp) => lamp.brightnessInLumen)).toEqual([LUMEN_AT_100, LUMEN_AT_100]);
+    expect(onTheComputer.map((lamp) => lamp.brightnessInLumen)).toEqual([LUMEN_AT_100, LUMEN_AT_100]);
     expect(feedbackOf(dial)).toMatchObject({ value: "100%" });
   });
 

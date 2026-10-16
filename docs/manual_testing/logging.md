@@ -14,7 +14,7 @@ The unit tests check against a temporary folder how the log files are written an
 
 ## Setup
 
-Plug in both Beams and place a Power key, a Brightness key and a Brightness dial on the Deck. Build the branch and restart the plugin:
+Plug in two Beams and place a Power key, a Brightness key and a Brightness dial on the Deck. Build the branch and restart the plugin:
 
 ```shell
 npm run build

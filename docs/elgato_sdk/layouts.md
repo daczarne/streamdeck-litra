@@ -48,7 +48,7 @@ The schema says `Encoder.Icon` is also the app's round picture of the dial. On S
 
 ## What fits on the Deck
 
-Measured on the Stream Deck + XL's touch strip, while trying to show the lumens next to the brightness ([#8]) and while building the lamp screens ([#48]):
+Measured on a Stream Deck + XL's touch strip, while trying to show the lumens next to the brightness ([#8]) and while building the lamp screens ([#48]):
 
 - Text under about 16 px is hard to read, and a mid-grey on the strip's background doesn't contrast enough.
 - At the size of `$B1`'s value, a value like `70%` already takes about half of the 108 px value area, so a second value doesn't fit on the same line.

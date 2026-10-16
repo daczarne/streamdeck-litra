@@ -19,7 +19,7 @@ vi.mock("../litra-manager", () => ({
 
 const LAMP_LAYOUT = "layouts/lamp.json";
 
-/** A Beam on the Stream Deck + XL's USB hub, at its cap. */
+/** A Beam on a Stream Deck + XL's USB hub, at its cap. */
 function beam(serialNumber: string, overrides: Partial<LampStatus> = {}): LampStatus {
   return {
     serialNumber,

@@ -68,7 +68,7 @@ Steps 3 and 4 work differently. They listen to the lamp the whole time, and prin
 
 ### Example
 
-From a run on 2026-10-10, before step 3 existed, with the left lamp on the Mac and the right lamp on the Stream Deck + XL's USB hub (second USB-C port). It is abridged, and the serial numbers are masked:
+From a run on 2026-10-10, before step 3 existed, with lamp 1 plugged into the computer and lamp 2 into a Stream Deck + XL's USB hub (second USB-C port). It is abridged, and the serial numbers are masked:
 
 ```text
 Lamp 1: Logitech Litra Beam, serial SERIAL-A
@@ -116,27 +116,27 @@ All lamps at once: set 90% on every lamp, then read each 1 s later
 
 Reading it:
 
-- Lamp 1, on the Mac, reaches 90%. It replies with the value it was sent and sends no change notice.
-- Lamp 2, on the hub, first replies with the value it was sent, 363 lm. About 100 ms after the write it applies its cap and sends a change notice with the brightness it reached, 244 lm (58%). From 250 ms on, every reply is the capped value.
+- Lamp 1, plugged into the computer, reaches 90%. It replies with the value it was sent and sends no change notice.
+- Lamp 2, plugged into a hub, first replies with the value it was sent, 363 lm. About 100 ms after the write it applies its cap and sends a change notice with the brightness it reached, 244 lm (58%). From 250 ms on, every reply is the capped value.
 - Without the drain, the first read gets the ACK of the write.
 - Lamp 2 passed its restore check at 30 lm, but the last step found it at 244 lm when it started, and restored it to that. Step 3 was added to find out why a lower brightness doesn't stay.
 
-What the runs on 2026-10-10 found about the cap on the Stream Deck + XL's hub, in lumens:
+What the runs on 2026-10-10 found about the cap on a Stream Deck + XL's hub, in lumens:
 
-| Lamp  | First USB-C port | Second USB-C port |
-|-------|------------------|-------------------|
-| Left  | 324 (79%)        | 264 (63%)         |
-| Right | 284 (69%)        | 244 (58%)         |
+| Lamp   | First USB-C port | Second USB-C port |
+|--------|------------------|-------------------|
+| Lamp 1 | 324 (79%)        | 264 (63%)         |
+| Lamp 2 | 284 (69%)        | 244 (58%)         |
 
-The cap depends on both the port and the lamp (with its cable), and stays the same whether the other lamp is at its minimum or at 90%. On the Mac, neither lamp is capped. The lamps also came in a different order from one `findDevices` call to the next.
+The cap depends on both the port and the lamp (with its cable), and stays the same whether the other lamp is at its minimum or at 90%. Plugged into the computer, neither lamp is capped. The lamps also came in a different order from one `findDevices` call to the next.
 
 Steps 3 and 4 found that a capped lamp can undo a write that comes soon after a request above its cap:
 
 - Some time between 0.5 s and 1.25 s after a request above its cap, the lamp goes back to its cap, without sending a notice. A lower brightness written before that moment is lost, and one written after it stays.
-- Three of the four lamp and port pairs did this every time. The left lamp on the first port, the pair with the highest cap (324 lm), never did, in two runs.
+- Three of the four lamp and port pairs did this every time. Lamp 1 on the first port, the pair with the highest cap (324 lm), never did, in two runs.
 - Writes that don't go above the cap, including the cap itself, were never undone (step 4a and 4b).
 - Writing the cap 250 ms after a request above it doesn't stop the lamp from going back to its cap (step 4c).
 - A request above the cap while the lamp is already at its cap gets error `02` instead of an ACK, followed by change notices with the cap. The lamp can still go back to its cap afterwards.
-- A lamp on the Mac kept every lower brightness.
+- A lamp plugged into the computer kept every lower brightness.
 
 [#13]: https://github.com/daczarne/streamdeck-litra/issues/13

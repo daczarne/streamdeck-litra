@@ -31,42 +31,42 @@ The log tells, in order, what was pressed or turned on the Deck, what each lamp 
 
 - Each line names its source as a scope: `Lamps` for `src/litra-manager.ts`, and the action's name for the others (`Power`, `Brightness`, `Temperature`, `Lamp screens`).
 - A message from `Lamps` starts with the operation (`turn on`, `set brightness`, `read power`, …), so searching for `set brightness:` finds every step of a brightness change.
-- A lamp is named by its model and the last 4 characters of its serial number, such as `Beam …3F2A`. That's enough to tell lamps apart, without writing whole serial numbers to a file that may end up in an issue.
+- A lamp is named by its model and the last 4 characters of its serial number, after `…`. That's enough to tell lamps apart, without writing whole serial numbers to a file that may end up in an issue. The examples below write those characters as `<serialNumber1>` for one lamp and `<serialNumber2>` for the other.
 - An error from a lamp is written as its message alone, since its stack only points inside `node-hid`. An error that means a bug in the plugin is written with its stack.
 
 A press of a Brightness key with one lamp at its cap and the other failing reads:
 
 ```text
 2026-10-13T15:04:05.123Z INFO  Brightness: Key pressed: preset 100%
-2026-10-13T15:04:05.130Z ERROR Lamps: set brightness: Beam …91C0 failed: Error: could not read from HID device
-2026-10-13T15:04:05.395Z INFO  Lamps: set brightness: Beam …3F2A sent 400 lm, reached 250 lm (59%)
-2026-10-13T15:04:05.395Z INFO  Lamps: set brightness: Beam …3F2A capped at 250 lm
+2026-10-13T15:04:05.130Z ERROR Lamps: set brightness: Beam …<serialNumber1> failed: Error: could not read from HID device
+2026-10-13T15:04:05.395Z INFO  Lamps: set brightness: Beam …<serialNumber2> sent 400 lm, reached 250 lm (59%)
+2026-10-13T15:04:05.395Z INFO  Lamps: set brightness: Beam …<serialNumber2> capped at 250 lm
 ```
 
-A run that presses a 100% key with both lamps on the hub, again once the left lamp is plugged into the Mac, and again once it's back on the hub, reads:
+A run that presses a 100% key with both lamps plugged into a hub, again once lamp 1 is plugged into the computer, and again once it's plugged back into a hub, reads:
 
 ```text
 2026-10-16T21:07:22.384Z INFO  Plugin started
 2026-10-16T21:07:25.269Z INFO  Brightness: Key pressed: preset 100%
-2026-10-16T21:07:25.287Z INFO  Lamps: set brightness: Beam …<serialNumber> turned on
-2026-10-16T21:07:25.291Z INFO  Lamps: set brightness: Beam …<serialNumber> turned on
-2026-10-16T21:07:25.549Z INFO  Lamps: set brightness: Beam …<serialNumber> sent 400 lm, reached 324 lm (79%)
-2026-10-16T21:07:25.550Z INFO  Lamps: set brightness: Beam …<serialNumber> capped at 324 lm
-2026-10-16T21:07:25.552Z INFO  Lamps: set brightness: Beam …<serialNumber> sent 400 lm, reached 244 lm (58%)
-2026-10-16T21:07:25.553Z INFO  Lamps: set brightness: Beam …<serialNumber> capped at 244 lm
+2026-10-16T21:07:25.287Z INFO  Lamps: set brightness: Beam …<serialNumber1> turned on
+2026-10-16T21:07:25.291Z INFO  Lamps: set brightness: Beam …<serialNumber2> turned on
+2026-10-16T21:07:25.549Z INFO  Lamps: set brightness: Beam …<serialNumber1> sent 400 lm, reached 324 lm (79%)
+2026-10-16T21:07:25.550Z INFO  Lamps: set brightness: Beam …<serialNumber1> capped at 324 lm
+2026-10-16T21:07:25.552Z INFO  Lamps: set brightness: Beam …<serialNumber2> sent 400 lm, reached 244 lm (58%)
+2026-10-16T21:07:25.553Z INFO  Lamps: set brightness: Beam …<serialNumber2> capped at 244 lm
 2026-10-16T21:07:45.328Z INFO  Brightness: Key pressed: preset 100%
-2026-10-16T21:07:45.347Z INFO  Lamps: set brightness: Beam …<serialNumber> turned on
-2026-10-16T21:07:45.350Z INFO  Lamps: set brightness: Beam …<serialNumber> was plugged in again, its cap of 324 lm is forgotten
-2026-10-16T21:07:45.606Z INFO  Lamps: set brightness: Beam …<serialNumber> sent 244 lm, reached 244 lm (58%)
-2026-10-16T21:07:45.609Z INFO  Lamps: set brightness: Beam …<serialNumber> sent 400 lm, reached 400 lm (100%)
+2026-10-16T21:07:45.347Z INFO  Lamps: set brightness: Beam …<serialNumber1> turned on
+2026-10-16T21:07:45.350Z INFO  Lamps: set brightness: Beam …<serialNumber1> was plugged in again, its cap of 324 lm is forgotten
+2026-10-16T21:07:45.606Z INFO  Lamps: set brightness: Beam …<serialNumber2> sent 244 lm, reached 244 lm (58%)
+2026-10-16T21:07:45.609Z INFO  Lamps: set brightness: Beam …<serialNumber1> sent 400 lm, reached 400 lm (100%)
 2026-10-16T21:08:02.633Z INFO  Brightness: Key pressed: preset 100%
-2026-10-16T21:08:02.651Z INFO  Lamps: set brightness: Beam …<serialNumber> turned on
-2026-10-16T21:08:02.909Z INFO  Lamps: set brightness: Beam …<serialNumber> sent 244 lm, reached 244 lm (58%)
-2026-10-16T21:08:02.911Z INFO  Lamps: set brightness: Beam …<serialNumber> sent 400 lm, reached 320 lm (78%)
-2026-10-16T21:08:02.912Z INFO  Lamps: set brightness: Beam …<serialNumber> capped at 320 lm
+2026-10-16T21:08:02.651Z INFO  Lamps: set brightness: Beam …<serialNumber1> turned on
+2026-10-16T21:08:02.909Z INFO  Lamps: set brightness: Beam …<serialNumber2> sent 244 lm, reached 244 lm (58%)
+2026-10-16T21:08:02.911Z INFO  Lamps: set brightness: Beam …<serialNumber1> sent 400 lm, reached 320 lm (78%)
+2026-10-16T21:08:02.912Z INFO  Lamps: set brightness: Beam …<serialNumber1> capped at 320 lm
 ```
 
-A lamp plugged in again starts off, so it's turned on first. Back on the hub, the left lamp has no cap to forget, since it never fell short on the Mac.
+A lamp plugged in again starts off, so it's turned on first. Back on a hub, lamp 1 has no cap to forget, since it never fell short on the computer.
 
 ### The contract
 

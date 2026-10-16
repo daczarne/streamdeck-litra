@@ -25,7 +25,7 @@ A policy declared in a `<meta http-equiv="Content-Security-Policy">` is enforced
 ## Debugging a page
 
 - Developer mode alone doesn't open the pages to DevTools. A separate preference, `html_remote_debugging_enabled` in `com.elgato.StreamDeck`, opens a debugging port on 23654. Stream Deck reads it when it starts.
-- The port listens on `127.0.0.1` only, and has no authentication: while it's open, any process on the Mac can run code in the pages.
+- The port listens on `127.0.0.1` only, and has no authentication: while it's open, any process on the computer can run code in the pages.
 - Each page is listed under its `<title>`, such as "Litra Temperature". The links on the port's own page, `http://localhost:23654/`, open a DevTools frontend served from `chrome-devtools-frontend.appspot.com`, whose connection to the port Chrome blocks (`ERR_BLOCKED_BY_LOCAL_NETWORK_ACCESS_CHECKS`). The DevTools behind `chrome://inspect` ship with Chrome and do connect.
 
 The steps to open a page in DevTools, and the checks to run on it, are in [`manual_testing/settings_pages.md`][manual-test].
