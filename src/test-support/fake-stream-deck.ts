@@ -1,3 +1,6 @@
+import fs from "node:fs";
+import path from "node:path";
+
 import { vi } from "vitest";
 
 /**
@@ -68,6 +71,13 @@ export class SingletonAction {
   }
 }
 
+// The actions the manifest lists, against which the SDK checks every action registered.
+const MANIFEST_UUIDS = (
+  JSON.parse(
+    fs.readFileSync(path.resolve(import.meta.dirname, "../../com.daczarne.litra.sdPlugin/manifest.json"), "utf8"),
+  ) as { Actions: { UUID: string }[] }
+).Actions.map(({ UUID }) => UUID);
+
 // The actions plugin.ts registers, in order.
 const registered: SingletonAction[] = [];
 
@@ -76,11 +86,17 @@ export function registeredActions(): readonly SingletonAction[] {
   return registered;
 }
 
-/** The SDK's entry point, as plugin.ts uses it: it records the actions registered, and connects to nothing. */
+/**
+ * The SDK's entry point, as plugin.ts uses it: it records the actions registered, and connects to nothing. Like the
+ * SDK, it refuses an action whose id the manifest doesn't list, which Stream Deck would never send events to.
+ */
 export default {
   logger: { setLevel: (_level: string): void => {} },
   actions: {
     registerAction: (registering: SingletonAction): void => {
+      if (registering.manifestId === undefined || !MANIFEST_UUIDS.includes(registering.manifestId)) {
+        throw new Error(`The action's manifestId was not found within the manifest: ${registering.manifestId}`);
+      }
       registered.push(registering);
     },
   },

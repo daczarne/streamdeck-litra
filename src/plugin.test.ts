@@ -1,3 +1,5 @@
+import fs from "node:fs";
+
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 //* Fakes
@@ -21,6 +23,11 @@ vi.mock("litra", () => ({
   DeviceType: { LitraGlow: "litra_glow", LitraBeam: "litra_beam", LitraBeamLX: "litra_beam_lx" },
 }));
 
+// The actions the manifest lists, which Stream Deck shows and sends events for.
+const MANIFEST_UUIDS = (
+  JSON.parse(fs.readFileSync("com.daczarne.litra.sdPlugin/manifest.json", "utf8")) as { Actions: { UUID: string }[] }
+).Actions.map(({ UUID }) => UUID);
+
 /** Runs plugin.ts, as Stream Deck does when it starts the plugin, and returns the logger it logs to. */
 async function start() {
   await import("./plugin");
@@ -35,12 +42,16 @@ describe("plugin", () => {
     vi.clearAllMocks();
   });
 
-  it("registers every action, then connects to Stream Deck", async () => {
+  it("registers an action for each one in the manifest, then connects to Stream Deck", async () => {
     streamDeck.connect.mockResolvedValue();
 
     const logger = await start();
 
-    expect(streamDeck.actions.registerAction).toHaveBeenCalledTimes(3);
+    // An action in the manifest without one registered would show in Stream Deck and do nothing.
+    const registered = streamDeck.actions.registerAction.mock.calls.map(
+      ([action]) => (action as { manifestId: string }).manifestId,
+    );
+    expect(registered.toSorted()).toEqual(MANIFEST_UUIDS.toSorted());
     expect(streamDeck.connect).toHaveBeenCalledOnce();
     // Lets the connection settle, so that a handler for its failure would have run.
     await streamDeck.connect.mock.results[0]?.value;
