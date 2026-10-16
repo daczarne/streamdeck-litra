@@ -74,7 +74,7 @@ function oneOf<T extends string>(allowed: readonly T[], fallback: T): Setting<T>
 //* The actions' settings
 
 // The valid values are the ones each settings page offers, and the defaults match the pages' own, which are what a new
-// key or dial saves.
+// key or dial saves. The browser tests check both against the pages.
 
 export const powerSettings = {
   mode: oneOf(["toggle", "on", "off"], "toggle"),
