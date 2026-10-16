@@ -822,6 +822,32 @@ describe("setBrightnessAllPercentage", () => {
     expect(capped.writes("brightness")).toEqual([BEAM_MAX_LUMEN, 244]);
   });
 
+  it("forgets a lamp's cap once it's plugged in again, and sends it more (#55)", async () => {
+    // A Beam on the Stream Deck + XL's USB hub, then plugged into the Mac, where it isn't capped.
+    const onTheHub = beam({ capInLumen: 244 });
+    connect(onTheHub);
+    await set(100);
+
+    const onTheMac = beam({ serialNumber: onTheHub.serialNumber });
+    connect(onTheMac);
+    await set(100);
+
+    expect(onTheMac.writes("brightness")).toEqual([BEAM_MAX_LUMEN]);
+    expect(onTheMac.brightnessInLumen).toBe(BEAM_MAX_LUMEN);
+  });
+
+  it("keeps a lamp's cap while it stays plugged in, when another lamp is plugged in again (#55)", async () => {
+    const [staying, moving] = [beam({ capInLumen: 244 }), beam({ capInLumen: 264 })];
+    connect(staying, moving);
+    await set(100);
+
+    // Listed first, the lamp plugged in again is the one whose cap is forgotten before the other lamp is sent anything.
+    connect(beam({ serialNumber: moving.serialNumber }), staying);
+    await set(100);
+
+    expect(staying.writes("brightness")).toEqual([BEAM_MAX_LUMEN, 244]);
+  });
+
   it("waits for the lamps to settle before reading them back", async () => {
     const lamp = beam();
     connect(lamp);
@@ -1577,6 +1603,23 @@ describe("logs", () => {
     await run(() => Promise.all([manager.setBrightnessAllPercentage(100), manager.setBrightnessAllPercentage(30)]));
 
     expect(onlyMessage("debug")).toContain("waiting 1250 ms");
+  });
+
+  it("logs a cap forgotten because its lamp was plugged in again, with the lamp and the cap (#55)", async () => {
+    const lamp = beam({ capInLumen: 250 });
+    connect(lamp);
+    await run(() => manager.setBrightnessAllPercentage(100));
+    vi.mocked(logger.info).mockClear();
+
+    const again = beam({ serialNumber: lamp.serialNumber });
+    connect(again);
+    await run(() => manager.setBrightnessAllPercentage(100));
+
+    // Sent more than its old cap, the lamp has no other message that mentions it.
+    expect(again.writes("brightness")).toEqual([BEAM_MAX_LUMEN]);
+    const forgotten = messages("info").filter((message) => message.includes("250 lm"));
+    expect(forgotten).toHaveLength(1);
+    expect(at(forgotten, 0)).toContain(labelOf(lamp));
   });
 
   it("logs a lamp that a brightness change turns on", async () => {

@@ -89,6 +89,10 @@ type EmulatedLitraOptions = {
   vendorId?: number | undefined;
   /** Another of the lamp's HID interfaces, which litra mustn't open. */
   usagePage?: number | undefined;
+  /**
+   * A lamp already emulated, for the same lamp plugged in again: a new emulated lamp with its serial number, which gets
+   * a new path, as the system gives a lamp each time it's plugged in.
+   */
   serialNumber?: string | undefined;
   on?: boolean | undefined;
   brightnessInLumen?: number | undefined;
