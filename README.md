@@ -26,7 +26,7 @@ Not an official Logitech or Elgato product.
 
 - Every action applies to all connected lamps at once. There is no per-lamp picker yet.
 - The plugin talks to the lamps in-process over USB HID, through the [`litra`][litra] Node library, with no CLI subprocess.
-- The Beam LX front brightness is read from two bytes. The stock `litra` library only reads the low one, which truncates values above 255 lumens.
+- The brightness is read from two bytes. The stock `litra` library only reads the low one, which truncates values above 255 lumens, where both Beams go.
 
 ## Supported hardware
 
