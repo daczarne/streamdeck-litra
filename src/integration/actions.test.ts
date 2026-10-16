@@ -237,6 +237,22 @@ describe("the lamp screens", () => {
 
     expect(feedbackOf(dial)).toMatchObject({ lamp: "Beam · 1 of 2", temperature: "5000 K" });
   });
+
+  it.each([
+    ["Brightness", BRIGHTNESS],
+    ["Temperature", TEMPERATURE],
+  ])("forget a %s dial taken off the Deck, which the lamps changing no longer redraws", async (_name, manifestId) => {
+    plugIn(beam({ serialNumber: "SERIAL-A" }), beam({ serialNumber: "SERIAL-B" }));
+    const dial = await deck.dial(manifestId);
+    const powerKey = await deck.key(POWER, { mode: "toggle" });
+    await deck.tap(dial);
+    await deck.remove(dial);
+    dial.setFeedback.mockClear();
+
+    await deck.press(powerKey);
+
+    expect(dial.setFeedback).not.toHaveBeenCalled();
+  });
 });
 
 describe("what the dials show", () => {

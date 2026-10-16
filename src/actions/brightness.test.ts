@@ -189,6 +189,37 @@ describe("BrightnessAction", () => {
     expect(key.setTitle).toHaveBeenCalledExactlyOnceWith("40");
   });
 
+  describe("when the settings page changes a setting", () => {
+    it("shows a key's new preset as its title", async () => {
+      const key = await deck.key(BRIGHTNESS, { presetPercentage: 40 });
+
+      await deck.changeSettings(key, { presetPercentage: 70 });
+
+      expect(key.setTitle).toHaveBeenLastCalledWith("70");
+    });
+
+    it("redraws a dial with what the lamps are at", async () => {
+      const dial = await deck.dial(BRIGHTNESS, { stepPercentage: 5 });
+      clearCalls();
+
+      await deck.changeSettings(dial, { stepPercentage: 10 });
+
+      expect(readRepresentativeBrightnessPercentage).toHaveBeenCalledOnce();
+      expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith(AT_THE_CAPS);
+    });
+  });
+
+  it("shows an alert on a dial pushed when the lamps can't be toggled, and leaves its screen as it was", async () => {
+    const dial = await deck.dial(BRIGHTNESS);
+    clearCalls();
+    vi.mocked(toggleAll).mockReturnValue({ ok: false, deviceCount: 0, failures: 1 });
+
+    await deck.push(dial);
+
+    expect(dial.showAlert).toHaveBeenCalledOnce();
+    expect(dial.setFeedback).not.toHaveBeenCalled();
+  });
+
   describe("with a setting that isn't valid (#22)", () => {
     it("sets the lamps to the default preset on a key press, with a warning", async () => {
       const key = await deck.key(BRIGHTNESS, { presetPercentage: "abc" });
