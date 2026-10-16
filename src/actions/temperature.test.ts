@@ -162,6 +162,45 @@ describe("TemperatureAction", () => {
     expect(key.setTitle).toHaveBeenCalledExactlyOnceWith("5000");
   });
 
+  it("shows no temperature on a dial that appears while no lamp can be read", async () => {
+    vi.mocked(readRepresentativeTemperatureKelvin).mockReturnValue({ ok: false, deviceCount: 0, failures: 1 });
+
+    const dial = await deck.dial(TEMPERATURE);
+
+    expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith({ title: "Temperature", value: "—", indicator: 0 });
+  });
+
+  describe("when the settings page changes a setting", () => {
+    it("shows a key's new preset as its title", async () => {
+      const key = await deck.key(TEMPERATURE, { presetKelvin: 5000 });
+
+      await deck.changeSettings(key, { presetKelvin: 6000 });
+
+      expect(key.setTitle).toHaveBeenLastCalledWith("6000");
+    });
+
+    it("redraws a dial with what the lamps are at", async () => {
+      const dial = await deck.dial(TEMPERATURE, { stepKelvin: 100 });
+      clearCalls();
+
+      await deck.changeSettings(dial, { stepKelvin: 200 });
+
+      expect(readRepresentativeTemperatureKelvin).toHaveBeenCalledOnce();
+      expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith(TEMPERATURE_SNAPPED);
+    });
+  });
+
+  it("shows an alert on a dial pushed when the lamps can't be toggled, and leaves its screen as it was", async () => {
+    const dial = await deck.dial(TEMPERATURE);
+    clearCalls();
+    vi.mocked(toggleAll).mockReturnValue({ ok: false, deviceCount: 0, failures: 1 });
+
+    await deck.push(dial);
+
+    expect(dial.showAlert).toHaveBeenCalledOnce();
+    expect(dial.setFeedback).not.toHaveBeenCalled();
+  });
+
   describe("with a setting that isn't valid (#22)", () => {
     it("sets the lamps to the default preset on a key press, with a warning", async () => {
       const key = await deck.key(TEMPERATURE, { presetKelvin: "warm" });
