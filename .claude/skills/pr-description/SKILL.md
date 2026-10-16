@@ -1,6 +1,6 @@
 ---
 name: pr-description
-description: Use in this repository when Daniel asks for the pull request text, in any wording (for example "prepare the PR documentation", "write the PR description", "PR title and body"). Writes the title and description of the current branch's pull request from its net change and the purpose discussed in the conversation, and returns them as two Markdown blocks ready to paste. Only on request, once the feature is done and reviewed.
+description: Use in this repository when asked for the pull request text, in any wording (for example "prepare the PR documentation", "write the PR description", "PR title and body"). Writes the title and description of the current branch's pull request from its net change and the purpose discussed in the conversation, and returns them as two Markdown blocks ready to paste. Only on request, once the feature is done and reviewed.
 allowed-tools: Bash(git diff *), Bash(git log *), Bash(git status *)
 ---
 
@@ -32,7 +32,7 @@ The length follows the pull request. A short or simple change gets a short descr
 
 The description covers what the branch does, not how it was decided. Background and rejected alternatives belong in GitHub issues and their discussions. The one exception is a short note when the branch departs from the usual way of doing something, saying why. Work left for later is not mentioned either: it is tracked as its own issue.
 
-Don't refer to the conversation or to who asked for what ("as discussed", "Daniel wanted"). State the reasons themselves.
+Don't refer to the conversation or to who asked for what ("as discussed", "as requested"). State the reasons themselves.
 
 ## Output
 

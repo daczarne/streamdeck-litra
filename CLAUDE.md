@@ -14,9 +14,9 @@
 
 A Stream Deck plugin that controls Logitech Litra lights (Glow, Beam, Beam LX front light) over USB HID, without Logitech's software. It is a fork of a repository its original author abandoned, so the code and the notes in `ref/` describe decisions nobody here made: read them before changing behavior that looks odd.
 
-Daniel's setup: macOS on a Mac Studio, a Stream Deck + XL running Stream Deck 7.6, and two Litra Beams. The Beam is the plugin's main target: tests, fakes and defaults use its real values. Support for the Beam LX comes next, and the Glow is an afterthought. Logi Options+ and G HUB are not installed and won't be.
+The plugin is made and checked on macOS, with a Stream Deck + XL running Stream Deck 7.6 and two Litra Beams. The Beam is the plugin's main target: tests, fakes and defaults use its real values. Support for the Beam LX comes next, and the Glow is an afterthought. The plugin needs neither Logi Options+ nor G HUB, and is checked without them installed.
 
-The plugin is for Daniel's own use and isn't published. It runs linked from the repo, never installed, so the Deck runs whatever is built from the checked-out branch. That is intended: a change takes effect on the next build and restart. `npm run pack` and the Packaging section of `README.md` stay, in case the plugin is published one day ([#21]).
+The plugin isn't published. It runs linked from the repo, never installed, so the Deck runs whatever is built from the checked-out branch. That is intended: a change takes effect on the next build and restart. `npm run pack` and the Packaging section of `README.md` stay, in case the plugin is published one day ([#21]).
 
 ## Read before changing things
 
@@ -24,7 +24,7 @@ The plugin is for Daniel's own use and isn't published. It runs linked from the 
 - `docs/style_guide.md`: the conventions the linters don't enforce (see [Style](#style)).
 - `docs/elgato_sdk/`: what the Stream Deck SDK offers and what it doesn't (the interactions a dial receives, its layouts, how Stream Deck loads the settings pages, its logger, what a key shows), checked against the installed version. Read it before designing how an action behaves on the Deck, and add to it when a change finds out something new about the SDK.
 - `docs/logging.md`: what the plugin logs, at which level and with what in each message, where the logs are written and how the files are rotated. A change that logs something new adds it to the contract there.
-- `docs/manual_testing/`: the checks that only the Deck can prove, one document per area. Before asking Daniel to test on the Deck, point to the matching document. When a feature needs new manual checks, add them there.
+- `docs/manual_testing/`: the checks that only the Deck can prove, one document per area. Before asking for a test on the Deck, point to the matching document. When a feature needs new manual checks, add them there.
 - `ref/`: the original author's notes. Read them before changing behavior that looks odd.
 
 ## Layout
@@ -71,7 +71,7 @@ npm run test:browser      # run the browser tests, which need Chrome
 
 ## Supply chain
 
-Daniel treats supply-chain risk as a hard requirement:
+Supply-chain risk is a hard requirement here:
 
 - No remote code. The settings pages load `sdpi-components` from `ui/vendor/`, pinned by hash in `scripts/check-ui.mjs`. The "Third-party code" section of `README.md` describes how to update it. Never install `sdpi-components` from npm: that package belongs to an unrelated maintainer.
 - Each settings page declares a Content-Security-Policy, which `scripts/check-ui.mjs` also holds and checks. It allows scripts only from the plugin folder and connections only to Stream Deck's WebSocket on `localhost`, so inline scripts are blocked: page logic goes in a `.js` file in `ui/`, like `controller-toggle.js`. The "Settings pages" section of `README.md` explains each directive. A change to the policy updates every page, the check and that section.
@@ -80,28 +80,27 @@ Daniel treats supply-chain risk as a hard requirement:
 
 ## Testing on the hardware
 
-- Build, enable developer mode (`npx streamdeck dev`), `npm run link`, then `npx streamdeck restart com.daczarne.litra`. The actions appear under the Litra category. Developer mode stays on. After that, the `Build and restart` VS Code task (the default build task) runs the build and the restart in one go. A change to `manifest.json` takes effect only once Stream Deck itself is quit and reopened, so mention it to Daniel whenever a branch changes the manifest.
+- Build, enable developer mode (`npx streamdeck dev`), `npm run link`, then `npx streamdeck restart com.daczarne.litra`. The actions appear under the Litra category. Developer mode stays on. After that, the `Build and restart` VS Code task (the default build task) runs the build and the restart in one go. A change to `manifest.json` takes effect only once Stream Deck itself is quit and reopened, so mention it whenever a branch changes the manifest.
 - Plugin logs are in `com.daczarne.litra.sdPlugin/logs/`, newest in `litra.log`. The SDK's own `com.daczarne.litra.<n>.log` files there hold what the SDK reports itself, such as an uncaught exception. Stream Deck's own log, `~/Library/Logs/ElgatoStreamDeck/StreamDeck.log`, records what it refuses from the plugin, such as a layout it can't load.
 - `docs/manual_testing/` holds the checks to run by hand. For example, `settings_pages.md` covers what the browser tests take for granted about Stream Deck, how to open the pages in DevTools to check it, and the debugging port that has to be closed afterwards.
-- On the Stream Deck + XL's USB hub (7.5 W), each Beam caps its brightness below 100%, at a level that depends on both the port and the lamp: from 58% to 79% for Daniel's two Beams (see the example in `scripts/probes/README.md`). The cap doesn't change with what the other lamp draws. Plugged into the Mac, a Beam reaches 100%.
-- Claude can't see the Deck. Daniel checks what the keys and the touch strip show, and can share a photo of them, which is enough to judge a layout. Each dial gets 200 × 100 px of the touch strip, and text under about 16 px is hard to read on it ([#8]).
-- Opening a Litra needs no macOS permission. Opening a mouse or keyboard over HID needs Input Monitoring, which Daniel only grants temporarily ([#3]).
+- On the Stream Deck + XL's USB hub (7.5 W), each Beam caps its brightness below 100%, at a level that depends on both the port and the lamp: from 58% to 79% for the two Beams it was measured on (see the example in `scripts/probes/README.md`). The cap doesn't change with what the other lamp draws. Plugged into the Mac, a Beam reaches 100%.
+- Claude can't see the Deck. The user checks what the keys and the touch strip show, and can share a photo of them, which is enough to judge a layout. Each dial gets 200 × 100 px of the touch strip, and text under about 16 px is hard to read on it ([#8]).
+- Opening a Litra over HID needs no macOS permission.
 
 ## Workflow
 
 `docs/contributing.md` describes branches, pull requests and tests. On top of it:
 
 - Create branches with `git switch -c`.
-- Commit messages explain the why and end with the `Co-Authored-By` trailer for Claude. Commit only when Daniel asks.
+- Commit messages explain the why and end with the `Co-Authored-By` trailer for Claude. Commit only when asked.
 - `.github/workflows/main.yaml` runs the type check, Biome, the doc comments check, the unit tests, the browser tests, `npm run validate`, Markdown lint and CSpell on every pull request and on `main`. Locally, the same checks run in two parts, both as Claude commands and as VS Code tasks: `/lint` and the `Lint` task run the linters (everything but the tests), `/test` and the `Test` task run the unit tests and then the browser tests, and `/ci` and the `CI` task run both. `Test` is VS Code's default test task, so **Tasks: Run Test Task** starts it.
 - Write the pull request title and description with the `pr-description` skill.
-- Draft issues with the `github-issues` skill, and post them only when Daniel asks. The skill works on the issues of both this repository and `daczarne/streamdeck-icons`, whichever the session started in.
+- Draft issues with the `github-issues` skill, and post them only when asked.
 
 ## Style
 
 `docs/style_guide.md`, `.editorconfig`, `biome.json`, the Markdown lint configuration and CSpell (with the dictionaries in `.cspell/`) are the authority on style.
 
-[#3]: https://github.com/daczarne/streamdeck-litra/issues/3
 [#8]: https://github.com/daczarne/streamdeck-litra/issues/8
 [#12]: https://github.com/daczarne/streamdeck-litra/issues/12
 [#21]: https://github.com/daczarne/streamdeck-litra/issues/21

@@ -13,7 +13,7 @@ This document describes how work on this repository is done: how changes reach `
 
 ## Changes go through pull requests
 
-Nothing is pushed to `main`. Every change, however small, is made on its own branch and reaches `main` through a pull request, which is squash-merged. Pushing and merging are Daniel's. `.github/CODEOWNERS` makes Daniel the owner of every file, so a pull request from anyone else needs his approval before it can be merged.
+Nothing is pushed to `main`. Every change, however small, is made on its own branch and reaches `main` through a pull request, which is squash-merged. Pushing to the repository and merging are the maintainer's. `.github/CODEOWNERS` makes the maintainer the owner of every file, so a pull request from anyone else needs the maintainer's approval before it can be merged.
 
 Branch names are flat kebab-case, without `/`: `settings-pages-csp`, not `feature/settings-pages-csp`.
 
@@ -67,7 +67,7 @@ When [#20] is worked on, the question changes: what would someone who controls e
 
 ## Working with Claude
 
-- When Daniel asks for a command, Claude replies with the command and doesn't run it. Steps that change what the Deck runs or shows, like restarting the plugin, are Daniel's to run, while looking at the hardware.
+- When asked for a command, Claude replies with the command and doesn't run it. Steps that change what the Deck runs or shows, like restarting the plugin, are the user's to run, while looking at the hardware.
 
 [#9]: https://github.com/daczarne/streamdeck-litra/issues/9
 [#13]: https://github.com/daczarne/streamdeck-litra/issues/13
