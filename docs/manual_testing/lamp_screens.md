@@ -4,7 +4,7 @@
 - [Setup](#setup)
 - [Checks](#checks)
 
-Tapping a Brightness or Temperature dial's part of the touch strip shows one screen per lamp ([#48]). The unit tests check against a fake Stream Deck which lamp comes next, when a dial goes back to its main screen, and which changes redraw a lamp screen. The integration tests check against emulated lamps that a lamp screen shows what its lamp reports and follows what other actions change, and that a push blinks that lamp alone. The checks below cover what they take for granted: that Stream Deck delivers the taps and holds, switches to the lamp layout and back, and draws it legibly, and that the lamps report what they show.
+Tapping a Brightness or Temperature dial's part of the touch strip shows one screen per lamp ([#48]). The unit tests check against a fake Stream Deck which lamp comes next, when a dial goes back to its main screen, and which changes redraw a lamp screen. The integration tests check against emulated lamps that a lamp screen shows what its lamp reports and follows what other actions change, that what it sends fits `layouts/lamp.json`, and that a push blinks that lamp alone. The checks below cover what they take for granted: that Stream Deck delivers the taps and holds, switches to the lamp layout and back, and draws it legibly, and that the lamps report what they show.
 
 ## When to run these checks
 
