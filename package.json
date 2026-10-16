@@ -43,7 +43,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",
-    "@daczarne/streamdeck-icons": "github:daczarne/streamdeck-icons#229ede01e3161302dc98130761f12a0f407857e9",
+    "@daczarne/streamdeck-icons": "github:daczarne/streamdeck-icons#6c082f9893cf9d09c271731456d10b00728ce972",
     "@elgato/cli": "1.10.1",
     "@rollup/plugin-commonjs": "29.0.3",
     "@rollup/plugin-node-resolve": "16.0.3",
