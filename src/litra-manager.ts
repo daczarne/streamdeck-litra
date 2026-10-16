@@ -20,6 +20,7 @@ type ClosableHid = {
   readSync: () => number[];
   readTimeout: (timeout: number) => number[];
   close: () => void;
+  getDeviceInfo: () => { path?: string | undefined };
 };
 
 export type BroadcastResult = {
@@ -68,10 +69,11 @@ const IDENTIFY_BLINK_MS = 300;
 const MAX_SKIPPED_REPORTS = 10;
 
 /**
- * The brightness each lamp on a low-power supply can reach, in lumens, by serial number. Learned when a lamp reaches
- * less than it was sent, and kept until the plugin restarts (#55).
+ * The brightness each lamp on a low-power supply can reach, in lumens, by serial number, with the path the lamp had
+ * when it was learned. Learned when a lamp reaches less than it was sent. A lamp only moves to another power supply by
+ * being plugged in again, which gives it a new path, so a cap is forgotten once its lamp has another path (#55).
  */
-const brightnessCapsInLumen = new Map<string, number>();
+const brightnessCaps = new Map<string, { path: string; lumen: number }>();
 
 /**
  * When a lamp may still go back to its cap, as a time from `Date.now()`: {@link CAP_REVERSAL_WINDOW_MS} after the
@@ -196,9 +198,28 @@ export function getBrightnessInLumenSafe(device: Device): number {
   throw new Error(`No brightness reply after ${MAX_SKIPPED_REPORTS} other reports`);
 }
 
+/** Where a lamp is plugged in: the path the system gave it, which changes each time it's plugged in. */
+function plugPath(device: Device): string {
+  return asHid(device).getDeviceInfo().path ?? "";
+}
+
+/** The cap learned for a lamp since it was last plugged in. One learned before that is forgotten. */
+function learnedCap(operation: string, device: Device): number | undefined {
+  const cap = brightnessCaps.get(device.serialNumber);
+  if (cap === undefined) {
+    return undefined;
+  }
+  if (cap.path !== plugPath(device)) {
+    brightnessCaps.delete(device.serialNumber);
+    logger.info(`${operation}: ${lampLabel(device)} was plugged in again, its cap of ${cap.lumen} lm is forgotten`);
+    return undefined;
+  }
+  return cap.lumen;
+}
+
 /** The lumens to send a lamp: the ones asked for, or its cap if it has a lower one. */
-function withinCap(device: Device, lumen: number): number {
-  const cap = brightnessCapsInLumen.get(device.serialNumber);
+function withinCap(operation: string, device: Device, lumen: number): number {
+  const cap = learnedCap(operation, device);
   return cap === undefined ? lumen : Math.min(lumen, cap);
 }
 
@@ -537,7 +558,7 @@ async function moveBrightnessAll(
       const pct = Math.max(0, Math.min(100, targetPercentage));
       for (const device of devices) {
         attempt(device, () => {
-          const lumen = withinCap(device, brightnessLumen(device, pct));
+          const lumen = withinCap(operation, device, brightnessLumen(device, pct));
           setBrightnessInLumen(device, lumen);
           drainAck(device);
           sent.set(device, lumen);
@@ -555,7 +576,7 @@ async function moveBrightnessAll(
         const pct = brightnessPercentage(device, reached);
         logger.info(`${operation}: ${lampLabel(device)} sent ${lumen} lm, reached ${reached} lm (${pct}%)`);
         if (reached < lumen) {
-          brightnessCapsInLumen.set(device.serialNumber, reached);
+          brightnessCaps.set(device.serialNumber, { path: plugPath(device), lumen: reached });
           capReversalEndsAt = Math.max(capReversalEndsAt, sentAt + CAP_REVERSAL_WINDOW_MS);
           logger.info(`${operation}: ${lampLabel(device)} capped at ${reached} lm`);
         }

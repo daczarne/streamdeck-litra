@@ -92,6 +92,14 @@ export class HID {
     return report;
   }
 
+  /** What the system knows of the lamp, as node-hid lists it, path included. */
+  getDeviceInfo(): HidDeviceInfo {
+    if (this.closed) {
+      throw new Error("Cannot access closed device");
+    }
+    return this.lamp.info;
+  }
+
   /** Closes the handle. Closing it again does nothing. A close set to fail still releases the handle, then throws. */
   close(): void {
     if (this.closed) {

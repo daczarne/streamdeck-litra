@@ -148,6 +148,21 @@ describe("the Brightness action", () => {
     expect(feedbackOf(dial)).toMatchObject({ value: "50%" });
   });
 
+  it("lets the lamps reach 100% once moved from the hub to the Mac, without a restart (#55)", async () => {
+    const onTheHub = [beam({ capInLumen: 264 }), beam({ capInLumen: 324 })];
+    plugIn(...onTheHub);
+    const key = await deck.key(BRIGHTNESS, { presetPercentage: 100 });
+    const dial = await deck.dial(BRIGHTNESS);
+    await deck.press(key);
+
+    const onTheMac = onTheHub.map((lamp) => beam({ serialNumber: lamp.serialNumber }));
+    plugIn(...onTheMac);
+    await deck.press(key);
+
+    expect(onTheMac.map((lamp) => lamp.brightnessInLumen)).toEqual([LUMEN_AT_100, LUMEN_AT_100]);
+    expect(feedbackOf(dial)).toMatchObject({ value: "100%" });
+  });
+
   it("moves the lamps once for a quick turn, with the step the dial has by then", async () => {
     const pair = [beam(), beam()];
     plugIn(...pair);
