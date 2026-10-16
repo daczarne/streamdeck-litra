@@ -32,9 +32,11 @@ Not an official Logitech or Elgato product.
 
 | Lamp          | Front power, brightness and temperature |
 |---------------|-----------------------------------------|
-| Litra Glow    | Yes                                     |
-| Litra Beam    | Yes                                     |
-| Litra Beam LX | Yes (front light only)                  |
+| Litra Beam    | Yes, checked on the lamp                |
+| Litra Beam LX | Not checked on a lamp                   |
+| Litra Glow    | Not checked on a lamp                   |
+
+The plugin is made and checked on Litra Beams. The Beam LX and the Glow take the same commands, with their own ranges, so the plugin should control their front light too, but it hasn't been checked on either. The Beam LX is the next to be checked. The Glow isn't planned: see "Supported lamps" in [the contributing guide][contributing].
 
 The Beam LX back light (RGB and G HUB effect presets) isn't supported. The research notes are in [`ref/hid-captures/NOTES.md`][hid-notes].
 
@@ -169,6 +171,7 @@ The plugin is MIT licensed: see [`LICENSE`][license].
 [#21]: https://github.com/daczarne/streamdeck-litra/issues/21
 [bright]: com.daczarne.litra.sdPlugin/imgs/actions/brightness/icon@2x.png
 [check-ui]: scripts/check-ui.mjs
+[contributing]: docs/contributing.md
 [hid-notes]: ref/hid-captures/NOTES.md
 [keys]: docs/elgato_sdk/keys.md
 [license]: LICENSE
