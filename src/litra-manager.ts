@@ -186,11 +186,6 @@ export function getBrightnessInLumenSafe(device: Device): number {
   throw new Error(`No brightness reply after ${MAX_SKIPPED_REPORTS} other reports`);
 }
 
-/** Forgets every learned brightness cap. */
-export function forgetBrightnessCaps(): void {
-  brightnessCapsInLumen.clear();
-}
-
 /** The lumens to send a lamp: the ones asked for, or its cap if it has a lower one. */
 function withinCap(device: Device, lumen: number): number {
   const cap = brightnessCapsInLumen.get(device.serialNumber);

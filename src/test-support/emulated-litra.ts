@@ -1,5 +1,7 @@
 import type { Device as HidDeviceInfo } from "node-hid";
 
+import { at } from "./at";
+
 // What each model is, taken from litra-rs (github.com/timrogers/litra-rs, src/lib.rs at e05d931), not from litra, so
 // that the tests check litra against another account of the protocol. The Beam also comes as product 0xb901.
 const MODELS = {
@@ -9,6 +11,15 @@ const MODELS = {
 } as const;
 
 export type LitraModel = keyof typeof MODELS;
+
+/** What a lamp can be told or asked about. */
+export type Command = "power" | "brightness" | "temperature";
+
+/**
+ * The calls on a lamp's HID handles that can be made to fail. `everything` fails every write and read, as on a lamp
+ * unplugged while it's open, and leaves closing alone.
+ */
+export type FailingCall = "everything" | "readSync" | "readTimeout" | "close";
 
 const LOGITECH_VENDOR_ID = 0x046d;
 const LITRA_USAGE_PAGE = 0xff43;
@@ -26,6 +37,34 @@ const BRIGHTNESS_QUERY = 0x31;
 const BRIGHTNESS_SET = 0x4c;
 const TEMPERATURE_QUERY = 0x81;
 const TEMPERATURE_SET = 0x9c;
+const WRITE_BY_COMMAND: Record<Command, number> = {
+  power: POWER_SET,
+  brightness: BRIGHTNESS_SET,
+  temperature: TEMPERATURE_SET,
+};
+const QUERY_BY_COMMAND: Record<Command, number> = {
+  power: POWER_QUERY,
+  brightness: BRIGHTNESS_QUERY,
+  temperature: TEMPERATURE_QUERY,
+};
+/** What a report to or from a lamp is about, by its function: a command written, or asked about. */
+export type ReportKind = Command | `${Command} query`;
+
+/**
+ * What a report is about, by its function, the same for a report written to a lamp and for its ACK or reply. Undefined
+ * for any other report, such as a change notice or an error report.
+ */
+export function kindOf(report: number[]): ReportKind | undefined {
+  const operation = report[3];
+  const commands = Object.keys(WRITE_BY_COMMAND) as Command[];
+  const written = commands.find((command) => WRITE_BY_COMMAND[command] === operation);
+  if (written !== undefined) {
+    return written;
+  }
+  const asked = commands.find((command) => QUERY_BY_COMMAND[command] === operation);
+  return asked === undefined ? undefined : `${asked} query`;
+}
+
 // Sent unasked when a capped lamp lowers its brightness to its cap, with the brightness in bytes 5 and 6.
 const BRIGHTNESS_CHANGED = 0x40;
 
@@ -88,14 +127,15 @@ export class EmulatedLitra {
   brightnessInLumen: number;
   temperatureInKelvin: number;
   readonly capInLumen: number | undefined;
-  /** Whether reading from or writing to the lamp fails, as it does for a lamp unplugged while it's open. */
-  failing = false;
   /** Every report written to the lamp, in order. */
   readonly written: number[][] = [];
   // The lowering to the cap that a write above it has started, which a later brightness write replaces.
   private lowerToCap: ReturnType<typeof setTimeout> | undefined;
   // The reports waiting on each open handle, to be read.
   private readonly inputs = new Set<number[][]>();
+  private readonly failingCalls = new Set<FailingCall>();
+  // The functions whose writes fail, by their id in byte 3.
+  private readonly failingWrites = new Set<number>();
 
   /** A lamp of the given model, off, at its lowest brightness and temperature unless the options say otherwise. */
   constructor(model: LitraModel, options: EmulatedLitraOptions = {}) {
@@ -114,6 +154,41 @@ export class EmulatedLitra {
     this.brightnessInLumen = options.brightnessInLumen ?? MODELS[model].minLumen;
     this.temperatureInKelvin = options.temperatureInKelvin ?? MIN_KELVIN;
     this.capInLumen = options.capInLumen;
+  }
+
+  /** Makes a call on the lamp's handles fail from now on, as an HID error does. */
+  fail(call: FailingCall): void {
+    this.failingCalls.add(call);
+  }
+
+  /** Makes writing a command to the lamp fail from now on, while the lamp still answers queries and other writes. */
+  failWrites(command: Command): void {
+    this.failingWrites.add(WRITE_BY_COMMAND[command]);
+  }
+
+  /** Whether a call on one of the lamp's handles fails, for the fake node-hid. A write fails by what it writes. */
+  fails(call: "write" | "readSync" | "readTimeout" | "close", report: number[] = []): boolean {
+    if (call === "write") {
+      return this.failingCalls.has("everything") || this.failingWrites.has(at(report, 3));
+    }
+    return this.failingCalls.has(call) || (call !== "close" && this.failingCalls.has("everything"));
+  }
+
+  /** The values written for a command, in order: 1 or 0 for the power, lumens for the brightness, kelvin for the temperature. */
+  writes(command: Command): number[] {
+    return this.written
+      .filter((report) => at(report, 3) === WRITE_BY_COMMAND[command])
+      .map((report) => (command === "power" ? at(report, 4) : at(report, 4) * 256 + at(report, 5)));
+  }
+
+  /** How many times the lamp was asked about a command. */
+  queries(command: Command): number {
+    return this.written.filter((report) => at(report, 3) === QUERY_BY_COMMAND[command]).length;
+  }
+
+  /** The lamp's serial number, which every emulated lamp has. */
+  get serialNumber(): string {
+    return this.info.serialNumber ?? "";
   }
 
   /** How many handles are open on the lamp. */

@@ -26,7 +26,10 @@ beforeEach(async () => {
   vi.useFakeTimers();
   // A fresh plugin for every test, started as Stream Deck starts it, which registers its actions with the fake SDK
   // that the fake Deck sends events through.
-  ({ loaded: deck, connect } = await loadOnEmulatedLamps(
+  ({
+    loaded: deck,
+    hid: { connect },
+  } = await loadOnEmulatedLamps(
     async () => {
       const { FakeDeck } = await import("../test-support/fake-deck");
       await import("../plugin");
@@ -51,16 +54,6 @@ function plugIn(...plugged: EmulatedLitra[]): void {
 /** A Beam, on unless said otherwise, at 50% and 4000 K unless said otherwise. */
 function beam(options: ConstructorParameters<typeof EmulatedLitra>[1] = {}): EmulatedLitra {
   return new EmulatedLitra("Beam", { on: true, brightnessInLumen: LUMEN_AT_50, temperatureInKelvin: 4000, ...options });
-}
-
-/** The brightness written to a lamp, in lumens, in order. */
-function brightnessWrites(lamp: EmulatedLitra): number[] {
-  return lamp.written.filter((report) => at(report, 3) === 0x4c).map((report) => at(report, 4) * 256 + at(report, 5));
-}
-
-/** The power written to a lamp, on (1) or off (0), in order. */
-function powerWrites(lamp: EmulatedLitra): number[] {
-  return lamp.written.filter((report) => at(report, 3) === 0x1c).map((report) => at(report, 4));
 }
 
 /** The state a key was last set to: on (1) or off (0). */
@@ -181,7 +174,7 @@ describe("the Brightness action", () => {
     await deck.press(key);
     await deck.press(key);
 
-    expect([brightnessWrites(low), brightnessWrites(high)]).toEqual([
+    expect([low.writes("brightness"), high.writes("brightness")]).toEqual([
       [LUMEN_AT_100, 264],
       [LUMEN_AT_100, 324],
     ]);
@@ -211,7 +204,7 @@ describe("the Brightness action", () => {
     });
 
     // Three ticks of 10% from 50%.
-    expect(pair.map(brightnessWrites)).toEqual([[LUMEN_AT_80], [LUMEN_AT_80]]);
+    expect(pair.map((lamp) => lamp.writes("brightness"))).toEqual([[LUMEN_AT_80], [LUMEN_AT_80]]);
     expect(feedbackOf(dial)).toMatchObject({ value: "80%" });
   });
 
@@ -223,7 +216,7 @@ describe("the Brightness action", () => {
 
     await deck.turn(dial, 1);
 
-    expect(pair.map(powerWrites)).toEqual([[1], [1]]);
+    expect(pair.map((lamp) => lamp.writes("power"))).toEqual([[1], [1]]);
     expect(pair.map((lamp) => lamp.brightnessInLumen)).toEqual([LUMEN_AT_60, LUMEN_AT_60]);
     expect(stateOf(powerKey)).toBe(1);
   });
@@ -233,7 +226,7 @@ describe("the Brightness action", () => {
     plugIn(failing, working);
     const key = await deck.key(BRIGHTNESS, { presetPercentage: 50 });
     const dial = await deck.dial(BRIGHTNESS);
-    failing.failing = true;
+    failing.fail("everything");
 
     await deck.press(key);
 
@@ -311,9 +304,9 @@ describe("the lamp screens", () => {
 
     await deck.push(dial);
 
-    expect(powerWrites(first)).toEqual([1, 0]);
+    expect(first.writes("power")).toEqual([1, 0]);
     expect(first.on).toBe(false);
-    expect(powerWrites(second)).toEqual([]);
+    expect(second.writes("power")).toEqual([]);
   });
 
   it("go back to the main screen when the lamp shown is unplugged and the lamps change", async () => {
