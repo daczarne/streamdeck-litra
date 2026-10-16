@@ -57,6 +57,10 @@ const MODEL_BY_DEVICE_TYPE: Record<DeviceType, string> = {
 // A capped lamp applies its cap within about 100 ms of a write, and until then reports the brightness it was sent.
 const BRIGHTNESS_SETTLE_MS = 250;
 
+// A capped lamp can go back to its cap up to 1.25 s after a request above it, undoing a lower brightness written in
+// between (#55). A later write stays, so a brightness change waits until this long after such a request.
+const CAP_REVERSAL_WINDOW_MS = 1500;
+
 // Long enough to see the lamp go off and back on, short enough not to disturb.
 const IDENTIFY_BLINK_MS = 300;
 
@@ -68,6 +72,12 @@ const MAX_SKIPPED_REPORTS = 10;
  * less than it was sent, and kept until the plugin restarts (#55).
  */
 const brightnessCapsInLumen = new Map<string, number>();
+
+/**
+ * When a lamp may still go back to its cap, as a time from `Date.now()`: {@link CAP_REVERSAL_WINDOW_MS} after the
+ * last write that went above a lamp's cap. Brightness changes wait until then.
+ */
+let capReversalEndsAt = 0;
 
 /**
  * The last brightness change, or blink, queued by {@link oneBrightnessChangeAtATime}, which the next one waits for.
@@ -472,14 +482,22 @@ function oneBrightnessChangeAtATime(change: () => Promise<BroadcastResult>): Pro
 /**
  * Moves every lamp to one target and reports the brightest lamp once they've settled. The target is a percentage, or
  * a function of the brightest lamp's percentage, which is then read first. Each lamp is sent the target or its cap,
- * whichever is lower, and a lamp that reaches less than it was sent has its cap learned. The lamps stay open from the
- * first read to the last, so calls mustn't overlap: they go through {@link oneBrightnessChangeAtATime}.
+ * whichever is lower, and a lamp that reaches less than it was sent has its cap learned. Right after a lamp's cap is
+ * learned, the next change waits until the lamp can no longer go back to its cap (see {@link capReversalEndsAt}). The
+ * lamps stay open from the first read to the last, so calls mustn't overlap: they go through
+ * {@link oneBrightnessChangeAtATime}.
  */
 async function moveBrightnessAll(
   operation: string,
   target: number | ((brightest: number) => number),
   settleMs: number,
 ): Promise<BroadcastResult> {
+  const reversalMs = capReversalEndsAt - Date.now();
+  if (reversalMs > 0) {
+    logger.debug(`${operation}: waiting ${reversalMs} ms, until no lamp can go back to its cap`);
+    await new Promise((resolve) => setTimeout(resolve, reversalMs));
+  }
+
   const devices = openDevices(operation);
   if (devices.length === 0) {
     return { ok: false, deviceCount: 0, failures: 1 };
@@ -514,6 +532,7 @@ async function moveBrightnessAll(
     const targetPercentage =
       typeof target === "number" ? target : brightest === undefined ? undefined : target(brightest);
     const sent = new Map<Device, number>();
+    const sentAt = Date.now();
     if (targetPercentage !== undefined) {
       const pct = Math.max(0, Math.min(100, targetPercentage));
       for (const device of devices) {
@@ -537,6 +556,7 @@ async function moveBrightnessAll(
         logger.info(`${operation}: ${lampLabel(device)} sent ${lumen} lm, reached ${reached} lm (${pct}%)`);
         if (reached < lumen) {
           brightnessCapsInLumen.set(device.serialNumber, reached);
+          capReversalEndsAt = Math.max(capReversalEndsAt, sentAt + CAP_REVERSAL_WINDOW_MS);
           logger.info(`${operation}: ${lampLabel(device)} capped at ${reached} lm`);
         }
         percentages.push(pct);

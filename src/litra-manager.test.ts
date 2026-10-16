@@ -1,6 +1,7 @@
 import type { Device } from "litra";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { BroadcastResult } from "./litra-manager";
 import { at } from "./test-support/at";
 import { loadOnEmulatedLamps } from "./test-support/emulated-lamps";
 import { EmulatedLitra, kindOf, type LitraModel, type ReportKind } from "./test-support/emulated-litra";
@@ -1071,6 +1072,59 @@ describe("adjustBrightnessAllByPercentageSteps", () => {
   });
 });
 
+describe("a lamp going back to its cap (#55)", () => {
+  // Asking a lamp for more than its cap, then right away for 30%, from a key's preset and from the dial. Going down six
+  // steps of 5 from a cap of 244 lm (58%) also ends at 30%.
+  const upThenDown: [string, () => Promise<BroadcastResult>, () => Promise<BroadcastResult>][] = [
+    ["a preset", () => manager.setBrightnessAllPercentage(100), () => manager.setBrightnessAllPercentage(30)],
+    [
+      "the dial",
+      () => manager.adjustBrightnessAllByPercentageSteps(20, 5),
+      () => manager.adjustBrightnessAllByPercentageSteps(-6, 5),
+    ],
+  ];
+
+  it.each(upThenDown)(
+    "keeps a lower brightness asked for right after %s went above the cap",
+    async (_from, up, down) => {
+      const lamp = beam({ capInLumen: 244 });
+      connect(lamp);
+
+      const [, result] = await settled(Promise.all([up(), down()]));
+
+      expect(lamp.brightnessInLumen).toBe(lumenAt(30));
+      expect(result.representativeBrightnessPercentage).toBe(30);
+    },
+  );
+
+  it("waits until 1.5 s after the request above the cap, then writes", async () => {
+    const lamp = beam({ capInLumen: 244 });
+    connect(lamp);
+
+    const both = Promise.all([manager.setBrightnessAllPercentage(100), manager.setBrightnessAllPercentage(30)]);
+    await vi.advanceTimersByTimeAsync(1499);
+    expect(lamp.writes("brightness")).toEqual([BEAM_MAX_LUMEN]);
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(lamp.writes("brightness")).toEqual([BEAM_MAX_LUMEN, lumenAt(30)]);
+    await settled(both);
+  });
+
+  it.each([
+    ["a lamp without a cap", beam, 100],
+    ["a lamp sent less than its cap", () => beam({ capInLumen: 244 }), 50],
+  ])("makes no change wait for %s", async (_lamp, lamp, percentage) => {
+    const plugged = lamp();
+    connect(plugged);
+
+    const both = Promise.all([manager.setBrightnessAllPercentage(percentage), manager.setBrightnessAllPercentage(30)]);
+    await vi.advanceTimersByTimeAsync(250);
+
+    expect(plugged.writes("brightness")).toEqual([lumenAt(percentage), lumenAt(30)]);
+    await settled(both);
+  });
+});
+
 describe("readRepresentativeBrightnessPercentage", () => {
   it("reads every lamp and reports the brightest, with its lumens", () => {
     const [first, second] = [beam({ brightnessInLumen: lumenAt(20) }), beam({ brightnessInLumen: lumenAt(50) })];
@@ -1515,6 +1569,14 @@ describe("logs", () => {
     const lampMessages = messages("info").filter((message) => message.includes(labelOf(lamp)));
     expect(lampMessages).toContainEqual(expect.stringContaining(`${BEAM_MAX_LUMEN} lm`));
     expect(lampMessages).toContainEqual(expect.stringContaining("capped at 250 lm"));
+  });
+
+  it("logs a change that waits for a lamp that can still go back to its cap, and for how long (#55)", async () => {
+    connect(beam({ capInLumen: 250 }));
+
+    await run(() => Promise.all([manager.setBrightnessAllPercentage(100), manager.setBrightnessAllPercentage(30)]));
+
+    expect(onlyMessage("debug")).toContain("waiting 1250 ms");
   });
 
   it("logs a lamp that a brightness change turns on", async () => {
