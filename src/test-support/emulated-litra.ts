@@ -26,6 +26,11 @@ const BRIGHTNESS_QUERY = 0x31;
 const BRIGHTNESS_SET = 0x4c;
 const TEMPERATURE_QUERY = 0x81;
 const TEMPERATURE_SET = 0x9c;
+// Sent unasked when a capped lamp lowers its brightness to its cap, with the brightness in bytes 5 and 6.
+const BRIGHTNESS_CHANGED = 0x40;
+
+// How long a capped lamp keeps the brightness it was sent before it lowers it to its cap, as the probes measured.
+export const CAP_DELAY_MS = 100;
 
 // An error report has 0xff where the feature goes, then the feature and function it refuses, then its code. The lamps
 // have been seen sending 0x02 (invalid argument). The other codes are HID++ 2.0's, and unchecked on a lamp.
@@ -45,6 +50,8 @@ type EmulatedLitraOptions = {
   on?: boolean | undefined;
   brightnessInLumen?: number | undefined;
   temperatureInKelvin?: number | undefined;
+  /** The brightness the lamp can't go above, like a Beam on the Stream Deck + XL's USB hub. None by default. */
+  capInLumen?: number | undefined;
 };
 
 // Serial numbers and paths are unique per machine, so every emulated lamp gets its own.
@@ -65,8 +72,13 @@ function bigEndian(value: number): [number, number] {
  * temperature, carries out the reports written to it, and answers them on every handle open on it, as a lamp does.
  *
  * It follows what `scripts/probes/` measured on the Beams: a query gets a reply with the value in bytes 4 and 5, and a
- * write gets an ACK, which carries no value. A report it can't carry out gets an error report. Brightness caps aren't
- * emulated yet.
+ * write gets an ACK, which carries no value. A report it can't carry out gets an error report.
+ *
+ * A capped lamp, like a Beam on a low-power supply, also behaves as measured: sent more than its cap, it takes the
+ * brightness it was sent, then lowers it to its cap after {@link CAP_DELAY_MS} and sends a change notice. Sent more
+ * than its cap while already at it, it refuses with an error report, followed by a change notice. Some lamps also go
+ * back to their cap up to about a second after a request above it, undoing a lower brightness written in between: that
+ * isn't emulated.
  */
 export class EmulatedLitra {
   /** The lamp as node-hid lists it. */
@@ -75,8 +87,13 @@ export class EmulatedLitra {
   on: boolean;
   brightnessInLumen: number;
   temperatureInKelvin: number;
+  readonly capInLumen: number | undefined;
+  /** Whether reading from or writing to the lamp fails, as it does for a lamp unplugged while it's open. */
+  failing = false;
   /** Every report written to the lamp, in order. */
   readonly written: number[][] = [];
+  // The lowering to the cap that a write above it has started, which a later brightness write replaces.
+  private lowerToCap: ReturnType<typeof setTimeout> | undefined;
   // The reports waiting on each open handle, to be read.
   private readonly inputs = new Set<number[][]>();
 
@@ -96,6 +113,7 @@ export class EmulatedLitra {
     this.on = options.on ?? false;
     this.brightnessInLumen = options.brightnessInLumen ?? MODELS[model].minLumen;
     this.temperatureInKelvin = options.temperatureInKelvin ?? MIN_KELVIN;
+    this.capInLumen = options.capInLumen;
   }
 
   /** How many handles are open on the lamp. */
@@ -125,17 +143,22 @@ export class EmulatedLitra {
   /** Takes a report written to the lamp: carries it out, and sends its reply, its ACK or an error report. */
   receive(report: number[]): void {
     this.written.push([...report]);
-    this.send(this.carryOut(report));
+    for (const answer of this.carryOut(report)) {
+      this.send(answer);
+    }
   }
 
-  /** Carries out a report, and returns what the lamp answers. */
-  private carryOut(report: number[]): number[] {
+  /** Carries out a report, and returns what the lamp answers, in the order it sends them. */
+  private carryOut(report: number[]): number[][] {
     const { feature, minLumen, maxLumen } = MODELS[this.model];
     const [reportId, deviceIndex, reportFeature = 0, operation = 0, high = 0, low = 0] = report;
     const value = high * 256 + low;
-    const reply = (...parameters: number[]): number[] =>
-      padded([REPORT_ID, DEVICE_INDEX, feature, operation, ...parameters]);
-    const refuse = (code: number): number[] => padded([REPORT_ID, DEVICE_INDEX, ERROR, reportFeature, operation, code]);
+    const reply = (...parameters: number[]): number[][] => [
+      padded([REPORT_ID, DEVICE_INDEX, feature, operation, ...parameters]),
+    ];
+    const refuse = (code: number): number[][] => [
+      padded([REPORT_ID, DEVICE_INDEX, ERROR, reportFeature, operation, code]),
+    ];
 
     if (report.length !== REPORT_LENGTH || reportId !== REPORT_ID || deviceIndex !== DEVICE_INDEX) {
       return refuse(INVALID_ARGUMENT);
@@ -158,8 +181,7 @@ export class EmulatedLitra {
         if (value < minLumen || value > maxLumen) {
           return refuse(INVALID_ARGUMENT);
         }
-        this.brightnessInLumen = value;
-        return reply();
+        return this.setBrightness(value);
       case TEMPERATURE_QUERY:
         return reply(...bigEndian(this.temperatureInKelvin));
       case TEMPERATURE_SET:
@@ -172,5 +194,28 @@ export class EmulatedLitra {
       default:
         return refuse(INVALID_FUNCTION_ID);
     }
+  }
+
+  /** Takes a brightness within the lamp's range, and returns what it answers, as a capped lamp does if it's capped. */
+  private setBrightness(lumen: number): number[][] {
+    const { feature } = MODELS[this.model];
+    const cap = this.capInLumen;
+    clearTimeout(this.lowerToCap);
+    this.lowerToCap = undefined;
+    if (cap === undefined || lumen <= cap) {
+      this.brightnessInLumen = lumen;
+      return [padded([REPORT_ID, DEVICE_INDEX, feature, BRIGHTNESS_SET])];
+    }
+    const notice = padded([REPORT_ID, DEVICE_INDEX, feature, BRIGHTNESS_CHANGED, 0x01, ...bigEndian(cap)]);
+    if (this.brightnessInLumen === cap) {
+      return [padded([REPORT_ID, DEVICE_INDEX, ERROR, feature, BRIGHTNESS_SET, INVALID_ARGUMENT]), notice];
+    }
+    this.brightnessInLumen = lumen;
+    this.lowerToCap = setTimeout(() => {
+      this.lowerToCap = undefined;
+      this.brightnessInLumen = cap;
+      this.send(notice);
+    }, CAP_DELAY_MS);
+    return [padded([REPORT_ID, DEVICE_INDEX, feature, BRIGHTNESS_SET])];
   }
 }
