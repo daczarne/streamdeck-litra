@@ -81,6 +81,19 @@ const PANELS: Panel[] = [
       { setting: "presetKelvin", suffix: " K", value: "5000" },
     ],
   },
+  {
+    page: "ui/brightness-step.html",
+    controller: "Keypad",
+    settings: ["stepPercentage"],
+    change: { setting: "stepPercentage", value: "20", saved: 20 },
+    sliders: [{ setting: "stepPercentage", suffix: "%", value: "20" }],
+  },
+  {
+    page: "ui/temperature-step.html",
+    controller: "Keypad",
+    settings: ["stepKelvin"],
+    change: { setting: "stepKelvin", value: "500", saved: "500" },
+  },
 ];
 
 // What the plugin accepts for each setting, by its name, and the default it takes: settings.ts says these are what
@@ -244,8 +257,11 @@ function shownValue(page: Page, setting: string): Promise<string> {
 
 describe("settings pages", () => {
   it("cover every action and controller in the manifest", () => {
-    const declared = manifest.Actions.flatMap((a) => a.Controllers.map((c) => `${a.PropertyInspectorPath} ${c}`));
-    expect(PANELS.map((p) => `${p.page} ${p.controller}`).sort()).toEqual(declared.sort());
+    // A page can serve several actions, such as the Up and Down keys of a step.
+    const declared = new Set(
+      manifest.Actions.flatMap((a) => a.Controllers.map((c) => `${a.PropertyInspectorPath} ${c}`)),
+    );
+    expect(PANELS.map((p) => `${p.page} ${p.controller}`).sort()).toEqual([...declared].sort());
     const pages = readdirSync(path.join(pluginDir, "ui"))
       .filter((f) => f.endsWith(".html"))
       .map((f) => `ui/${f}`);

@@ -106,6 +106,82 @@
           "TitleColor": "#ffffff"
         }
       ]
+    },
+    {
+      "Name": "Brightness Up",
+      "UUID": "com.daczarne.litra.brightness-up",
+      "Icon": "imgs/actions/brightness-up/icon",
+      "Tooltip": "Step Litra lights' brightness up.",
+      "PropertyInspectorPath": "ui/brightness-step.html",
+      "Controllers": [
+        "Keypad"
+      ],
+      "UserTitleEnabled": true,
+      "States": [
+        {
+          "Image": "imgs/actions/brightness-up/key",
+          "TitleAlignment": "bottom",
+          "FontSize": 14,
+          "TitleColor": "#ffffff"
+        }
+      ]
+    },
+    {
+      "Name": "Brightness Down",
+      "UUID": "com.daczarne.litra.brightness-down",
+      "Icon": "imgs/actions/brightness-down/icon",
+      "Tooltip": "Step Litra lights' brightness down.",
+      "PropertyInspectorPath": "ui/brightness-step.html",
+      "Controllers": [
+        "Keypad"
+      ],
+      "UserTitleEnabled": true,
+      "States": [
+        {
+          "Image": "imgs/actions/brightness-down/key",
+          "TitleAlignment": "bottom",
+          "FontSize": 14,
+          "TitleColor": "#ffffff"
+        }
+      ]
+    },
+    {
+      "Name": "Temperature Up",
+      "UUID": "com.daczarne.litra.temperature-up",
+      "Icon": "imgs/actions/temperature-up/icon",
+      "Tooltip": "Step Litra lights' color temperature up, cooler.",
+      "PropertyInspectorPath": "ui/temperature-step.html",
+      "Controllers": [
+        "Keypad"
+      ],
+      "UserTitleEnabled": true,
+      "States": [
+        {
+          "Image": "imgs/actions/temperature-up/key",
+          "TitleAlignment": "bottom",
+          "FontSize": 12,
+          "TitleColor": "#ffffff"
+        }
+      ]
+    },
+    {
+      "Name": "Temperature Down",
+      "UUID": "com.daczarne.litra.temperature-down",
+      "Icon": "imgs/actions/temperature-down/icon",
+      "Tooltip": "Step Litra lights' color temperature down, warmer.",
+      "PropertyInspectorPath": "ui/temperature-step.html",
+      "Controllers": [
+        "Keypad"
+      ],
+      "UserTitleEnabled": true,
+      "States": [
+        {
+          "Image": "imgs/actions/temperature-down/key",
+          "TitleAlignment": "bottom",
+          "FontSize": 12,
+          "TitleColor": "#ffffff"
+        }
+      ]
     }
   ],
   "Category": "Litra",

@@ -90,6 +90,15 @@ export const temperatureSettings = {
   stepKelvin: oneOfNumbers([100, 200, 300, 500], 300),
 };
 
+// The step keys step as the dials do, by the same steps.
+export const brightnessStepSettings = {
+  stepPercentage: brightnessSettings.stepPercentage,
+};
+
+export const temperatureStepSettings = {
+  stepKelvin: temperatureSettings.stepKelvin,
+};
+
 // A scene sets both presets, taken as the Brightness and Temperature keys take theirs.
 export const sceneSettings = {
   presetPercentage: brightnessSettings.presetPercentage,

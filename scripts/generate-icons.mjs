@@ -9,16 +9,20 @@ import path from "node:path";
 
 import {
   actionIconBrightness,
+  actionIconBrightnessStep,
   actionIconPower,
   actionIconScene,
   actionIconTemperature,
+  actionIconTemperatureStep,
   brightnessGlyph,
+  brightnessStepGlyph,
   categoryGlyph,
   marketplaceGlyph,
   powerGlyph,
   sceneGlyph,
   svgDoc,
   temperatureGlyph,
+  temperatureStepGlyph,
 } from "@daczarne/streamdeck-icons";
 import sharp from "sharp";
 
@@ -107,6 +111,19 @@ async function main() {
     72,
   );
   await writePair(path.join(root, "actions/scene/key"), (s) => onAKey(s, sceneGlyph(s), ON_A_KEY.scene), 72);
+  // The step keys' glyphs are the sun and the thermometer with a sign, the same size as on the other keys.
+  for (const step of /** @type {const} */ (["up", "down"])) {
+    await writePair(
+      path.join(root, `actions/brightness-${step}/key`),
+      (s) => onAKey(s, brightnessStepGlyph(s, { step }), ON_A_KEY.brightness),
+      72,
+    );
+    await writePair(
+      path.join(root, `actions/temperature-${step}/key`),
+      (s) => onAKey(s, temperatureStepGlyph(s, { step }), ON_A_KEY.temperature),
+      72,
+    );
+  }
 
   // Brightness and Temperature glyphs (72 / 144) at full size, the dials' icons on the touch strip and the lamp screens'
   await writePair(path.join(root, "actions/brightness/glyph"), (s) => brightnessGlyph(s), 72);
@@ -117,6 +134,18 @@ async function main() {
   await writePair(path.join(root, "actions/brightness/icon"), (s) => actionIconBrightness(s), 20);
   await writePair(path.join(root, "actions/temperature/icon"), (s) => actionIconTemperature(s), 20);
   await writePair(path.join(root, "actions/scene/icon"), (s) => actionIconScene(s), 20);
+  for (const step of /** @type {const} */ (["up", "down"])) {
+    await writePair(
+      path.join(root, `actions/brightness-${step}/icon`),
+      (s) => actionIconBrightnessStep(s, { step }),
+      20,
+    );
+    await writePair(
+      path.join(root, `actions/temperature-${step}/icon`),
+      (s) => actionIconTemperatureStep(s, { step }),
+      20,
+    );
+  }
 
   // Category (28 / 56)
   await writePair(path.join(root, "plugin/category-icon"), (s) => categoryGlyph(s), 28);
