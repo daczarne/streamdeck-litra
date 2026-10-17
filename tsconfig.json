@@ -23,7 +23,6 @@
   },
   "include": [
     "src/**/*.ts",
-    "scripts/**/*.test.ts",
     "browser-tests/**/*.ts"
   ],
   "exclude": [

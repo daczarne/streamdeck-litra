@@ -58,8 +58,6 @@ Every dependency is pinned, and every upgrade is a deliberate change of its own.
 
 Code or configuration that is unused, misleading or contradicts a decision already made is removed. For example, an entry relying on install scripts, now that `.npmrc` sets `ignore-scripts=true`, would contradict that decision even if it did nothing.
 
-One thing is an exception, unused today but kept on purpose, with its status documented: the build code for an installed plugin (`npm run pack` and `copyNativeRuntime` in `rollup.config.mjs`), in case the plugin is published one day ([#21]). Today it only runs linked.
-
 ## Supported lamps
 
 The Litra Beam is the plugin's target: it's what the plugin is checked on, and the tests, the fakes and the defaults use its real values. Other models are added one at a time, and a model is called supported once it has been checked on the lamp. The Beam LX comes next, front light first ([#100]), with its back light in [#19].
@@ -80,7 +78,6 @@ When [#20] is worked on, the question changes: what would someone who controls e
 [#13]: https://github.com/daczarne/streamdeck-litra/issues/13
 [#19]: https://github.com/daczarne/streamdeck-litra/issues/19
 [#20]: https://github.com/daczarne/streamdeck-litra/issues/20
-[#21]: https://github.com/daczarne/streamdeck-litra/issues/21
 [#27]: https://github.com/daczarne/streamdeck-litra/issues/27
 [#30]: https://github.com/daczarne/streamdeck-litra/issues/30
 [#40]: https://github.com/daczarne/streamdeck-litra/pull/40

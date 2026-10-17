@@ -2,4 +2,5 @@ elgato
 Elgato
 gbar
 pixmap
+sdignore
 streamdeck

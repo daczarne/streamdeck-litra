@@ -1,8 +1,7 @@
 {
   "name": "com.daczarne.litra",
-  "version": "1.0.0",
   "private": true,
-  "description": "Elgato Stream Deck plugin for Logitech Litra lights (Glow, Beam, Beam LX front light).",
+  "description": "Elgato Stream Deck plugin for Logitech Litra Beam lights.",
   "license": "MIT",
   "author": "Daniel Czarnievicz",
   "repository": {
@@ -29,7 +28,7 @@
     "link": "streamdeck link com.daczarne.litra.sdPlugin",
     "unlink": "streamdeck unlink com.daczarne.litra",
     "validate": "npm run check:ui && npm run build && streamdeck validate com.daczarne.litra.sdPlugin",
-    "pack": "npm run check:ui && npm run build && streamdeck pack com.daczarne.litra.sdPlugin --force -o release --version 1.0.0.0",
+    "pack": "npm run check:ui && npm run build && streamdeck pack com.daczarne.litra.sdPlugin --force -o release",
     "typecheck": "tsc --noEmit -p . && tsc -p tsconfig.scripts.json",
     "lint": "biome ci",
     "format": "biome check --write --linter-enabled=false",

@@ -1,5 +1,6 @@
 Debouncer
 napi
+nodehid
 npmjs
 prebuilds
 rollup
