@@ -18,12 +18,16 @@ Not an official Logitech or Elgato product.
 
 ## Actions
 
-|                       | Action          | Key                                        | Dial (Stream Deck +)                                               |
-|:---------------------:|:----------------|:-------------------------------------------|:-------------------------------------------------------------------|
-|    ![Power][power]    | **Power**       | On, off or toggle                          | None                                                               |
-| ![Brightness][bright] | **Brightness**  | Jump to a preset %                         | Rotate to adjust, press toggles power, tap the strip for each lamp |
-| ![Temperature][temp]  | **Temperature** | Jump to a preset Kelvin                    | Rotate to adjust, press toggles power, tap the strip for each lamp |
-|    ![Scene][scene]    | **Scene**       | Turn the lamps on at a preset % and Kelvin | None                                                               |
+|                                 | Action               | Key                                        | Dial (Stream Deck +)                                               |
+|:-------------------------------:|:---------------------|:-------------------------------------------|:-------------------------------------------------------------------|
+|         ![Power][power]         | **Power**            | On, off or toggle                          | None                                                               |
+|      ![Brightness][bright]      | **Brightness**       | Jump to a preset %                         | Rotate to adjust, press toggles power, tap the strip for each lamp |
+|       ![Temperature][temp]      | **Temperature**      | Jump to a preset Kelvin                    | Rotate to adjust, press toggles power, tap the strip for each lamp |
+|         ![Scene][scene]         | **Scene**            | Turn the lamps on at a preset % and Kelvin | None                                                               |
+|   ![Brightness Up][bright-up]   | **Brightness Up**    | Step up by the key's %                     | None                                                               |
+| ![Brightness Down][bright-down] | **Brightness Down**  | Step down by the key's %                   | None                                                               |
+|    ![Temperature Up][temp-up]   | **Temperature Up**   | Step up, cooler, by the key's Kelvin       | None                                                               |
+|  ![Temperature Down][temp-down] | **Temperature Down** | Step down, warmer, by the key's Kelvin     | None                                                               |
 
 - Every action applies to all connected lamps at once. There is no per-lamp picker yet.
 - The plugin talks to the lamps in-process over USB HID, through the [`litra`][litra] Node library, with no CLI subprocess.
@@ -125,9 +129,10 @@ To take a change to the glyphs, update the commit the dependency is pinned to, r
 - A Power key shows on only when every lamp is on. Every Power key, dial and lamp screen follows changes made by any key or dial. Changes made with a lamp's own buttons show at the next change made through the plugin.
 - Brightness and temperature keys show their preset value, as a bare number at the bottom of the key, set by the plugin. A title typed in the key's settings replaces it, and the **Show Title** box under the **T** menu hides it.
 - A Scene key turns every lamp on, then sets its temperature and brightness in one press, so one key goes to a setup and another comes back. It shows only its image: a title typed in its settings shows at the bottom.
+- Brightness and Temperature Up and Down keys step every lamp by the step in their settings, as one tick of a dial, for decks without dials. They show what the lamps are at, as the dials do: the brightest lamp's %, or the temperature in Kelvin, and a dash when no lamp answers. A title typed in the key's settings replaces it.
 - Dials look like Stream Deck's own volume dials: the value, with a bar under it. The keys, and the dials' pictures in the Stream Deck app, show the same line icon as the strip, smaller, at the size of the Icon Library's Litra icons. The temperature bar runs from the lamp's warmest setting (empty) to its coolest (full). The brightness bar is white up to the dimmest lamp's level, and a lighter grey from there to the brightest lamp's, the part only some lamps reach. Their title says what they control ("Brightness", "Temperature"), and can be replaced or hidden like a key's. Rotating adjusts, pressing toggles the front light.
 - Tapping a dial's part of the strip shows one screen per lamp: its model, whether it's on, its brightness in % and lumens, and its temperature. Each tap shows the next lamp, in the order of their serial numbers, and the dial's own screen after the last. The dial stays on a lamp screen until the strip is held, which goes back to the dial's own screen right away. On a lamp screen, pressing the dial blinks that lamp once, to show which one it is, and turning does nothing.
-- A dial turns by the step in its settings, and stops on the multiples of that step counted from the bottom of the range (0% or 2700 K), the same values going up as going down. From a value between two of them, such as a lamp's cap or a key's preset, the first step goes to the next one in the direction of the turn. When the step doesn't divide the range, the last step to 100% or 6500 K is shorter.
+- A dial turns, and an Up or Down key steps, by the step in its settings, and stops on the multiples of that step counted from the bottom of the range (0% or 2700 K), the same values going up as going down. From a value between two of them, such as a lamp's cap or a key's preset, the first step goes to the next one in the direction of the turn. When the step doesn't divide the range, the last step to 100% or 6500 K is shorter.
 - With no lamp connected, actions show Stream Deck's alert indicator. A Power key redraws its state right after, over the alert, so it shows only for an instant (see [Stream Deck keys][keys]).
 
 ## Settings pages
@@ -173,6 +178,8 @@ The plugin is MIT licensed: see [`LICENSE`][license].
 
 [#21]: https://github.com/daczarne/streamdeck-litra/issues/21
 [bright]: com.daczarne.litra.sdPlugin/imgs/actions/brightness/icon@2x.png
+[bright-down]: com.daczarne.litra.sdPlugin/imgs/actions/brightness-down/icon@2x.png
+[bright-up]: com.daczarne.litra.sdPlugin/imgs/actions/brightness-up/icon@2x.png
 [check-ui]: scripts/check-ui.mjs
 [contributing]: docs/contributing.md
 [hid-notes]: ref/hid-captures/NOTES.md
@@ -190,3 +197,5 @@ The plugin is MIT licensed: see [`LICENSE`][license].
 [sdpi-source]: https://github.com/GeekyEggo/sdpi-components/blob/v4.0.1/dist/sdpi-components.js
 [stream-deck]: https://www.elgato.com/streamdeck
 [temp]: com.daczarne.litra.sdPlugin/imgs/actions/temperature/icon@2x.png
+[temp-down]: com.daczarne.litra.sdPlugin/imgs/actions/temperature-down/icon@2x.png
+[temp-up]: com.daczarne.litra.sdPlugin/imgs/actions/temperature-up/icon@2x.png
