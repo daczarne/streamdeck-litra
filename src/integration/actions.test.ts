@@ -98,6 +98,23 @@ describe("the Power key", () => {
     expect([stateOf(offKey), stateOf(onKey)]).toEqual([1, 1]);
   });
 
+  it("shows an alert when no lamp answers, after the off state it switches to, so the state doesn't cover it (#132)", async () => {
+    const pair = [beam(), beam()];
+    plugIn(...pair);
+    const key = await deck.key(POWER, { mode: "toggle" });
+    expect(stateOf(key)).toBe(1);
+    // Unplugged while on: nothing tells the plugin until the next press.
+    plugIn();
+
+    await deck.press(key);
+
+    expect(stateOf(key)).toBe(0);
+    expect(key.showAlert).toHaveBeenCalledOnce();
+    expect(at(key.showAlert.mock.invocationCallOrder, 0)).toBeGreaterThan(
+      at(key.setState.mock.invocationCallOrder, -1),
+    );
+  });
+
   it("follows a Brightness key, which turns the lamps on (#57)", async () => {
     const pair = [beam({ on: false }), beam({ on: false })];
     plugIn(...pair);

@@ -119,13 +119,36 @@ describe("PowerAction", () => {
       expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("mode"));
     });
 
-    it("shows an alert when a lamp fails", async () => {
+    it("shows an alert when a lamp fails, once the notice has redrawn the key's state, so the state doesn't cover it (#132)", async () => {
       const key = await deck.key(POWER);
+      const otherKey = await deck.key(POWER);
+      clearCalls();
       vi.mocked(toggleAll).mockReturnValue({ ok: false, deviceCount: 0, failures: 1 });
 
       await deck.press(key);
 
+      expect(key.showAlert).not.toHaveBeenCalled();
+
+      await lampsChanged();
+
       expect(key.showAlert).toHaveBeenCalledOnce();
+      expect(at(key.showAlert.mock.invocationCallOrder, 0)).toBeGreaterThan(
+        at(key.setState.mock.invocationCallOrder, 0),
+      );
+      expect(otherKey.showAlert).not.toHaveBeenCalled();
+    });
+
+    it("shows a failed press's alert only once, with the redraw that follows the press", async () => {
+      const key = await deck.key(POWER);
+      vi.mocked(toggleAll).mockReturnValue({ ok: false, deviceCount: 0, failures: 1 });
+      await deck.press(key);
+      await lampsChanged();
+      clearCalls();
+
+      await lampsChanged();
+
+      expect(key.setState).toHaveBeenCalledOnce();
+      expect(key.showAlert).not.toHaveBeenCalled();
     });
 
     it("logs the press, with the key's mode, before switching the lamps", async () => {
