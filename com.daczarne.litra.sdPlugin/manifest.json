@@ -52,7 +52,7 @@
       },
       "States": [
         {
-          "Image": "imgs/actions/brightness/glyph",
+          "Image": "imgs/actions/brightness/key",
           "TitleAlignment": "bottom",
           "FontSize": 14,
           "TitleColor": "#ffffff"
@@ -81,7 +81,7 @@
       },
       "States": [
         {
-          "Image": "imgs/actions/temperature/glyph",
+          "Image": "imgs/actions/temperature/key",
           "TitleAlignment": "bottom",
           "FontSize": 12,
           "TitleColor": "#ffffff"
