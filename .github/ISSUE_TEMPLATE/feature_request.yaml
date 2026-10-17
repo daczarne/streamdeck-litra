@@ -1,0 +1,23 @@
+name: Feature request
+description: Something you'd like the plugin to do.
+labels:
+  - new-feature
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Thanks for the idea. Features are added as time allows: we'll try to add yours.
+  - type: textarea
+    id: feature
+    attributes:
+      label: What you'd like
+      description: What the plugin should do, on which keys or dials, and with which lamps.
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why
+      description: What you'd use it for, and how you do it today, if you can.
+    validations:
+      required: true
