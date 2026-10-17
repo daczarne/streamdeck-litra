@@ -12,8 +12,7 @@ export default defineConfig({
     alias: [{ find: /^litra$/, replacement: "litra/dist/esm/driver.js" }],
   },
   test: {
-    // Only our own tests: ref/ may hold local clones of upstream projects, with their own test suites. The scripts'
-    // tests sit next to them.
+    // The plugin's tests, and the scripts' tests, which sit next to them.
     include: ["src/**/*.test.ts", "scripts/**/*.test.ts"],
     mockReset: true,
     // What npm run coverage measures: the plugin's code under the unit and integration tests. The settings pages'

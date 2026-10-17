@@ -10,7 +10,7 @@
 - [Lamps are managed together](#lamps-are-managed-together)
 - [Working with Claude](#working-with-claude)
 
-This document describes how work on this repository is done: how changes reach `main`, how they are sliced and recorded, what each one has to bring with it, and the design rules that hold across the plugin. Style is covered separately, in [the style guide][style-guide].
+This document describes how work on this repository is done: how changes reach `main`, how they are sliced and recorded, what each one has to bring with it, and the design rules that hold across the plugin. How the plugin's parts fit together, and why, is in [the architecture document][architecture]. Style is covered separately, in [the style guide][style-guide].
 
 ## Changes go through pull requests
 
@@ -58,10 +58,7 @@ Every dependency is pinned, and every upgrade is a deliberate change of its own.
 
 Code or configuration that is unused, misleading or contradicts a decision already made is removed. For example, an entry relying on install scripts, now that `.npmrc` sets `ignore-scripts=true`, would contradict that decision even if it did nothing.
 
-Two things are exceptions. They are unused today but kept on purpose, with their status documented:
-
-- `ref/`, the original author's design notes and the Beam LX back-light research. It plays no part in the plugin.
-- The build code for an installed plugin (`npm run pack` and `copyNativeRuntime` in `rollup.config.mjs`), in case the plugin is published one day ([#21]). Today it only runs linked.
+One thing is an exception, unused today but kept on purpose, with its status documented: the build code for an installed plugin (`npm run pack` and `copyNativeRuntime` in `rollup.config.mjs`), in case the plugin is published one day ([#21]). Today it only runs linked.
 
 ## Supported lamps
 
@@ -90,5 +87,6 @@ When [#20] is worked on, the question changes: what would someone who controls e
 [#48]: https://github.com/daczarne/streamdeck-litra/issues/48
 [#59]: https://github.com/daczarne/streamdeck-litra/issues/59
 [#100]: https://github.com/daczarne/streamdeck-litra/issues/100
+[architecture]: architecture.md
 [manual-testing]: manual_testing/
 [style-guide]: style_guide.md

@@ -12,7 +12,7 @@
 
 ## Project
 
-A Stream Deck plugin that controls Logitech Litra lights (Glow, Beam, Beam LX front light) over USB HID, without Logitech's software. It is a fork of a repository its original author abandoned, so the code and the notes in `ref/` describe decisions nobody here made: read them before changing behavior that looks odd.
+A Stream Deck plugin that controls Logitech Litra lights (Glow, Beam, Beam LX front light) over USB HID, without Logitech's software. It is a fork of a repository its original author abandoned, so some of the code describes decisions nobody here made: `docs/architecture.md` explains the ones that last, and the code's comments the rest. Read them before changing behavior that looks odd.
 
 The plugin is made and checked on macOS, with a Stream Deck + XL running Stream Deck 7.6 and two Litra Beams. The Beam is the plugin's target: tests, fakes and defaults use its real values. Other models come one at a time, the Beam LX next, and no work goes into the Glow (see "Supported lamps" in `docs/contributing.md`). The plugin needs neither Logi Options+ nor G HUB, and is checked without them installed.
 
@@ -25,7 +25,7 @@ The plugin isn't published. It runs linked from the repo, never installed, so th
 - `docs/elgato_sdk/`: what the Stream Deck SDK offers and what it doesn't (how actions are registered, the interactions a dial receives, its layouts, how Stream Deck loads the settings pages, its logger, what a key shows), checked against the installed version. Read it before designing how an action behaves on the Deck, and add to it when a change finds out something new about the SDK.
 - `docs/logging.md`: what the plugin logs, at which level and with what in each message, where the logs are written and how the files are rotated. A change that logs something new adds it to the contract there.
 - `docs/manual_testing/`: the checks that only the Deck can prove, one document per area. Before asking for a test on the Deck, point to the matching document. When a feature needs new manual checks, add them there.
-- `ref/`: the original author's notes. Read them before changing behavior that looks odd.
+- `docs/architecture.md`: how the plugin's parts fit together, and why they're built that way, such as using `litra` rather than `litra-rs`, finding the lamps afresh on every operation, and what `litra-manager` remembers.
 
 ## Layout
 
@@ -38,7 +38,6 @@ The plugin isn't published. It runs linked from the repo, never installed, so th
 - `browser-tests/` holds the browser tests, which load each settings page from the plugin folder in a headless Chrome. They check the controls each page shows, that each control's default and values are the ones `src/actions/settings.ts` takes, the settings it sends, and that its Content-Security-Policy refuses anything remote. `browser-tests/support/` drives Chrome over a pipe rather than a debugging port, and fakes Stream Deck's WebSocket. Chrome is found at `CHROME_PATH`, or where macOS or Linux usually install it. The tests run apart from the unit tests, with their own Vitest config, so `npm test` still needs nothing installed.
 - `com.daczarne.litra.sdPlugin/` is the plugin folder: `manifest.json`, the settings pages in `ui/` (with the vendored `sdpi-components` in `ui/vendor/`), the icons in `imgs/`, and the custom dial layouts in `layouts/`. `bin/` and `node_modules/` inside it are build output.
 - `scripts/check-ui.mjs` guards the settings pages (see [Supply chain](#supply-chain)). `scripts/check-docs.mjs` checks that every function, class, method and constructor has a doc comment (see the "Doc comments" section of `docs/style_guide.md`). Their tests sit next to them (`check-ui.test.ts`), and run each script with Node, as CI does, in a temporary folder that holds the files it checks (`src/test-support/script-folder.ts`). `scripts/generate-icons.mjs` renders the plugin's icons from the glyphs of `@daczarne/streamdeck-icons` (`daczarne/streamdeck-icons`), which also holds the palette and the Litra icon pack. A change to a glyph is made there, then taken here by updating the commit the dependency is pinned to and regenerating the icons. `scripts/probes/` holds scripts that ask the lamps directly how they behave, run by hand, with a README on how to run them and read their output.
-- `ref/` holds the original author's design notes and the paused Beam LX back-light research. It isn't shipped or built ([#12]).
 - `docs/` holds the documents listed in [Read before changing things](#read-before-changing-things).
 
 ## Commands
@@ -104,5 +103,4 @@ Supply-chain risk is a hard requirement here:
 `docs/style_guide.md`, `.editorconfig`, `biome.json`, the Markdown lint configuration and CSpell (with the dictionaries in `.cspell/`) are the authority on style.
 
 [#8]: https://github.com/daczarne/streamdeck-litra/issues/8
-[#12]: https://github.com/daczarne/streamdeck-litra/issues/12
 [#21]: https://github.com/daczarne/streamdeck-litra/issues/21

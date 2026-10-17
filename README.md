@@ -30,7 +30,7 @@ Not an official Logitech or Elgato product.
 |  ![Temperature Down][temp-down] | **Temperature Down** | Step down, warmer, by the key's Kelvin     | None                                                               |
 
 - Every action applies to all connected lamps at once. There is no per-lamp picker yet.
-- The plugin talks to the lamps in-process over USB HID, through the [`litra`][litra] Node library, with no CLI subprocess.
+- The plugin talks to the lamps in-process over USB HID, through the [`litra`][litra] Node library, with no CLI subprocess. [The architecture document][architecture] explains why, and how the plugin's parts fit together.
 - The brightness is read from two bytes. The stock `litra` library only reads the low one, which truncates values above 255 lumens, where a Beam goes.
 
 ## Supported hardware
@@ -43,7 +43,7 @@ Not an official Logitech or Elgato product.
 
 The plugin is made and checked on Litra Beams. The Beam LX and the Glow take the same commands, with their own ranges, so the plugin should control their front light too, but it hasn't been checked on either. The Beam LX is the next to be checked. The Glow isn't planned: see "Supported lamps" in [the contributing guide][contributing].
 
-The Beam LX back light (RGB and G HUB effect presets) isn't supported. The research notes are in [`ref/hid-captures/NOTES.md`][hid-notes].
+The Beam LX back light (RGB and G HUB effect presets) isn't supported. What's known about it so far, from the original author's research, is in [#19].
 
 Lamps connect over USB only: the underlying HID stack doesn't support Bluetooth. A lamp plugged into a hub with limited power may cap its brightness. On a Stream Deck + XL's hub (7.5 W), a Beam stops between about 60% and 80%, depending on the port and the lamp, while plugged into the computer it reaches 100%. The plugin learns each lamp's cap the first time the lamp falls short of what it was sent, and never asks it for more until the lamp is plugged in again, which is how it moves to another power supply. Right after it learns one, the next brightness change waits about a second, since until then the lamp can undo it.
 
@@ -85,6 +85,8 @@ Lamps connect over USB only: the underlying HID stack doesn't support Bluetooth.
 Developer mode stays on afterwards.
 
 ## Working on the plugin
+
+[The architecture document][architecture] describes how the plugin's parts fit together, and why they're built that way. [The contributing guide][contributing] describes how changes are made.
 
 Since the plugin is linked, a change takes effect as soon as it's built and the plugin restarts. A change to `manifest.json` takes effect once Stream Deck itself is quit and reopened: restarting the plugin isn't enough. Switching branches switches what the Deck runs, after the next build.
 
@@ -170,19 +172,20 @@ To update it, download `dist/sdpi-components.js` from the new upstream tag (not 
 
 ## Credits
 
-- Seth Sheppard: the original plugin this repository forked, and the notes in `ref/`: its v1 scope, its implementation notes and the Beam LX back-light research.
+- Seth Sheppard: the original plugin this repository forked, its design, and the Beam LX back-light research it was based on.
 - [timrogers/litra][litra]: the HID protocol and Node library.
 - [Elgato Stream Deck SDK][sdk].
 
 The plugin is MIT licensed: see [`LICENSE`][license].
 
+[#19]: https://github.com/daczarne/streamdeck-litra/issues/19
 [#21]: https://github.com/daczarne/streamdeck-litra/issues/21
+[architecture]: docs/architecture.md
 [bright]: com.daczarne.litra.sdPlugin/imgs/actions/brightness/icon@2x.png
 [bright-down]: com.daczarne.litra.sdPlugin/imgs/actions/brightness-down/icon@2x.png
 [bright-up]: com.daczarne.litra.sdPlugin/imgs/actions/brightness-up/icon@2x.png
 [check-ui]: scripts/check-ui.mjs
 [contributing]: docs/contributing.md
-[hid-notes]: ref/hid-captures/NOTES.md
 [keys]: docs/elgato_sdk/keys.md
 [license]: LICENSE
 [streamdeck-icons]: https://github.com/daczarne/streamdeck-icons

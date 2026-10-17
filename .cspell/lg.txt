@@ -1,7 +1,4 @@
 debouncer
-frida
-Frida
-lghub
 litra
 Litras
 Logi
