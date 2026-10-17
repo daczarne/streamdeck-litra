@@ -4,8 +4,11 @@
   - [Running it](#running-it)
   - [Reading the results](#reading-the-results)
   - [Example](#example)
+- [write-reports.mjs](#write-reportsmjs)
+  - [Running it](#running-it-1)
+  - [Example](#example-1)
 
-These scripts talk to the lamps directly, to answer questions about how they behave that the tests can't: the emulated lamps the tests run on only do what we assume a real one does. The emulated lamp, in `src/test-support/emulated-litra.ts`, follows what these scripts measured, so a run that finds a lamp behaving otherwise updates it too. The scripts aren't part of the plugin or the build, and are run by hand with the lamps connected. CI only type-checks them.
+These scripts talk to the lamps directly, to answer questions about how they behave that the tests can't: the emulated lamps the tests run on only do what we assume a real one does. The emulated lamp, in `src/test-support/emulated-litra.ts`, follows what these scripts measured, so a run that finds a lamp behaving otherwise updates it too. The scripts aren't part of the plugin or the build, and are run by hand with the lamps connected. CI checks their code, as it checks the other scripts': types, lint and doc comments.
 
 ## brightness-readback.mjs
 
@@ -51,12 +54,16 @@ The results go to a file in `out/`, named after the time the run started (`YYYYM
 
 Each report is printed as its first 8 bytes in hex, followed by its name and value. A byte past the end of a short report shows as `--`, and a value it's too short to hold as `(report too short)`. The lamps have always sent full 20-byte reports, so neither should appear. Byte 2 is the feature (`04` on the Beam and the Glow, `06` on the Beam LX), and byte 3 says what the report is:
 
-| Report             | Starts with      | Value in                    | What it is                                                         |
-|--------------------|------------------|-----------------------------|--------------------------------------------------------------------|
-| Brightness reply   | `11 ff 04 31`    | bytes 4–5                   | The answer to a brightness query: the lamp's brightness, in lumens |
-| Change notice      | `11 ff 04 40`    | bytes 5–6                   | Sent unasked when the brightness changes                           |
-| Set-brightness ACK | `11 ff 04 4c`    | none                        | Sent after every brightness write                                  |
-| Error report       | `11 ff ff 04 4c` | byte 5 (code)               | The lamp rejected the command named in bytes 3–4                   |
+| Report              | Starts with      | Value in      | What it is                                                           |
+|---------------------|------------------|---------------|----------------------------------------------------------------------|
+| Power reply         | `11 ff 04 01`    | byte 4        | The answer to a power query: 1 for on, 0 for off                     |
+| Brightness reply    | `11 ff 04 31`    | bytes 4–5     | The answer to a brightness query: the lamp's brightness, in lumens   |
+| Temperature reply   | `11 ff 04 81`    | bytes 4–5     | The answer to a temperature query: the lamp's temperature, in kelvin |
+| Change notice       | `11 ff 04 40`    | bytes 5–6     | Sent unasked when the brightness changes                             |
+| Set-power ACK       | `11 ff 04 1c`    | none          | Sent after every power write                                         |
+| Set-brightness ACK  | `11 ff 04 4c`    | none          | Sent after every brightness write                                    |
+| Set-temperature ACK | `11 ff 04 9c`    | none          | Sent after every temperature write                                   |
+| Error report        | `11 ff ff 04 4c` | byte 5 (code) | The lamp rejected the command named in bytes 3–4                     |
 
 In HID++ 2.0, error code `02` means an invalid argument.
 
@@ -139,4 +146,69 @@ Steps 3 and 4 found that a capped lamp can undo a write that comes soon after a 
 - A request above the cap while the lamp is already at its cap gets error `02` instead of an ACK, followed by change notices with the cap. The lamp can still go back to its cap afterwards.
 - A lamp plugged into the computer kept every lower brightness.
 
+## write-reports.mjs
+
+For each connected Litra, makes each kind of write and prints every HID report the lamp sends in the second after it. It was written for [#96], to find out whether a lamp ACKs a power or a temperature write as it ACKs a brightness write, and whether a report sent before a handle closes reaches the next handle opened on the lamp. The plugin drains an ACK after every write (`drainAck` in `src/litra-manager.ts`), and opens new handles for every operation, so both decide whether that drain does anything.
+
+Run it again when changing how the plugin writes to the lamps, or with a lamp it hasn't been run on, such as the Beam LX.
+
+### Running it
+
+> [!WARNING]
+> The script turns the lamps off and on and changes their temperature and brightness while it runs, and puts them back at the end. Don't use the Deck while it runs: the plugin opens the same lamps, and the reports it triggers would mix with the probe's.
+
+From the repo root:
+
+```shell
+n auto
+node scripts/probes/write-reports.mjs
+```
+
+For every lamp, in the order `findDevices` returns them, with the other lamps closed, the script makes each write and listens for a second after it:
+
+1. Turns the lamp off and on, each twice: once changing its power, once to the power it already has.
+2. Sets the far end of its temperature range twice, the second time to the temperature it already has, then the temperature it had.
+3. Sets its minimum brightness, then the brightness it had, which a capped lamp reached and so keeps. The ACK of a brightness write is known, so this step shows that the probe sees what it should.
+4. Makes the writes that change the lamp again, each followed by closing the handle straight away, without reading, and opening the lamp again. It listens on the new handle.
+
+It then puts the lamp back to its power, brightness and temperature, and reads it to check: a line ending in `FAILED` means the lamp was left elsewhere. A run takes about 20 seconds per lamp. The results go to a file in `out/`, as with `brightness-readback.mjs`. Add a note at its top saying how the lamps were plugged in.
+
+Each report is printed as in `brightness-readback.mjs`, named after the table in [Reading the results](#reading-the-results), with the time it arrived, counted from the write. A write followed by no report within the second says so. Any other report shows as `other`, with its function byte.
+
+### Example
+
+From the runs on 2026-10-17, on two Beams: once with both on a USB hub, once with one on the hub and the other plugged into the computer. Both lamps sent the same in every run, so this shows one lamp, abridged:
+
+```text
+Lamp 1: Logitech Litra Beam, serial SERIAL-A
+  before: on, 30 lm (0%), 2700 K
+  1. power
+     turn off, from on
+     +   1 ms: 11 ff 04 1c 00 00 00 00  set-power ACK
+     turn off, already off
+     +   2 ms: 11 ff 04 1c 00 00 00 00  set-power ACK
+     ...
+  2. temperature
+     set 6500 K, from 2700 K
+     +   2 ms: 11 ff 04 9c 00 00 00 00  set-temperature ACK
+     set 6500 K, already at it
+     +   3 ms: 11 ff 04 9c 00 00 00 00  set-temperature ACK
+     ...
+  4. each write, then close the handle and open the lamp again
+     turn off, from on, close, reopen
+     +  14 ms: reopened
+     +1006 ms: (nothing within 1000 ms)
+     ...
+  restored to on, 30 lm (0%), 2700 K: ok
+```
+
+Reading it:
+
+- Every write gets an ACK within 1 to 4 ms, power and temperature as much as brightness, whatever the power supply. A write that changes nothing, such as turning on a lamp that's already on, gets one too.
+- Nothing else follows a power or temperature write: no notice, like the change notice that follows a capped brightness write.
+- After a write, a handle closed without reading leaves nothing for the next one: the lamp opened again received nothing, for every kind of write.
+
+So the plugin's drain after a write (`drainAck`) returns within a few ms, and only matters for a read on the same handle afterwards. The emulated lamp sends an ACK after every write and nothing to a new handle, as measured.
+
 [#13]: https://github.com/daczarne/streamdeck-litra/issues/13
+[#96]: https://github.com/daczarne/streamdeck-litra/issues/96
