@@ -6,20 +6,21 @@ body:
       value: >-
         The plugin is checked on Litra Beams only. The Beam LX and the Glow take the same commands, so their front
         light should work, but nobody has checked. Whether it works or not, a report helps.
-  - type: dropdown
-    id: lamp
+  - type: textarea
+    id: lamps
     attributes:
-      label: Lamp
-      options:
-        - Litra Beam LX
-        - Litra Glow
+      label: Lamps
+      description: Every lamp connected while you tried it, the Beams too, with its model and what it's plugged into.
+      placeholder: |
+        Litra Beam LX, plugged into the computer
+        Litra Glow, on a USB hub
     validations:
       required: true
   - type: textarea
     id: actions
     attributes:
       label: What you tried
-      description: Each action you used, on a key or a dial, and what the lamp did.
+      description: Each action you used, on a key or a dial, and what each lamp did.
     validations:
       required: true
   - type: input
