@@ -20,7 +20,9 @@ jobs:
   label-pr:
     name: Label PR
     runs-on: ubuntu-latest
-    if: ${{ github.event.pull_request }}
+    # A pull request from a fork gets a read-only token, with which labeling fails. It's skipped for those, which
+    # alls-green allows, rather than run with pull_request_target, which would give a fork's code write access.
+    if: ${{ github.event.pull_request && github.event.pull_request.head.repo.full_name == github.repository }}
     permissions:
       contents: read
       pull-requests: write
