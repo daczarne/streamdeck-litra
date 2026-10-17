@@ -43,7 +43,7 @@ Not an official Logitech or Elgato product.
 
 The plugin is made and checked on Litra Beams. The Beam LX and the Glow take the same commands, with their own ranges, so the plugin should control their front light too, but it hasn't been checked on either. The Beam LX is the next to be checked. The Glow isn't planned: see "Supported lamps" in [the contributing guide][contributing].
 
-The Beam LX back light (RGB and G HUB effect presets) isn't supported. The research notes are in [`ref/hid-captures/NOTES.md`][hid-notes].
+The Beam LX back light (RGB and G HUB effect presets) isn't supported. What's known about it so far, from the original author's research, is in [#19].
 
 Lamps connect over USB only: the underlying HID stack doesn't support Bluetooth. A lamp plugged into a hub with limited power may cap its brightness. On a Stream Deck + XL's hub (7.5 W), a Beam stops between about 60% and 80%, depending on the port and the lamp, while plugged into the computer it reaches 100%. The plugin learns each lamp's cap the first time the lamp falls short of what it was sent, and never asks it for more until the lamp is plugged in again, which is how it moves to another power supply. Right after it learns one, the next brightness change waits about a second, since until then the lamp can undo it.
 
@@ -170,19 +170,19 @@ To update it, download `dist/sdpi-components.js` from the new upstream tag (not 
 
 ## Credits
 
-- Seth Sheppard: the original plugin this repository forked, and the notes in `ref/`: its v1 scope, its implementation notes and the Beam LX back-light research.
+- Seth Sheppard: the original plugin this repository forked, its design, and the Beam LX back-light research it was based on.
 - [timrogers/litra][litra]: the HID protocol and Node library.
 - [Elgato Stream Deck SDK][sdk].
 
 The plugin is MIT licensed: see [`LICENSE`][license].
 
+[#19]: https://github.com/daczarne/streamdeck-litra/issues/19
 [#21]: https://github.com/daczarne/streamdeck-litra/issues/21
 [bright]: com.daczarne.litra.sdPlugin/imgs/actions/brightness/icon@2x.png
 [bright-down]: com.daczarne.litra.sdPlugin/imgs/actions/brightness-down/icon@2x.png
 [bright-up]: com.daczarne.litra.sdPlugin/imgs/actions/brightness-up/icon@2x.png
 [check-ui]: scripts/check-ui.mjs
 [contributing]: docs/contributing.md
-[hid-notes]: ref/hid-captures/NOTES.md
 [keys]: docs/elgato_sdk/keys.md
 [license]: LICENSE
 [streamdeck-icons]: https://github.com/daczarne/streamdeck-icons

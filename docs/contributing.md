@@ -58,10 +58,7 @@ Every dependency is pinned, and every upgrade is a deliberate change of its own.
 
 Code or configuration that is unused, misleading or contradicts a decision already made is removed. For example, an entry relying on install scripts, now that `.npmrc` sets `ignore-scripts=true`, would contradict that decision even if it did nothing.
 
-Two things are exceptions. They are unused today but kept on purpose, with their status documented:
-
-- `ref/`, the original author's design notes and the Beam LX back-light research. It plays no part in the plugin.
-- The build code for an installed plugin (`npm run pack` and `copyNativeRuntime` in `rollup.config.mjs`), in case the plugin is published one day ([#21]). Today it only runs linked.
+One thing is an exception, unused today but kept on purpose, with its status documented: the build code for an installed plugin (`npm run pack` and `copyNativeRuntime` in `rollup.config.mjs`), in case the plugin is published one day ([#21]). Today it only runs linked.
 
 ## Supported lamps
 

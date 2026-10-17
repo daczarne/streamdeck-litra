@@ -1,10 +1,6 @@
 .DS_Store
 node_modules/
 
-# Reference clones (read-only upstream)
-ref/litra-rs/
-ref/litra/
-
 # Stream Deck build / runtime output
 *.sdPlugin/bin
 *.sdPlugin/logs
@@ -17,9 +13,3 @@ coverage/
 
 # Probe results, which hold the lamps' serial numbers
 scripts/probes/out/*.txt
-
-# Local tooling / noisy capture byproducts
-.venv-frida/
-ref/hid-captures/*.jsonl
-ref/hid-captures/*.jsonl.err
-ref/hid-captures/lghub-logstream.txt
