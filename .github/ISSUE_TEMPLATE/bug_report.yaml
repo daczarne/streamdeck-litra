@@ -1,0 +1,64 @@
+name: Bug report
+description: Something the plugin does wrong.
+labels:
+  - bug
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what the keys, dials or lamps did, and what you expected instead.
+    validations:
+      required: true
+  - type: input
+    id: plugin-version
+    attributes:
+      label: Plugin version
+      description: In Stream Deck's preferences, under Plugins.
+      placeholder: 0.1.0
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How the plugin runs
+      options:
+        - Installed from a release
+        - Linked from the repository
+    validations:
+      required: true
+  - type: input
+    id: stream-deck
+    attributes:
+      label: Stream Deck
+      description: The device, and the version of the Stream Deck app.
+      placeholder: Stream Deck +, Stream Deck 7.6
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+      placeholder: "15.5"
+    validations:
+      required: true
+  - type: textarea
+    id: lamps
+    attributes:
+      label: Lamps
+      description: Each lamp's model, and what it's plugged into.
+      placeholder: |
+        Litra Beam, plugged into the computer
+        Litra Beam, on a USB hub
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: >-
+        The lines of `litra.log` from around the problem. It's in
+        `~/Library/Application Support/com.elgato.StreamDeck/Plugins/com.daczarne.litra.sdPlugin/logs/` for an installed
+        plugin. The log holds your lamps' serial numbers: replace them with placeholders, such as `<serialNumber1>`,
+        before posting.
+      render: text

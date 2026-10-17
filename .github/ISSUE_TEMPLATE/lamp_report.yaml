@@ -1,0 +1,41 @@
+name: Unchecked lamp report
+description: How the plugin works with a lamp it hasn't been checked on, such as a Beam LX or a Glow.
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        The plugin is checked on Litra Beams only. The Beam LX and the Glow take the same commands, so their front
+        light should work, but nobody has checked. Whether it works or not, a report helps.
+  - type: dropdown
+    id: lamp
+    attributes:
+      label: Lamp
+      options:
+        - Litra Beam LX
+        - Litra Glow
+    validations:
+      required: true
+  - type: textarea
+    id: actions
+    attributes:
+      label: What you tried
+      description: Each action you used, on a key or a dial, and what the lamp did.
+    validations:
+      required: true
+  - type: input
+    id: plugin-version
+    attributes:
+      label: Plugin version
+      description: In Stream Deck's preferences, under Plugins.
+      placeholder: 0.1.0
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: >-
+        Optional: the lines of `litra.log` from while you tried it, in
+        `~/Library/Application Support/com.elgato.StreamDeck/Plugins/com.daczarne.litra.sdPlugin/logs/` for an installed
+        plugin. Replace your lamps' serial numbers with placeholders, such as `<serialNumber1>`, before posting.
+      render: text
