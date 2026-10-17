@@ -41,7 +41,7 @@ A lamp that fails is logged, and the operation goes on with the others. Finding 
 
 Three things outlive an operation, each because a lamp on a low-power supply needs it ([#55]):
 
-- The brightness each lamp can reach, its cap, learned the first time it falls short of what it was sent, and kept by its serial number with the path it was plugged in at. A lamp only moves to another power supply by being plugged in again, which gives it a new path, so a cap is forgotten once its lamp has another one.
+- The brightness each lamp can reach, its cap, learned the first time it falls short of what it was sent, and kept by its serial number with the path it was plugged in at. A lamp only moves to another power supply by being plugged in again, which on macOS gives it a new path, so a cap is forgotten once its lamp has another one. Whether Windows gives it a new path too isn't checked: if it kept the old one, a cap would outlive a move until the plugin restarts.
 - When a capped lamp may still go back to its cap after being asked for more, which can undo a lower brightness written in between: the next brightness change waits until then.
 - The queue of brightness changes, so that one starts only once the one before has been read back.
 
