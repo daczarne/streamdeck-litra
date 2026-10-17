@@ -44,7 +44,7 @@ Items can't overlap unless their `zOrder` differs. Stream Deck refuses a layout 
 
 ## The dial in the app
 
-The schema says `Encoder.Icon` is also the app's round picture of the dial. On Stream Deck 7.6, the app shows the action's key image there instead (`States[0].Image`), for dials already placed and newly dragged ones alike, and after Stream Deck is quit and reopened ([#51]). This was seen on actions that have both a key and a dial. So the Brightness and Temperature actions use one image for both, named for neither: `States[0].Image` and `Encoder.Icon` both point at the action's `glyph`. The plugin doesn't need it, but `setImage` on a dial also changes that picture, as checked on the Deck, while the user hasn't picked a custom image for the dial.
+The schema says `Encoder.Icon` is also the app's round picture of the dial. On Stream Deck 7.6, the app shows the action's key image there instead (`States[0].Image`), for dials already placed and newly dragged ones alike, and after Stream Deck is quit and reopened ([#51]). This was seen on actions that have both a key and a dial. So the app pictures the Brightness and Temperature dials with their key image (`key`), drawn at the Litra icon pack's size, smaller than the full-size `glyph` that `Encoder.Icon` points at and the touch strip shows. The plugin doesn't need it, but `setImage` on a dial also changes that picture, as checked on the Deck, while the user hasn't picked a custom image for the dial.
 
 ## What fits on the Deck
 
