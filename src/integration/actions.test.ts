@@ -13,6 +13,10 @@ const POWER = "com.daczarne.litra.power";
 const BRIGHTNESS = "com.daczarne.litra.brightness";
 const TEMPERATURE = "com.daczarne.litra.temperature";
 const SCENE = "com.daczarne.litra.scene";
+const BRIGHTNESS_UP = "com.daczarne.litra.brightness-up";
+const BRIGHTNESS_DOWN = "com.daczarne.litra.brightness-down";
+const TEMPERATURE_UP = "com.daczarne.litra.temperature-up";
+const TEMPERATURE_DOWN = "com.daczarne.litra.temperature-down";
 
 // A Beam's brightness in lumens at a percentage of its range (30–400 lm), as litra rounds it.
 const LUMEN_AT_50 = 215;
@@ -62,6 +66,11 @@ function beam(options: ConstructorParameters<typeof EmulatedLitra>[1] = {}): Emu
 /** The state a key was last set to: on (1) or off (0). */
 function stateOf(key: Awaited<ReturnType<FakeDeck["key"]>>): number {
   return at(key.setState.mock.calls, -1)[0];
+}
+
+/** The title a key was last given. */
+function titleOf(key: Awaited<ReturnType<FakeDeck["key"]>>): string | undefined {
+  return at(key.setTitle.mock.calls, -1)[0];
 }
 
 /** What a dial was last told to show. */
@@ -252,6 +261,103 @@ describe("the Scene key", () => {
     expect(stateOf(powerKey)).toBe(1);
     expect(feedbackOf(brightnessDial)).toMatchObject({ value: "100%" });
     expect(feedbackOf(temperatureDial)).toMatchObject({ value: "6500" });
+  });
+});
+
+describe("the step keys", () => {
+  it("step every lamp's brightness up and down by their step, and every step key shows the brightest lamp (#129)", async () => {
+    const pair = [beam(), beam()];
+    plugIn(...pair);
+    const up = await deck.key(BRIGHTNESS_UP, { stepPercentage: 10 });
+    const down = await deck.key(BRIGHTNESS_DOWN, { stepPercentage: 10 });
+
+    expect([titleOf(up), titleOf(down)]).toEqual(["50%", "50%"]);
+
+    await deck.press(up);
+
+    expect(pair.map((lamp) => lamp.brightnessInLumen)).toEqual([LUMEN_AT_60, LUMEN_AT_60]);
+    expect([titleOf(up), titleOf(down)]).toEqual(["60%", "60%"]);
+
+    await deck.press(down);
+
+    expect(pair.map((lamp) => lamp.brightnessInLumen)).toEqual([LUMEN_AT_50, LUMEN_AT_50]);
+    expect([titleOf(up), titleOf(down)]).toEqual(["50%", "50%"]);
+  });
+
+  it("move the lamps once for quick presses, with the step the key has by then", async () => {
+    const pair = [beam(), beam()];
+    plugIn(...pair);
+    const key = await deck.key(BRIGHTNESS_UP, { stepPercentage: 5 });
+
+    await deck.quickly(() => {
+      void deck.press(key);
+      void deck.press(key);
+      void deck.changeSettings(key, { stepPercentage: 10 });
+      void deck.press(key);
+    });
+
+    // Three steps of 10% from 50%.
+    expect(pair.map((lamp) => lamp.writes("brightness"))).toEqual([[LUMEN_AT_80], [LUMEN_AT_80]]);
+    expect(titleOf(key)).toBe("80%");
+  });
+
+  it("stop at the lamps' caps, as a dial does, and show the brightest lamp", async () => {
+    // Two Beams on a Stream Deck + XL's USB hub, which stop at 63% and 79%.
+    const pair = [
+      beam({ brightnessInLumen: LUMEN_AT_60, capInLumen: 264 }),
+      beam({ brightnessInLumen: LUMEN_AT_60, capInLumen: 324 }),
+    ];
+    plugIn(...pair);
+    // 80%, a step of 20% up from 60%, is past both caps.
+    const key = await deck.key(BRIGHTNESS_UP, { stepPercentage: 20 });
+
+    await deck.press(key);
+
+    expect(pair.map((lamp) => lamp.brightnessInLumen)).toEqual([264, 324]);
+    expect(titleOf(key)).toBe("79%");
+  });
+
+  it("step every lamp's temperature up and down from the first lamp's, and every step key shows it (#129)", async () => {
+    const pair = [beam({ temperatureInKelvin: 3000 }), beam({ temperatureInKelvin: 5000 })];
+    plugIn(...pair);
+    const up = await deck.key(TEMPERATURE_UP, { stepKelvin: 300 });
+    const down = await deck.key(TEMPERATURE_DOWN, { stepKelvin: 300 });
+
+    expect([titleOf(up), titleOf(down)]).toEqual(["3000", "3000"]);
+
+    await deck.press(up);
+
+    expect(pair.map((lamp) => lamp.temperatureInKelvin)).toEqual([3300, 3300]);
+    expect([titleOf(up), titleOf(down)]).toEqual(["3300", "3300"]);
+
+    await deck.press(down);
+
+    expect(pair.map((lamp) => lamp.temperatureInKelvin)).toEqual([3000, 3000]);
+    expect([titleOf(up), titleOf(down)]).toEqual(["3000", "3000"]);
+  });
+
+  it("follow what another action changes", async () => {
+    plugIn(beam(), beam());
+    const brightnessKey = await deck.key(BRIGHTNESS_DOWN, { stepPercentage: 10 });
+    const temperatureKey = await deck.key(TEMPERATURE_UP, { stepKelvin: 300 });
+    const scene = await deck.key(SCENE, { presetPercentage: 80, presetKelvin: 6500 });
+
+    await deck.press(scene);
+
+    expect([titleOf(brightnessKey), titleOf(temperatureKey)]).toEqual(["80%", "6500"]);
+  });
+
+  it("show an alert when a lamp fails, and still step the others", async () => {
+    const [failing, working] = [beam(), beam()];
+    plugIn(failing, working);
+    const key = await deck.key(BRIGHTNESS_UP, { stepPercentage: 10 });
+    failing.fail("everything");
+
+    await deck.press(key);
+
+    expect(key.showAlert).toHaveBeenCalledOnce();
+    expect(working.brightnessInLumen).toBe(LUMEN_AT_60);
+    expect(titleOf(key)).toBe("60%");
   });
 });
 

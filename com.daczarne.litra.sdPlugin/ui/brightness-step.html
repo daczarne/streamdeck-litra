@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+
+  <head lang="en">
+    <title>Litra Brightness Step</title>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="
+        default-src 'none';
+        script-src 'self';
+        style-src 'unsafe-inline';
+        img-src data:;
+        connect-src ws://localhost:*;
+        base-uri 'none';
+        form-action 'none'
+      "
+    />
+    <script src="vendor/sdpi-components.js"></script>
+    <style>
+      /* A slider with its value on its right, shown by range-value.js. */
+      .range {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .range sdpi-range {
+        flex: 1;
+      }
+
+      .range output {
+        min-width: 6ch;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- How far a press of a Brightness Up or Down key moves the lamps: the same steps as a Brightness dial's. -->
+    <sdpi-item label="Step">
+      <div class="range">
+        <sdpi-range
+          id="step-percentage"
+          setting="stepPercentage"
+          min="1"
+          max="25"
+          step="1"
+          default="10"
+        ></sdpi-range>
+        <output for="step-percentage" data-suffix="%"></output>
+      </div>
+    </sdpi-item>
+    <script src="range-value.js"></script>
+  </body>
+
+</html>

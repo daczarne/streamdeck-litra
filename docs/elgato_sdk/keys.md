@@ -9,7 +9,7 @@ An action placed on a key draws its picture from the manifest, and the plugin ca
 
 ## What a key shows
 
-A key shows an image and a title, which the plugin sets with `setImage` and `setTitle` on the key's action. Both only apply while the user hasn't set their own in the key's settings: a custom image or title always wins. `setImage` and `setTitle` without an argument go back to the manifest's.
+A key shows an image and a title, which the plugin sets with `setImage` and `setTitle` on the key's action. Both only apply while the user hasn't set their own in the key's settings: a custom image or title always wins. A custom title stays whatever the plugin sets meanwhile, as on a step key whose title turns to a dash when the lamps are unplugged, and the key shows the plugin's title again once the custom one is cleared. `setImage` and `setTitle` without an argument go back to the manifest's.
 
 On top of that, the plugin can show one of two temporary overlays: `showAlert`, an exclamation mark in a yellow triangle, and `showOk`, a check mark in a green circle. The plugin decides when one is shown, and Stream Deck when it goes away.
 
@@ -21,9 +21,9 @@ By default, Stream Deck switches a key to its other state on every press, before
 
 ## Alerts
 
-**A redraw right after an alert covers it.** When the plugin calls `setState` on a key just after `showAlert`, Stream Deck draws the state over the alert, even when the state doesn't change. A key pressed fast enough shows the alert for an instant, and otherwise not at all. This was seen on the Power key, which sets its state from the lamps after every operation, the failed ones included. Whether `setImage` and `setTitle` cover it too, and whether a redraw covers a dial's alert, hasn't been checked.
+**A state set right after an alert covers it.** When the plugin calls `setState` on a key just after `showAlert`, Stream Deck draws the state over the alert, even when the state doesn't change. A key pressed fast enough shows the alert for an instant, and otherwise not at all. This was seen on the Power key, which sets its state from the lamps after every operation, the failed ones included. To keep the alert visible, the key's state may only be set once the alert is gone, and Stream Deck doesn't say when that is ([#132]).
 
-To keep an alert visible, nothing may redraw the key until it's gone, and Stream Deck doesn't say when that is. The plugin leaves it as is: the logs say why a key failed (see [the logging document][logging]).
+**A title set right after an alert doesn't.** The step keys set their title from the lamps after every operation too, and their alert shows in full, with the new title, such as a dash when no lamp answers, drawn under it straight away. Whether `setImage` covers an alert, and whether a redraw covers a dial's alert, hasn't been checked. Either way, the logs say why a key failed (see [the logging document][logging]).
 
 ## Sources
 
@@ -31,6 +31,8 @@ Checked against `@elgato/streamdeck` 3.0.1 and the manifest schema in `@elgato/s
 
 - `setImage`, `setState`, `setTitle`, `showAlert` and `showOk`: `@elgato/streamdeck/dist/plugin/actions/key.d.ts`.
 - `States` and `DisableAutomaticStates`: the `Action` definition in `@elgato/schemas/streamdeck/plugins/manifest.json`.
-- An alert covered by a redraw: seen on the Deck, pressing a Power key with no lamp connected.
+- An alert covered by a state, and one that a title doesn't cover: seen on the Deck, pressing a Power key and a step key with no lamp connected.
+- A custom title that stays: seen on the Deck, on a step key with no lamp connected.
 
+[#132]: https://github.com/daczarne/streamdeck-litra/issues/132
 [logging]: ../logging.md
