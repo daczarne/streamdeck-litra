@@ -16,7 +16,7 @@ A Stream Deck plugin that controls Logitech Litra lights (Glow, Beam, Beam LX fr
 
 The plugin is made and checked on macOS, with a Stream Deck + XL running Stream Deck 7.6 and two Litra Beams. The manifest also lists Windows 10, where the plugin isn't checked, so a change shouldn't assume macOS without saying why. The Beam is the plugin's target: tests, fakes and defaults use its real values. Other models come one at a time, the Beam LX next, and no work goes into the Glow (see "Supported lamps" in `docs/contributing.md`). The plugin needs neither Logi Options+ nor G HUB, and is checked without them installed.
 
-The plugin isn't on Elgato's Marketplace. A release is the `.streamDeckPlugin` file `npm run pack` writes, attached to a GitHub release (see the Packaging section of `README.md`). Releases aren't checked as an installed plugin: their users report what doesn't work ([#21]). Development runs linked from the repo, never installed, so the Deck runs whatever is built from the checked-out branch. That is intended: a change takes effect on the next build and restart.
+The plugin isn't on Elgato's Marketplace. A merge that raises the manifest's version makes CI draft a release, with the package `npm run pack` writes, which is then published by hand (see the Packaging section of `README.md`). Releases aren't checked as an installed plugin: their users report what doesn't work ([#21]). Development runs linked from the repo, never installed, so the Deck runs whatever is built from the checked-out branch. That is intended: a change takes effect on the next build and restart.
 
 ## Read before changing things
 
@@ -94,7 +94,7 @@ Supply-chain risk is a hard requirement here:
 
 - Create branches with `git switch -c`.
 - Commit messages explain the why and end with the `Co-Authored-By` trailer for Claude. Commit only when asked.
-- `.github/workflows/main.yaml` runs the type check, Biome, the doc comments check, a regeneration of the icons that must change nothing, the unit and integration tests, the browser tests, `npm run validate`, Markdown lint and CSpell on every pull request and on `main`. Locally, the same checks run in two parts, both as Claude commands and as VS Code tasks: `/lint` and the `Lint` task run the linters (everything but the tests), `/test` and the `Test` task run the unit and integration tests and then the browser tests, and `/ci` and the `CI` task run both. `Test` is VS Code's default test task, so **Tasks: Run Test Task** starts it.
+- `.github/workflows/main.yaml` runs the type check, Biome, the doc comments check, a regeneration of the icons that must change nothing, the unit and integration tests, the browser tests, `npm run validate`, Markdown lint and CSpell on every pull request and on `main`. On `main`, once every check has passed, its last job drafts a release when the manifest's version has none yet, drafts included. The job packs the plugin, attests the package's provenance, and fills the notes in from `.github/release-notes.md`. Locally, the same checks run in two parts, both as Claude commands and as VS Code tasks: `/lint` and the `Lint` task run the linters (everything but the tests), `/test` and the `Test` task run the unit and integration tests and then the browser tests, and `/ci` and the `CI` task run both. `Test` is VS Code's default test task, so **Tasks: Run Test Task** starts it.
 - Write the pull request title and description with the `pr-description` skill.
 - Draft issues with the `github-issues` skill, and post them only when asked.
 
