@@ -30,9 +30,8 @@ In VS Code, the `Build and restart` task runs both. After a change to `manifest.
 4. **The caps hold.** Press Brightness Up until the lamps stop getting brighter: each stops at its cap, and the Brightness keys show the brighter lamp's cap, as the dial does. One more press changes nothing.
 5. **Quick presses all count.** Press the Scene key, then Brightness Up three times as fast as you can: the lamps end at 50%. `logs/litra.log` has `Brightness Up: Key pressed` lines whose steps add up to 3. Presses within 60 ms of each other, as a dial's ticks are, are gathered into one line, and slower ones each get their own.
 6. **A custom title wins.** Give a step key a title of its own in its settings: the key shows it, and keeps showing it after a press. Clear it, and the key shows the lamps' value again after the next change.
-7. **An alert shows when no lamp answers.** Unplug both lamps and press a step key: the key shows an alert, then a dash as its title. If the dash covers the alert straight away, note it in [the SDK notes on keys][keys].
+7. **An alert shows when no lamp answers.** Unplug both lamps and press a step key: the key shows an alert, with a dash as its title under it.
 8. **The log tells the press and each lamp.** `logs/litra.log` has a line per press, scoped by the key (`Brightness Up`, `Temperature Down`, …), with the presses and the step, then the lines of `adjust brightness` or `adjust temperature` for each lamp.
 
 [#129]: https://github.com/daczarne/streamdeck-litra/issues/129
 [contributing]: ../contributing.md
-[keys]: ../elgato_sdk/keys.md

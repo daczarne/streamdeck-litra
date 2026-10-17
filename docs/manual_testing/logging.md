@@ -36,7 +36,6 @@ tail -n 5 com.daczarne.litra.sdPlugin/logs/litra.log
 3. **A press is followed by what each lamp did.** Press the Brightness key. The log gains an `INFO` line from `Brightness` with the key's preset, then one `INFO` line from `Lamps` per Beam with the lumens sent and reached. A Beam on the Deck's hub also gets a line with its cap, the first time it reaches it since the plugin started or the lamp was plugged in again.
 4. **Lamps are named without their whole serial number.** In the lines of check 3, each Beam reads as `Beam …` followed by 4 characters, and the two Beams' differ.
 5. **Reads stay out of the log.** Turn the Brightness dial a few steps. The log gains one `INFO` line from `Brightness` per burst of turning, with its ticks, and the lines of the change, but no `Lamps: read` lines.
-6. **Failures reach the plugin's log.** Unplug both Beams and press the Brightness key. The key shows an alert, and the log gains an `INFO` line from `Brightness` with the key's preset, then `WARN` lines saying no lamps were found. `logs/` holds no new `com.daczarne.litra.0.log`, since the messages went to the plugin's log, not the SDK's. The Power key logs its press the same way, but its alert can't be relied on to show (see [Stream Deck keys][keys]).
+6. **Failures reach the plugin's log.** Unplug both Beams and press the Brightness key. The key shows an alert, and the log gains an `INFO` line from `Brightness` with the key's preset, then `WARN` lines saying no lamps were found. `logs/` holds no new `com.daczarne.litra.0.log`, since the messages went to the plugin's log, not the SDK's. The Power key logs its press the same way, and shows its alert after switching to off.
 
-[keys]: ../elgato_sdk/keys.md
 [logging]: ../logging.md
