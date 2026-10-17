@@ -12,8 +12,8 @@ body:
       label: Lamps
       description: Every lamp connected while you tried it, the Beams too, with its model and what it's plugged into.
       placeholder: |
-        Litra Beam LX, plugged into the computer
-        Litra Glow, on a USB hub
+        One Litra Beam LX, plugged into the computer
+        Two Litra Glows, one on a USB hub and one plugged into the computer
     validations:
       required: true
   - type: textarea
