@@ -137,6 +137,8 @@ It runs `check:ui`, builds, and writes `release/com.daczarne.litra.streamDeckPlu
 
 The version is the `Version` in `manifest.json`, the only place it's written. Elgato's format has four numbers, `{major}.{minor}.{patch}.{build}`, and the last one stays 0. Releases follow [semantic versioning][semver], where a breaking change is one that breaks keys already set up, such as a renamed action or a setting whose meaning changes.
 
+A pull request that raises the version makes a release once it's merged. CI's last job runs on every push to `main`, after every check has passed. When the manifest's version has no release yet, drafts included, it packs the plugin, records the package's provenance in an attestation, and drafts a release tagged `v{major}.{minor}.{patch}`. The draft holds the package and notes from `.github/release-notes.md`, with the package's SHA-256, followed by the pull requests merged since the last release. Publishing it, once its notes are read, is manual.
+
 ## Icons
 
 The plugin's images are drawn by code, from the glyphs of [`streamdeck-icons`][streamdeck-icons], a development dependency pinned to a commit. That repository also holds the palette, and the Litra icon pack, which adds these icons and variants of them to Stream Deck's Icon Library. `scripts/generate-icons.mjs` decides which glyph goes where, and renders each to the PNG sizes Stream Deck needs. The key images are drawn at the icon pack's sizes, leaving room for a title, while the dials' icons on the touch strip fill their canvas.
