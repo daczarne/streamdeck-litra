@@ -5,10 +5,11 @@
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import path from "node:path";
 
-// The files node-hid needs at runtime, and their licenses, by package. Everything else in them (C sources, build
-// files, the binaries for the platforms the manifest leaves out) is only needed to compile. node-hid's own dependency,
-// node-addon-api, is one of those: a set of headers, which nothing loads at runtime. node-hid's binary has hidapi
-// compiled in, hence hidapi's licenses. A path missing after an upgrade stops the build.
+// The files node-hid needs at runtime, and their licenses, by package: its binaries for the platforms the manifest
+// lists, macOS and Windows, on both Intel and Arm. Everything else in them (C sources, build files, the binaries for
+// Linux and 32-bit Windows, where Stream Deck doesn't run) is only needed to compile or never loaded. node-hid's own
+// dependency, node-addon-api, is one of those: a set of headers, which nothing loads at runtime. node-hid's binary
+// has hidapi compiled in, hence hidapi's licenses. A path missing after an upgrade stops the build.
 export const NATIVE_RUNTIME = {
   "node-hid": [
     "package.json",
@@ -21,6 +22,8 @@ export const NATIVE_RUNTIME = {
     "hidapi/LICENSE-orig.txt",
     "prebuilds/HID-darwin-arm64",
     "prebuilds/HID-darwin-x64",
+    "prebuilds/HID-win32-arm64",
+    "prebuilds/HID-win32-x64",
   ],
   "pkg-prebuilds": ["package.json", "bindings.js", "lib/prebuild.js", "LICENSE"],
 };

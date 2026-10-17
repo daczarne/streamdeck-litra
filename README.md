@@ -50,7 +50,7 @@ Lamps connect over USB only: the underlying HID stack doesn't support Bluetooth.
 
 ## Requirements
 
-- [Stream Deck][stream-deck] 7.1 or later, on macOS 12 or later. The plugin has never run on Windows, so it doesn't install there.
+- [Stream Deck][stream-deck] 7.1 or later, on macOS 12 or later, or Windows 10 or later. The plugin is made and checked on macOS. It should work on Windows, where [`litra`][litra], the library it talks to the lamps through, is tested, but the plugin itself isn't checked there.
 - A Litra lamp connected over USB. On macOS, opening it needs no permission.
 - No Logitech software. If G HUB is installed, quit it if it fights the plugin for the HID device.
 - Only to build it from the repository: Node.js and npm, at the exact Node version in `.node-version`: `npm ci` refuses any other. With [n][n], `n auto` installs and switches to it. The plugin itself runs on the Node 24 that Stream Deck downloads, so the Node used to build doesn't have to match it.
@@ -62,7 +62,12 @@ Lamps connect over USB only: the underlying HID stack doesn't support Bluetooth.
 
 A newer release installs the same way, over the one installed. To remove the plugin, uninstall it from the **Plugins** tab of Stream Deck's preferences.
 
-The plugin is developed and checked linked from the repository (see [Setting up on a new computer](#setting-up-on-a-new-computer)), not installed from a release. If an installed plugin doesn't work, [an issue][issues] with its log helps: the logs are in `~/Library/Application Support/com.elgato.StreamDeck/Plugins/com.daczarne.litra.sdPlugin/logs/`, newest in `litra.log`. They hold your lamps' serial numbers, so remove those before posting.
+The plugin is developed and checked linked from the repository (see [Setting up on a new computer](#setting-up-on-a-new-computer)), not installed from a release. If an installed plugin doesn't work, [an issue][issues] with its log helps. The logs are in the plugin's folder, newest in `litra.log`:
+
+- On macOS: `~/Library/Application Support/com.elgato.StreamDeck/Plugins/com.daczarne.litra.sdPlugin/logs/`
+- On Windows: `%APPDATA%\Elgato\StreamDeck\Plugins\com.daczarne.litra.sdPlugin\logs\`
+
+They hold your lamps' serial numbers, so remove those before posting.
 
 ## Setting up on a new computer
 
@@ -128,7 +133,7 @@ A release attaches the file this writes:
 npm run pack
 ```
 
-It runs `check:ui`, builds, and writes `release/com.daczarne.litra.streamDeckPlugin`, which holds the plugin folder, without what `com.daczarne.litra.sdPlugin/.sdignore` leaves out. The build puts in it only the files of `node-hid` that run on macOS (`scripts/package-files.mjs` lists them), the plugin's license, and the licenses of the code it ships, in `bin/THIRD_PARTY_LICENSES.txt`, since the minified bundle drops them. An installed plugin can't fall back on the repository's `node_modules` the way a linked one does, so a dependency missing from the package only shows once it's installed ([#21]).
+It runs `check:ui`, builds, and writes `release/com.daczarne.litra.streamDeckPlugin`, which holds the plugin folder, without what `com.daczarne.litra.sdPlugin/.sdignore` leaves out. The build puts in it only the files of `node-hid` that run on macOS and Windows (`scripts/package-files.mjs` lists them), the plugin's license, and the licenses of the code it ships, in `bin/THIRD_PARTY_LICENSES.txt`, since the minified bundle drops them. An installed plugin can't fall back on the repository's `node_modules` the way a linked one does, so a dependency missing from the package only shows once it's installed ([#21]).
 
 The version is the `Version` in `manifest.json`, the only place it's written. Elgato's format has four numbers, `{major}.{minor}.{patch}.{build}`, and the last one stays 0. Releases follow [semantic versioning][semver], where a breaking change is one that breaks keys already set up, such as a renamed action or a setting whose meaning changes.
 
