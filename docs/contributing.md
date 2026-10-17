@@ -10,7 +10,7 @@
 - [Lamps are managed together](#lamps-are-managed-together)
 - [Working with Claude](#working-with-claude)
 
-This document describes how work on this repository is done: how changes reach `main`, how they are sliced and recorded, what each one has to bring with it, and the design rules that hold across the plugin. Style is covered separately, in [the style guide][style-guide].
+This document describes how work on this repository is done: how changes reach `main`, how they are sliced and recorded, what each one has to bring with it, and the design rules that hold across the plugin. How the plugin's parts fit together, and why, is in [the architecture document][architecture]. Style is covered separately, in [the style guide][style-guide].
 
 ## Changes go through pull requests
 
@@ -87,5 +87,6 @@ When [#20] is worked on, the question changes: what would someone who controls e
 [#48]: https://github.com/daczarne/streamdeck-litra/issues/48
 [#59]: https://github.com/daczarne/streamdeck-litra/issues/59
 [#100]: https://github.com/daczarne/streamdeck-litra/issues/100
+[architecture]: architecture.md
 [manual-testing]: manual_testing/
 [style-guide]: style_guide.md
