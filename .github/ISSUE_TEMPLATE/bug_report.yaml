@@ -28,18 +28,25 @@ body:
     validations:
       required: true
   - type: input
-    id: stream-deck
+    id: device
     attributes:
-      label: Stream Deck
-      description: The device, and the version of the Stream Deck app.
-      placeholder: Stream Deck +, Stream Deck 7.6
+      label: Stream Deck device
+      placeholder: Stream Deck +
     validations:
       required: true
   - type: input
-    id: macos
+    id: app-version
     attributes:
-      label: macOS version
-      placeholder: "15.5"
+      label: Stream Deck app version
+      placeholder: "7.6"
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      description: The system and its version.
+      placeholder: macOS 15.5
     validations:
       required: true
   - type: textarea
