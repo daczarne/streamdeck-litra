@@ -162,7 +162,11 @@ jobs:
     name: Draft a release
     # Runs on every push to main, once every check has passed, and drafts a release when the manifest's version has
     # none yet, so a merge that bumps the version is what makes a release. Publishing the draft stays manual.
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    # The gate's result is checked by name: without a status function, the condition would get an implicit success(),
+    # which looks at every job up the chain, and label-pr is always skipped on a push.
+    if: >-
+      ${{ !cancelled() && needs.alls-green.result == 'success'
+      && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     needs:
       - alls-green
