@@ -147,9 +147,11 @@ function asHid(device: Device): ClosableHid {
 }
 
 /**
- * litra write-only commands leave an ACK in the HID buffer. Without draining it,
- * the next readSync (isOn / getBrightness / getTemperature) can return the ACK
- * instead of the query response — especially on Beam LX.
+ * Reads the ACK a write leaves on the handle, so that a read on the same handle afterwards gets its reply rather than
+ * the ACK: litra's isOn and getTemperatureInKelvin take the first report that arrives. Every write gets an ACK within a
+ * few ms, so the drain returns as soon as it arrives, and an ACK left on a handle is gone once the handle closes
+ * (`scripts/probes/write-reports.mjs`, #96). No operation reads after a write on the same handle today: the drain is a
+ * guard for one that does.
  */
 function drainAck(device: Device): void {
   try {

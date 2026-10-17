@@ -118,8 +118,10 @@ function bigEndian(value: number): [number, number] {
  * A Litra lamp without hardware, for the fake node-hid in `fake-node-hid.ts`: it keeps its power, brightness and
  * temperature, carries out the reports written to it, and answers them on every handle open on it, as a lamp does.
  *
- * It follows what `scripts/probes/` measured on the Beams: a query gets a reply with the value in bytes 4 and 5, and a
- * write gets an ACK, which carries no value. A report it can't carry out gets an error report.
+ * It follows what `scripts/probes/` measured on the Beams: a query gets a reply with the value in bytes 4 and 5, and
+ * every write gets an ACK, which carries no value, even a write that changes nothing (#96). A report it can't carry
+ * out gets an error report. A handle opened on it starts empty, since what the lamp sent to a handle is gone once that
+ * handle closes.
  *
  * A capped lamp, like a Beam on a low-power supply, also behaves as measured: sent more than its cap, it takes the
  * brightness it was sent, then lowers it to its cap after {@link CAP_DELAY_MS} and sends a change notice. Sent more
