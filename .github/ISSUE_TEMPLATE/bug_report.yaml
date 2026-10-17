@@ -64,8 +64,8 @@ body:
     attributes:
       label: Log
       description: >-
-        The lines of `litra.log` from around the problem. It's in
-        `~/Library/Application Support/com.elgato.StreamDeck/Plugins/com.daczarne.litra.sdPlugin/logs/` for an installed
-        plugin. The log holds your lamps' serial numbers: replace them with placeholders, such as `<serialNumber1>`,
-        before posting.
+        The lines of `litra.log` from around the problem. For an installed plugin, it's in
+        `~/Library/Application Support/com.elgato.StreamDeck/Plugins/com.daczarne.litra.sdPlugin/logs/` on macOS, and
+        in `%APPDATA%\Elgato\StreamDeck\Plugins\com.daczarne.litra.sdPlugin\logs\` on Windows. The log holds your
+        lamps' serial numbers: replace them with placeholders, such as `<serialNumber1>`, before posting.
       render: text
