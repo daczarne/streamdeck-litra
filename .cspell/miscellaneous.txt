@@ -1,8 +1,10 @@
 appspot
 codespace
 davidanson
+hidapi
 imgs
 killall
+licence
 osascript
 readback
 redhat

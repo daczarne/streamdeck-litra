@@ -1,0 +1,3 @@
+# What `streamdeck pack` leaves out of the package, besides its own defaults (.git, .env*, *.log and *.js.map).
+.DS_Store
+logs/
