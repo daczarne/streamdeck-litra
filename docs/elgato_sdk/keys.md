@@ -21,7 +21,7 @@ By default, Stream Deck switches a key to its other state on every press, before
 
 ## Alerts
 
-**A state set right after an alert covers it.** When the plugin calls `setState` on a key just after `showAlert`, Stream Deck draws the state over the alert, even when the state doesn't change. A key pressed fast enough shows the alert for an instant, and otherwise not at all. This was seen on the Power key, which sets its state from the lamps after every operation, the failed ones included. To keep the alert visible, the key's state may only be set once the alert is gone, and Stream Deck doesn't say when that is ([#132]).
+**A state set right after an alert covers it.** When the plugin calls `setState` on a key just after `showAlert`, Stream Deck draws the state over the alert, even when the state doesn't change. A key pressed fast enough shows the alert for an instant, and otherwise not at all. This was seen on the Power key, which sets its state from the lamps after every operation, the failed ones included. To keep the alert visible, the plugin shows it after the state: an alert shown right after `setState` stays. The Power key shows a failed press's alert once its state is redrawn ([#132]).
 
 **A title set right after an alert doesn't.** The step keys set their title from the lamps after every operation too, and their alert shows in full, with the new title, such as a dash when no lamp answers, drawn under it straight away. Whether `setImage` covers an alert, and whether a redraw covers a dial's alert, hasn't been checked. Either way, the logs say why a key failed (see [the logging document][logging]).
 
@@ -32,6 +32,7 @@ Checked against `@elgato/streamdeck` 3.0.1 and the manifest schema in `@elgato/s
 - `setImage`, `setState`, `setTitle`, `showAlert` and `showOk`: `@elgato/streamdeck/dist/plugin/actions/key.d.ts`.
 - `States` and `DisableAutomaticStates`: the `Action` definition in `@elgato/schemas/streamdeck/plugins/manifest.json`.
 - An alert covered by a state, and one that a title doesn't cover: seen on the Deck, pressing a Power key and a step key with no lamp connected.
+- An alert that a state set before it doesn't cover: seen on the Deck, pressing a Power key with the lamps unplugged while on.
 - A custom title that stays: seen on the Deck, on a step key with no lamp connected.
 
 [#132]: https://github.com/daczarne/streamdeck-litra/issues/132
