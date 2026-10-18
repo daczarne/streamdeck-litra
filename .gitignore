@@ -1,3 +1,4 @@
+# Node.js
 node_modules/
 
 # Stream Deck build / runtime output
@@ -10,9 +11,9 @@ release/
 # Test coverage reports
 coverage/
 
-# Probe results, which hold the lamps' serial numbers
-scripts/probes/out/*.txt
-
 # Local files
 .DS_Store
 .git/
+
+# Probe results
+scripts/probes/out/*.txt
