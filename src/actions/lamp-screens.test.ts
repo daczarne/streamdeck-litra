@@ -22,6 +22,7 @@ const LAMP_LAYOUT = "layouts/lamp.json";
 /** A Beam on a Stream Deck + XL's USB hub, at its cap. */
 function beam(serialNumber: string, overrides: Partial<LampStatus> = {}): LampStatus {
   return {
+    id: `lamp-${serialNumber}`,
     serialNumber,
     model: "Beam",
     on: true,
@@ -81,7 +82,7 @@ describe("LampScreens", () => {
       });
       expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith(lampScreenOf(A, 1, 2));
       expect(screens.isShowing(dial.id)).toBe(true);
-      expect(screens.lampOnScreen(dial.id)).toBe(A.serialNumber);
+      expect(screens.lampOnScreen(dial.id)).toBe(A.id);
     });
 
     it("goes through every lamp, then back to the main screen", async () => {
@@ -178,7 +179,7 @@ describe("LampScreens", () => {
 
       await screens.identify(dial);
 
-      expect(identifyLamp).toHaveBeenCalledExactlyOnceWith(B.serialNumber);
+      expect(identifyLamp).toHaveBeenCalledExactlyOnceWith(B.id);
       expect(dial.showAlert).not.toHaveBeenCalled();
     });
 

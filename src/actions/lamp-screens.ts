@@ -19,6 +19,8 @@ export type DialOwner = {
 type Screen = {
   dial: LampScreenDial;
   serialNumber: string;
+  /** The lamp's id, which the operations on it take. */
+  id: string;
   owner: DialOwner;
 };
 
@@ -55,9 +57,9 @@ export class LampScreens {
     return this.screens.has(dialId);
   }
 
-  /** The serial number of the lamp on a dial's screen, or undefined on its main screen. */
+  /** The id of the lamp on a dial's screen, or undefined on its main screen. */
   lampOnScreen(dialId: string): string | undefined {
-    return this.screens.get(dialId)?.serialNumber;
+    return this.screens.get(dialId)?.id;
   }
 
   /** Shows the lamp after the one on screen, the first lamp from the main screen, and the main screen after the last. */
@@ -85,7 +87,7 @@ export class LampScreens {
       if (screen === undefined) {
         return;
       }
-      const result = await identifyLamp(screen.serialNumber);
+      const result = await identifyLamp(screen.id);
       if (!result.ok) {
         await dial.showAlert();
       }
@@ -140,7 +142,7 @@ export class LampScreens {
   /** Draws a lamp on a dial, switching it to the lamp layout first if it was on its main screen. */
   private async show(dial: LampScreenDial, lamp: LampStatus, lamps: LampStatus[], owner: DialOwner): Promise<void> {
     const wasShowing = this.screens.has(dial.id);
-    this.screens.set(dial.id, { dial, serialNumber: lamp.serialNumber, owner });
+    this.screens.set(dial.id, { dial, serialNumber: lamp.serialNumber, id: lamp.id, owner });
     if (!wasShowing) {
       await dial.setFeedbackLayout(LAMP_LAYOUT);
       await dial.setTriggerDescription({ rotate: owner.adjusts, ...LAMP_TRIGGER_DESCRIPTIONS });

@@ -13,13 +13,13 @@ import {
 import type { JsonObject } from "@elgato/utils";
 
 import {
-  adjustTemperatureAllByKelvinSteps,
+  adjustLampsTemperature,
   type BroadcastResult,
   createDialDebouncer,
   onLampsChanged,
-  readRepresentativeTemperatureKelvin,
-  setTemperatureAllInKelvin,
-  toggleAll,
+  readLampsTemperature,
+  setLampsTemperature,
+  toggleLamps,
 } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
 import { type LampScreens, lampScreens as sharedLampScreens } from "./lamp-screens";
@@ -76,7 +76,7 @@ export class TemperatureAction extends SingletonAction {
   override async onKeyDown(ev: KeyDownEvent): Promise<void> {
     const { presetKelvin: preset } = parseSettings(ev.payload.settings, temperatureSettings, logger);
     logger.info(`Key pressed: preset ${preset} K`);
-    const result = setTemperatureAllInKelvin(preset);
+    const result = setLampsTemperature("all", preset);
     if (!result.ok) {
       await ev.action.showAlert();
     }
@@ -86,7 +86,7 @@ export class TemperatureAction extends SingletonAction {
   override async onDialDown(ev: DialDownEvent): Promise<void> {
     const lamp = this.lampScreens.lampOnScreen(ev.action.id);
     logger.info(lamp === undefined ? "Dial pressed: toggle" : "Dial pressed on a lamp screen: toggle");
-    const result = toggleAll(lamp === undefined ? "all" : [lamp]);
+    const result = toggleLamps(lamp === undefined ? "all" : [lamp]);
     if (!result.ok) {
       await ev.action.showAlert();
     }
@@ -129,7 +129,7 @@ export class TemperatureAction extends SingletonAction {
         const { stepKelvin: step } = parseSettings(settings, temperatureSettings, logger);
         const screen = lamp === undefined ? "" : " on a lamp screen";
         logger.info(`Dial turned${screen}: ${ticks} ticks of ${step} K`);
-        const result = adjustTemperatureAllByKelvinSteps(ticks, step, lamp === undefined ? "all" : [lamp]);
+        const result = adjustLampsTemperature(lamp === undefined ? "all" : [lamp], ticks, step);
         if (!result.ok) {
           await ev.action.showAlert();
         }
@@ -146,7 +146,7 @@ export class TemperatureAction extends SingletonAction {
       return;
     }
 
-    await this.showDialValue(action, await readRepresentativeTemperatureKelvin());
+    await this.showDialValue(action, await readLampsTemperature("all"));
   }
 
   /** Writes the preset as the key's title, which the user can replace or hide. */
@@ -163,7 +163,7 @@ export class TemperatureAction extends SingletonAction {
     if (dials.length === 0) {
       return;
     }
-    const result = await readRepresentativeTemperatureKelvin();
+    const result = await readLampsTemperature("all");
     for (const dial of dials) {
       await this.showDialValue(dial, result);
     }

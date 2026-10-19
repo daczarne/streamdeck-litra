@@ -1,13 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
-  adjustBrightnessAllByPercentageSteps,
-  adjustTemperatureAllByKelvinSteps,
+  adjustLampsBrightness,
+  adjustLampsTemperature,
   type BroadcastResult,
   createDialDebouncer,
   onLampsChanged,
-  readRepresentativeBrightnessPercentage,
-  readRepresentativeTemperatureKelvin,
+  readLampsBrightness,
+  readLampsTemperature,
 } from "../litra-manager";
 import { logger } from "../logging";
 import { at } from "../test-support/at";
@@ -23,12 +23,12 @@ vi.mock("../logging", () => import("../test-support/fake-logging"));
 
 // The real litra-manager loads node-hid's native binary on import and talks to real lamps.
 vi.mock("../litra-manager", () => ({
-  adjustBrightnessAllByPercentageSteps: vi.fn(),
-  adjustTemperatureAllByKelvinSteps: vi.fn(),
+  adjustLampsBrightness: vi.fn(),
+  adjustLampsTemperature: vi.fn(),
   createDialDebouncer: vi.fn(),
   onLampsChanged: vi.fn(),
-  readRepresentativeBrightnessPercentage: vi.fn(),
-  readRepresentativeTemperatureKelvin: vi.fn(),
+  readLampsBrightness: vi.fn(),
+  readLampsTemperature: vi.fn(),
 }));
 
 const BRIGHTNESS_UP = "com.daczarne.litra.brightness-up";
@@ -60,10 +60,10 @@ beforeEach(() => {
   vi.useFakeTimers();
   // The debouncer flushes every press at once: its own timing is litra-manager's to test.
   vi.mocked(createDialDebouncer).mockImplementation((flush) => (presses) => void flush(presses));
-  vi.mocked(readRepresentativeBrightnessPercentage).mockResolvedValue(LAMPS);
-  vi.mocked(readRepresentativeTemperatureKelvin).mockResolvedValue(LAMPS);
-  vi.mocked(adjustBrightnessAllByPercentageSteps).mockResolvedValue(LAMPS);
-  vi.mocked(adjustTemperatureAllByKelvinSteps).mockReturnValue(LAMPS);
+  vi.mocked(readLampsBrightness).mockResolvedValue(LAMPS);
+  vi.mocked(readLampsTemperature).mockResolvedValue(LAMPS);
+  vi.mocked(adjustLampsBrightness).mockResolvedValue(LAMPS);
+  vi.mocked(adjustLampsTemperature).mockReturnValue(LAMPS);
   const actions = [
     new BrightnessUpAction(),
     new BrightnessDownAction(),
@@ -101,10 +101,10 @@ function titleOf(key: Awaited<ReturnType<FakeDeck["key"]>>): string | undefined 
 describe("the step keys", () => {
   describe("on a key press", () => {
     it.each([
-      ["Brightness Up", BRIGHTNESS_UP, { stepPercentage: 5 }, adjustBrightnessAllByPercentageSteps, [1, 5]],
-      ["Brightness Down", BRIGHTNESS_DOWN, { stepPercentage: 5 }, adjustBrightnessAllByPercentageSteps, [-1, 5]],
-      ["Temperature Up", TEMPERATURE_UP, { stepKelvin: 200 }, adjustTemperatureAllByKelvinSteps, [1, 200]],
-      ["Temperature Down", TEMPERATURE_DOWN, { stepKelvin: 200 }, adjustTemperatureAllByKelvinSteps, [-1, 200]],
+      ["Brightness Up", BRIGHTNESS_UP, { stepPercentage: 5 }, adjustLampsBrightness, ["all", 1, 5]],
+      ["Brightness Down", BRIGHTNESS_DOWN, { stepPercentage: 5 }, adjustLampsBrightness, ["all", -1, 5]],
+      ["Temperature Up", TEMPERATURE_UP, { stepKelvin: 200 }, adjustLampsTemperature, ["all", 1, 200]],
+      ["Temperature Down", TEMPERATURE_DOWN, { stepKelvin: 200 }, adjustLampsTemperature, ["all", -1, 200]],
     ])(
       "%s moves the lamps one step of the key's, as a dial's tick does",
       async (_name, uuid, settings, adjust, args) => {
@@ -121,8 +121,8 @@ describe("the step keys", () => {
     );
 
     it.each([
-      ["Brightness Up", BRIGHTNESS_UP, adjustBrightnessAllByPercentageSteps, [1, 10]],
-      ["Temperature Down", TEMPERATURE_DOWN, adjustTemperatureAllByKelvinSteps, [-1, 300]],
+      ["Brightness Up", BRIGHTNESS_UP, adjustLampsBrightness, ["all", 1, 10]],
+      ["Temperature Down", TEMPERATURE_DOWN, adjustLampsTemperature, ["all", -1, 300]],
     ])("%s steps by the dials' default step when the key has no settings", async (_name, uuid, adjust, args) => {
       const key = await deck.key(uuid);
 
@@ -148,7 +148,7 @@ describe("the step keys", () => {
       await deck.changeSettings(key, { stepPercentage: 10 });
       await flushPending();
 
-      expect(adjustBrightnessAllByPercentageSteps).toHaveBeenCalledExactlyOnceWith(-2, 10);
+      expect(adjustLampsBrightness).toHaveBeenCalledExactlyOnceWith("all", -2, 10);
     });
 
     it.each([
@@ -157,7 +157,7 @@ describe("the step keys", () => {
     ])("shows an alert on the key pressed when %s", async (_when, result) => {
       const pressed = await deck.key(TEMPERATURE_UP);
       const other = await deck.key(TEMPERATURE_UP);
-      vi.mocked(adjustTemperatureAllByKelvinSteps).mockReturnValue(result);
+      vi.mocked(adjustLampsTemperature).mockReturnValue(result);
 
       await deck.press(pressed);
 
@@ -178,11 +178,11 @@ describe("the step keys", () => {
     it("on every key, whichever key or dial changed the lamps, from one read per action", async () => {
       const keys = [await deck.key(BRIGHTNESS_UP), await deck.key(BRIGHTNESS_UP), await deck.key(TEMPERATURE_UP)];
       clearCalls();
-      vi.mocked(readRepresentativeBrightnessPercentage).mockResolvedValue({
+      vi.mocked(readLampsBrightness).mockResolvedValue({
         ...LAMPS,
         brightnessPercentages: [40, 50],
       });
-      vi.mocked(readRepresentativeTemperatureKelvin).mockResolvedValue({
+      vi.mocked(readLampsTemperature).mockResolvedValue({
         ...LAMPS,
         representativeTemperatureKelvin: 3300,
       });
@@ -190,13 +190,13 @@ describe("the step keys", () => {
       await lampsChanged();
 
       expect(keys.map(titleOf)).toEqual(["50%", "50%", "3300"]);
-      expect(readRepresentativeBrightnessPercentage).toHaveBeenCalledOnce();
-      expect(readRepresentativeTemperatureKelvin).toHaveBeenCalledOnce();
+      expect(readLampsBrightness).toHaveBeenCalledOnce();
+      expect(readLampsTemperature).toHaveBeenCalledOnce();
     });
 
     it("from the lamps that could be read, when one can't be", async () => {
       const key = await deck.key(BRIGHTNESS_DOWN);
-      vi.mocked(readRepresentativeBrightnessPercentage).mockResolvedValue({ ...FAILED, brightnessPercentages: [63] });
+      vi.mocked(readLampsBrightness).mockResolvedValue({ ...FAILED, brightnessPercentages: [63] });
 
       await lampsChanged();
 
@@ -204,8 +204,8 @@ describe("the step keys", () => {
     });
 
     it("as a dash when no lamp can be read", async () => {
-      vi.mocked(readRepresentativeBrightnessPercentage).mockResolvedValue(NO_LAMP);
-      vi.mocked(readRepresentativeTemperatureKelvin).mockResolvedValue(NO_LAMP);
+      vi.mocked(readLampsBrightness).mockResolvedValue(NO_LAMP);
+      vi.mocked(readLampsTemperature).mockResolvedValue(NO_LAMP);
       const brightnessKey = await deck.key(BRIGHTNESS_UP);
       const temperatureKey = await deck.key(TEMPERATURE_UP);
 
@@ -218,8 +218,8 @@ describe("the step keys", () => {
 
       await lampsChanged();
 
-      expect(readRepresentativeBrightnessPercentage).toHaveBeenCalledOnce();
-      expect(readRepresentativeTemperatureKelvin).not.toHaveBeenCalled();
+      expect(readLampsBrightness).toHaveBeenCalledOnce();
+      expect(readLampsTemperature).not.toHaveBeenCalled();
     });
   });
 
@@ -229,7 +229,7 @@ describe("the step keys", () => {
 
       await deck.press(key);
 
-      expect(adjustTemperatureAllByKelvinSteps).toHaveBeenCalledExactlyOnceWith(1, 300);
+      expect(adjustLampsTemperature).toHaveBeenCalledExactlyOnceWith("all", 1, 300);
       expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("stepKelvin"));
     });
   });
@@ -244,7 +244,7 @@ describe("the step keys", () => {
       expect(message).toContain("1 step");
       expect(message).toContain("15%");
       expect(at(vi.mocked(logger.info).mock.invocationCallOrder, 0)).toBeLessThan(
-        at(vi.mocked(adjustBrightnessAllByPercentageSteps).mock.invocationCallOrder, 0),
+        at(vi.mocked(adjustLampsBrightness).mock.invocationCallOrder, 0),
       );
     });
   });

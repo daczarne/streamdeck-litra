@@ -1,6 +1,6 @@
 import { action, type KeyDownEvent, SingletonAction } from "@elgato/streamdeck";
 
-import { setSceneAll } from "../litra-manager";
+import { setLampsScene } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
 import { parseSettings, sceneSettings } from "./settings";
 
@@ -16,7 +16,7 @@ export class SceneAction extends SingletonAction {
   override async onKeyDown(ev: KeyDownEvent): Promise<void> {
     const { presetPercentage, presetKelvin } = parseSettings(ev.payload.settings, sceneSettings, logger);
     logger.info(`Key pressed: scene ${presetPercentage}% at ${presetKelvin} K`);
-    const result = await setSceneAll(presetPercentage, presetKelvin);
+    const result = await setLampsScene("all", presetPercentage, presetKelvin);
     if (!result.ok) {
       await ev.action.showAlert();
     }

@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import {
   type Device,
   DeviceType,
@@ -35,11 +37,19 @@ export type BroadcastResult = {
   representativeTemperaturePercentage?: number | undefined;
 };
 
-/** Which lamps an operation acts on: every lamp connected, or the ones with these serial numbers (#20). */
+/** Which lamps an operation acts on: every lamp connected, or the ones with these ids (see {@link lampId}, #20). */
 export type LampSelection = "all" | readonly string[];
+
+/** A connected lamp, as a settings page lists it (#20). */
+export type FoundLamp = {
+  id: string;
+  /** Its model and the end of its serial number, as the logs name it. */
+  label: string;
+};
 
 /** What a lamp screen shows about one lamp (#48). */
 export type LampStatus = {
+  id: string;
   serialNumber: string;
   model: string;
   on: boolean;
@@ -132,6 +142,15 @@ function announced<T>(result: T): T {
  */
 function lampLabel(device: Device): string {
   return `${MODEL_BY_DEVICE_TYPE[device.type]} ${serialTail(device.serialNumber)}`;
+}
+
+/**
+ * A lamp's id: the first 16 hex characters of its serial number's SHA-256. It tells lamps apart wherever the plugin
+ * names a lamp outside its own process, such as a key's settings, which travel with an exported profile, without
+ * revealing the serial (#20).
+ */
+export function lampId(serialNumber: string): string {
+  return createHash("sha256").update(serialNumber).digest("hex").slice(0, 16);
 }
 
 /** The last 4 characters of a serial number, marked as a tail. */
@@ -285,10 +304,14 @@ function temperaturePercentage(kelvin: number, allowed: number[]): number {
 
 /**
  * Opens the lamps an operation acts on, named in the logs: every connected lamp, or the selected ones, closing the
- * others. A selected lamp that isn't connected is logged. Returns none when no lamp is connected, none of the selected
- * ones is, or finding them fails.
+ * others. A selected lamp that isn't connected is logged, and so is a selection of none. Returns none when no lamp is
+ * selected or connected, none of the selected ones is, or finding them fails.
  */
-function openDevices(operation: string, lamps: LampSelection = "all"): Device[] {
+function openDevices(operation: string, lamps: LampSelection): Device[] {
+  if (lamps !== "all" && lamps.length === 0) {
+    logger.warn(`${operation}: no lamp selected`);
+    return [];
+  }
   let devices: Device[];
   try {
     devices = findDevices();
@@ -303,29 +326,25 @@ function openDevices(operation: string, lamps: LampSelection = "all"): Device[] 
   if (lamps === "all") {
     return devices;
   }
-  const selected = devices.filter((device) => lamps.includes(device.serialNumber));
+  const selected = devices.filter((device) => lamps.includes(lampId(device.serialNumber)));
   for (const device of devices) {
     if (!selected.includes(device)) {
       closeDevice(device);
     }
   }
-  for (const serialNumber of lamps) {
-    if (!selected.some((device) => device.serialNumber === serialNumber)) {
-      logger.warn(`${operation}: lamp ${serialTail(serialNumber)} not connected`);
+  for (const id of lamps) {
+    if (!selected.some((device) => lampId(device.serialNumber) === id)) {
+      logger.warn(`${operation}: lamp ${id} not connected`);
     }
   }
   return selected;
 }
 
 /**
- * Open the selected devices, every one by default, run fn per device, always close handles. Zero devices = failure.
- * The operation names the call in the logs, and fn logs what it did to each lamp.
+ * Open the selected devices, run fn per device, always close handles. Zero devices = failure. The operation names the
+ * call in the logs, and fn logs what it did to each lamp.
  */
-export function forEachDevice(
-  operation: string,
-  fn: (device: Device) => void,
-  lamps: LampSelection = "all",
-): BroadcastResult {
+export function forEachDevice(operation: string, fn: (device: Device) => void, lamps: LampSelection): BroadcastResult {
   const devices = openDevices(operation, lamps);
   if (devices.length === 0) {
     return { ok: false, deviceCount: 0, failures: 1 };
@@ -350,36 +369,44 @@ export function forEachDevice(
   };
 }
 
-/** Turns every lamp on. */
-export function turnOnAll(): BroadcastResult {
+/** Turns the selected lamps on. */
+export function turnLampsOn(lamps: LampSelection): BroadcastResult {
   const operation = "turn on";
   return announced(
-    forEachDevice(operation, (device) => {
-      turnOn(device);
-      drainAck(device);
-      logger.info(`${operation}: ${lampLabel(device)} turned on`);
-    }),
+    forEachDevice(
+      operation,
+      (device) => {
+        turnOn(device);
+        drainAck(device);
+        logger.info(`${operation}: ${lampLabel(device)} turned on`);
+      },
+      lamps,
+    ),
   );
 }
 
-/** Turns every lamp off. */
-export function turnOffAll(): BroadcastResult {
+/** Turns the selected lamps off. */
+export function turnLampsOff(lamps: LampSelection): BroadcastResult {
   const operation = "turn off";
   return announced(
-    forEachDevice(operation, (device) => {
-      turnOff(device);
-      drainAck(device);
-      logger.info(`${operation}: ${lampLabel(device)} turned off`);
-    }),
+    forEachDevice(
+      operation,
+      (device) => {
+        turnOff(device);
+        drainAck(device);
+        logger.info(`${operation}: ${lampLabel(device)} turned off`);
+      },
+      lamps,
+    ),
   );
 }
 
 /**
- * Turns the selected lamps, every one by default, off if every one is on, and on otherwise, so lamps out of sync end
- * up in sync (#23). That's the opposite of what {@link isOnAll} reports, which the Power key shows. A lamp that can't be
- * read counts as off, as in {@link isOnAll}, and is still sent the command.
+ * Turns the selected lamps off if every one is on, and on otherwise, so lamps out of sync end up in sync (#23). That's
+ * the opposite of what {@link areLampsOn} reports, which the Power key shows. A lamp that can't be read counts as off,
+ * as in {@link areLampsOn}, and is still sent the command.
  */
-export function toggleAll(lamps: LampSelection = "all"): BroadcastResult {
+export function toggleLamps(lamps: LampSelection): BroadcastResult {
   const operation = "toggle";
   const devices = openDevices(operation, lamps);
   if (devices.length === 0) {
@@ -424,13 +451,13 @@ export function toggleAll(lamps: LampSelection = "all"): BroadcastResult {
 }
 
 /**
- * On only if at least one device and every device reports on. Waits for the brightness change in progress, if any,
- * which holds the lamps open until it has read them back.
+ * On only if at least one selected device and every one reports on. Waits for the brightness change in progress, if
+ * any, which holds the lamps open until it has read them back.
  */
-export async function isOnAll(): Promise<{ ok: boolean; allOn: boolean; deviceCount: number }> {
+export async function areLampsOn(lamps: LampSelection): Promise<{ ok: boolean; allOn: boolean; deviceCount: number }> {
   await brightnessChanges;
   const operation = "read power";
-  const devices = openDevices(operation);
+  const devices = openDevices(operation, lamps);
   if (devices.length === 0) {
     return { ok: false, allOn: false, deviceCount: 0 };
   }
@@ -484,30 +511,31 @@ function brightnessLumen(device: Device, percentage: number): number {
 }
 
 /**
- * Sets every lamp to the percentage, and reports the brightest lamp once they've settled, as
- * {@link moveBrightnessAll} does. A lamp at its cap stays there, so the report can be lower than the percentage.
+ * Sets the selected lamps to the percentage, and reports the brightest once they've settled, as
+ * {@link moveLampsBrightness} does. A lamp at its cap stays there, so the report can be lower than the percentage.
  */
-export function setBrightnessAllPercentage(
+export function setLampsBrightness(
+  lamps: LampSelection,
   percentage: number,
   settleMs = BRIGHTNESS_SETTLE_MS,
 ): Promise<BroadcastResult> {
-  return oneBrightnessChangeAtATime(() => moveBrightnessAll("set brightness", "all", percentage, settleMs)).finally(
+  return oneBrightnessChangeAtATime(() => moveLampsBrightness("set brightness", lamps, percentage, settleMs)).finally(
     announceLampsChanged,
   );
 }
 
 /**
- * Moves the selected lamps, every one by default, to one target, stepped from the brightest of them along the
- * multiples of the step, as {@link moveBrightnessAll} does.
+ * Moves the selected lamps to one target, stepped from the brightest of them along the multiples of the step, as
+ * {@link moveLampsBrightness} does.
  */
-export function adjustBrightnessAllByPercentageSteps(
+export function adjustLampsBrightness(
+  lamps: LampSelection,
   ticks: number,
   stepPercentage: number,
-  lamps: LampSelection = "all",
   settleMs = BRIGHTNESS_SETTLE_MS,
 ): Promise<BroadcastResult> {
   return oneBrightnessChangeAtATime(() =>
-    moveBrightnessAll(
+    moveLampsBrightness(
       "adjust brightness",
       lamps,
       (brightest) => stepOnGrid(brightest, ticks, stepPercentage, 0, 100),
@@ -517,18 +545,19 @@ export function adjustBrightnessAllByPercentageSteps(
 }
 
 /**
- * Turns every lamp on and sets it to a scene in one pass: the temperature, snapped to one the lamp allows, then the
- * percentage, as {@link setBrightnessAllPercentage} sets it, caps included. Reports the brightest lamp once they've
- * settled, as {@link moveBrightnessAll} does, and announces the change once.
+ * Turns the selected lamps on and sets each to a scene in one pass: the temperature, snapped to one the lamp allows,
+ * then the percentage, as {@link setLampsBrightness} sets it, caps included. Reports the brightest once they've
+ * settled, as {@link moveLampsBrightness} does, and announces the change once.
  */
-export function setSceneAll(
+export function setLampsScene(
+  lamps: LampSelection,
   percentage: number,
   kelvin: number,
   settleMs = BRIGHTNESS_SETTLE_MS,
 ): Promise<BroadcastResult> {
-  return oneBrightnessChangeAtATime(() => moveBrightnessAll("set scene", "all", percentage, settleMs, kelvin)).finally(
-    announceLampsChanged,
-  );
+  return oneBrightnessChangeAtATime(() =>
+    moveLampsBrightness("set scene", lamps, percentage, settleMs, kelvin),
+  ).finally(announceLampsChanged);
 }
 
 /**
@@ -550,7 +579,7 @@ function oneBrightnessChangeAtATime(change: () => Promise<BroadcastResult>): Pro
  * no longer go back to its cap (see {@link capReversalEndsAt}). The lamps stay open from the first read to the last,
  * so calls mustn't overlap: they go through {@link oneBrightnessChangeAtATime}.
  */
-async function moveBrightnessAll(
+async function moveLampsBrightness(
   operation: string,
   lamps: LampSelection,
   target: number | ((brightest: number) => number),
@@ -651,25 +680,29 @@ async function moveBrightnessAll(
 }
 
 /**
- * Reads every lamp and reports the brightest, and every lamp's percentage. Waits for the brightness change in progress,
- * if any, which holds the lamps open until it has read them back.
+ * Reads the selected lamps and reports the brightest, and each one's percentage. Waits for the brightness change in
+ * progress, if any, which holds the lamps open until it has read them back.
  */
-export async function readRepresentativeBrightnessPercentage(): Promise<BroadcastResult> {
+export async function readLampsBrightness(lamps: LampSelection): Promise<BroadcastResult> {
   await brightnessChanges;
   let representative: number | undefined;
   let representativeLumen: number | undefined;
   const percentages: number[] = [];
   const operation = "read brightness";
-  const result = forEachDevice(operation, (device) => {
-    const lumen = getBrightnessInLumenSafe(device);
-    const pct = brightnessPercentage(device, lumen);
-    logger.debug(`${operation}: ${lampLabel(device)} at ${lumen} lm (${pct}%)`);
-    percentages.push(pct);
-    if (representative === undefined || pct > representative) {
-      representative = pct;
-      representativeLumen = lumen;
-    }
-  });
+  const result = forEachDevice(
+    operation,
+    (device) => {
+      const lumen = getBrightnessInLumenSafe(device);
+      const pct = brightnessPercentage(device, lumen);
+      logger.debug(`${operation}: ${lampLabel(device)} at ${lumen} lm (${pct}%)`);
+      percentages.push(pct);
+      if (representative === undefined || pct > representative) {
+        representative = pct;
+        representativeLumen = lumen;
+      }
+    },
+    lamps,
+  );
   return {
     ...result,
     representativeBrightnessPercentage: representative,
@@ -687,37 +720,65 @@ export async function readLampStatuses(): Promise<{ ok: boolean; lamps: LampStat
   await brightnessChanges;
   const lamps: LampStatus[] = [];
   const operation = "read lamp status";
-  const result = forEachDevice(operation, (device) => {
-    const on = isOn(device);
-    const temperatureKelvin = getTemperatureInKelvin(device);
-    const brightnessLumen = getBrightnessInLumenSafe(device);
-    const percentage = brightnessPercentage(device, brightnessLumen);
-    logger.debug(
-      `${operation}: ${lampLabel(device)} is ${on ? "on" : "off"}, at ${brightnessLumen} lm (${percentage}%) ` +
-        `and ${temperatureKelvin} K`,
-    );
-    lamps.push({
-      serialNumber: device.serialNumber,
-      model: MODEL_BY_DEVICE_TYPE[device.type],
-      on,
-      brightnessLumen,
-      brightnessPercentage: percentage,
-      temperatureKelvin,
-    });
-  });
-  lamps.sort((a, b) => (a.serialNumber < b.serialNumber ? -1 : a.serialNumber > b.serialNumber ? 1 : 0));
+  const result = forEachDevice(
+    operation,
+    (device) => {
+      const on = isOn(device);
+      const temperatureKelvin = getTemperatureInKelvin(device);
+      const brightnessLumen = getBrightnessInLumenSafe(device);
+      const percentage = brightnessPercentage(device, brightnessLumen);
+      logger.debug(
+        `${operation}: ${lampLabel(device)} is ${on ? "on" : "off"}, at ${brightnessLumen} lm (${percentage}%) ` +
+          `and ${temperatureKelvin} K`,
+      );
+      lamps.push({
+        id: lampId(device.serialNumber),
+        serialNumber: device.serialNumber,
+        model: MODEL_BY_DEVICE_TYPE[device.type],
+        on,
+        brightnessLumen,
+        brightnessPercentage: percentage,
+        temperatureKelvin,
+      });
+    },
+    "all",
+  );
+  lamps.sort((a, b) => bySerialNumber(a.serialNumber, b.serialNumber));
   return { ok: result.ok, lamps };
 }
 
 /**
- * Blinks one lamp, so the user can tell which one it is (#48): switches it off and back on, or on and back off when
- * it's off. A blink writes no brightness, so it shows at any brightness and leaves learned caps alone, and the lamp ends
- * as it started. Fails when the lamp isn't connected.
+ * Lists the connected lamps for the settings pages, sorted by serial number as the lamp screens are (#20). Finding a
+ * lamp tells its model and serial, so none is read, and none of the brightness changes has to be waited for. Lists none
+ * when finding them fails.
  */
-export function identifyLamp(serialNumber: string, blinkMs = IDENTIFY_BLINK_MS): Promise<BroadcastResult> {
+export function findLamps(): FoundLamp[] {
+  const devices = openDevices("find lamps", "all");
+  try {
+    return [...devices]
+      .sort((a, b) => bySerialNumber(a.serialNumber, b.serialNumber))
+      .map((device) => ({ id: lampId(device.serialNumber), label: lampLabel(device) }));
+  } finally {
+    for (const device of devices) {
+      closeDevice(device);
+    }
+  }
+}
+
+/** Orders two serial numbers, as the lamp screens and the settings pages list the lamps. */
+function bySerialNumber(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+/**
+ * Blinks one lamp, by its id, so the user can tell which one it is (#48): switches it off and back on, or on and back
+ * off when it's off. A blink writes no brightness, so it shows at any brightness and leaves learned caps alone, and the
+ * lamp ends as it started. Fails when the lamp isn't connected.
+ */
+export function identifyLamp(id: string, blinkMs = IDENTIFY_BLINK_MS): Promise<BroadcastResult> {
   return oneBrightnessChangeAtATime(async () => {
     const operation = "identify";
-    const devices = openDevices(operation, [serialNumber]);
+    const devices = openDevices(operation, [id]);
     try {
       const device = devices[0];
       if (device === undefined) {
@@ -759,19 +820,23 @@ function setSnappedTemperature(operation: string, device: Device, kelvin: number
   return snapped;
 }
 
-/** Sets every lamp to the allowed temperature nearest to `kelvin`, and reports the first lamp's. */
-export function setTemperatureAllInKelvin(kelvin: number): BroadcastResult {
+/** Sets the selected lamps to the allowed temperature nearest to `kelvin`, and reports the first one's. */
+export function setLampsTemperature(lamps: LampSelection, kelvin: number): BroadcastResult {
   let representative: number | undefined;
   let representativePercentage: number | undefined;
   const operation = "set temperature";
-  const result = forEachDevice(operation, (device) => {
-    const allowed = getAllowedTemperaturesInKelvinForDevice(device);
-    const snapped = setSnappedTemperature(operation, device, kelvin);
-    if (representative === undefined) {
-      representative = snapped;
-      representativePercentage = temperaturePercentage(snapped, allowed);
-    }
-  });
+  const result = forEachDevice(
+    operation,
+    (device) => {
+      const allowed = getAllowedTemperaturesInKelvinForDevice(device);
+      const snapped = setSnappedTemperature(operation, device, kelvin);
+      if (representative === undefined) {
+        representative = snapped;
+        representativePercentage = temperaturePercentage(snapped, allowed);
+      }
+    },
+    lamps,
+  );
   return announced({
     ...result,
     representativeTemperatureKelvin: representative,
@@ -780,15 +845,10 @@ export function setTemperatureAllInKelvin(kelvin: number): BroadcastResult {
 }
 
 /**
- * Moves the selected lamps, every one by default, to one target, stepped from the first one's temperature (the one the
- * dial shows) along the grid lowest + k × step. When the first lamp can't be read, the next one becomes the starting
- * point.
+ * Moves the selected lamps to one target, stepped from the first one's temperature (the one the dial shows) along the
+ * grid lowest + k × step. When the first lamp can't be read, the next one becomes the starting point.
  */
-export function adjustTemperatureAllByKelvinSteps(
-  ticks: number,
-  stepKelvin: number,
-  lamps: LampSelection = "all",
-): BroadcastResult {
+export function adjustLampsTemperature(lamps: LampSelection, ticks: number, stepKelvin: number): BroadcastResult {
   let target: number | undefined;
   let representative: number | undefined;
   let representativePercentage: number | undefined;
@@ -822,22 +882,26 @@ export function adjustTemperatureAllByKelvinSteps(
 }
 
 /**
- * Reads the first lamp that answers, whose temperature the dial shows. Waits for the brightness change in progress, if
- * any, which holds the lamps open until it has read them back.
+ * Reads the first selected lamp that answers, whose temperature the dial shows. Waits for the brightness change in
+ * progress, if any, which holds the lamps open until it has read them back.
  */
-export async function readRepresentativeTemperatureKelvin(): Promise<BroadcastResult> {
+export async function readLampsTemperature(lamps: LampSelection): Promise<BroadcastResult> {
   await brightnessChanges;
   let representative: number | undefined;
   let representativePercentage: number | undefined;
   const operation = "read temperature";
-  const result = forEachDevice(operation, (device) => {
-    if (representative !== undefined) {
-      return;
-    }
-    representative = getTemperatureInKelvin(device);
-    logger.debug(`${operation}: ${lampLabel(device)} at ${representative} K`);
-    representativePercentage = temperaturePercentage(representative, getAllowedTemperaturesInKelvinForDevice(device));
-  });
+  const result = forEachDevice(
+    operation,
+    (device) => {
+      if (representative !== undefined) {
+        return;
+      }
+      representative = getTemperatureInKelvin(device);
+      logger.debug(`${operation}: ${lampLabel(device)} at ${representative} K`);
+      representativePercentage = temperaturePercentage(representative, getAllowedTemperaturesInKelvinForDevice(device));
+    },
+    lamps,
+  );
   return {
     ...result,
     representativeTemperatureKelvin: representative,

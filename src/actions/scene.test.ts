@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { setSceneAll } from "../litra-manager";
+import { setLampsScene } from "../litra-manager";
 import { logger } from "../logging";
 import { at } from "../test-support/at";
 import { FakeDeck } from "../test-support/fake-deck";
@@ -15,7 +15,7 @@ vi.mock("../logging", () => import("../test-support/fake-logging"));
 
 // The real litra-manager loads node-hid's native binary on import and talks to real lamps.
 vi.mock("../litra-manager", () => ({
-  setSceneAll: vi.fn(),
+  setLampsScene: vi.fn(),
 }));
 
 const SCENE = "com.daczarne.litra.scene";
@@ -39,11 +39,11 @@ describe("SceneAction", () => {
   describe("on a key press", () => {
     it("sets the lamps to the key's brightness and temperature", async () => {
       const key = await deck.key(SCENE, { presetPercentage: 100, presetKelvin: 6500 });
-      vi.mocked(setSceneAll).mockResolvedValue(SET);
+      vi.mocked(setLampsScene).mockResolvedValue(SET);
 
       await deck.press(key);
 
-      expect(setSceneAll).toHaveBeenCalledExactlyOnceWith(100, 6500);
+      expect(setLampsScene).toHaveBeenCalledExactlyOnceWith("all", 100, 6500);
       expect(key.showAlert).not.toHaveBeenCalled();
     });
 
@@ -52,7 +52,7 @@ describe("SceneAction", () => {
       ["no lamp is connected", { ok: false, deviceCount: 0, failures: 1 }],
     ])("shows an alert when %s", async (_when, result) => {
       const key = await deck.key(SCENE, { presetPercentage: 100, presetKelvin: 6500 });
-      vi.mocked(setSceneAll).mockResolvedValue(result);
+      vi.mocked(setLampsScene).mockResolvedValue(result);
 
       await deck.press(key);
 
@@ -61,11 +61,11 @@ describe("SceneAction", () => {
 
     it("sets the lamps to the default brightness and temperature, 0% at 2700 K, when the key has no settings", async () => {
       const key = await deck.key(SCENE);
-      vi.mocked(setSceneAll).mockResolvedValue(SET);
+      vi.mocked(setLampsScene).mockResolvedValue(SET);
 
       await deck.press(key);
 
-      expect(setSceneAll).toHaveBeenCalledExactlyOnceWith(0, 2700);
+      expect(setLampsScene).toHaveBeenCalledExactlyOnceWith("all", 0, 2700);
     });
   });
 
@@ -78,11 +78,11 @@ describe("SceneAction", () => {
   describe("with a setting that isn't valid (#22)", () => {
     it("uses that setting's default, keeps the other, and warns", async () => {
       const key = await deck.key(SCENE, { presetPercentage: 150, presetKelvin: 6500 });
-      vi.mocked(setSceneAll).mockResolvedValue(SET);
+      vi.mocked(setLampsScene).mockResolvedValue(SET);
 
       await deck.press(key);
 
-      expect(setSceneAll).toHaveBeenCalledExactlyOnceWith(0, 6500);
+      expect(setLampsScene).toHaveBeenCalledExactlyOnceWith("all", 0, 6500);
       expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("presetPercentage"));
     });
   });
@@ -90,7 +90,7 @@ describe("SceneAction", () => {
   describe("logs", () => {
     it("a key press, with the key's brightness and temperature, before changing the lamps", async () => {
       const key = await deck.key(SCENE, { presetPercentage: 40, presetKelvin: 5000 });
-      vi.mocked(setSceneAll).mockResolvedValue(SET);
+      vi.mocked(setLampsScene).mockResolvedValue(SET);
 
       await deck.press(key);
 
@@ -98,7 +98,7 @@ describe("SceneAction", () => {
       expect(message).toContain("40%");
       expect(message).toContain("5000 K");
       expect(at(vi.mocked(logger.info).mock.invocationCallOrder, 0)).toBeLessThan(
-        at(vi.mocked(setSceneAll).mock.invocationCallOrder, 0),
+        at(vi.mocked(setLampsScene).mock.invocationCallOrder, 0),
       );
     });
   });

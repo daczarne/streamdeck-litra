@@ -9,13 +9,14 @@ import type { JsonObject } from "@elgato/utils";
 import type { Logger } from "@elgato/utils/logging";
 
 import {
-  adjustBrightnessAllByPercentageSteps,
-  adjustTemperatureAllByKelvinSteps,
+  adjustLampsBrightness,
+  adjustLampsTemperature,
   type BroadcastResult,
   createDialDebouncer,
+  type LampSelection,
   onLampsChanged,
-  readRepresentativeBrightnessPercentage,
-  readRepresentativeTemperatureKelvin,
+  readLampsBrightness,
+  readLampsTemperature,
 } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
 import { brightnessStepSettings, parseSettings, temperatureStepSettings } from "./settings";
@@ -24,17 +25,17 @@ import { brightnessStepSettings, parseSettings, temperatureStepSettings } from "
 type Stepped = {
   readStep: (settings: JsonObject, logger: Logger) => number;
   unit: string;
-  adjust: (ticks: number, step: number) => BroadcastResult | Promise<BroadcastResult>;
-  readTitle: () => Promise<string>;
+  adjust: (lamps: LampSelection, ticks: number, step: number) => BroadcastResult | Promise<BroadcastResult>;
+  readTitle: (lamps: LampSelection) => Promise<string>;
 };
 
 /** The brightness, which a key shows as the dials do: the brightest lamp's %, or "—" when no lamp can be read. */
 const BRIGHTNESS: Stepped = {
   readStep: (settings, logger) => parseSettings(settings, brightnessStepSettings, logger).stepPercentage,
   unit: "%",
-  adjust: adjustBrightnessAllByPercentageSteps,
-  readTitle: async () => {
-    const levels = (await readRepresentativeBrightnessPercentage()).brightnessPercentages ?? [];
+  adjust: adjustLampsBrightness,
+  readTitle: async (lamps) => {
+    const levels = (await readLampsBrightness(lamps)).brightnessPercentages ?? [];
     return levels.length === 0 ? "—" : `${Math.round(Math.max(...levels))}%`;
   },
 };
@@ -43,9 +44,9 @@ const BRIGHTNESS: Stepped = {
 const TEMPERATURE: Stepped = {
   readStep: (settings, logger) => parseSettings(settings, temperatureStepSettings, logger).stepKelvin,
   unit: " K",
-  adjust: adjustTemperatureAllByKelvinSteps,
-  readTitle: async () => {
-    const kelvin = (await readRepresentativeTemperatureKelvin()).representativeTemperatureKelvin;
+  adjust: adjustLampsTemperature,
+  readTitle: async (lamps) => {
+    const kelvin = (await readLampsTemperature(lamps)).representativeTemperatureKelvin;
     return kelvin === undefined ? "—" : `${Math.round(kelvin)}`;
   },
 };
@@ -74,7 +75,7 @@ abstract class StepKeyAction extends SingletonAction {
   override async onWillAppear(ev: WillAppearEvent): Promise<void> {
     this.latestSettings.set(ev.action.id, ev.payload.settings);
     if (ev.action.isKey()) {
-      await ev.action.setTitle(await this.stepped.readTitle());
+      await ev.action.setTitle(await this.stepped.readTitle("all"));
     }
   }
 
@@ -95,7 +96,7 @@ abstract class StepKeyAction extends SingletonAction {
       queue = createDialDebouncer(async (presses) => {
         const step = this.stepped.readStep(this.latestSettings.get(id) ?? {}, this.logger);
         this.logger.info(`Key pressed: ${presses} ${presses === 1 ? "step" : "steps"} of ${step}${this.stepped.unit}`);
-        const result = await this.stepped.adjust(this.direction * presses, step);
+        const result = await this.stepped.adjust("all", this.direction * presses, step);
         if (!result.ok) {
           await ev.action.showAlert();
         }
@@ -111,7 +112,7 @@ abstract class StepKeyAction extends SingletonAction {
     if (keys.length === 0) {
       return;
     }
-    const title = await this.stepped.readTitle();
+    const title = await this.stepped.readTitle("all");
     for (const key of keys) {
       await key.setTitle(title);
     }
