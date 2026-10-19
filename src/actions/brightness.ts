@@ -13,12 +13,12 @@ import {
 import type { JsonObject } from "@elgato/utils";
 
 import {
-  adjustBrightnessAllByPercentageSteps,
+  adjustLampsBrightness,
   createDialDebouncer,
   onLampsChanged,
-  readRepresentativeBrightnessPercentage,
-  setBrightnessAllPercentage,
-  toggleAll,
+  readLampsBrightness,
+  setLampsBrightness,
+  toggleLamps,
 } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
 import { type LampScreens, lampScreens as sharedLampScreens } from "./lamp-screens";
@@ -107,7 +107,7 @@ export class BrightnessAction extends SingletonAction {
   override async onKeyDown(ev: KeyDownEvent): Promise<void> {
     const { presetPercentage: preset } = parseSettings(ev.payload.settings, brightnessSettings, logger);
     logger.info(`Key pressed: preset ${preset}%`);
-    const result = await setBrightnessAllPercentage(preset);
+    const result = await setLampsBrightness("all", preset);
     if (!result.ok) {
       await ev.action.showAlert();
     }
@@ -117,7 +117,7 @@ export class BrightnessAction extends SingletonAction {
   override async onDialDown(ev: DialDownEvent): Promise<void> {
     const lamp = this.lampScreens.lampOnScreen(ev.action.id);
     logger.info(lamp === undefined ? "Dial pressed: toggle" : "Dial pressed on a lamp screen: toggle");
-    const result = toggleAll(lamp === undefined ? "all" : [lamp]);
+    const result = toggleLamps(lamp === undefined ? "all" : [lamp]);
     if (!result.ok) {
       await ev.action.showAlert();
     }
@@ -160,7 +160,7 @@ export class BrightnessAction extends SingletonAction {
         const { stepPercentage: step } = parseSettings(settings, brightnessSettings, logger);
         const screen = lamp === undefined ? "" : " on a lamp screen";
         logger.info(`Dial turned${screen}: ${ticks} ticks of ${step}%`);
-        const result = await adjustBrightnessAllByPercentageSteps(ticks, step, lamp === undefined ? "all" : [lamp]);
+        const result = await adjustLampsBrightness(lamp === undefined ? "all" : [lamp], ticks, step);
         if (!result.ok) {
           await ev.action.showAlert();
         }
@@ -177,7 +177,7 @@ export class BrightnessAction extends SingletonAction {
       return;
     }
 
-    await this.showDialValue(action, (await readRepresentativeBrightnessPercentage()).brightnessPercentages);
+    await this.showDialValue(action, (await readLampsBrightness("all")).brightnessPercentages);
   }
 
   /** Writes the preset as the key's title, which the user can replace or hide. */
@@ -194,7 +194,7 @@ export class BrightnessAction extends SingletonAction {
     if (dials.length === 0) {
       return;
     }
-    const { brightnessPercentages } = await readRepresentativeBrightnessPercentage();
+    const { brightnessPercentages } = await readLampsBrightness("all");
     for (const dial of dials) {
       await this.showDialValue(dial, brightnessPercentages);
     }

@@ -1,6 +1,6 @@
 import { action, type KeyDownEvent, SingletonAction, type WillAppearEvent } from "@elgato/streamdeck";
 
-import { isOnAll, onLampsChanged, toggleAll, turnOffAll, turnOnAll } from "../litra-manager";
+import { areLampsOn, onLampsChanged, toggleLamps, turnLampsOff, turnLampsOn } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
 import { parseSettings, powerSettings } from "./settings";
 
@@ -34,7 +34,7 @@ export class PowerAction extends SingletonAction {
   override onKeyDown(ev: KeyDownEvent): void {
     const { mode } = parseSettings(ev.payload.settings, powerSettings, logger);
     logger.info(`Key pressed: ${mode}`);
-    const result = mode === "on" ? turnOnAll() : mode === "off" ? turnOffAll() : toggleAll();
+    const result = mode === "on" ? turnLampsOn("all") : mode === "off" ? turnLampsOff("all") : toggleLamps("all");
 
     // Before the subscription runs, which litra-manager calls once the operation has returned.
     if (!result.ok) {
@@ -57,7 +57,7 @@ export class PowerAction extends SingletonAction {
 
   /** The key's state: on (1) only if there is a lamp and every lamp is on. */
   private async readState(): Promise<0 | 1> {
-    const { allOn, deviceCount } = await isOnAll();
+    const { allOn, deviceCount } = await areLampsOn("all");
     return deviceCount > 0 && allOn ? 1 : 0;
   }
 }
