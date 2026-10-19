@@ -13,7 +13,7 @@ This document describes how the plugin's parts fit together, and why they're bui
 
 ## From a press to the lamps
 
-Stream Deck starts the plugin as a Node process (`src/plugin.ts`). The plugin registers the actions and connects to Stream Deck. A press, a turn or a tap reaches the action it belongs to, in `src/actions/`. The action reads its settings against their schema (`src/actions/settings.ts`), logs what was asked for, and calls `src/litra-manager.ts`. That module finds the lamps through the [`litra`][litra] library, which writes HID++ reports to each lamp through `node-hid`, and reads back their replies. Once the lamps are changed, `litra-manager` tells every action, which redraws its keys and dials from what the lamps report.
+Stream Deck starts the plugin as a Node process (`src/plugin.ts`). The plugin registers the actions and connects to Stream Deck. A press, a turn or a tap reaches the action it belongs to, in `src/actions/`. The action reads its settings against their schema (`src/actions/settings.ts`), logs what was asked for, and calls `src/litra-manager.ts`. That module finds the lamps through the [`litra`][litra] library, which writes HID++ reports to each lamp through `node-hid`, and reads back their replies. Once the lamps are changed, `litra-manager` tells every action, which redraws its keys and dials from what the lamps report. A key's settings page talks to the plugin too: its lamp picker asks for the connected lamps, and for a blink of one, which `src/actions/lamp-picker.ts` answers for every page.
 
 ## Why litra, not litra-rs
 
@@ -53,7 +53,7 @@ After every write, it reads the write's ACK (`drainAck`), so that a read on the 
 
 ## Keeping the Deck in step
 
-After every operation that writes to the lamps, failed ones included, `litra-manager` calls the listeners registered with `onLampsChanged` ([#57]). Every action that shows the lamps listens: the Power keys, the step keys, the Brightness and Temperature dials, and the lamp screens. So whichever key or dial changed the lamps, everything on the Deck follows, from one read per action. A change made with a lamp's own buttons isn't noticed, and shows at the next change made through the plugin.
+After every operation that writes to the lamps, failed ones included, `litra-manager` calls the listeners registered with `onLampsChanged` ([#57]). Every action that shows the lamps listens: the Power keys, the step keys, the Brightness and Temperature dials, and the lamp screens. So whichever key or dial changed the lamps, everything on the Deck follows, from one read per action, or per set of lamps for the keys, which each show their own. A change made with a lamp's own buttons isn't noticed, and shows at the next change made through the plugin.
 
 An action shows an alert on the key or dial that failed. On a key, the redraw that follows leaves the alert visible when it sets the title, and hides it when it sets the state: the Power key shows its alert after its state for that reason ([#132], see [the SDK notes on keys][keys]).
 
