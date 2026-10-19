@@ -1,6 +1,8 @@
 import type { JsonObject, JsonValue } from "@elgato/utils";
 import type { Logger } from "@elgato/utils/logging";
 
+import type { LampSelection } from "../litra-manager";
+
 /**
  * A setting an action reads: the value it takes when the setting is missing or invalid, what a valid value is, and how
  * to read one. `parse` returns undefined for a value that isn't valid.
@@ -71,39 +73,84 @@ function oneOf<T extends string>(allowed: readonly T[], fallback: T): Setting<T>
   };
 }
 
+/**
+ * The lamps a key acts on (#20): `"all"`, which takes in lamps plugged in later, or the lamps checked on the settings
+ * page, saved with their ids and the labels the page showed them with, so a lamp that isn't connected keeps its name
+ * there. The plugin only takes the ids.
+ */
+function lampSelection(): Setting<LampSelection> {
+  return {
+    default: "all",
+    expected: '"all", or a list of lamps with their ids',
+    parse: (value) => {
+      if (value === "all") {
+        return "all";
+      }
+      if (!Array.isArray(value)) {
+        return undefined;
+      }
+      const ids: string[] = [];
+      for (const lamp of value) {
+        if (typeof lamp !== "object" || lamp === null || Array.isArray(lamp) || typeof lamp.id !== "string") {
+          return undefined;
+        }
+        ids.push(lamp.id);
+      }
+      return ids;
+    },
+  };
+}
+
+/** The lamps a key acts on, as its log line says it. */
+export function describeLamps(lamps: LampSelection): string {
+  return lamps === "all" ? "every lamp" : lamps.length === 1 ? "1 lamp" : `${lamps.length} lamps`;
+}
+
 //* The actions' settings
 
 // The valid values are the ones each settings page offers, and the defaults match the pages' own, which are what a new
 // key or dial saves. The browser tests check both against the pages.
 
+// Every key picks its lamps, while a dial's main screen acts on every lamp, and its lamp screens on the lamp on screen.
+const lamps = lampSelection();
+
 export const powerSettings = {
   mode: oneOf(["toggle", "on", "off"], "toggle"),
+  lamps,
 };
 
 export const brightnessSettings = {
   presetPercentage: numberFrom(0, 100, 0),
   stepPercentage: wholeNumberFrom(1, 25, 10),
+  lamps,
 };
 
 export const temperatureSettings = {
   presetKelvin: numberFrom(2700, 6500, 2700),
   stepKelvin: oneOfNumbers([100, 200, 300, 500], 300),
+  lamps,
 };
 
 // The step keys step as the dials do, by the same steps.
 export const brightnessStepSettings = {
   stepPercentage: brightnessSettings.stepPercentage,
+  lamps,
 };
 
 export const temperatureStepSettings = {
   stepKelvin: temperatureSettings.stepKelvin,
+  lamps,
 };
 
 // A scene sets both presets, taken as the Brightness and Temperature keys take theirs.
 export const sceneSettings = {
   presetPercentage: brightnessSettings.presetPercentage,
   presetKelvin: temperatureSettings.presetKelvin,
+  lamps,
 };
+
+// The lamps alone, for an action that reads them apart from its other settings.
+export const lampSettings = { lamps };
 
 /**
  * Reads an action's settings, as Stream Deck sent them, against the action's schema (#22). A setting that is missing

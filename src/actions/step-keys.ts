@@ -19,7 +19,13 @@ import {
   readLampsTemperature,
 } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
-import { brightnessStepSettings, parseSettings, temperatureStepSettings } from "./settings";
+import {
+  brightnessStepSettings,
+  describeLamps,
+  lampSettings,
+  parseSettings,
+  temperatureStepSettings,
+} from "./settings";
 
 /** What a step key moves: how it reads its step, moves the lamps by it, and reads what they're at for its title. */
 type Stepped = {
@@ -54,7 +60,7 @@ const TEMPERATURE: Stepped = {
 /**
  * A key that steps the brightness or the temperature up or down by its step, for decks without dials (#129). A press is
  * a dial's tick: it goes through the same operation, so the lamps stop on the same values and caps work the same, and
- * presses as quick as a dial's ticks are gathered into one move. Every key shows what the lamps are at as its title, and follows every change
+ * presses as quick as a dial's ticks are gathered into one move. Every key shows what its lamps are at as its title, and follows every change
  * through litra-manager's notice.
  */
 abstract class StepKeyAction extends SingletonAction {
@@ -71,17 +77,20 @@ abstract class StepKeyAction extends SingletonAction {
     onLampsChanged(() => this.syncEveryKey());
   }
 
-  /** Shows what the lamps are at as soon as the key is placed or shown. */
+  /** Shows what its lamps are at as soon as the key is placed or shown. */
   override async onWillAppear(ev: WillAppearEvent): Promise<void> {
     this.latestSettings.set(ev.action.id, ev.payload.settings);
     if (ev.action.isKey()) {
-      await ev.action.setTitle(await this.stepped.readTitle("all"));
+      await ev.action.setTitle(await this.stepped.readTitle(this.lampsOf(ev.action.id)));
     }
   }
 
-  /** Takes the step changed on the settings page, for the next press. */
-  override onDidReceiveSettings(ev: DidReceiveSettingsEvent): void {
+  /** Takes the step and the lamps changed on the settings page, and shows what the key's lamps are now at. */
+  override async onDidReceiveSettings(ev: DidReceiveSettingsEvent): Promise<void> {
     this.latestSettings.set(ev.action.id, ev.payload.settings);
+    if (ev.action.isKey()) {
+      await ev.action.setTitle(await this.stepped.readTitle(this.lampsOf(ev.action.id)));
+    }
   }
 
   /**
@@ -95,8 +104,10 @@ abstract class StepKeyAction extends SingletonAction {
     if (!queue) {
       queue = createDialDebouncer(async (presses) => {
         const step = this.stepped.readStep(this.latestSettings.get(id) ?? {}, this.logger);
-        this.logger.info(`Key pressed: ${presses} ${presses === 1 ? "step" : "steps"} of ${step}${this.stepped.unit}`);
-        const result = await this.stepped.adjust("all", this.direction * presses, step);
+        const lamps = this.lampsOf(id);
+        const steps = `${presses} ${presses === 1 ? "step" : "steps"} of ${step}${this.stepped.unit}`;
+        this.logger.info(`Key pressed: ${steps}, on ${describeLamps(lamps)}`);
+        const result = await this.stepped.adjust(lamps, this.direction * presses, step);
         if (!result.ok) {
           await ev.action.showAlert();
         }
@@ -106,20 +117,33 @@ abstract class StepKeyAction extends SingletonAction {
     queue(1);
   }
 
-  /** Shows what the lamps are at on every visible key of this action, from one read, and reads nothing without one. */
+  /**
+   * Shows what its lamps are at on every visible key of this action, from one read for each set of lamps the keys have,
+   * and reads nothing without a key.
+   */
   private async syncEveryKey(): Promise<void> {
-    const keys = [...this.actions].filter((key) => key.isKey());
-    if (keys.length === 0) {
-      return;
+    const titles = new Map<string, string>();
+    for (const key of this.actions) {
+      if (key.isKey()) {
+        const lamps = this.lampsOf(key.id);
+        const selection = JSON.stringify(lamps);
+        let title = titles.get(selection);
+        if (title === undefined) {
+          title = await this.stepped.readTitle(lamps);
+          titles.set(selection, title);
+        }
+        await key.setTitle(title);
+      }
     }
-    const title = await this.stepped.readTitle("all");
-    for (const key of keys) {
-      await key.setTitle(title);
-    }
+  }
+
+  /** The lamps a key acts on, from the settings it was last seen with. */
+  private lampsOf(id: string): LampSelection {
+    return parseSettings(this.latestSettings.get(id) ?? {}, lampSettings, this.logger).lamps;
   }
 }
 
-/** The Brightness Up key: steps every lamp's brightness up by the key's step. */
+/** The Brightness Up key: steps its lamps' brightness up by the key's step. */
 @action({ UUID: "com.daczarne.litra.brightness-up" })
 export class BrightnessUpAction extends StepKeyAction {
   /** Steps the brightness up. */
@@ -128,7 +152,7 @@ export class BrightnessUpAction extends StepKeyAction {
   }
 }
 
-/** The Brightness Down key: steps every lamp's brightness down by the key's step. */
+/** The Brightness Down key: steps its lamps' brightness down by the key's step. */
 @action({ UUID: "com.daczarne.litra.brightness-down" })
 export class BrightnessDownAction extends StepKeyAction {
   /** Steps the brightness down. */
@@ -137,7 +161,7 @@ export class BrightnessDownAction extends StepKeyAction {
   }
 }
 
-/** The Temperature Up key: steps every lamp's temperature up, cooler, by the key's step. */
+/** The Temperature Up key: steps its lamps' temperature up, cooler, by the key's step. */
 @action({ UUID: "com.daczarne.litra.temperature-up" })
 export class TemperatureUpAction extends StepKeyAction {
   /** Steps the temperature up. */
@@ -146,7 +170,7 @@ export class TemperatureUpAction extends StepKeyAction {
   }
 }
 
-/** The Temperature Down key: steps every lamp's temperature down, warmer, by the key's step. */
+/** The Temperature Down key: steps its lamps' temperature down, warmer, by the key's step. */
 @action({ UUID: "com.daczarne.litra.temperature-down" })
 export class TemperatureDownAction extends StepKeyAction {
   /** Steps the temperature down. */

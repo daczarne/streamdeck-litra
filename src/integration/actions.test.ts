@@ -26,6 +26,9 @@ const LUMEN_AT_100 = 400;
 
 let connect: (...lamps: EmulatedLitra[]) => void;
 let deck: FakeDeck;
+// The fake SDK plugin.ts registered with, which carries the messages of the settings pages.
+let sdk: typeof import("../test-support/fake-stream-deck");
+let lampId: (serialNumber: string) => string;
 // Every lamp plugged in during the test, whose handles have to be closed by its end.
 let lamps: EmulatedLitra[];
 
@@ -34,13 +37,17 @@ beforeEach(async () => {
   // A fresh plugin for every test, started as Stream Deck starts it, which registers its actions with the fake SDK
   // that the fake Deck sends events through.
   ({
-    loaded: deck,
+    loaded: { deck, sdk, lampId },
     hid: { connect },
   } = await loadOnEmulatedLamps(
     async () => {
       const { FakeDeck } = await import("../test-support/fake-deck");
       await import("../plugin");
-      return new FakeDeck();
+      return {
+        deck: new FakeDeck(),
+        sdk: await import("../test-support/fake-stream-deck"),
+        lampId: (await import("../litra-manager")).lampId,
+      };
     },
     { streamDeck: true },
   ));
@@ -529,5 +536,50 @@ describe("what the dials show", () => {
     for (const { layout, keys } of shown) {
       expect(slotsOf(layout)).toEqual(expect.arrayContaining(keys));
     }
+  });
+});
+
+describe("lamps picked on a key's settings page (#20)", () => {
+  /** A lamp as the settings page saves it: its id, and the label it showed. */
+  function picked(lamp: EmulatedLitra) {
+    return { id: lampId(lamp.serialNumber), label: `Beam - ${lamp.serialNumber.slice(-4)}` };
+  }
+
+  it("are the only ones a key switches, and its state shows theirs", async () => {
+    const [first, second] = [beam({ on: false }), beam({ on: false })];
+    plugIn(first, second);
+    const firstKey = await deck.key(POWER, { mode: "toggle", lamps: [picked(first)] });
+    const everyLamp = await deck.key(POWER, { mode: "toggle" });
+
+    await deck.press(firstKey);
+
+    expect([first.on, second.on]).toEqual([true, false]);
+    expect([stateOf(firstKey), stateOf(everyLamp)]).toEqual([1, 0]);
+  });
+
+  it("are the only ones a step key steps, and its title shows them", async () => {
+    const [first, second] = [beam(), beam({ brightnessInLumen: LUMEN_AT_80 })];
+    plugIn(first, second);
+    const key = await deck.key(BRIGHTNESS_UP, { stepPercentage: 10, lamps: [picked(first)] });
+
+    await deck.press(key);
+
+    expect([first.brightnessInLumen, second.brightnessInLumen]).toEqual([LUMEN_AT_60, LUMEN_AT_80]);
+    expect(titleOf(key)).toBe("60%");
+  });
+
+  it("are listed for the page from the lamps plugged in, and blinked by its Identify button", async () => {
+    const [first, second] = [beam({ serialNumber: "SERIAL-A" }), beam({ serialNumber: "SERIAL-B" })];
+    plugIn(second, first);
+
+    sdk.sendToPlugin({ event: "lamps" });
+    await vi.runAllTimersAsync();
+
+    expect(sdk.sentToPropertyInspector()).toEqual([{ event: "lamps", lamps: [picked(first), picked(second)] }]);
+
+    sdk.sendToPlugin({ event: "identify", id: lampId(second.serialNumber) });
+    await vi.runAllTimersAsync();
+
+    expect([first.writes("power"), second.writes("power")]).toEqual([[], [0, 1]]);
   });
 });

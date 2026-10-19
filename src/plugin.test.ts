@@ -8,6 +8,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const streamDeck = vi.hoisted(() => ({
   logger: { setLevel: vi.fn() },
   actions: { registerAction: vi.fn() },
+  ui: { onSendToPlugin: vi.fn(), sendToPropertyInspector: vi.fn() },
   connect: vi.fn<() => Promise<void>>(),
 }));
 
@@ -52,6 +53,8 @@ describe("plugin", () => {
       ([action]) => (action as { manifestId: string }).manifestId,
     );
     expect(registered.toSorted()).toEqual(MANIFEST_UUIDS.toSorted());
+    // The lamp picker on the keys' settings pages asks the plugin for the lamps (#20).
+    expect(streamDeck.ui.onSendToPlugin).toHaveBeenCalledOnce();
     expect(streamDeck.connect).toHaveBeenCalledOnce();
     // Lets the connection settle, so that a handler for its failure would have run.
     await streamDeck.connect.mock.results[0]?.value;

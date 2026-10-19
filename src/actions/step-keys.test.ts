@@ -52,6 +52,10 @@ const NO_LAMP: BroadcastResult = { ok: false, deviceCount: 0, failures: 1 };
 
 const FAILED: BroadcastResult = { ...LAMPS, ok: false, failures: 1 };
 
+// Lamps as the settings page saves them, with their ids and labels (#20).
+const LAMP_1 = { id: "lamp-1", label: "Beam - 1111" };
+const LAMP_2 = { id: "lamp-2", label: "Beam - 2222" };
+
 let deck: FakeDeck;
 // What each action does when litra-manager announces that the lamps changed, in the order they were created.
 let lampsChanged: () => Promise<void>;
@@ -246,6 +250,58 @@ describe("the step keys", () => {
       expect(at(vi.mocked(logger.info).mock.invocationCallOrder, 0)).toBeLessThan(
         at(vi.mocked(adjustLampsBrightness).mock.invocationCallOrder, 0),
       );
+    });
+  });
+
+  describe("with lamps picked on the settings page (#20)", () => {
+    it.each([
+      ["Brightness Up", BRIGHTNESS_UP, { stepPercentage: 5 }, adjustLampsBrightness, 5],
+      ["Temperature Down", TEMPERATURE_DOWN, { stepKelvin: 200 }, adjustLampsTemperature, 200],
+    ])("%s steps the key's lamps alone", async (_name, uuid, settings, adjust, step) => {
+      const key = await deck.key(uuid, { ...settings, lamps: [LAMP_1] });
+      clearCalls();
+
+      await deck.press(key);
+
+      expect(adjust).toHaveBeenCalledExactlyOnceWith([LAMP_1.id], expect.any(Number), step);
+    });
+
+    it("shows on each key what its own lamps are at, from one read for each set of lamps", async () => {
+      const onEvery = await deck.key(BRIGHTNESS_UP);
+      const onFirst = await deck.key(BRIGHTNESS_UP, { lamps: [LAMP_1] });
+      const alsoOnFirst = await deck.key(BRIGHTNESS_UP, { lamps: [LAMP_1] });
+      const onSecond = await deck.key(BRIGHTNESS_UP, { lamps: [LAMP_2] });
+      clearCalls();
+      // Lamp 1 at 63%, lamp 2 at 79%.
+      vi.mocked(readLampsBrightness).mockImplementation(async (lamps) => ({
+        ...LAMPS,
+        brightnessPercentages: lamps === "all" ? [63, 79] : lamps.map((id) => (id === LAMP_1.id ? 63 : 79)),
+      }));
+
+      await lampsChanged();
+
+      expect([onEvery, onFirst, alsoOnFirst, onSecond].map(titleOf)).toEqual(["79%", "63%", "63%", "79%"]);
+      expect(vi.mocked(readLampsBrightness).mock.calls).toEqual([["all"], [[LAMP_1.id]], [[LAMP_2.id]]]);
+    });
+
+    it("shows what the key's new lamps are at once they're changed on the settings page", async () => {
+      const key = await deck.key(TEMPERATURE_UP);
+      clearCalls();
+      vi.mocked(readLampsTemperature).mockResolvedValue({ ...LAMPS, representativeTemperatureKelvin: 6500 });
+
+      await deck.changeSettings(key, { lamps: [LAMP_2] });
+
+      expect(readLampsTemperature).toHaveBeenCalledExactlyOnceWith([LAMP_2.id]);
+      expect(titleOf(key)).toBe("6500");
+    });
+
+    it("logs how many lamps a press steps", async () => {
+      const key = await deck.key(BRIGHTNESS_DOWN, { lamps: [LAMP_1, LAMP_2] });
+      clearCalls();
+
+      await deck.press(key);
+
+      expect(logger.info).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("2 lamps"));
     });
   });
 });

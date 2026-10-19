@@ -7,13 +7,19 @@ const WEBSOCKET_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
 export type StreamDeckMessage = { event: string; context?: string; payload?: Record<string, unknown> };
 
+/** A lamp as the plugin lists it for a settings page (#20). */
+export type ListedLamp = { id: string; label: string };
+
 /**
  * Stands in for the WebSocket that Stream Deck opens for a settings page: it accepts the page's connection and
- * records the messages the page sends. Node has a WebSocket client but no server, so this decodes the frames itself,
- * as far as the pages need: text frames from the client, and its close frame.
+ * records the messages the page sends. It also stands in for the plugin behind it, answering a page that asks for the
+ * lamps with {@link lamps}, as the plugin does. Node has a WebSocket client but no server, so this decodes the frames
+ * itself, as far as the pages need: text frames from the client, and its close frame, and sends text frames back.
  */
 export class FakeStreamDeck {
   readonly messages: StreamDeckMessage[] = [];
+  /** The lamps the plugin finds, which a test sets before it opens a page. */
+  lamps: ListedLamp[] = [];
   private readonly sockets = new Set<Socket>();
   private readonly waiters = new Set<() => void>();
 
@@ -75,6 +81,28 @@ export class FakeStreamDeck {
     await new Promise((resolve) => this.server.close(resolve));
   }
 
+  /** Answers a page that asks the plugin for the lamps, as `src/actions/lamp-picker.ts` does. */
+  private answer(message: StreamDeckMessage, socket: Socket): void {
+    if (message.event === "sendToPlugin" && message.payload?.event === "lamps") {
+      this.send(socket, {
+        event: "sendToPropertyInspector",
+        ...(message.context === undefined ? {} : { context: message.context }),
+        payload: { event: "lamps", lamps: this.lamps },
+      });
+    }
+  }
+
+  /** Sends a message to a page, in a text frame, which a server sends unmasked. */
+  private send(socket: Socket, message: StreamDeckMessage): void {
+    const payload = Buffer.from(JSON.stringify(message), "utf8");
+    if (payload.length > 0xffff) throw new Error("Frames over 64 KiB aren't supported");
+    const header =
+      payload.length < 126
+        ? Buffer.from([0x81, payload.length])
+        : Buffer.from([0x81, 126, payload.length >> 8, payload.length & 0xff]);
+    socket.write(Buffer.concat([header, payload]));
+  }
+
   /** Decodes every complete frame at the start of `buffer`, and returns what is left of it. */
   private readFrames(buffer: Buffer, socket: Socket): Buffer {
     while (buffer.length >= 2) {
@@ -96,7 +124,9 @@ export class FakeStreamDeck {
       buffer = buffer.subarray(offset + 4 + length);
 
       if (opcode === 0x1) {
-        this.messages.push(JSON.parse(payload.toString("utf8")));
+        const message: StreamDeckMessage = JSON.parse(payload.toString("utf8"));
+        this.messages.push(message);
+        this.answer(message, socket);
         for (const waiter of [...this.waiters]) waiter();
       } else if (opcode === 0x8) {
         socket.end(Buffer.from([0x88, 0x00]));

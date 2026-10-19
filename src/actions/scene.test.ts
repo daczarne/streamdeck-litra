@@ -67,6 +67,17 @@ describe("SceneAction", () => {
 
       expect(setLampsScene).toHaveBeenCalledExactlyOnceWith("all", 0, 2700);
     });
+
+    it("sets the key's lamps alone, picked on the settings page (#20)", async () => {
+      const lamps = [{ id: "lamp-1", label: "Beam - 1111" }];
+      const key = await deck.key(SCENE, { presetPercentage: 100, presetKelvin: 6500, lamps });
+      vi.mocked(setLampsScene).mockResolvedValue(SET);
+
+      await deck.press(key);
+
+      expect(setLampsScene).toHaveBeenCalledExactlyOnceWith(["lamp-1"], 100, 6500);
+      expect(logger.info).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("1 lamp"));
+    });
   });
 
   it("shows only its image, without a title of its own", async () => {
