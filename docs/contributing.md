@@ -7,7 +7,7 @@
 - [Dependencies](#dependencies)
 - [Unused code](#unused-code)
 - [Supported lamps](#supported-lamps)
-- [Lamps are managed together](#lamps-are-managed-together)
+- [By default, lamps are managed together](#by-default-lamps-are-managed-together)
 - [Working with Claude](#working-with-claude)
 
 This document describes how work on this repository is done: how changes reach `main`, how they are sliced and recorded, what each one has to bring with it, and the design rules that hold across the plugin. How the plugin's parts fit together, and why, is in [the architecture document][architecture]. Style is covered separately, in [the style guide][style-guide].
@@ -65,11 +65,13 @@ The Litra Beam is the plugin's target: it's what the plugin is checked on, and t
 
 The Glow isn't planned. The plugin does for it whatever the code it shares with the Beams does, and nothing is built or checked for the Glow on its own. Changes for it are welcome from contributors who have one.
 
-## Lamps are managed together
+## By default, lamps are managed together
 
-The plugin has no way to control one lamp alone, so until per-lamp control arrives in [#20], it assumes the user wants every connected lamp kept in sync and controlled as one. Questions about several lamps are answered from that rule, not decided case by case: every lamp is sent the same value, and what an action displays describes the group. For example, when one lamp can't reach the requested brightness, the others still go there, and the dial shows the brightest lamp ([#13]), with its bar marking where the dimmer lamps stop ([#59]). The lamp screens ([#48]) are the one exception: each shows a single lamp, so lamps that are out of sync can be told apart, and pushing the dial there blinks that lamp alone, so it can be found. The blink leaves the lamp as it was, and every value set through the plugin still goes to every lamp.
+Unless the user picks a lamp, the plugin assumes they want every connected lamp kept in sync and controlled as one. Questions about several lamps are answered from that rule, not decided case by case: every lamp is sent the same value, and what an action displays describes the group. For example, when one lamp can't reach the requested brightness, the others still go there, and the dial shows the brightest lamp ([#13]), with its bar marking where the dimmer lamps stop ([#59]).
 
-When [#20] is worked on, the question changes: what would someone who controls each lamp separately need for the plugin to work for them?
+Per-lamp control ([#20]) arrives one action at a time, and starts on the lamp screens ([#48]). Each shows a single lamp, so lamps that are out of sync can be told apart, and there, turning or pushing the dial acts on that lamp alone, and holding the strip blinks it, so it can be found. Everything else still goes to every lamp, and a turn on a dial's main screen brings lamps set apart back in sync. A setting that lets the user choose otherwise comes as its own issue, such as what that turn does to lamps out of sync ([#145]).
+
+While [#20] is worked on, the question changes: what would someone who controls each lamp separately need for the plugin to work for them?
 
 ## Working with Claude
 
@@ -85,6 +87,7 @@ When [#20] is worked on, the question changes: what would someone who controls e
 [#48]: https://github.com/daczarne/streamdeck-litra/issues/48
 [#59]: https://github.com/daczarne/streamdeck-litra/issues/59
 [#100]: https://github.com/daczarne/streamdeck-litra/issues/100
+[#145]: https://github.com/daczarne/streamdeck-litra/issues/145
 [architecture]: architecture.md
 [manual-testing]: manual_testing/
 [style-guide]: style_guide.md

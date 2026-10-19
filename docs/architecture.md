@@ -9,7 +9,7 @@
 - [Keeping the Deck in step](#keeping-the-deck-in-step)
 - [Turning a dial](#turning-a-dial)
 
-This document describes how the plugin's parts fit together, and why they're built the way they are. The code's comments say how each part works, and [the contributing guide][contributing] holds the design rules that hold across the plugin, such as managing every lamp as one group.
+This document describes how the plugin's parts fit together, and why they're built the way they are. The code's comments say how each part works, and [the contributing guide][contributing] holds the design rules that hold across the plugin, such as managing the lamps as one group by default.
 
 ## From a press to the lamps
 
@@ -31,11 +31,11 @@ Two libraries speak the lamps' protocol, both by Tim Rogers: `litra`, in TypeScr
 
 ## Every lamp, found afresh every time
 
-`litra-manager` keeps no list of lamps. Every operation finds the connected lamps again, opens each, applies the operation to every one, and closes them, so a lamp that was unplugged is simply not found, and one plugged in again is, without any code for either. Finding the lamps is a call inside the plugin's process, not a new process, so doing it on every operation costs little.
+`litra-manager` keeps no list of lamps. Every operation finds the connected lamps again, opens each, applies the operation to every one, and closes them, so a lamp that was unplugged is simply not found, and one plugged in again is, without any code for either. An operation can also be given the lamps to act on, by their serial numbers, as a lamp screen gives its lamp ([#20]). It then closes the others unused, and logs a selected lamp it doesn't find. Finding the lamps is a call inside the plugin's process, not a new process, so doing it on every operation costs little.
 
 Closing the handles matters because the plugin runs for as long as Stream Deck does: a handle left open would leak for the whole session. `litra`'s type for a lamp's handle leaves out `close`, which `node-hid`'s handle has, so the module reaches it through a type of its own.
 
-A lamp that fails is logged, and the operation goes on with the others. Finding no lamp counts as a failure too, so a press with nothing plugged in shows an alert, rather than doing nothing.
+A lamp that fails is logged, and the operation goes on with the others. Finding no lamp counts as a failure too, so a press with nothing plugged in shows an alert, rather than doing nothing, and so does a turn on a lamp screen whose lamp was unplugged.
 
 ### What it does remember
 
@@ -59,11 +59,12 @@ An action shows an alert on the key or dial that failed. On a key, the redraw th
 
 ## Turning a dial
 
-A dial sends a tick at a time, and a quick turn sends many. The dial gathers ticks for a moment (`createDialDebouncer`), so a turn moves the lamps once, by the step the dial has when they're applied. The step keys gather their presses the same way. A step stops on the multiples of the step counted from the bottom of the range ([#14], [#16]), so a dial and a key go through the same values up and down.
+A dial sends a tick at a time, and a quick turn sends many. The dial gathers ticks for a moment (`createDialDebouncer`), so a turn moves the lamps once, by the step the dial has when they're applied. A dial gathers its ticks apart for each lamp it turns, its main screen counting as one, so ticks turned on a lamp screen reach that lamp even when the strip is tapped before they're applied ([#20]). The step keys gather their presses the same way. A step stops on the multiples of the step counted from the bottom of the range ([#14], [#16]), so a dial and a key go through the same values up and down.
 
 [#14]: https://github.com/daczarne/streamdeck-litra/issues/14
 [#16]: https://github.com/daczarne/streamdeck-litra/issues/16
 [#19]: https://github.com/daczarne/streamdeck-litra/issues/19
+[#20]: https://github.com/daczarne/streamdeck-litra/issues/20
 [#55]: https://github.com/daczarne/streamdeck-litra/issues/55
 [#57]: https://github.com/daczarne/streamdeck-litra/issues/57
 [#96]: https://github.com/daczarne/streamdeck-litra/issues/96

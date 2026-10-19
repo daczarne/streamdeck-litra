@@ -63,6 +63,8 @@ const BEAM: LampStatus = {
   temperatureKelvin: 2700,
 };
 
+const OTHER_BEAM: LampStatus = { ...BEAM, serialNumber: "B2" };
+
 let deck: FakeDeck;
 // What the action does when litra-manager announces that the lamps changed.
 let lampsChanged: () => Promise<void>;
@@ -175,7 +177,7 @@ describe("TemperatureAction", () => {
 
       await deck.turn(dial, 2);
 
-      expect(adjustTemperatureAllByKelvinSteps).toHaveBeenCalledWith(2, 100);
+      expect(adjustTemperatureAllByKelvinSteps).toHaveBeenCalledWith(2, 100, "all");
       expect(dial.setFeedback).not.toHaveBeenCalled();
     });
 
@@ -197,7 +199,7 @@ describe("TemperatureAction", () => {
 
     await deck.turn(dial, 2);
 
-    expect(adjustTemperatureAllByKelvinSteps).toHaveBeenCalledExactlyOnceWith(2, 200);
+    expect(adjustTemperatureAllByKelvinSteps).toHaveBeenCalledExactlyOnceWith(2, 200, "all");
     expect(logger.warn).not.toHaveBeenCalled();
   });
 
@@ -280,7 +282,7 @@ describe("TemperatureAction", () => {
 
       await deck.turn(dial, 2);
 
-      expect(adjustTemperatureAllByKelvinSteps).toHaveBeenCalledExactlyOnceWith(2, 300);
+      expect(adjustTemperatureAllByKelvinSteps).toHaveBeenCalledExactlyOnceWith(2, 300, "all");
       expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("stepKelvin"));
     });
   });
@@ -296,24 +298,83 @@ describe("TemperatureAction", () => {
       expect(dial.setFeedback).toHaveBeenLastCalledWith(TEMPERATURE_SNAPPED);
     });
 
-    it("blinks the lamp on screen on a push, instead of toggling every lamp", async () => {
+    it("blinks the lamp on screen on a hold, and stays on its screen (#20)", async () => {
       const dial = await deck.dial(TEMPERATURE);
       await deck.tap(dial);
       vi.mocked(identifyLamp).mockResolvedValue({ ok: true, deviceCount: 1, failures: 0 });
 
-      await deck.push(dial);
+      await deck.hold(dial);
 
       expect(identifyLamp).toHaveBeenCalledExactlyOnceWith(BEAM.serialNumber);
-      expect(toggleAll).not.toHaveBeenCalled();
+      expect(dial.setFeedbackLayout).toHaveBeenLastCalledWith("layouts/lamp.json");
     });
 
-    it("does nothing when the dial is turned on a lamp screen", async () => {
+    it("does nothing on a hold on the main screen", async () => {
+      const dial = await deck.dial(TEMPERATURE);
+      clearCalls();
+
+      await deck.hold(dial);
+
+      expect(identifyLamp).not.toHaveBeenCalled();
+      expect(dial.setFeedbackLayout).not.toHaveBeenCalled();
+    });
+
+    it("toggles only the lamp on screen on a push (#20)", async () => {
+      const dial = await deck.dial(TEMPERATURE);
+      await deck.tap(dial);
+      vi.mocked(toggleAll).mockReturnValue({ ok: true, deviceCount: 1, failures: 0 });
+
+      await deck.push(dial);
+
+      expect(toggleAll).toHaveBeenCalledExactlyOnceWith([BEAM.serialNumber]);
+      expect(identifyLamp).not.toHaveBeenCalled();
+    });
+
+    it("toggles every lamp on a push on the main screen", async () => {
+      const pushed = await deck.dial(TEMPERATURE);
+      const onLamp = await deck.dial(TEMPERATURE);
+      await deck.tap(onLamp);
+      vi.mocked(toggleAll).mockReturnValue({ ok: true, deviceCount: 1, failures: 0 });
+
+      await deck.push(pushed);
+
+      expect(toggleAll).toHaveBeenCalledExactlyOnceWith("all");
+    });
+
+    it("moves only the lamp on screen when the dial is turned on a lamp screen (#20)", async () => {
       const dial = await deck.dial(TEMPERATURE, { stepKelvin: 100 });
       await deck.tap(dial);
+      vi.mocked(adjustTemperatureAllByKelvinSteps).mockReturnValue(SNAPPED);
 
       await deck.turn(dial, 3);
 
-      expect(adjustTemperatureAllByKelvinSteps).not.toHaveBeenCalled();
+      expect(adjustTemperatureAllByKelvinSteps).toHaveBeenCalledExactlyOnceWith(3, 100, [BEAM.serialNumber]);
+    });
+
+    it("moves the lamps that were on screen as the dial turned, even when the strip is tapped before (#20)", async () => {
+      // Each turn waits to be applied, as the debouncer holds the ticks for a moment.
+      const waiting: Array<() => void | Promise<void>> = [];
+      vi.mocked(createDialDebouncer).mockImplementation((flush) => (ticks) => {
+        waiting.push(() => flush(ticks));
+      });
+      vi.mocked(readLampStatuses).mockResolvedValue({ ok: true, lamps: [BEAM, OTHER_BEAM] });
+      vi.mocked(adjustTemperatureAllByKelvinSteps).mockReturnValue(SNAPPED);
+      const dial = await deck.dial(TEMPERATURE, { stepKelvin: 100 });
+
+      await deck.turn(dial, 1);
+      await deck.tap(dial);
+      await deck.turn(dial, 2);
+      await deck.tap(dial);
+      await deck.turn(dial, 3);
+      for (const apply of waiting) {
+        await apply();
+      }
+
+      expect(vi.mocked(adjustTemperatureAllByKelvinSteps).mock.calls).toEqual([
+        [1, 100, "all"],
+        [2, 100, [BEAM.serialNumber]],
+        [3, 100, [OTHER_BEAM.serialNumber]],
+      ]);
     });
 
     it("doesn't show the temperature on a dial that shows a lamp screen", async () => {
@@ -358,6 +419,19 @@ describe("TemperatureAction", () => {
       expect(message).toContain("100 K");
     });
 
+    it("a dial turn on a lamp screen, with its ticks and the dial's step", async () => {
+      const dial = await deck.dial(TEMPERATURE, { stepKelvin: 100 });
+      await deck.tap(dial);
+      vi.mocked(logger.info).mockClear();
+      vi.mocked(adjustTemperatureAllByKelvinSteps).mockReturnValue(SNAPPED);
+
+      await deck.turn(dial, 3);
+
+      const [message] = at(vi.mocked(logger.info).mock.calls, 0);
+      expect(message).toContain("lamp screen");
+      expect(message).toContain("3 ticks");
+    });
+
     it("a dial push, with what it does", async () => {
       const dial = await deck.dial(TEMPERATURE);
 
@@ -368,19 +442,21 @@ describe("TemperatureAction", () => {
       expect(vi.mocked(logger.info).mock.calls).toEqual([
         [expect.stringContaining("toggle")],
         [expect.any(String)],
-        [expect.stringContaining("identify")],
+        [expect.stringMatching(/lamp screen.*toggle/)],
       ]);
     });
 
-    it("a tap and a hold on the strip", async () => {
+    it("a tap and a hold on the strip, with what the hold does", async () => {
       const dial = await deck.dial(TEMPERATURE);
 
+      await deck.hold(dial);
       await deck.tap(dial);
       await deck.hold(dial);
 
       expect(vi.mocked(logger.info).mock.calls).toEqual([
+        [expect.stringMatching(/held.*nothing/)],
         [expect.stringContaining("tapped")],
-        [expect.stringContaining("held")],
+        [expect.stringMatching(/held.*identify/)],
       ]);
     });
   });

@@ -62,7 +62,8 @@ export function barFill(levels: number[]): string {
 
 /**
  * The Brightness action. On a key, it sets every lamp to the key's preset. On a dial, it steps the brightness as the
- * dial turns, toggles the lamps when pressed, and shows each lamp on its own screen when the strip is tapped.
+ * dial turns, toggles the lamps when pressed, and shows each lamp on its own screen when the strip is tapped. On a
+ * lamp screen, turning and pushing the dial act on that lamp alone, and holding the strip blinks it (#20).
  */
 @action({ UUID: "com.daczarne.litra.brightness" })
 export class BrightnessAction extends SingletonAction {
@@ -112,54 +113,59 @@ export class BrightnessAction extends SingletonAction {
     }
   }
 
-  /** Dial press toggles power, or blinks the lamp on a lamp screen; rotate adjusts brightness. */
+  /** Toggles every lamp from the main screen, or the lamp on screen from a lamp screen. */
   override async onDialDown(ev: DialDownEvent): Promise<void> {
-    if (this.lampScreens.isShowing(ev.action.id)) {
-      logger.info("Dial pressed: identify");
-      await this.lampScreens.identify(ev.action);
-      return;
-    }
-    logger.info("Dial pressed: toggle");
-    const result = toggleAll();
+    const lamp = this.lampScreens.lampOnScreen(ev.action.id);
+    logger.info(lamp === undefined ? "Dial pressed: toggle" : "Dial pressed on a lamp screen: toggle");
+    const result = toggleAll(lamp === undefined ? "all" : [lamp]);
     if (!result.ok) {
       await ev.action.showAlert();
     }
   }
 
-  /** Tapping the strip shows the lamps one by one, and holding it goes back to the main screen. */
+  /** Tapping the strip shows the lamps one by one, and holding it on a lamp screen blinks the lamp on screen. */
   override async onTouchTap(ev: TouchTapEvent): Promise<void> {
     if (ev.payload.hold) {
-      logger.info("Strip held: back");
-      await this.lampScreens.back(ev.action.id);
+      if (!this.lampScreens.isShowing(ev.action.id)) {
+        logger.info("Strip held on the main screen: nothing to do");
+        return;
+      }
+      logger.info("Strip held: identify");
+      await this.lampScreens.identify(ev.action);
       return;
     }
     logger.info("Strip tapped: next screen");
-    await this.lampScreens.tap(ev.action, () => this.refreshDisplay(ev.action, ev.payload.settings));
+    await this.lampScreens.tap(ev.action, {
+      showMain: () => this.refreshDisplay(ev.action, ev.payload.settings),
+      adjusts: "Brightness",
+    });
   }
 
   /**
    * Steps the brightness by the dial's ticks, gathered for a moment so a quick turn moves the lamps once, with the
-   * settings the dial has when they are applied. The dials follow through the subscription.
+   * settings the dial has when they are applied. Ticks go to what the dial showed as it turned: every lamp from the main
+   * screen, or the lamp on screen, even when the strip is tapped before they are applied. The dials follow through the
+   * subscription.
    */
   override async onDialRotate(ev: DialRotateEvent): Promise<void> {
     const id = ev.action.id;
     this.latestSettings.set(id, ev.payload.settings);
-    // Turning the dial does nothing on a lamp screen.
-    if (this.lampScreens.isShowing(id)) {
-      return;
-    }
-    let queue = this.dialQueues.get(id);
+    const lamp = this.lampScreens.lampOnScreen(id);
+    // One queue for each lamp the dial can turn, so ticks gathered on one screen aren't applied to the next.
+    const queueId = `${id}/${lamp ?? "all"}`;
+    let queue = this.dialQueues.get(queueId);
     if (!queue) {
       queue = createDialDebouncer(async (ticks) => {
         const settings = this.latestSettings.get(id) ?? {};
         const { stepPercentage: step } = parseSettings(settings, brightnessSettings, logger);
-        logger.info(`Dial turned: ${ticks} ticks of ${step}%`);
-        const result = await adjustBrightnessAllByPercentageSteps(ticks, step);
+        const screen = lamp === undefined ? "" : " on a lamp screen";
+        logger.info(`Dial turned${screen}: ${ticks} ticks of ${step}%`);
+        const result = await adjustBrightnessAllByPercentageSteps(ticks, step, lamp === undefined ? "all" : [lamp]);
         if (!result.ok) {
           await ev.action.showAlert();
         }
       });
-      this.dialQueues.set(id, queue);
+      this.dialQueues.set(queueId, queue);
     }
     queue(ev.payload.ticks);
   }

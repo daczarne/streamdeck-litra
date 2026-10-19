@@ -491,6 +491,71 @@ describe("forEachDevice", () => {
   });
 });
 
+describe("a selection of lamps (#20)", () => {
+  it("runs the operation on the selected lamps alone, and closes the others without using them", () => {
+    const [selected, other] = [beam(), beam()];
+    connect(other, selected);
+    const operation = vi.fn();
+
+    expect(manager.forEachDevice("test", operation, [selected.serialNumber])).toEqual({
+      ok: true,
+      deviceCount: 1,
+      failures: 0,
+    });
+    expect(operation.mock.calls.map(([device]) => (device as Device).serialNumber)).toEqual([selected.serialNumber]);
+    expect([closes(selected), closes(other)]).toEqual([1, 1]);
+    expect(other.written).toEqual([]);
+  });
+
+  it("toggles the selected lamp alone", () => {
+    const [selected, other] = [beam({ on: true }), beam({ on: false })];
+    connect(selected, other);
+
+    expect(manager.toggleAll([selected.serialNumber])).toEqual({ ok: true, deviceCount: 1, failures: 0 });
+    expect([selected.on, other.on]).toEqual([false, false]);
+    expect(other.writes("power")).toEqual([]);
+  });
+
+  it("steps the brightness of the selected lamp alone, from its own brightness", async () => {
+    const [selected, other] = [beam({ brightnessInLumen: lumenAt(20) }), beam({ brightnessInLumen: lumenAt(50) })];
+    connect(selected, other);
+
+    const result = await settled(manager.adjustBrightnessAllByPercentageSteps(2, 5, [selected.serialNumber]));
+
+    expect(result).toMatchObject({ ok: true, deviceCount: 1, brightnessPercentages: [30] });
+    expect([selected.writes("brightness"), other.writes("brightness")]).toEqual([[lumenAt(30)], []]);
+  });
+
+  it("steps the temperature of the selected lamp alone, from its own temperature", () => {
+    const [other, selected] = [beam({ temperatureInKelvin: 3100 }), beam({ temperatureInKelvin: 5000 })];
+    connect(other, selected);
+
+    expect(manager.adjustTemperatureAllByKelvinSteps(1, 200, [selected.serialNumber])).toMatchObject({
+      ok: true,
+      deviceCount: 1,
+      representativeTemperatureKelvin: 5100,
+    });
+    expect([selected.writes("temperature"), other.writes("temperature")]).toEqual([[5100], []]);
+  });
+
+  it("fails when no selected lamp is connected, and closes the lamps it found", () => {
+    const other = beam();
+    connect(other);
+
+    expect(manager.toggleAll(["GONE"])).toEqual({ ok: false, deviceCount: 0, failures: 1 });
+    expect(other.writes("power")).toEqual([]);
+    expect(closes(other)).toBe(1);
+  });
+
+  it("acts on the selected lamps that are connected when another isn't", () => {
+    const selected = beam({ on: true });
+    connect(selected);
+
+    expect(manager.toggleAll([selected.serialNumber, "GONE"])).toEqual({ ok: true, deviceCount: 1, failures: 0 });
+    expect(selected.on).toBe(false);
+  });
+});
+
 describe.each([
   ["turnOnAll", () => manager.turnOnAll(), false, 1],
   ["turnOffAll", () => manager.turnOffAll(), true, 0],
@@ -1621,12 +1686,19 @@ describe("logs", () => {
     expect(message).toContain("Cannot close hid device");
   });
 
-  it("warns, with the end of its serial number, when the lamp to identify isn't connected", async () => {
+  it.each<[string, () => unknown]>([
+    ["identify", () => manager.identifyLamp("2325FE01ABCD")],
+    ["toggle", () => manager.toggleAll(["2325FE01ABCD"])],
+    ["adjust brightness", () => manager.adjustBrightnessAllByPercentageSteps(1, 5, ["2325FE01ABCD"])],
+    ["adjust temperature", () => manager.adjustTemperatureAllByKelvinSteps(1, 100, ["2325FE01ABCD"])],
+  ])("warns, with the end of its serial number, when the lamp to %s isn't connected", async (operation, operate) => {
     connect(beam());
 
-    await run(() => manager.identifyLamp("2325FE01ABCD"));
+    await run(operate);
 
-    expect(onlyMessage("warn")).toContain("…ABCD");
+    const message = onlyMessage("warn");
+    expect(message).toContain(operation);
+    expect(message).toContain("…ABCD");
   });
 
   it.each<[string, () => unknown, string]>([
