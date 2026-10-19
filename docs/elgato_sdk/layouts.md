@@ -49,12 +49,14 @@ The schema says `Encoder.Icon` is also the app's round picture of the dial. On S
 
 ## What fits on the Deck
 
-Measured on a Stream Deck + XL's touch strip, while trying to show the lumens next to the brightness ([#8]) and while building the lamp screens ([#48]):
+Measured on a Stream Deck + XL's touch strip, while trying to show the lumens next to the brightness ([#8]) and while building the lamp screens ([#48]) and naming their lamps ([#20]):
 
 - Text under about 16 px is hard to read, and a mid-grey on the strip's background doesn't contrast enough.
 - At the size of `$B1`'s value, a value like `70%` already takes about half of the 108 px value area, so a second value doesn't fit on the same line.
 - Three rows of 18 px text, two of them led by a 22 px icon, fit in the 200 × 100 px canvas and read well.
 - At icon sizes of about 22 px, an outlined circle is hard to make out. A filled one reads better, which is why the brightness glyph, shown at that size on the lamp screens, uses a filled sun.
+- Two texts share an 18 px row when both are short: a label like "Beam - 7K98" in 120 px, and "1 of 2" in 56 px.
+- Dark text, such as `#202020`, contrasts with a bright background like orange, but in the font's normal weight its strokes are too thin to read at 18 px. Bold reads, though the font joins the "ff" of "Off" into one shape ([#153]).
 - On the bar, a grey of `#999999` is barely readable against the bar's background, while `#c0c0c0` reads well ([#59]).
 
 ## Sources
@@ -71,4 +73,5 @@ Checked against `@elgato/streamdeck` 3.0.1 and the schemas in `@elgato/schemas`,
 [#48]: https://github.com/daczarne/streamdeck-litra/issues/48
 [#51]: https://github.com/daczarne/streamdeck-litra/issues/51
 [#59]: https://github.com/daczarne/streamdeck-litra/issues/59
+[#153]: https://github.com/daczarne/streamdeck-litra/issues/153
 [keys]: keys.md

@@ -25,7 +25,7 @@ In VS Code, the `Build and restart` task runs both.
 ## Checks
 
 1. **The picker lists the lamps.** Select a Power key. Under its mode, the Lamps item shows a Find lamps button, then "Beam - " followed by the last 4 characters of its serial number for each lamp, each with an Identify button, then an All checkbox. A key set up before lamps could be picked has every box checked. Share a screenshot of the panel.
-2. **Identify blinks the lamp.** Press Identify next to the first lamp: that lamp goes off for a moment and comes back at the same brightness. The other one doesn't change. The order matches the dial's lamp screens: the first lamp listed is "1 of 2" there.
+2. **Identify blinks the lamp.** Press Identify next to the first lamp: that lamp goes off for a moment and comes back at the same brightness. The other one doesn't change. The order and the names match the dial's lamp screens: the first lamp listed is "1 of 2" there, under the same label.
 3. **A key acts on its lamps.** Uncheck the second lamp: All unchecks too. Press the key: only the first lamp toggles. The other Power key, still on All, toggles both.
 4. **A key shows its lamps' state.** Turn the second lamp off with the other Power key, then the first lamp on with this one: this key shows on, and the other key, on All, shows off.
 5. **A step key steps and shows its lamps.** Pick only the second lamp on the Brightness Up key: its title shows the second lamp's %. Press it: only the second lamp brightens.
