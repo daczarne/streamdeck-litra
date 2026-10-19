@@ -163,14 +163,21 @@ export class LampScreens {
   }
 }
 
-/** Fills the slots of the lamp layout. */
+// "Off" stands out from the lamp screen's other text, which stays white on the strip's own background: dark, and bold,
+// so its thin strokes don't blur into the background at 18 px. The font still joins its "ff" into one shape (#153).
+const ON_POWER = { color: "white", font: { size: 18, weight: 400 } };
+const OFF_POWER = { color: "#202020", font: { size: 18, weight: 700 } };
+
+/** Fills the slots of the lamp layout. The power is given its look each time, since a slot keeps what it was given. */
 async function draw(dial: LampScreenDial, lamp: LampStatus, lamps: LampStatus[]): Promise<void> {
   await dial.setFeedback({
-    lamp: `${lamp.model} · ${lamps.indexOf(lamp) + 1} of ${lamps.length}`,
-    power: lamp.on ? "On" : "Off",
+    // Named as the keys' settings pages name it, so a lamp found here matches the picker (#20).
+    lamp: lamp.label,
+    position: `${lamps.indexOf(lamp) + 1} of ${lamps.length}`,
+    power: lamp.on ? { value: "On", ...ON_POWER } : { value: "Off", ...OFF_POWER },
+    temperature: `${lamp.temperatureKelvin} K`,
     brightness: `${lamp.brightnessPercentage}%`,
     lumens: `${lamp.brightnessLumen} lm`,
-    temperature: `${lamp.temperatureKelvin} K`,
   });
 }
 

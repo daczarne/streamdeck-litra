@@ -85,6 +85,15 @@ function feedbackOf(dial: Awaited<ReturnType<FakeDeck["dial"]>>): object {
   return at(dial.setFeedback.mock.calls, -1)[0];
 }
 
+/** The text of each slot a dial was last told to show, whatever look a lamp screen gave it. */
+function textOf(dial: Awaited<ReturnType<FakeDeck["dial"]>>): Record<string, unknown> {
+  const shown = Object.entries(feedbackOf(dial)).map(([slot, value]: [string, unknown]) => [
+    slot,
+    typeof value === "object" && value !== null && "value" in value ? value.value : value,
+  ]);
+  return Object.fromEntries(shown);
+}
+
 //* Tests
 
 describe("the Power key", () => {
@@ -405,8 +414,11 @@ describe("the lamp screens", () => {
     const { dial } = await onFirstLampScreen();
 
     expect(dial.setFeedbackLayout).toHaveBeenLastCalledWith("layouts/lamp.json");
-    expect(feedbackOf(dial)).toEqual({
-      lamp: "Beam · 1 of 2",
+    // The first lamp is off, which its power shows in bold dark grey.
+    expect(feedbackOf(dial)).toMatchObject({ power: { value: "Off", color: "#202020", font: { weight: 700 } } });
+    expect(textOf(dial)).toEqual({
+      lamp: "Beam - AL-A",
+      position: "1 of 2",
       power: "Off",
       brightness: "100%",
       lumens: "400 lm",
@@ -420,7 +432,7 @@ describe("the lamp screens", () => {
 
     await deck.press(key);
 
-    expect(feedbackOf(dial)).toMatchObject({ lamp: "Beam · 1 of 2", temperature: "5000 K" });
+    expect(textOf(dial)).toMatchObject({ lamp: "Beam - AL-A", position: "1 of 2", temperature: "5000 K" });
   });
 
   it("let each dial turn and toggle its lamp alone, until a turn on a main screen brings them back in sync (#20)", async () => {
@@ -435,9 +447,15 @@ describe("the lamp screens", () => {
     // A brightness change turns its lamp on, as on the main screen.
     expect([first.on, first.brightnessInLumen, first.temperatureInKelvin]).toEqual([true, LUMEN_AT_80, 6500]);
     expect([second.on, second.brightnessInLumen, second.temperatureInKelvin]).toEqual([true, LUMEN_AT_50, 4100]);
-    expect(feedbackOf(dial)).toMatchObject({ lamp: "Beam · 1 of 2", brightness: "80%", temperature: "6500 K" });
-    expect(feedbackOf(temperatureDial)).toMatchObject({
-      lamp: "Beam · 2 of 2",
+    expect(textOf(dial)).toMatchObject({
+      lamp: "Beam - AL-A",
+      position: "1 of 2",
+      brightness: "80%",
+      temperature: "6500 K",
+    });
+    expect(textOf(temperatureDial)).toMatchObject({
+      lamp: "Beam - AL-B",
+      position: "2 of 2",
       brightness: "50%",
       temperature: "4100 K",
     });
@@ -445,7 +463,7 @@ describe("the lamp screens", () => {
     await deck.push(dial);
 
     expect([first.on, second.on]).toEqual([false, true]);
-    expect(feedbackOf(dial)).toMatchObject({ power: "Off" });
+    expect(textOf(dial)).toMatchObject({ power: "Off" });
 
     const mainDial = await deck.dial(BRIGHTNESS, { stepPercentage: 10 });
     await deck.turn(mainDial, 1);

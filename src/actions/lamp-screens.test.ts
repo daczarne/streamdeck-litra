@@ -25,6 +25,7 @@ function beam(serialNumber: string, overrides: Partial<LampStatus> = {}): LampSt
     id: `lamp-${serialNumber}`,
     serialNumber,
     model: "Beam",
+    label: `Beam - ${serialNumber}`,
     on: true,
     brightnessLumen: 324,
     brightnessPercentage: 79,
@@ -41,11 +42,14 @@ function connect(...lamps: LampStatus[]): void {
 /** What a dial's lamp screen shows for a lamp, the `position`-th of `count`. */
 function lampScreenOf(lamp: LampStatus, position: number, count: number) {
   return {
-    lamp: `${lamp.model} · ${position} of ${count}`,
-    power: lamp.on ? "On" : "Off",
+    lamp: lamp.label,
+    position: `${position} of ${count}`,
+    power: lamp.on
+      ? { value: "On", color: "white", font: { size: 18, weight: 400 } }
+      : { value: "Off", color: "#202020", font: { size: 18, weight: 700 } },
+    temperature: `${lamp.temperatureKelvin} K`,
     brightness: `${lamp.brightnessPercentage}%`,
     lumens: `${lamp.brightnessLumen} lm`,
-    temperature: `${lamp.temperatureKelvin} K`,
   };
 }
 
@@ -245,6 +249,28 @@ describe("LampScreens", () => {
       await lampsChanged?.();
 
       expect(dial.setFeedback).toHaveBeenLastCalledWith(lampScreenOf(turnedOffA, 1, 2));
+    });
+
+    it("shows the power of a lamp turned off in bold dark grey, and in white again once it's on", async () => {
+      const dial = createFakeDial();
+      await screens.tap(dial, owner);
+
+      connect({ ...A, on: false }, B);
+      await screens.refresh();
+
+      expect(dial.setFeedback).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          lamp: A.label,
+          power: { value: "Off", color: "#202020", font: { size: 18, weight: 700 } },
+        }),
+      );
+
+      connect(A, B);
+      await screens.refresh();
+
+      expect(dial.setFeedback).toHaveBeenLastCalledWith(
+        expect.objectContaining({ power: { value: "On", color: "white", font: { size: 18, weight: 400 } } }),
+      );
     });
 
     it("doesn't read the lamps when no dial shows a lamp screen", async () => {

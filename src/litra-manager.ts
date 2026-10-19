@@ -52,6 +52,8 @@ export type LampStatus = {
   id: string;
   serialNumber: string;
   model: string;
+  /** Its name on the Deck, as on the keys' settings pages, such as "Beam - 7K98" (see {@link FoundLamp}). */
+  label: string;
   on: boolean;
   brightnessLumen: number;
   brightnessPercentage: number;
@@ -151,6 +153,14 @@ function lampLabel(device: Device): string {
  */
 export function lampId(serialNumber: string): string {
   return createHash("sha256").update(serialNumber).digest("hex").slice(0, 16);
+}
+
+/**
+ * A lamp as the Deck and the settings pages name it, such as "Beam - 7K98": its model and the last 4 characters of its
+ * serial number, as the logs name it, with a hyphen rather than the logs' "…", which reads poorly there (#20).
+ */
+function displayLabel(device: Device): string {
+  return `${MODEL_BY_DEVICE_TYPE[device.type]} - ${device.serialNumber.slice(-4)}`;
 }
 
 /** The last 4 characters of a serial number, marked as a tail. */
@@ -735,6 +745,7 @@ export async function readLampStatuses(): Promise<{ ok: boolean; lamps: LampStat
         id: lampId(device.serialNumber),
         serialNumber: device.serialNumber,
         model: MODEL_BY_DEVICE_TYPE[device.type],
+        label: displayLabel(device),
         on,
         brightnessLumen,
         brightnessPercentage: percentage,
@@ -757,11 +768,7 @@ export function findLamps(): FoundLamp[] {
   try {
     return [...devices]
       .sort((a, b) => bySerialNumber(a.serialNumber, b.serialNumber))
-      .map((device) => ({
-        id: lampId(device.serialNumber),
-        // The logs' "…" reads poorly on a settings page, so the page sets the model apart with a hyphen.
-        label: `${MODEL_BY_DEVICE_TYPE[device.type]} - ${device.serialNumber.slice(-4)}`,
-      }));
+      .map((device) => ({ id: lampId(device.serialNumber), label: displayLabel(device) }));
   } finally {
     for (const device of devices) {
       closeDevice(device);
