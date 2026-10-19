@@ -19,7 +19,7 @@ permissions: {}
 jobs:
   label-pr:
     name: Label PR
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # A pull request from a fork gets a read-only token, with which labeling fails. It's skipped for those, which
     # alls-green allows, rather than run with pull_request_target, which would give a fork's code write access.
     if: ${{ github.event.pull_request && github.event.pull_request.head.repo.full_name == github.repository }}
@@ -48,7 +48,7 @@ jobs:
 
   lint:
     name: Lint
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     steps:
@@ -66,7 +66,7 @@ jobs:
 
   spell-check:
     name: Spell check
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     steps:
@@ -89,7 +89,7 @@ jobs:
 
   tests:
     name: Tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs:
       - lint
       - spell-check
@@ -145,7 +145,7 @@ jobs:
   alls-green:
     name: Ensure all checks have passed
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs:
       - label-pr
       - lint
@@ -167,7 +167,7 @@ jobs:
     if: >-
       ${{ !cancelled() && needs.alls-green.result == 'success'
       && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs:
       - alls-green
     # Two merges in a row run one after the other, so the second sees the first one's draft.

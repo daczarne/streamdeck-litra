@@ -53,6 +53,7 @@ Every dependency is pinned, and every upgrade is a deliberate change of its own.
 - `@vitest/coverage-v8` requires Vitest's exact version, so it's pinned to the same one and upgraded with Vitest in the same change.
 - An upgrade of `litra` is checked by the integration tests in `src/integration/litra.test.ts`, which run it against emulated lamps and compare the bytes it sends with those of `litra-rs`, another implementation of the protocol. An upgrade that changes the protocol, or fixes a bug the plugin works around, fails there, and each failing test says what to reconsider.
 - GitHub Actions are pinned to full commit SHAs, with the version as a trailing comment, checked against the release tag ([#30]). Like npm packages, they're upgraded by hand. Dependabot was removed ([#40]) because no tests could check the upgrades it proposed.
+- CI's runners are pinned to an Ubuntu release (`ubuntu-24.04`), not `ubuntu-latest`, which GitHub moves to a new release on its own schedule, with the tools its image comes with, such as the Chrome the browser tests drive. Moving to a newer release is an upgrade of its own.
 
 ## Unused code
 
