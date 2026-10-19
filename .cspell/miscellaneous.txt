@@ -4,6 +4,7 @@ davidanson
 hidapi
 imgs
 killall
+libvips
 licence
 osascript
 readback
