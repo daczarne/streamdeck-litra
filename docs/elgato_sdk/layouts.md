@@ -40,6 +40,7 @@ Items can't overlap unless their `zOrder` differs. Stream Deck refuses a layout 
 - `Encoder.layout` in `manifest.json` sets a dial's layout, by name or by the path to a custom one. `setFeedbackLayout` replaces it at runtime.
 - `setFeedback` fills the slots, keyed by their `key`. A slot takes either a plain value (a string or a number) or an object that changes its other properties too, such as a text's color, except its `key`, `rect` and `type`, which are fixed.
 - The integration tests check that every key the plugin sends is one of its layout's: a custom layout's items, read from its file, and a built-in layout's slots, as listed in this document. A screen that uses another built-in layout needs its slots added to the tests.
+- `showAlert` on a dial flashes its part of the touch strip red, where a key shows a yellow triangle (see [the notes on keys][keys]). It showed in full on a dial that went back to its main screen as it was shown, with another layout and new values.
 - A bar's `bar_fill_c` takes a single color or a gradient of `{offset}:{color}` stops. The stops span the bar's filled part, not the whole bar, so a point at a given level sits at that level divided by the bar's `value`. Two stops 0.001 apart draw a sharp edge between two colors.
 
 ## The dial in the app
@@ -62,9 +63,12 @@ Checked against `@elgato/streamdeck` 3.0.1 and the schemas in `@elgato/schemas`,
 
 - The canvas size, the built-in layouts and `Encoder.Icon`: the `Encoder` definition in `@elgato/schemas/streamdeck/plugins/manifest.json`.
 - The item types and the `title` key: `@elgato/streamdeck/dist/api/layout.d.ts` and `@elgato/schemas/streamdeck/plugins/layout.json`.
-- `setFeedback`, `setFeedbackLayout` and `setImage`: `@elgato/streamdeck/dist/plugin/actions/dial.d.ts`.
+- `setFeedback`, `setFeedbackLayout`, `setImage` and `showAlert`: `@elgato/streamdeck/dist/plugin/actions/dial.d.ts`.
+- A dial's alert: seen on the Deck, turning a dial on the lamp screen of a lamp that had been unplugged ([#20]).
 
 [#8]: https://github.com/daczarne/streamdeck-litra/issues/8
+[#20]: https://github.com/daczarne/streamdeck-litra/issues/20
 [#48]: https://github.com/daczarne/streamdeck-litra/issues/48
 [#51]: https://github.com/daczarne/streamdeck-litra/issues/51
 [#59]: https://github.com/daczarne/streamdeck-litra/issues/59
+[keys]: keys.md

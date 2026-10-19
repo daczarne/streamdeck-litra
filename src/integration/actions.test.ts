@@ -416,6 +416,37 @@ describe("the lamp screens", () => {
     expect(feedbackOf(dial)).toMatchObject({ lamp: "Beam · 1 of 2", temperature: "5000 K" });
   });
 
+  it("let each dial turn and toggle its lamp alone, until a turn on a main screen brings them back in sync (#20)", async () => {
+    const { first, second, dial } = await onFirstLampScreen();
+    const temperatureDial = await deck.dial(TEMPERATURE, { stepKelvin: 100 });
+    await deck.tap(temperatureDial);
+    await deck.tap(temperatureDial);
+
+    await deck.turn(dial, -2);
+    await deck.turn(temperatureDial, 1);
+
+    // A brightness change turns its lamp on, as on the main screen.
+    expect([first.on, first.brightnessInLumen, first.temperatureInKelvin]).toEqual([true, LUMEN_AT_80, 6500]);
+    expect([second.on, second.brightnessInLumen, second.temperatureInKelvin]).toEqual([true, LUMEN_AT_50, 4100]);
+    expect(feedbackOf(dial)).toMatchObject({ lamp: "Beam · 1 of 2", brightness: "80%", temperature: "6500 K" });
+    expect(feedbackOf(temperatureDial)).toMatchObject({
+      lamp: "Beam · 2 of 2",
+      brightness: "50%",
+      temperature: "4100 K",
+    });
+
+    await deck.push(dial);
+
+    expect([first.on, second.on]).toEqual([false, true]);
+    expect(feedbackOf(dial)).toMatchObject({ power: "Off" });
+
+    const mainDial = await deck.dial(BRIGHTNESS, { stepPercentage: 10 });
+    await deck.turn(mainDial, 1);
+
+    expect([first.on, second.on]).toEqual([true, true]);
+    expect(first.brightnessInLumen).toBe(second.brightnessInLumen);
+  });
+
   it.each([
     ["Brightness", BRIGHTNESS],
     ["Temperature", TEMPERATURE],

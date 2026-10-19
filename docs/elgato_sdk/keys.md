@@ -23,7 +23,7 @@ By default, Stream Deck switches a key to its other state on every press, before
 
 **A state set right after an alert covers it.** When the plugin calls `setState` on a key just after `showAlert`, Stream Deck draws the state over the alert, even when the state doesn't change. A key pressed fast enough shows the alert for an instant, and otherwise not at all. This was seen on the Power key, which sets its state from the lamps after every operation, the failed ones included. To keep the alert visible, the plugin shows it after the state: an alert shown right after `setState` stays. The Power key shows a failed press's alert once its state is redrawn ([#132]).
 
-**A title set right after an alert doesn't.** The step keys set their title from the lamps after every operation too, and their alert shows in full, with the new title, such as a dash when no lamp answers, drawn under it straight away. Whether `setImage` covers an alert, and whether a redraw covers a dial's alert, hasn't been checked. Either way, the logs say why a key failed (see [the logging document][logging]).
+**A title set right after an alert doesn't.** The step keys set their title from the lamps after every operation too, and their alert shows in full, with the new title, such as a dash when no lamp answers, drawn under it straight away. Whether `setImage` covers an alert hasn't been checked. A dial's alert, a red flash of its part of the strip, showed in full while the dial went back to its main screen (see [the notes on layouts][layouts]). Either way, the logs say why a key failed (see [the logging document][logging]).
 
 ## Sources
 
@@ -36,4 +36,5 @@ Checked against `@elgato/streamdeck` 3.0.1 and the manifest schema in `@elgato/s
 - A custom title that stays: seen on the Deck, on a step key with no lamp connected.
 
 [#132]: https://github.com/daczarne/streamdeck-litra/issues/132
+[layouts]: layouts.md
 [logging]: ../logging.md

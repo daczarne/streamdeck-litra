@@ -9,11 +9,17 @@ export type LampScreenDial = Pick<
   "id" | "setFeedback" | "setFeedbackLayout" | "setTriggerDescription" | "showAlert"
 >;
 
+/** What only a dial's action knows: how to draw its main screen, and what turning the dial adjusts. */
+export type DialOwner = {
+  showMain: () => Promise<void>;
+  /** What turning the dial adjusts, which the app shows as the description of a turn. */
+  adjusts: string;
+};
+
 type Screen = {
   dial: LampScreenDial;
   serialNumber: string;
-  /** Draws the dial's main screen again, which only its action knows how to do. */
-  showMain: () => Promise<void>;
+  owner: DialOwner;
 };
 
 const logger = pluginLogger.createScope("Lamp screens");
@@ -21,15 +27,15 @@ const logger = pluginLogger.createScope("Lamp screens");
 export const MAIN_LAYOUT = "$B1";
 const LAMP_LAYOUT = "layouts/lamp.json";
 
-// Turning the dial does nothing on a lamp screen, so it gets no description.
-const LAMP_TRIGGER_DESCRIPTIONS = { push: "Identify", touch: "Next lamp", longTouch: "Back" };
+// The gestures on a lamp screen act on its lamp alone (#20).
+const LAMP_TRIGGER_DESCRIPTIONS = { push: "Power", touch: "Next lamp", longTouch: "Identify" };
 
 /**
  * The lamp screens of every Brightness and Temperature dial (#48). Tapping a dial's strip shows each lamp in turn, in
  * the order of their serial numbers, then the dial's main screen again. A dial stays on a lamp screen until it's tapped
- * past the last lamp or its strip is held. Each dial remembers the serial of the lamp it
- * shows rather than its position, so a lamp unplugged mid-cycle is skipped and "n of m" counts the lamps connected at
- * that moment.
+ * past the last lamp, and while it's there, its action turns and toggles that lamp alone (#20). Each dial remembers the
+ * serial of the lamp it shows rather than its position, so a lamp unplugged mid-cycle is skipped and "n of m" counts
+ * the lamps connected at that moment.
  *
  * Every dial shares one instance, which redraws every lamp screen whenever the lamps change, whichever action changed
  * them. Operations run one at a time, since each reads the lamps and changes what a dial shows, and never reject:
@@ -49,8 +55,13 @@ export class LampScreens {
     return this.screens.has(dialId);
   }
 
+  /** The serial number of the lamp on a dial's screen, or undefined on its main screen. */
+  lampOnScreen(dialId: string): string | undefined {
+    return this.screens.get(dialId)?.serialNumber;
+  }
+
   /** Shows the lamp after the one on screen, the first lamp from the main screen, and the main screen after the last. */
-  tap(dial: LampScreenDial, showMain: () => Promise<void>): Promise<void> {
+  tap(dial: LampScreenDial, owner: DialOwner): Promise<void> {
     return this.enqueue(async () => {
       const { lamps } = await readLampStatuses();
       const current = this.screens.get(dial.id)?.serialNumber;
@@ -63,7 +74,7 @@ export class LampScreens {
         await this.backToMain(dial.id);
         return;
       }
-      await this.show(dial, next, lamps, showMain);
+      await this.show(dial, next, lamps, owner);
     });
   }
 
@@ -79,11 +90,6 @@ export class LampScreens {
         await dial.showAlert();
       }
     });
-  }
-
-  /** Takes a dial back to its main screen. */
-  back(dialId: string): Promise<void> {
-    return this.enqueue(() => this.backToMain(dialId));
   }
 
   /** Redraws every lamp screen from a fresh read. */
@@ -132,17 +138,12 @@ export class LampScreens {
   }
 
   /** Draws a lamp on a dial, switching it to the lamp layout first if it was on its main screen. */
-  private async show(
-    dial: LampScreenDial,
-    lamp: LampStatus,
-    lamps: LampStatus[],
-    showMain: () => Promise<void>,
-  ): Promise<void> {
+  private async show(dial: LampScreenDial, lamp: LampStatus, lamps: LampStatus[], owner: DialOwner): Promise<void> {
     const wasShowing = this.screens.has(dial.id);
-    this.screens.set(dial.id, { dial, serialNumber: lamp.serialNumber, showMain });
+    this.screens.set(dial.id, { dial, serialNumber: lamp.serialNumber, owner });
     if (!wasShowing) {
       await dial.setFeedbackLayout(LAMP_LAYOUT);
-      await dial.setTriggerDescription(LAMP_TRIGGER_DESCRIPTIONS);
+      await dial.setTriggerDescription({ rotate: owner.adjusts, ...LAMP_TRIGGER_DESCRIPTIONS });
     }
     await draw(dial, lamp, lamps);
   }
@@ -156,7 +157,7 @@ export class LampScreens {
     this.screens.delete(dialId);
     await screen.dial.setFeedbackLayout(MAIN_LAYOUT);
     await screen.dial.setTriggerDescription();
-    await screen.showMain();
+    await screen.owner.showMain();
   }
 }
 

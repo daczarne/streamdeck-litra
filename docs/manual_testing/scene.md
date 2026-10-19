@@ -4,7 +4,7 @@
 - [Setup](#setup)
 - [Checks](#checks)
 
-A Scene key turns every lamp on at its brightness and temperature in one press ([#86]). The unit tests check against emulated lamps that each lamp is turned on, then set to the temperature, snapped to one it allows, then to the brightness, within its cap, and that a scene waits its turn behind a brightness change. They check against a fake Stream Deck what the key sends for its settings, and the integration tests that the Power keys and the dials follow a press. The checks below cover what they take for granted: that Stream Deck offers the action with its icon and image, shows its settings page, and passes on its settings, and that the lamps and the touch strip show the result. Every connected lamp is managed as one group (see "Lamps are managed together" in [the contributing guide][contributing]).
+A Scene key turns every lamp on at its brightness and temperature in one press ([#86]). The unit tests check against emulated lamps that each lamp is turned on, then set to the temperature, snapped to one it allows, then to the brightness, within its cap, and that a scene waits its turn behind a brightness change. They check against a fake Stream Deck what the key sends for its settings, and the integration tests that the Power keys and the dials follow a press. The checks below cover what they take for granted: that Stream Deck offers the action with its icon and image, shows its settings page, and passes on its settings, and that the lamps and the touch strip show the result. Every connected lamp is managed as one group (see "By default, lamps are managed together" in [the contributing guide][contributing]).
 
 ## When to run these checks
 
