@@ -59,7 +59,7 @@ An action shows an alert on the key or dial that failed. On a key, the redraw th
 
 ## Turning a dial
 
-A dial sends a tick at a time, and a quick turn sends many. The dial gathers ticks for a moment (`createDialDebouncer`), so a turn moves the lamps once, by the step the dial has when they're applied. The step keys gather their presses the same way. A step stops on the multiples of the step counted from the bottom of the range ([#14], [#16]), so a dial and a key go through the same values up and down.
+A dial sends a tick at a time, and a quick turn sends many. The dial gathers ticks for a moment (`createDialDebouncer`), so a turn moves the lamps once, by the step the dial has when they're applied. A dial gathers its ticks apart for each lamp it turns, its main screen counting as one, so ticks turned on a lamp screen reach that lamp even when the strip is tapped before they're applied ([#20]). The step keys gather their presses the same way. A step stops on the multiples of the step counted from the bottom of the range ([#14], [#16]), so a dial and a key go through the same values up and down.
 
 [#14]: https://github.com/daczarne/streamdeck-litra/issues/14
 [#16]: https://github.com/daczarne/streamdeck-litra/issues/16

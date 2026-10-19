@@ -8,7 +8,7 @@ Tapping a Brightness or Temperature dial's part of the touch strip shows one scr
 
 ## When to run these checks
 
-- After a change to the lamp screens, to their layout in `layouts/lamp.json`, or to how the plugin reads the lamps.
+- After a change to the lamp screens, to their layout in `layouts/lamp.json`, or to how the plugin reads the lamps or picks the ones an operation acts on.
 - After a Stream Deck update.
 
 ## Setup

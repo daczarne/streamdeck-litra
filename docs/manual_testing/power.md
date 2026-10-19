@@ -28,8 +28,8 @@ To put the lamps out of sync, turn one Beam off with its own power button. The p
 
 1. **The key brings lamps out of sync together.** Turn both lamps on, then one off with its button. Press the Power key: both lamps turn on, and the key shows on.
 2. **The key turns lamps in sync off.** Press the Power key again: both lamps turn off, and the key shows off. Press it once more: both turn on.
-3. **A dial press brings lamps out of sync together.** Turn one lamp off with its button. Press the Brightness dial: both lamps turn on. Turn one off again and press the Temperature dial: both lamps turn on.
-4. **A dial press turns lamps in sync off.** With both lamps on, press either dial: both lamps turn off. Press it again: both turn on.
+3. **A dial press brings lamps out of sync together.** Turn one lamp off with its button. With both dials on their main screen, press the Brightness dial: both lamps turn on. Turn one off again and press the Temperature dial: both lamps turn on.
+4. **A dial press turns lamps in sync off.** With both lamps on, press either dial on its main screen: both lamps turn off. Press it again: both turn on.
 5. **Every Power key follows a Power key.** Press one Power key: both lamps change, and both Power keys show the new state.
 6. **Every Power key follows a dial press.** Press either dial: both lamps change, and both Power keys show the new state.
 7. **Every Power key follows a Brightness key.** With both lamps off, press the Brightness key: both lamps turn on at its preset, and both Power keys show on. Turn the lamps off again and turn the Brightness dial: the same happens.

@@ -19,18 +19,18 @@ Not an official Logitech or Elgato product.
 
 ## Actions
 
-|                                 | Action               | Key                                        | Dial (Stream Deck +)                                               |
-|:-------------------------------:|:---------------------|:-------------------------------------------|:-------------------------------------------------------------------|
-|         ![Power][power]         | **Power**            | On, off or toggle                          | None                                                               |
-|      ![Brightness][bright]      | **Brightness**       | Jump to a preset %                         | Rotate to adjust, press toggles power, tap the strip for each lamp |
-|       ![Temperature][temp]      | **Temperature**      | Jump to a preset Kelvin                    | Rotate to adjust, press toggles power, tap the strip for each lamp |
-|         ![Scene][scene]         | **Scene**            | Turn the lamps on at a preset % and Kelvin | None                                                               |
-|   ![Brightness Up][bright-up]   | **Brightness Up**    | Step up by the key's %                     | None                                                               |
-| ![Brightness Down][bright-down] | **Brightness Down**  | Step down by the key's %                   | None                                                               |
-|    ![Temperature Up][temp-up]   | **Temperature Up**   | Step up, cooler, by the key's Kelvin       | None                                                               |
-|  ![Temperature Down][temp-down] | **Temperature Down** | Step down, warmer, by the key's Kelvin     | None                                                               |
+|                                 | Action               | Key                                        | Dial (Stream Deck +)                                                      |
+|:-------------------------------:|:---------------------|:-------------------------------------------|:--------------------------------------------------------------------------|
+|         ![Power][power]         | **Power**            | On, off or toggle                          | None                                                                      |
+|      ![Brightness][bright]      | **Brightness**       | Jump to a preset %                         | Rotate to adjust, press toggles power, tap the strip to control each lamp |
+|       ![Temperature][temp]      | **Temperature**      | Jump to a preset Kelvin                    | Rotate to adjust, press toggles power, tap the strip to control each lamp |
+|         ![Scene][scene]         | **Scene**            | Turn the lamps on at a preset % and Kelvin | None                                                                      |
+|   ![Brightness Up][bright-up]   | **Brightness Up**    | Step up by the key's %                     | None                                                                      |
+| ![Brightness Down][bright-down] | **Brightness Down**  | Step down by the key's %                   | None                                                                      |
+|    ![Temperature Up][temp-up]   | **Temperature Up**   | Step up, cooler, by the key's Kelvin       | None                                                                      |
+|  ![Temperature Down][temp-down] | **Temperature Down** | Step down, warmer, by the key's Kelvin     | None                                                                      |
 
-- Every action applies to all connected lamps at once. There is no per-lamp picker yet.
+- Keys and a dial's main screen apply to all connected lamps at once, and have no per-lamp picker yet. A dial's lamp screens control one lamp at a time (see [Usage tips](#usage-tips)).
 - The plugin talks to the lamps in-process over USB HID, through the [`litra`][litra] Node library, with no CLI subprocess. [The architecture document][architecture] explains why, and how the plugin's parts fit together.
 - The brightness is read from two bytes. The stock `litra` library only reads the low one, which truncates values above 255 lumens, where a Beam goes.
 
