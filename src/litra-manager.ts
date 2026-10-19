@@ -43,7 +43,7 @@ export type LampSelection = "all" | readonly string[];
 /** A connected lamp, as a settings page lists it (#20). */
 export type FoundLamp = {
   id: string;
-  /** Its model and the end of its serial number, as the logs name it. */
+  /** Its model and the last 4 characters of its serial number, such as "Beam - 7K98". */
   label: string;
 };
 
@@ -757,7 +757,11 @@ export function findLamps(): FoundLamp[] {
   try {
     return [...devices]
       .sort((a, b) => bySerialNumber(a.serialNumber, b.serialNumber))
-      .map((device) => ({ id: lampId(device.serialNumber), label: lampLabel(device) }));
+      .map((device) => ({
+        id: lampId(device.serialNumber),
+        // The logs' "…" reads poorly on a settings page, so the page sets the model apart with a hyphen.
+        label: `${MODEL_BY_DEVICE_TYPE[device.type]} - ${device.serialNumber.slice(-4)}`,
+      }));
   } finally {
     for (const device of devices) {
       closeDevice(device);

@@ -1,6 +1,7 @@
 # Property Inspector
 
 - [How Stream Deck loads a page](#how-stream-deck-loads-a-page)
+- [Talking to the plugin](#talking-to-the-plugin)
 - [Content-Security-Policy](#content-security-policy)
 - [Debugging a page](#debugging-a-page)
 - [Sources](#sources)
@@ -13,6 +14,14 @@ An action's settings page is its Property Inspector: an HTML page from the plugi
 - A plugin's page loads from `file://`, at its path in the plugin folder. For this linked plugin, that's the repository: `file:///Users/.../streamdeck-litra/com.daczarne.litra.sdPlugin/ui/temperature.html`. Stream Deck also registers its own `sdpi:` scheme, but uses it for its own panels (`sdpi://ui`), not for plugins' pages.
 - Only the page of the selected action exists. Selecting another action replaces it with a new page.
 - Stream Deck calls a global function on the page, `connectElgatoStreamDeckSocket`, with a port and the action's details, including whether it sits on a key or a dial. The page then opens a WebSocket to `ws://localhost:<port>`, through which it reads and saves the settings. sdpi-components defines that function, so the pages here don't.
+
+## Talking to the plugin
+
+A page and the plugin exchange messages through Stream Deck, which the lamp picker on the keys' pages relies on ([#20]):
+
+- A page sends `sendToPlugin` over its WebSocket, with a payload of its own. The plugin receives it through `streamDeck.ui.onSendToPlugin`, whichever action the page belongs to, so one listener can answer every page. `streamDeck.ui.sendToPropertyInspector` answers, and only reaches the page that's shown.
+- sdpi-components' `SDPIComponents.streamDeckClient.get(…)` sends a message and waits for the reply that matches it. Its `datasource` attribute fills a select or a checkbox list the same way, but a checkbox list's items are only a checkbox and a label, so they can't hold a button.
+- `SDPIComponents.useSettings(key)` reads and saves one setting while keeping the others, for a page script that draws its own controls. sdpi-components' checkbox and button work there as plain elements: without a `setting`, a checkbox saves nothing itself.
 
 ## Content-Security-Policy
 
@@ -39,5 +48,8 @@ Checked on Stream Deck 7.6, on macOS, while adding the Content-Security-Policy (
 - `connectElgatoStreamDeckSocket` and the WebSocket to `localhost`: the vendored `ui/vendor/sdpi-components.js`.
 - The policy: each page's console in DevTools, and the panels on the Deck.
 
+Checked while adding the lamp picker ([#20]): the messages and `useSettings` in the vendored `ui/vendor/sdpi-components.js` and in `@elgato/streamdeck/dist/plugin/ui.d.ts`, then the picker on the Deck, listing the lamps, saving them and blinking one.
+
 [#9]: https://github.com/daczarne/streamdeck-litra/issues/9
+[#20]: https://github.com/daczarne/streamdeck-litra/issues/20
 [manual-test]: ../manual_testing/settings_pages.md

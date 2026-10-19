@@ -1,7 +1,7 @@
 import type { JsonValue } from "@elgato/utils";
 import { assert, describe, expect, it, vi } from "vitest";
 
-import { brightnessSettings, parseSettings, powerSettings, temperatureSettings } from "./settings";
+import { brightnessSettings, describeLamps, parseSettings, powerSettings, temperatureSettings } from "./settings";
 
 //* Fakes
 
@@ -11,18 +11,18 @@ const logger = { warn: vi.fn() };
 
 describe("parseSettings", () => {
   it.each([
-    ["Power", powerSettings, { mode: "toggle" }],
-    ["Brightness", brightnessSettings, { presetPercentage: 0, stepPercentage: 10 }],
-    ["Temperature", temperatureSettings, { presetKelvin: 2700, stepKelvin: 300 }],
+    ["Power", powerSettings, { mode: "toggle", lamps: "all" }],
+    ["Brightness", brightnessSettings, { presetPercentage: 0, stepPercentage: 10, lamps: "all" }],
+    ["Temperature", temperatureSettings, { presetKelvin: 2700, stepKelvin: 300, lamps: "all" }],
   ])("gives %s's defaults for the settings that are missing, without a warning", (_action, schema, defaults) => {
     expect(parseSettings({}, schema, logger)).toEqual(defaults);
     expect(logger.warn).not.toHaveBeenCalled();
   });
 
   it.each([
-    ["Power", powerSettings, { mode: "off" }],
-    ["Brightness", brightnessSettings, { presetPercentage: 40, stepPercentage: 20 }],
-    ["Temperature", temperatureSettings, { presetKelvin: 5000, stepKelvin: 500 }],
+    ["Power", powerSettings, { mode: "off", lamps: "all" }],
+    ["Brightness", brightnessSettings, { presetPercentage: 40, stepPercentage: 20, lamps: "all" }],
+    ["Temperature", temperatureSettings, { presetKelvin: 5000, stepKelvin: 500, lamps: "all" }],
   ])("keeps %s's valid settings", (_action, schema, settings) => {
     expect(parseSettings(settings, schema, logger)).toEqual(settings);
     expect(logger.warn).not.toHaveBeenCalled();
@@ -81,6 +81,13 @@ describe("parseSettings", () => {
       ["mode", powerSettings, "On"],
       ["mode", powerSettings, ""],
       ["mode", powerSettings, 1],
+      // A list of lamps holds each lamp's id and label, as the settings page saves them (#20).
+      ["lamps", powerSettings, "every"],
+      ["lamps", powerSettings, 1],
+      ["lamps", powerSettings, { id: "0123456789abcdef" }],
+      ["lamps", powerSettings, ["0123456789abcdef"]],
+      ["lamps", powerSettings, [{ label: "Beam - 1234" }]],
+      ["lamps", powerSettings, [{ id: 1, label: "Beam - 1234" }]],
     ];
 
     it.each(invalid)("%s set to %j", (name, schema, value) => {
@@ -101,7 +108,40 @@ describe("parseSettings", () => {
   it("warns once for each setting that isn't valid, and keeps the others", () => {
     const parsed = parseSettings({ presetPercentage: "abc", stepPercentage: 20 }, brightnessSettings, logger);
 
-    expect(parsed).toEqual({ presetPercentage: 0, stepPercentage: 20 });
+    expect(parsed).toEqual({ presetPercentage: 0, stepPercentage: 20, lamps: "all" });
     expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("presetPercentage"));
+  });
+
+  describe("lamps (#20)", () => {
+    it("takes the ids of the lamps the settings page saved, leaving their labels", () => {
+      const lamps = [
+        { id: "0123456789abcdef", label: "Beam - 1234" },
+        { id: "fedcba9876543210", label: "Beam - 5678" },
+      ];
+
+      expect(parseSettings({ lamps }, powerSettings, logger)).toMatchObject({
+        lamps: ["0123456789abcdef", "fedcba9876543210"],
+      });
+      expect(logger.warn).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ["every lamp", "all"],
+      ["no lamp", []],
+    ])("takes %s", (_name, lamps) => {
+      expect(parseSettings({ lamps }, powerSettings, logger)).toMatchObject({ lamps });
+      expect(logger.warn).not.toHaveBeenCalled();
+    });
+  });
+});
+
+describe("describeLamps", () => {
+  it.each([
+    ["all", "every lamp"],
+    [["0123456789abcdef"], "1 lamp"],
+    [["0123456789abcdef", "fedcba9876543210"], "2 lamps"],
+    [[], "0 lamps"],
+  ] as const)("describes %j as %s", (lamps, description) => {
+    expect(describeLamps(lamps)).toBe(description);
   });
 });

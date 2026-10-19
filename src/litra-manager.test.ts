@@ -1426,8 +1426,8 @@ describe("findLamps", () => {
     connect(second, first);
 
     expect(manager.findLamps()).toEqual([
-      { id: manager.lampId("2325FE01AAAA"), label: "Beam LX …AAAA" },
-      { id: manager.lampId("2325FE02BBBB"), label: "Beam …BBBB" },
+      { id: manager.lampId("2325FE01AAAA"), label: "Beam LX - AAAA" },
+      { id: manager.lampId("2325FE02BBBB"), label: "Beam - BBBB" },
     ]);
   });
 

@@ -22,7 +22,7 @@ import {
 } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
 import { type LampScreens, lampScreens as sharedLampScreens } from "./lamp-screens";
-import { brightnessSettings, parseSettings } from "./settings";
+import { brightnessSettings, describeLamps, parseSettings } from "./settings";
 
 const logger = pluginLogger.createScope("Brightness");
 
@@ -61,7 +61,7 @@ export function barFill(levels: number[]): string {
 }
 
 /**
- * The Brightness action. On a key, it sets every lamp to the key's preset. On a dial, it steps the brightness as the
+ * The Brightness action. On a key, it sets its lamps to the key's preset. On a dial, it steps the brightness as the
  * dial turns, toggles the lamps when pressed, and shows each lamp on its own screen when the strip is tapped. On a
  * lamp screen, turning and pushing the dial act on that lamp alone, and holding the strip blinks it (#20).
  */
@@ -101,13 +101,13 @@ export class BrightnessAction extends SingletonAction {
   }
 
   /**
-   * Sets every lamp to the key's preset. The key keeps showing its preset, and the dials follow through the subscription
+   * Sets the key's lamps to its preset. The key keeps showing its preset, and the dials follow through the subscription
    * with what the lamps reached, which is less for a lamp at its cap.
    */
   override async onKeyDown(ev: KeyDownEvent): Promise<void> {
-    const { presetPercentage: preset } = parseSettings(ev.payload.settings, brightnessSettings, logger);
-    logger.info(`Key pressed: preset ${preset}%`);
-    const result = await setLampsBrightness("all", preset);
+    const { presetPercentage: preset, lamps } = parseSettings(ev.payload.settings, brightnessSettings, logger);
+    logger.info(`Key pressed: preset ${preset}%, on ${describeLamps(lamps)}`);
+    const result = await setLampsBrightness(lamps, preset);
     if (!result.ok) {
       await ev.action.showAlert();
     }

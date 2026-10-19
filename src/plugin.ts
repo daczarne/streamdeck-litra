@@ -1,6 +1,7 @@
 import streamDeck from "@elgato/streamdeck";
 
 import { BrightnessAction } from "./actions/brightness";
+import { answerLampPickers } from "./actions/lamp-picker";
 import { PowerAction } from "./actions/power";
 import { SceneAction } from "./actions/scene";
 import {
@@ -26,6 +27,7 @@ streamDeck.actions.registerAction(new BrightnessUpAction());
 streamDeck.actions.registerAction(new BrightnessDownAction());
 streamDeck.actions.registerAction(new TemperatureUpAction());
 streamDeck.actions.registerAction(new TemperatureDownAction());
+answerLampPickers();
 
 // Logged here rather than left to the SDK, which logs an unhandled rejection to its own files, not to litra.log.
 streamDeck.connect().catch((error: unknown) => {

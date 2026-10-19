@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import type { JsonValue } from "@elgato/utils";
 
 import { vi } from "vitest";
 
@@ -90,8 +91,32 @@ export function registeredActions(): readonly SingletonAction[] {
  * The SDK's entry point, as plugin.ts uses it: it records the actions registered, and connects to nothing. Like the
  * SDK, it refuses an action whose id the manifest doesn't list, which Stream Deck would never send events to.
  */
+const pluginListeners: Array<(ev: { payload: JsonValue }) => void> = [];
+const toPropertyInspector: JsonValue[] = [];
+
+/** Sends a message from a settings page to the plugin, as Stream Deck passes it on. */
+export function sendToPlugin(payload: JsonValue): void {
+  for (const listener of pluginListeners) {
+    listener({ payload });
+  }
+}
+
+/** What the plugin sent to the settings pages, in order. */
+export function sentToPropertyInspector(): readonly JsonValue[] {
+  return toPropertyInspector;
+}
+
 export default {
   logger: { setLevel: (_level: string): void => {} },
+  ui: {
+    onSendToPlugin: (listener: (ev: { payload: JsonValue }) => void): { dispose: () => void } => {
+      pluginListeners.push(listener);
+      return { dispose: () => pluginListeners.splice(pluginListeners.indexOf(listener), 1) };
+    },
+    sendToPropertyInspector: async (payload: JsonValue): Promise<void> => {
+      toPropertyInspector.push(payload);
+    },
+  },
   actions: {
     registerAction: (registering: SingletonAction): void => {
       if (registering.manifestId === undefined || !MANIFEST_UUIDS.includes(registering.manifestId)) {

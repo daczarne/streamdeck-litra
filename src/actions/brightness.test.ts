@@ -157,6 +157,18 @@ describe("BrightnessAction", () => {
   });
 
   describe("on a key press", () => {
+    it("sets the key's lamps alone, picked on the settings page (#20)", async () => {
+      const lamps = [{ id: "lamp-1", label: "Beam - 1111" }];
+      const key = await deck.key(BRIGHTNESS, { presetPercentage: 100, lamps });
+      clearCalls();
+      vi.mocked(setLampsBrightness).mockResolvedValue(REACHED_AT_CAP);
+
+      await deck.press(key);
+
+      expect(setLampsBrightness).toHaveBeenCalledExactlyOnceWith(["lamp-1"], 100);
+      expect(logger.info).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("1 lamp"));
+    });
+
     it("sets the lamps to the key's preset, and leaves showing the result to the notice", async () => {
       const key = await deck.key(BRIGHTNESS, { presetPercentage: 100 });
       const dial = await deck.dial(BRIGHTNESS);

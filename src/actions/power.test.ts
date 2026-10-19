@@ -26,6 +26,10 @@ const POWER = "com.daczarne.litra.power";
 
 const SWITCHED = { ok: true, deviceCount: 2, failures: 0 };
 
+// Lamps as the settings page saves them, with their ids and labels (#20).
+const LAMP_1 = { id: "lamp-1", label: "Beam - 1111" };
+const LAMP_2 = { id: "lamp-2", label: "Beam - 2222" };
+
 let deck: FakeDeck;
 // What the action does when litra-manager announces that the lamps changed.
 let lampsChanged: () => Promise<void>;
@@ -171,5 +175,81 @@ describe("PowerAction", () => {
     const key = await deck.key(POWER);
 
     expect(key.setState).toHaveBeenCalledExactlyOnceWith(1);
+  });
+
+  describe("with lamps picked on the settings page (#20)", () => {
+    it.each([
+      ["toggle" as const, toggleLamps],
+      ["on" as const, turnLampsOn],
+      ["off" as const, turnLampsOff],
+    ])("in mode %s, switches the key's lamps alone", async (mode, operation) => {
+      const key = await deck.key(POWER, { mode, lamps: [LAMP_1, LAMP_2] });
+      clearCalls();
+      vi.mocked(operation).mockReturnValue(SWITCHED);
+
+      await deck.press(key);
+
+      expect(operation).toHaveBeenCalledExactlyOnceWith([LAMP_1.id, LAMP_2.id]);
+    });
+
+    it("switches every lamp from a key without lamps saved, set up before they could be picked", async () => {
+      const key = await deck.key(POWER, { mode: "toggle" });
+      clearCalls();
+      vi.mocked(toggleLamps).mockReturnValue(SWITCHED);
+
+      await deck.press(key);
+
+      expect(toggleLamps).toHaveBeenCalledExactlyOnceWith("all");
+    });
+
+    it("shows each key the state of its own lamps, from one read for each set of lamps", async () => {
+      const onEvery = await deck.key(POWER);
+      const onFirst = await deck.key(POWER, { lamps: [LAMP_1] });
+      const alsoOnFirst = await deck.key(POWER, { lamps: [LAMP_1] });
+      const onSecond = await deck.key(POWER, { lamps: [LAMP_2] });
+      clearCalls();
+      // Lamp 1 is on, lamp 2 off.
+      vi.mocked(areLampsOn).mockImplementation(async (lamps) => ({
+        ok: true,
+        allOn: lamps !== "all" && lamps.every((id) => id === LAMP_1.id),
+        deviceCount: lamps === "all" ? 2 : lamps.length,
+      }));
+
+      await lampsChanged();
+
+      expect([onEvery, onFirst, alsoOnFirst, onSecond].map((key) => key.setState.mock.lastCall)).toEqual([
+        [0],
+        [1],
+        [1],
+        [0],
+      ]);
+      expect(vi.mocked(areLampsOn).mock.calls).toEqual([["all"], [[LAMP_1.id]], [[LAMP_2.id]]]);
+    });
+
+    it("shows the state of the key's new lamps once they're changed on the settings page", async () => {
+      const key = await deck.key(POWER);
+      clearCalls();
+      vi.mocked(areLampsOn).mockResolvedValue({ ok: true, allOn: true, deviceCount: 1 });
+
+      await deck.changeSettings(key, { lamps: [LAMP_2] });
+
+      expect(areLampsOn).toHaveBeenCalledExactlyOnceWith([LAMP_2.id]);
+      expect(key.setState).toHaveBeenCalledExactlyOnceWith(1);
+    });
+
+    it("logs how many lamps a press switches", async () => {
+      const key = await deck.key(POWER, { mode: "on", lamps: [LAMP_1] });
+      const everyLamp = await deck.key(POWER, { mode: "on" });
+      clearCalls();
+      vi.mocked(turnLampsOn).mockReturnValue(SWITCHED);
+
+      await deck.press(key);
+      await deck.press(everyLamp);
+
+      expect(vi.mocked(logger.info).mock.calls).toEqual([
+        [expect.stringContaining("1 lamp")],
+        [expect.stringContaining("every lamp")],
+      ]);
+    });
   });
 });
