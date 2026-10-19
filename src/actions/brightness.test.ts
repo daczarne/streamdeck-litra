@@ -64,13 +64,14 @@ const BEAM: LampStatus = {
   id: "lamp-A1",
   serialNumber: "A1",
   model: "Beam",
+  label: "Beam - A1",
   on: true,
   brightnessLumen: 324,
   brightnessPercentage: 79,
   temperatureKelvin: 2700,
 };
 
-const OTHER_BEAM: LampStatus = { ...BEAM, id: "lamp-B2", serialNumber: "B2" };
+const OTHER_BEAM: LampStatus = { ...BEAM, id: "lamp-B2", serialNumber: "B2", label: "Beam - B2" };
 
 let deck: FakeDeck;
 // What the action does when litra-manager announces that the lamps changed.
