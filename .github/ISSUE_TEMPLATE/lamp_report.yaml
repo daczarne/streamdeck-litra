@@ -28,7 +28,7 @@ body:
     attributes:
       label: Plugin version
       description: In Stream Deck's preferences, under Plugins.
-      placeholder: 0.1.0
+      placeholder: 0.2.0
     validations:
       required: true
   - type: input
