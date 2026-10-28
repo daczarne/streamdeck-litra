@@ -161,12 +161,19 @@ export const sceneSettings = {
 // The lamps alone, for an action that reads them apart from its other settings.
 export const lampSettings = { lamps };
 
-// The plugin's own settings, which every dial shares rather than each saving its own. With the blink on, tapping a dial
-// through its lamp screens blinks each lamp as its screen appears (#144). It's off by default, since every lamp then
-// blinks in turn, which shows on camera.
+// The plugin's own settings, which every dial and key shares rather than each saving its own. With the blink on, tapping
+// a dial through its lamp screens blinks each lamp as its screen appears (#144). It's off by default, since every lamp
+// then blinks in turn, which shows on camera. With a difference kept, a turn on a dial's main screen and a step key's
+// press step each lamp from its own value, instead of bringing the lamps back in sync (#145). Brightness and
+// temperature each have their own, so lamps can keep their brightness apart while their colors stay matched. Both are
+// off by default: the lamps are managed together (see docs/contributing.md).
 export const globalSettings = {
   blinkOnLampScreen: flag(false),
+  keepBrightnessDifference: flag(false),
+  keepTemperatureDifference: flag(false),
 };
+
+export type GlobalSettings = Parsed<typeof globalSettings>;
 
 /**
  * Reads an action's settings, or the plugin's global ones, as Stream Deck sent them, against their schema (#22). A setting that is missing

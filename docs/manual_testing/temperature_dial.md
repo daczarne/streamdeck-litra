@@ -4,7 +4,7 @@
 - [Setup](#setup)
 - [Checks](#checks)
 
-The unit tests check how the Temperature dial steps, against emulated lamps, and that every temperature dial follows each change to the lamps, against a fake Stream Deck. The checks below cover what they take for granted: that Stream Deck lists every dial of the action and passes on each dial's step, and that the touch strip shows what the plugin sends it. From its main screen, every connected lamp is managed as one group (see "By default, lamps are managed together" in [the contributing guide][contributing]).
+The unit tests check how the Temperature dial steps, against emulated lamps, and that every temperature dial follows each change to the lamps, against a fake Stream Deck. The checks below cover what they take for granted: that Stream Deck lists every dial of the action and passes on each dial's step, and that the touch strip shows what the plugin sends it. From its main screen, every connected lamp is managed as one group (see "By default, lamps are managed together" in [the contributing guide][contributing]). Lamps kept apart by the global setting are checked in [`lamps_apart.md`][lamps-apart].
 
 ## When to run these checks
 
@@ -13,7 +13,7 @@ The unit tests check how the Temperature dial steps, against emulated lamps, and
 
 ## Setup
 
-Plug in two Beams. Place two Temperature dials and two Temperature keys on the Deck, one key set to 3000 K and the other to 6000 K. Build the branch and restart the plugin:
+Plug in two Beams. Place two Temperature dials and two Temperature keys on the Deck, one key set to 3000 K and the other to 6000 K. Leave "Each lamp" unchecked on the settings pages, its default, so the lamps step together (see [`lamps_apart.md`][lamps-apart]). Build the branch and restart the plugin:
 
 ```shell
 npm run build
@@ -34,3 +34,4 @@ In VS Code, the `Build and restart` task runs both.
 [#16]: https://github.com/daczarne/streamdeck-litra/issues/16
 [#51]: https://github.com/daczarne/streamdeck-litra/issues/51
 [contributing]: ../contributing.md
+[lamps-apart]: lamps_apart.md

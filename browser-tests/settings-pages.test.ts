@@ -59,7 +59,7 @@ const PANELS: Panel[] = [
     page: "ui/brightness.html",
     controller: "Encoder",
     settings: ["stepPercentage"],
-    globalSettings: ["blinkOnLampScreen"],
+    globalSettings: ["keepBrightnessDifference", "blinkOnLampScreen"],
     change: { setting: "stepPercentage", value: "20", saved: 20 },
     sliders: [{ setting: "stepPercentage", suffix: "%", value: "20" }],
   },
@@ -74,7 +74,7 @@ const PANELS: Panel[] = [
     page: "ui/temperature.html",
     controller: "Encoder",
     settings: ["stepKelvin"],
-    globalSettings: ["blinkOnLampScreen"],
+    globalSettings: ["keepTemperatureDifference", "blinkOnLampScreen"],
     change: { setting: "stepKelvin", value: "500", saved: "500" },
   },
   {
@@ -91,6 +91,7 @@ const PANELS: Panel[] = [
     page: "ui/brightness-step.html",
     controller: "Keypad",
     settings: ["stepPercentage"],
+    globalSettings: ["keepBrightnessDifference"],
     change: { setting: "stepPercentage", value: "20", saved: 20 },
     sliders: [{ setting: "stepPercentage", suffix: "%", value: "20" }],
   },
@@ -98,6 +99,7 @@ const PANELS: Panel[] = [
     page: "ui/temperature-step.html",
     controller: "Keypad",
     settings: ["stepKelvin"],
+    globalSettings: ["keepTemperatureDifference"],
     change: { setting: "stepKelvin", value: "500", saved: "500" },
   },
 ];
@@ -420,16 +422,19 @@ describe("settings pages", () => {
     });
   });
 
-  const blinkPanels = PANELS.filter((panel) => panel.globalSettings?.includes("blinkOnLampScreen"));
-  describe.each(blinkPanels)("the lamp screens' blink on $page on $controller (#144)", (panel) => {
+  // Every checkbox of a global setting, on every page that shows it (#144, #145).
+  const globalCheckboxes = PANELS.flatMap((panel) =>
+    (panel.globalSettings ?? []).map((setting) => ({ panel, setting })),
+  );
+  describe.each(globalCheckboxes)("the global $setting on $panel.page on $panel.controller", ({ panel, setting }) => {
     afterEach(() => {
       streamDeck.globalSettings = {};
     });
 
-    /** Whether the blink's checkbox is checked, once the page has read the global settings. */
+    /** Whether the setting's checkbox is checked. */
     function isChecked(page: Page): Promise<boolean> {
       return page.evaluate(`(async () => {
-        const host = document.querySelector('[setting="blinkOnLampScreen"]');
+        const host = document.querySelector('[setting="${setting}"]');
         await host.updateComplete;
         return host.shadowRoot.querySelector("input").checked;
       })()`);
@@ -440,39 +445,56 @@ describe("settings pages", () => {
       await streamDeck.waitFor((m) => m.event === "getGlobalSettings" && m.context === uuid);
     }
 
+    /** Checks the setting's checkbox, and returns the global settings the page saves. */
+    async function check(page: Page, uuid: string): Promise<unknown> {
+      await page.evaluate(`(async () => {
+        const host = document.querySelector('[setting="${setting}"]');
+        await host.updateComplete;
+        host.shadowRoot.querySelector("input").click();
+      })()`);
+      const message = await streamDeck.waitFor((m) => m.event === "setGlobalSettings" && m.context === uuid);
+      return message.payload;
+    }
+
     it("shows the default in settings.ts when nothing is saved", async () => {
       const { page, uuid } = await openPanel(panel);
       await globalSettingsRead(uuid);
       const checked = await isChecked(page);
       await page.close();
 
-      expect(checked).toBe(defaultOf("blinkOnLampScreen"));
+      expect(checked).toBe(defaultOf(setting));
     });
 
-    it("shows the blink saved in the global settings, whatever the dial saved", async () => {
-      streamDeck.globalSettings = { blinkOnLampScreen: true };
-      const { page, uuid } = await openPanel(panel, { blinkOnLampScreen: false });
+    it("shows what the global settings hold, whatever the action saved", async () => {
+      streamDeck.globalSettings = { [setting]: true };
+      const { page, uuid } = await openPanel(panel, { [setting]: false });
       await globalSettingsRead(uuid);
       await expect.poll(() => isChecked(page)).toBe(true);
       await page.close();
     });
 
-    it("saves the blink to the global settings, as settings.ts takes it, and leaves the dial's own alone", async () => {
+    it("saves to the global settings, as settings.ts takes it, and leaves the action's own alone", async () => {
       const { page, uuid } = await openPanel(panel);
       await globalSettingsRead(uuid);
-      await page.evaluate(`(async () => {
-        const host = document.querySelector('[setting="blinkOnLampScreen"]');
-        await host.updateComplete;
-        host.shadowRoot.querySelector("input").click();
-      })()`);
-      const message = await streamDeck.waitFor((m) => m.event === "setGlobalSettings" && m.context === uuid);
-      // Long enough for a save of the dial's own settings to arrive, which there mustn't be.
+      const saved = await check(page, uuid);
+      // Long enough for a save of the action's own settings to arrive, which there mustn't be.
       await new Promise((resolve) => setTimeout(resolve, 300));
       await page.close();
 
-      expect(message.payload).toEqual({ blinkOnLampScreen: true });
-      expect(read("blinkOnLampScreen", true)).toEqual({ value: true, valid: true });
+      expect(saved).toEqual({ [setting]: true });
+      expect(read(setting, true)).toEqual({ value: true, valid: true });
       expect(streamDeck.messages.filter((m) => m.event === "setSettings" && m.context === uuid)).toEqual([]);
+    });
+
+    it("keeps the other global settings when it saves", async () => {
+      const other = Object.keys(globalSettings).find((name) => name !== setting) ?? "";
+      streamDeck.globalSettings = { [other]: true };
+      const { page, uuid } = await openPanel(panel);
+      await globalSettingsRead(uuid);
+      const saved = await check(page, uuid);
+      await page.close();
+
+      expect(saved).toEqual({ [other]: true, [setting]: true });
     });
   });
 

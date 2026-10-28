@@ -5,7 +5,7 @@
 - [Setup](#setup)
 - [Checks](#checks)
 
-The unit tests check the logic of the dial and the Brightness keys, and the integration tests check it from a key press or a turn to what every dial is told to show. Wherever they reach a lamp, it's an emulated one, which does what [the brightness probe][probe] measured a real lamp do: a lamp on a low-power supply stops at its cap, reports the brightness it was sent for about 100 ms, then the one it reached, and goes back to its cap a second after being asked for more, undoing a lower brightness written in between. The tests take that for granted, along with how the touch strip shows the result. The checks below cover both, on the Deck, with every connected lamp managed as one group from the dial's main screen (see "By default, lamps are managed together" in [the contributing guide][contributing]).
+The unit tests check the logic of the dial and the Brightness keys, and the integration tests check it from a key press or a turn to what every dial is told to show. Wherever they reach a lamp, it's an emulated one, which does what [the brightness probe][probe] measured a real lamp do: a lamp on a low-power supply stops at its cap, reports the brightness it was sent for about 100 ms, then the one it reached, and goes back to its cap a second after being asked for more, undoing a lower brightness written in between. The tests take that for granted, along with how the touch strip shows the result. The checks below cover both, on the Deck, with every connected lamp managed as one group from the dial's main screen (see "By default, lamps are managed together" in [the contributing guide][contributing]). Lamps kept apart by the global setting are checked in [`lamps_apart.md`][lamps-apart].
 
 ## How the plugin learns caps
 
@@ -23,7 +23,7 @@ Asking a lamp for more than its cap is how the plugin learns it, and for about a
 
 ## Setup
 
-Plug two Beams into a Stream Deck + XL's USB hub, so each has its own cap below 100%. Place two Brightness dials and two Brightness keys on the Deck, one key set to 100% and the other to 30%. Build the branch and restart the plugin:
+Plug two Beams into a Stream Deck + XL's USB hub, so each has its own cap below 100%. Place two Brightness dials and two Brightness keys on the Deck, one key set to 100% and the other to 30%. Leave "Each lamp" unchecked on the settings pages, its default, so the lamps step together (see [`lamps_apart.md`][lamps-apart]). Build the branch and restart the plugin:
 
 ```shell
 npm run build
@@ -53,4 +53,5 @@ Restarting also clears the caps the plugin has learned, so the checks start from
 [#51]: https://github.com/daczarne/streamdeck-litra/issues/51
 [#59]: https://github.com/daczarne/streamdeck-litra/issues/59
 [contributing]: ../contributing.md
+[lamps-apart]: lamps_apart.md
 [probe]: ../../scripts/probes/README.md

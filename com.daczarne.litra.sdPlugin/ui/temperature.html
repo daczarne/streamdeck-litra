@@ -38,7 +38,8 @@
   </head>
 
   <body>
-    <!-- Key tiles: snap to a fixed Kelvin. Dial tiles: step size, and the lamp screens' blink. -->
+    <!-- Key tiles: snap to a fixed Kelvin. Dial tiles: step size, how the lamps step, and the lamp screens'
+      blink. -->
     <div id="key-settings" hidden>
       <sdpi-item label="Temperature">
         <div class="range">
@@ -66,6 +67,14 @@
           <option value="300">300</option>
           <option value="500">500</option>
         </sdpi-select>
+      </sdpi-item>
+      <!-- Saved to the plugin's global settings, which every Temperature dial and step key shares (#145). -->
+      <sdpi-item label="Each lamp">
+        <sdpi-checkbox
+          setting="keepTemperatureDifference"
+          global
+          label="Steps from its own temperature, on every dial and key"
+        ></sdpi-checkbox>
       </sdpi-item>
       <!-- Saved to the plugin's global settings, which every Brightness and Temperature dial shares (#144). -->
       <sdpi-item label="Lamp screens">

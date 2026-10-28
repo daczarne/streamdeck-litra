@@ -3,10 +3,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { identifyLamp, type LampStatus, onLampsChanged, readLampStatuses } from "../litra-manager";
 import { logger } from "../logging";
 import { at } from "../test-support/at";
-import { createFakeDial } from "../test-support/fake-stream-deck";
+import { changeGlobalSettings, createFakeDial } from "../test-support/fake-stream-deck";
+import { followGlobalSettings } from "./global-settings";
 import { type DialOwner, LampScreens, MAIN_LAYOUT } from "./lamp-screens";
 
 //* Fakes
+
+// The real SDK opens a connection to Stream Deck. The fake carries the global settings, which hold the blink.
+vi.mock("@elgato/streamdeck", () => import("../test-support/fake-stream-deck"));
 
 // The real logger writes to a logs/ folder.
 vi.mock("../logging", () => import("../test-support/fake-logging"));
@@ -62,7 +66,11 @@ let screens: LampScreens;
 let showMain: () => Promise<void>;
 let owner: DialOwner;
 
+// The blink of the lamp screens is a global setting, which the tests change as a settings page does (#144).
+followGlobalSettings();
+
 beforeEach(() => {
+  changeGlobalSettings({});
   screens = new LampScreens();
   showMain = vi.fn(async () => {});
   owner = { showMain, adjusts: "Brightness" };
@@ -211,7 +219,7 @@ describe("LampScreens", () => {
 
   describe("with the blink on (#144)", () => {
     beforeEach(() => {
-      screens.setBlinkOnShow(true);
+      changeGlobalSettings({ blinkOnLampScreen: true });
       vi.mocked(identifyLamp).mockResolvedValue({ ok: true, deviceCount: 1, failures: 0 });
     });
 
@@ -278,7 +286,7 @@ describe("LampScreens", () => {
       const dial = createFakeDial();
       await screens.tap(dial, owner);
 
-      screens.setBlinkOnShow(false);
+      changeGlobalSettings({ blinkOnLampScreen: false });
       await screens.tap(dial, owner);
 
       expect(identifyLamp).toHaveBeenCalledExactlyOnceWith(A.id);

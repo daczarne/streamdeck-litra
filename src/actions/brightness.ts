@@ -21,6 +21,7 @@ import {
   toggleLamps,
 } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
+import { brightnessStepping } from "./global-settings";
 import { type LampScreens, lampScreens as sharedLampScreens } from "./lamp-screens";
 import { brightnessSettings, describeLamps, parseSettings } from "./settings";
 
@@ -144,8 +145,8 @@ export class BrightnessAction extends SingletonAction {
   /**
    * Steps the brightness by the dial's ticks, gathered for a moment so a quick turn moves the lamps once, with the
    * settings the dial has when they are applied. Ticks go to what the dial showed as it turned: every lamp from the main
-   * screen, or the lamp on screen, even when the strip is tapped before they are applied. The dials follow through the
-   * subscription.
+   * screen, together or each from its own as the global settings say (#145), or the lamp on screen, even when the strip
+   * is tapped before they are applied. The dials follow through the subscription.
    */
   override async onDialRotate(ev: DialRotateEvent): Promise<void> {
     const id = ev.action.id;
@@ -158,9 +159,12 @@ export class BrightnessAction extends SingletonAction {
       queue = createDialDebouncer(async (ticks) => {
         const settings = this.latestSettings.get(id) ?? {};
         const { stepPercentage: step } = parseSettings(settings, brightnessSettings, logger);
+        // A lamp screen turns its lamp alone, and the main screen every lamp, together or each from its own (#145).
+        const stepping = lamp === undefined ? brightnessStepping() : "together";
         const screen = lamp === undefined ? "" : " on a lamp screen";
-        logger.info(`Dial turned${screen}: ${ticks} ticks of ${step}%`);
-        const result = await adjustLampsBrightness(lamp === undefined ? "all" : [lamp], ticks, step);
+        const each = stepping === "each" ? ", each lamp from its own" : "";
+        logger.info(`Dial turned${screen}: ${ticks} ticks of ${step}%${each}`);
+        const result = await adjustLampsBrightness(lamp === undefined ? "all" : [lamp], ticks, step, stepping);
         if (!result.ok) {
           await ev.action.showAlert();
         }

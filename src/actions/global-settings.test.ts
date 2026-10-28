@@ -3,8 +3,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { logger } from "../logging";
 import { at } from "../test-support/at";
-import { followGlobalSettings } from "./global-settings";
-import { LampScreens } from "./lamp-screens";
 
 //* Fakes
 
@@ -19,25 +17,18 @@ vi.mock("@elgato/streamdeck", () => ({ default: { settings } }));
 // The real logger writes to a logs/ folder.
 vi.mock("../logging", () => import("../test-support/fake-logging"));
 
-// The real litra-manager loads node-hid's native binary on import and talks to real lamps.
-vi.mock("../litra-manager", () => ({
-  identifyLamp: vi.fn(),
-  onLampsChanged: vi.fn(),
-  readLampStatuses: vi.fn(),
-}));
+let globalSettings: typeof import("./global-settings");
 
-let screens: LampScreens;
-
-beforeEach(() => {
-  screens = new LampScreens();
-  vi.spyOn(screens, "setBlinkOnShow");
+beforeEach(async () => {
+  // A fresh module for every test, since it keeps the settings it last read.
+  vi.resetModules();
+  globalSettings = await import("./global-settings");
   settings.getGlobalSettings.mockResolvedValue({});
 });
 
 /** Follows the global settings, and waits for the first read to answer. */
 async function follow(): Promise<void> {
-  followGlobalSettings(screens);
-  await vi.waitFor(() => expect(settings.getGlobalSettings).toHaveBeenCalledOnce());
+  globalSettings.followGlobalSettings();
   await settings.getGlobalSettings.mock.results[0]?.value;
 }
 
@@ -47,48 +38,82 @@ function changeFromPage(saved: JsonObject): void {
   listener({ settings: saved });
 }
 
+const DEFAULTS = { blinkOnLampScreen: false, keepBrightnessDifference: false, keepTemperatureDifference: false };
+
 //* Tests
 
 describe("the global settings (#144)", () => {
-  it("give the lamp screens the blink saved, once read", async () => {
-    settings.getGlobalSettings.mockResolvedValue({ blinkOnLampScreen: true });
+  it("are their defaults before the first read answers", () => {
+    settings.getGlobalSettings.mockReturnValue(new Promise(() => {}));
+
+    globalSettings.followGlobalSettings();
+
+    expect(globalSettings.currentGlobalSettings()).toEqual(DEFAULTS);
+  });
+
+  it("are the ones saved, once read", async () => {
+    settings.getGlobalSettings.mockResolvedValue({ blinkOnLampScreen: true, keepBrightnessDifference: true });
 
     await follow();
 
-    expect(screens.setBlinkOnShow).toHaveBeenCalledExactlyOnceWith(true);
+    expect(globalSettings.currentGlobalSettings()).toEqual({
+      ...DEFAULTS,
+      blinkOnLampScreen: true,
+      keepBrightnessDifference: true,
+    });
   });
 
-  it("leave the blink off when none is saved", async () => {
+  it("follow a settings page that changes them", async () => {
     await follow();
 
-    expect(screens.setBlinkOnShow).toHaveBeenCalledExactlyOnceWith(false);
+    changeFromPage({ keepTemperatureDifference: true });
+
+    expect(globalSettings.currentGlobalSettings()).toEqual({ ...DEFAULTS, keepTemperatureDifference: true });
+
+    changeFromPage({});
+
+    expect(globalSettings.currentGlobalSettings()).toEqual(DEFAULTS);
   });
 
-  it("follow a settings page that turns the blink on and off", async () => {
-    await follow();
-
-    changeFromPage({ blinkOnLampScreen: true });
-    changeFromPage({ blinkOnLampScreen: false });
-
-    expect(vi.mocked(screens.setBlinkOnShow).mock.calls).toEqual([[false], [true], [false]]);
-  });
-
-  it("leave the blink off, with a warning, when what is saved isn't valid", async () => {
+  it("take a setting's default, with a warning, when what is saved isn't valid", async () => {
     settings.getGlobalSettings.mockResolvedValue({ blinkOnLampScreen: "yes" });
 
     await follow();
 
-    expect(screens.setBlinkOnShow).toHaveBeenCalledExactlyOnceWith(false);
+    expect(globalSettings.currentGlobalSettings()).toEqual(DEFAULTS);
     expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("blinkOnLampScreen"));
   });
 
-  it("log a failed read, and leave the blink as it was", async () => {
+  it("log a failed read, and keep the defaults", async () => {
     const error = new Error("connection closed");
     settings.getGlobalSettings.mockRejectedValue(error);
 
-    followGlobalSettings(screens);
+    globalSettings.followGlobalSettings();
 
     await vi.waitFor(() => expect(logger.error).toHaveBeenCalledExactlyOnceWith(expect.any(String), error));
-    expect(screens.setBlinkOnShow).not.toHaveBeenCalled();
+    expect(globalSettings.currentGlobalSettings()).toEqual(DEFAULTS);
+  });
+});
+
+describe("how the lamps step (#145)", () => {
+  it.each([
+    ["brightness", "keepBrightnessDifference", () => globalSettings.brightnessStepping()],
+    ["temperature", "keepTemperatureDifference", () => globalSettings.temperatureStepping()],
+  ])("steps the %s of every lamp together, unless its difference is kept", async (_, setting, stepping) => {
+    await follow();
+
+    expect(stepping()).toBe("together");
+
+    changeFromPage({ [setting]: true });
+
+    expect(stepping()).toBe("each");
+  });
+
+  it("keeps the brightness and the temperature apart from each other", async () => {
+    await follow();
+
+    changeFromPage({ keepBrightnessDifference: true });
+
+    expect([globalSettings.brightnessStepping(), globalSettings.temperatureStepping()]).toEqual(["each", "together"]);
   });
 });
