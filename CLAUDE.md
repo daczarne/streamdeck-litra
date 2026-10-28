@@ -43,7 +43,7 @@ The plugin isn't on Elgato's Marketplace. A merge that raises the manifest's ver
 ## Commands
 
 ```shell
-n auto                    # switch to the Node version in .node-version
+n auto                    # switch to the Node version in .node-version, and the npm that ships with it
 npm ci --ignore-scripts   # install from the lockfile, without install scripts
 npm run build             # bundle src/ into the plugin folder and copy node-hid next to it
 npm run check:docs        # every function, class, method and constructor has a doc comment
@@ -64,7 +64,7 @@ npm run test:browser      # run the browser tests, which need Chrome
 ## Runtime and toolchain
 
 - The plugin runs on Node 24, set by `Nodejs.Version` in `manifest.json`. Stream Deck downloads that runtime into `~/Library/Application Support/com.elgato.StreamDeck/NodeJS/`, whose `manifest.json` lists the exact version (24.13.1 when this was written). `tsconfig.json` extends `@tsconfig/node24`, and `@types/node` follows that runtime's minor version (24.13), not the Node used to build.
-- The Node used to build is pinned in `.node-version` (24.15.0), and `n auto` switches to it. `package.json` declares the same version in `engines`, and `engine-strict=true` in `.npmrc` makes `npm ci` refuse any other Node. CI reads `.node-version` too.
+- The Node and the npm used to build are pinned in `devEngines` in `package.json` (24.22.1 and 11.19.1, the npm that ships with it), which makes npm refuse any other, to install or to run a script. Node's version is also in `.node-version`, which `n auto` switches to, with its npm, and which CI reads.
 - The repo pins TypeScript 6.0, which no longer loads `@types/*` automatically, hence `"types": ["node"]` in `tsconfig.json`. `.vscode/settings.json` points the editor at the repo's TypeScript, so the editor and the build check types with the same version.
 - `tsconfig.json` adds stricter checks to `strict`, such as `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes` and `verbatimModuleSyntax`, for the sources and the tests. `tsconfig.scripts.json` extends it to check, as JavaScript, `rollup.config.mjs`, the Vitest configs and every script, `generate-icons.mjs` included, which takes the glyphs' types from the declarations `@daczarne/streamdeck-icons` ships, and with them the scripts' tests, which import the scripts they test. `tsconfig.json` doesn't allow JavaScript: Rollup's TypeScript plugin reads it, and would start processing JavaScript in the build. `npm run typecheck` runs both configs.
 - Biome lints and formats the TypeScript and JavaScript, from `biome.json` (2.5 replaced its `recommended` field with `preset`). Its config has to stay at the repository root: from anywhere else, its type-aware rules report nothing, without a warning. `noFloatingPromises` and `noMisusedPromises` catch unhandled promises, though not an async callback whose promise is ignored, such as one passed to `setTimeout`. The plugin's callback APIs are typed to accept a promise instead (`void | Promise<void>`).
@@ -77,7 +77,7 @@ Supply-chain risk is a hard requirement here:
 - No remote code. The settings pages load `sdpi-components` from `ui/vendor/`, pinned by hash in `scripts/check-ui.mjs`. The "Third-party code" section of `README.md` describes how to update it. Never install `sdpi-components` from npm: that package belongs to an unrelated maintainer.
 - Each settings page declares a Content-Security-Policy, which `scripts/check-ui.mjs` also holds and checks. It allows scripts only from the plugin folder and connections only to Stream Deck's WebSocket on `localhost`, so inline scripts are blocked: page logic goes in a `.js` file in `ui/`, like `controller-toggle.js`. The "Settings pages" section of `README.md` explains each directive. A change to the policy updates every page, the check and that section.
 - Install with `--ignore-scripts`, pin versions, and prefer local copies with recorded hashes. Flag any new dependency, remote resource or broad OS permission, and offer a narrower alternative.
-- npm packages and GitHub Actions are pinned to exact versions, and `@daczarne/streamdeck-icons` to a commit. Each upgrade is its own change: see the "Dependencies" section of `docs/contributing.md`.
+- Node and npm are pinned in `devEngines`, npm at the version that ships with that Node, so neither is installed on its own. npm packages and GitHub Actions are pinned to exact versions, and `@daczarne/streamdeck-icons` to a commit. Each upgrade is its own change: see the "Dependencies" section of `docs/contributing.md`.
 
 ## Testing on the hardware
 
