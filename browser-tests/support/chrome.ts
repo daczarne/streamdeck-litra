@@ -123,12 +123,16 @@ export class Chrome {
     return page;
   }
 
-  /** Ends Chrome and deletes its temporary profile. */
+  /**
+   * Ends Chrome and deletes its temporary profile. Chrome's helper processes, such as its crash reporter, can outlive
+   * the main one for a moment and still write to the profile, so a file can appear while the folder is emptied, and
+   * removing it fails with ENOTEMPTY. Node retries the removal then, waiting a little longer before each try.
+   */
   async close(): Promise<void> {
     const exited = new Promise((resolve) => this.process.once("exit", resolve));
     this.process.kill();
     await exited;
-    rmSync(this.profileDir, { recursive: true, force: true });
+    rmSync(this.profileDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
 
   /**
