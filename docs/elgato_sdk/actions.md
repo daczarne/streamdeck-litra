@@ -10,7 +10,7 @@ The tests check both directions: `src/plugin.test.ts` compares the actions `plug
 
 ## Sources
 
-`@elgato/streamdeck` 3.0.1:
+`@elgato/streamdeck` 3.0.3:
 
 - The decorator: `dist/plugin/actions/decorators.js`.
 - `registerAction` and the routing of events: `dist/plugin/actions/service.js`.

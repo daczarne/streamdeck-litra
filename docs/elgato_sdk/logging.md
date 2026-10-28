@@ -39,7 +39,7 @@ Little, at the levels the plugin runs at:
 
 ## Sources
 
-Checked against `@elgato/streamdeck` 3.0.1 and `@elgato/utils` 0.6.0, both installed in `node_modules/`:
+Checked against `@elgato/streamdeck` 3.0.3 and `@elgato/utils` 0.6.1, both installed in `node_modules/`:
 
 - The logger the SDK creates, its targets and the uncaught exception listener: `@elgato/streamdeck/dist/plugin/logging/index.js`.
 - The SDK's own log calls: `@elgato/streamdeck/dist/plugin/connection.js` and `@elgato/streamdeck/dist/plugin/i18n.js`.
