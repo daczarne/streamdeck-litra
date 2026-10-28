@@ -13,7 +13,7 @@ This document describes how the plugin's parts fit together, and why they're bui
 
 ## From a press to the lamps
 
-Stream Deck starts the plugin as a Node process (`src/plugin.ts`). The plugin registers the actions and connects to Stream Deck. A press, a turn or a tap reaches the action it belongs to, in `src/actions/`. The action reads its settings against their schema (`src/actions/settings.ts`), logs what was asked for, and calls `src/litra-manager.ts`. That module finds the lamps through the [`litra`][litra] library, which writes HID++ reports to each lamp through `node-hid`, and reads back their replies. Once the lamps are changed, `litra-manager` tells every action, which redraws its keys and dials from what the lamps report. A key's settings page talks to the plugin too: its lamp picker asks for the connected lamps, and for a blink of one, which `src/actions/lamp-picker.ts` answers for every page.
+Stream Deck starts the plugin as a Node process (`src/plugin.ts`). The plugin registers the actions and connects to Stream Deck. A press, a turn or a tap reaches the action it belongs to, in `src/actions/`. The action reads its settings against their schema (`src/actions/settings.ts`), logs what was asked for, and calls `src/litra-manager.ts`. That module finds the lamps through the [`litra`][litra] library, which writes HID++ reports to each lamp through `node-hid`, and reads back their replies. Once the lamps are changed, `litra-manager` tells every action, which redraws its keys and dials from what the lamps report. A key's settings page talks to the plugin too: its lamp picker asks for the connected lamps, and for a blink of one, which `src/actions/lamp-picker.ts` answers for every page. The dials' pages save the blink of the lamp screens to the plugin's global settings, which every dial shares, rather than to the dial's own, and `src/actions/global-settings.ts` reads them once the plugin is connected and follows them as a page changes them ([#144]).
 
 ## Why litra, not litra-rs
 
@@ -69,6 +69,7 @@ A dial sends a tick at a time, and a quick turn sends many. The dial gathers tic
 [#57]: https://github.com/daczarne/streamdeck-litra/issues/57
 [#96]: https://github.com/daczarne/streamdeck-litra/issues/96
 [#132]: https://github.com/daczarne/streamdeck-litra/issues/132
+[#144]: https://github.com/daczarne/streamdeck-litra/issues/144
 [contributing]: contributing.md
 [keys]: elgato_sdk/keys.md
 [litra]: https://github.com/timrogers/litra
