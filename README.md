@@ -53,7 +53,7 @@ Lamps connect over USB only: the underlying HID stack doesn't support Bluetooth.
 - [Stream Deck][stream-deck] 7.1 or later, on macOS 12 or later, or Windows 10 or later. The plugin is made and checked on macOS. It should work on Windows, where [`litra`][litra], the library it talks to the lamps through, is tested, but the plugin itself isn't checked there.
 - A Litra lamp connected over USB. On macOS, opening it needs no permission.
 - No Logitech software. If G HUB is installed, quit it if it fights the plugin for the HID device.
-- Only to build it from the repository: Node.js and npm, at the exact Node version in `.node-version`: `npm ci` refuses any other. With [n][n], `n auto` installs and switches to it. The plugin itself runs on the Node 24 that Stream Deck downloads, so the Node used to build doesn't have to match it.
+- Only to build it from the repository: Node.js at the exact version in `.node-version`, with the npm that ships with it. `devEngines` in `package.json` pins both, and npm refuses any other. With [n][n], `n auto` installs that Node, with its npm, and switches to it. The plugin itself runs on the Node 24 that Stream Deck downloads, so the Node used to build doesn't have to match it.
 
 ## Installing
 
