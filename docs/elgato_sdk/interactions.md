@@ -35,7 +35,7 @@ Stream Deck shows each interaction's description, as an icon and a short text, w
 
 ## Sources
 
-Checked against `@elgato/streamdeck` 3.0.1 and the manifest schema in `@elgato/schemas`, both installed in `node_modules/`:
+Checked against `@elgato/streamdeck` 3.0.3 and the manifest schema in `@elgato/schemas`, both installed in `node_modules/`:
 
 - The events and their payloads: `@elgato/streamdeck/dist/api/events/encoder.d.ts`.
 - `setFeedbackLayout` and `setTriggerDescription`: `@elgato/streamdeck/dist/plugin/actions/dial.d.ts`.

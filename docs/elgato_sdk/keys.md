@@ -27,7 +27,7 @@ By default, Stream Deck switches a key to its other state on every press, before
 
 ## Sources
 
-Checked against `@elgato/streamdeck` 3.0.1 and the manifest schema in `@elgato/schemas`, both installed in `node_modules/`, and on Stream Deck 7.6:
+Checked against `@elgato/streamdeck` 3.0.3 and the manifest schema in `@elgato/schemas`, both installed in `node_modules/`, and on Stream Deck 7.6:
 
 - `setImage`, `setState`, `setTitle`, `showAlert` and `showOk`: `@elgato/streamdeck/dist/plugin/actions/key.d.ts`.
 - `States` and `DisableAutomaticStates`: the `Action` definition in `@elgato/schemas/streamdeck/plugins/manifest.json`.

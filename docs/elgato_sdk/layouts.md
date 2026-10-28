@@ -61,7 +61,7 @@ Measured on a Stream Deck + XL's touch strip, while trying to show the lumens ne
 
 ## Sources
 
-Checked against `@elgato/streamdeck` 3.0.1 and the schemas in `@elgato/schemas`, both installed in `node_modules/`, and on the Deck:
+Checked against `@elgato/streamdeck` 3.0.3 and the schemas in `@elgato/schemas`, both installed in `node_modules/`, and on the Deck:
 
 - The canvas size, the built-in layouts and `Encoder.Icon`: the `Encoder` definition in `@elgato/schemas/streamdeck/plugins/manifest.json`.
 - The item types and the `title` key: `@elgato/streamdeck/dist/api/layout.d.ts` and `@elgato/schemas/streamdeck/plugins/layout.json`.
