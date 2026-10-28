@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { identifyLamp, type LampStatus, onLampsChanged, readLampStatuses } from "../litra-manager";
 import { logger } from "../logging";
+import { at } from "../test-support/at";
 import { createFakeDial } from "../test-support/fake-stream-deck";
 import { type DialOwner, LampScreens, MAIN_LAYOUT } from "./lamp-screens";
 
@@ -87,6 +88,8 @@ describe("LampScreens", () => {
       expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith(lampScreenOf(A, 1, 2));
       expect(screens.isShowing(dial.id)).toBe(true);
       expect(screens.lampOnScreen(dial.id)).toBe(A.id);
+      // The blink is off by default (#144).
+      expect(identifyLamp).not.toHaveBeenCalled();
     });
 
     it("goes through every lamp, then back to the main screen", async () => {
@@ -203,6 +206,82 @@ describe("LampScreens", () => {
       await screens.identify(dial);
 
       expect(identifyLamp).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("with the blink on (#144)", () => {
+    beforeEach(() => {
+      screens.setBlinkOnShow(true);
+      vi.mocked(identifyLamp).mockResolvedValue({ ok: true, deviceCount: 1, failures: 0 });
+    });
+
+    it("blinks each lamp a tap shows, once its screen is drawn, and nothing on the way back to the main screen", async () => {
+      const dial = createFakeDial();
+
+      await screens.tap(dial, owner);
+
+      expect(identifyLamp).toHaveBeenCalledExactlyOnceWith(A.id);
+      expect(at(dial.setFeedback.mock.invocationCallOrder, 0)).toBeLessThan(
+        at(vi.mocked(identifyLamp).mock.invocationCallOrder, 0),
+      );
+
+      await screens.tap(dial, owner);
+      await screens.tap(dial, owner);
+
+      expect(vi.mocked(identifyLamp).mock.calls).toEqual([[A.id], [B.id]]);
+      expect(showMain).toHaveBeenCalledOnce();
+    });
+
+    it("makes a tap during a blink wait for it to end", async () => {
+      const dial = createFakeDial();
+      let endBlink: () => void = () => {};
+      vi.mocked(identifyLamp).mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            endBlink = () => resolve({ ok: true, deviceCount: 1, failures: 0 });
+          }),
+      );
+
+      const first = screens.tap(dial, owner);
+      const second = screens.tap(dial, owner);
+      await vi.waitFor(() => expect(identifyLamp).toHaveBeenCalledOnce());
+
+      expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith(lampScreenOf(A, 1, 2));
+
+      endBlink();
+      await Promise.all([first, second]);
+
+      expect(dial.setFeedback).toHaveBeenLastCalledWith(lampScreenOf(B, 2, 2));
+      expect(vi.mocked(identifyLamp).mock.calls).toEqual([[A.id], [B.id]]);
+    });
+
+    it("shows an alert when the lamp can't be blinked, and stays on its screen", async () => {
+      const dial = createFakeDial();
+      vi.mocked(identifyLamp).mockResolvedValue({ ok: false, deviceCount: 0, failures: 1 });
+
+      await screens.tap(dial, owner);
+
+      expect(dial.showAlert).toHaveBeenCalledOnce();
+      expect(screens.lampOnScreen(dial.id)).toBe(A.id);
+    });
+
+    it("blinks nothing when a lamp screen is redrawn", async () => {
+      const dial = createFakeDial();
+      await screens.tap(dial, owner);
+
+      await screens.refresh();
+
+      expect(identifyLamp).toHaveBeenCalledOnce();
+    });
+
+    it("stops blinking once turned off", async () => {
+      const dial = createFakeDial();
+      await screens.tap(dial, owner);
+
+      screens.setBlinkOnShow(false);
+      await screens.tap(dial, owner);
+
+      expect(identifyLamp).toHaveBeenCalledExactlyOnceWith(A.id);
     });
   });
 

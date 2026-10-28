@@ -9,6 +9,7 @@ const streamDeck = vi.hoisted(() => ({
   logger: { setLevel: vi.fn() },
   actions: { registerAction: vi.fn() },
   ui: { onSendToPlugin: vi.fn(), sendToPropertyInspector: vi.fn() },
+  settings: { getGlobalSettings: vi.fn(async () => ({})), onDidReceiveGlobalSettings: vi.fn() },
   connect: vi.fn<() => Promise<void>>(),
 }));
 
@@ -55,6 +56,9 @@ describe("plugin", () => {
     expect(registered.toSorted()).toEqual(MANIFEST_UUIDS.toSorted());
     // The lamp picker on the keys' settings pages asks the plugin for the lamps (#20).
     expect(streamDeck.ui.onSendToPlugin).toHaveBeenCalledOnce();
+    // The dials share the blink of their lamp screens as a global setting (#144).
+    expect(streamDeck.settings.onDidReceiveGlobalSettings).toHaveBeenCalledOnce();
+    expect(streamDeck.settings.getGlobalSettings).toHaveBeenCalledOnce();
     expect(streamDeck.connect).toHaveBeenCalledOnce();
     // Lets the connection settle, so that a handler for its failure would have run.
     await streamDeck.connect.mock.results[0]?.value;

@@ -12,14 +12,17 @@ export type ListedLamp = { id: string; label: string };
 
 /**
  * Stands in for the WebSocket that Stream Deck opens for a settings page: it accepts the page's connection and
- * records the messages the page sends. It also stands in for the plugin behind it, answering a page that asks for the
- * lamps with {@link lamps}, as the plugin does. Node has a WebSocket client but no server, so this decodes the frames
+ * records the messages the page sends. It keeps the plugin's global settings, which it answers a page that asks for
+ * them with, as Stream Deck does. It also stands in for the plugin behind it, answering a page that asks for the lamps
+ * with {@link lamps}, as the plugin does. Node has a WebSocket client but no server, so this decodes the frames
  * itself, as far as the pages need: text frames from the client, and its close frame, and sends text frames back.
  */
 export class FakeStreamDeck {
   readonly messages: StreamDeckMessage[] = [];
   /** The lamps the plugin finds, which a test sets before it opens a page. */
   lamps: ListedLamp[] = [];
+  /** The plugin's global settings, which a test sets before it opens a page, and a page saves. */
+  globalSettings: Record<string, unknown> = {};
   private readonly sockets = new Set<Socket>();
   private readonly waiters = new Set<() => void>();
 
@@ -81,9 +84,16 @@ export class FakeStreamDeck {
     await new Promise((resolve) => this.server.close(resolve));
   }
 
-  /** Answers a page that asks the plugin for the lamps, as `src/actions/lamp-picker.ts` does. */
+  /**
+   * Answers a page that asks for the global settings, and keeps the ones it saves, as Stream Deck does, and a page
+   * that asks the plugin for the lamps, as `src/actions/lamp-picker.ts` does.
+   */
   private answer(message: StreamDeckMessage, socket: Socket): void {
-    if (message.event === "sendToPlugin" && message.payload?.event === "lamps") {
+    if (message.event === "getGlobalSettings") {
+      this.send(socket, { event: "didReceiveGlobalSettings", payload: { settings: this.globalSettings } });
+    } else if (message.event === "setGlobalSettings") {
+      this.globalSettings = message.payload ?? {};
+    } else if (message.event === "sendToPlugin" && message.payload?.event === "lamps") {
       this.send(socket, {
         event: "sendToPropertyInspector",
         ...(message.context === undefined ? {} : { context: message.context }),

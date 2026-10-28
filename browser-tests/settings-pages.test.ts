@@ -7,6 +7,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 
 import {
   brightnessSettings,
+  globalSettings,
   lampSettings,
   parseSettings,
   powerSettings,
@@ -32,6 +33,8 @@ type Panel = {
   controller: Controller;
   /** The settings whose controls the panel shows, by their `setting` attribute. */
   settings: string[];
+  /** The plugin's global settings whose controls the panel shows, which every action shares (#144). */
+  globalSettings?: string[];
   /** A setting to change through its control, and the value Stream Deck should receive for it. */
   change: { setting: string; value: string; saved: unknown };
   sliders?: Slider[];
@@ -56,6 +59,7 @@ const PANELS: Panel[] = [
     page: "ui/brightness.html",
     controller: "Encoder",
     settings: ["stepPercentage"],
+    globalSettings: ["blinkOnLampScreen"],
     change: { setting: "stepPercentage", value: "20", saved: 20 },
     sliders: [{ setting: "stepPercentage", suffix: "%", value: "20" }],
   },
@@ -70,6 +74,7 @@ const PANELS: Panel[] = [
     page: "ui/temperature.html",
     controller: "Encoder",
     settings: ["stepKelvin"],
+    globalSettings: ["blinkOnLampScreen"],
     change: { setting: "stepKelvin", value: "500", saved: "500" },
   },
   {
@@ -99,7 +104,14 @@ const PANELS: Panel[] = [
 
 // What the plugin accepts for each setting, by its name, and the default it takes: settings.ts says these are what
 // each page offers, and the pages' own defaults.
-const SCHEMA = { ...powerSettings, ...brightnessSettings, ...temperatureSettings, ...sceneSettings, ...lampSettings };
+const SCHEMA = {
+  ...powerSettings,
+  ...brightnessSettings,
+  ...temperatureSettings,
+  ...sceneSettings,
+  ...lampSettings,
+  ...globalSettings,
+};
 
 /** The setting's schema in settings.ts, alone, as parseSettings takes it. */
 function schemaOf(setting: string) {
@@ -209,11 +221,14 @@ async function openPanel(
   return { page, uuid, requests, errors };
 }
 
-/** The `setting` of every control the page shows, leaving out those inside a hidden block. */
-function visibleSettings(page: Page): Promise<string[]> {
+/**
+ * The `setting` of every control the page shows, leaving out those inside a hidden block: the action's own, or the
+ * plugin's global ones, which sdpi-components saves apart.
+ */
+function visibleSettings(page: Page, { global = false } = {}): Promise<string[]> {
   return page.evaluate(`
     [...document.querySelectorAll("[setting]")]
-      .filter((control) => !control.closest("[hidden]"))
+      .filter((control) => !control.closest("[hidden]") && control.hasAttribute("global") === ${global})
       .map((control) => control.getAttribute("setting"))
   `);
 }
@@ -278,9 +293,11 @@ describe("settings pages", () => {
       await page.close();
     });
 
-    it(`shows the ${panel.settings.join(", ")} controls only`, async () => {
+    const shown = [...panel.settings, ...(panel.globalSettings ?? [])];
+    it(`shows the ${shown.join(", ")} controls only`, async () => {
       const { page } = await openPanel(panel);
       await expect.poll(() => visibleSettings(page)).toEqual(panel.settings);
+      await expect.poll(() => visibleSettings(page, { global: true })).toEqual(panel.globalSettings ?? []);
       await page.close();
     });
 
@@ -400,6 +417,62 @@ describe("settings pages", () => {
       })()`);
       expect(await shownValue(page, setting)).toBe(`${value}${suffix}`);
       await page.close();
+    });
+  });
+
+  const blinkPanels = PANELS.filter((panel) => panel.globalSettings?.includes("blinkOnLampScreen"));
+  describe.each(blinkPanels)("the lamp screens' blink on $page on $controller (#144)", (panel) => {
+    afterEach(() => {
+      streamDeck.globalSettings = {};
+    });
+
+    /** Whether the blink's checkbox is checked, once the page has read the global settings. */
+    function isChecked(page: Page): Promise<boolean> {
+      return page.evaluate(`(async () => {
+        const host = document.querySelector('[setting="blinkOnLampScreen"]');
+        await host.updateComplete;
+        return host.shadowRoot.querySelector("input").checked;
+      })()`);
+    }
+
+    /** Waits for the page to have asked for the global settings, which it then shows. */
+    async function globalSettingsRead(uuid: string): Promise<void> {
+      await streamDeck.waitFor((m) => m.event === "getGlobalSettings" && m.context === uuid);
+    }
+
+    it("shows the default in settings.ts when nothing is saved", async () => {
+      const { page, uuid } = await openPanel(panel);
+      await globalSettingsRead(uuid);
+      const checked = await isChecked(page);
+      await page.close();
+
+      expect(checked).toBe(defaultOf("blinkOnLampScreen"));
+    });
+
+    it("shows the blink saved in the global settings, whatever the dial saved", async () => {
+      streamDeck.globalSettings = { blinkOnLampScreen: true };
+      const { page, uuid } = await openPanel(panel, { blinkOnLampScreen: false });
+      await globalSettingsRead(uuid);
+      await expect.poll(() => isChecked(page)).toBe(true);
+      await page.close();
+    });
+
+    it("saves the blink to the global settings, as settings.ts takes it, and leaves the dial's own alone", async () => {
+      const { page, uuid } = await openPanel(panel);
+      await globalSettingsRead(uuid);
+      await page.evaluate(`(async () => {
+        const host = document.querySelector('[setting="blinkOnLampScreen"]');
+        await host.updateComplete;
+        host.shadowRoot.querySelector("input").click();
+      })()`);
+      const message = await streamDeck.waitFor((m) => m.event === "setGlobalSettings" && m.context === uuid);
+      // Long enough for a save of the dial's own settings to arrive, which there mustn't be.
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      await page.close();
+
+      expect(message.payload).toEqual({ blinkOnLampScreen: true });
+      expect(read("blinkOnLampScreen", true)).toEqual({ value: true, valid: true });
+      expect(streamDeck.messages.filter((m) => m.event === "setSettings" && m.context === uuid)).toEqual([]);
     });
   });
 

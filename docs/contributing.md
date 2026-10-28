@@ -72,7 +72,7 @@ The Glow isn't planned. The plugin does for it whatever the code it shares with 
 
 Unless the user picks a lamp, the plugin assumes they want every connected lamp kept in sync and controlled as one. Questions about several lamps are answered from that rule, not decided case by case: every lamp is sent the same value, and what an action displays describes the group. For example, when one lamp can't reach the requested brightness, the others still go there, and the dial shows the brightest lamp ([#13]), with its bar marking where the dimmer lamps stop ([#59]).
 
-Per-lamp control ([#20]) comes in two places. Each key acts on the lamps picked on its settings page, every connected lamp unless others are picked, and what it shows describes those lamps. Each lamp screen ([#48]) shows a single lamp, so lamps that are out of sync can be told apart, and there, turning or pushing the dial acts on that lamp alone, and holding the strip blinks it, so it can be found. A dial's main screen still acts on every lamp, and a turn there brings lamps set apart back in sync. A setting that lets the user choose otherwise comes as its own issue, such as what that turn does to lamps out of sync ([#145]), or whether lamps plugged in later join a key's ([#147]).
+Per-lamp control ([#20]) comes in two places. Each key acts on the lamps picked on its settings page, every connected lamp unless others are picked, and what it shows describes those lamps. Each lamp screen ([#48]) shows a single lamp, so lamps that are out of sync can be told apart, and there, turning or pushing the dial acts on that lamp alone, and holding the strip blinks it, so it can be found, as can each tap that shows a lamp, once the dials' shared setting asks for it ([#144]). A dial's main screen still acts on every lamp, and a turn there brings lamps set apart back in sync. A setting that lets the user choose otherwise comes as its own issue, such as what that turn does to lamps out of sync ([#145]), or whether lamps plugged in later join a key's ([#147]).
 
 While [#20] is worked on, the question changes: what would someone who controls each lamp separately need for the plugin to work for them?
 
@@ -90,6 +90,7 @@ While [#20] is worked on, the question changes: what would someone who controls 
 [#48]: https://github.com/daczarne/streamdeck-litra/issues/48
 [#59]: https://github.com/daczarne/streamdeck-litra/issues/59
 [#100]: https://github.com/daczarne/streamdeck-litra/issues/100
+[#144]: https://github.com/daczarne/streamdeck-litra/issues/144
 [#145]: https://github.com/daczarne/streamdeck-litra/issues/145
 [#147]: https://github.com/daczarne/streamdeck-litra/issues/147
 [architecture]: architecture.md

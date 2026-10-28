@@ -39,13 +39,17 @@ const LAMP_TRIGGER_DESCRIPTIONS = { push: "Power", touch: "Next lamp", longTouch
  * serial of the lamp it shows rather than its position, so a lamp unplugged mid-cycle is skipped and "n of m" counts
  * the lamps connected at that moment.
  *
+ * With the blink on, which the dials share as a global setting, a tap that shows a lamp also blinks it, so tapping
+ * through the lamps shows which one the dial is about to adjust (#144).
+ *
  * Every dial shares one instance, which redraws every lamp screen whenever the lamps change, whichever action changed
  * them. Operations run one at a time, since each reads the lamps and changes what a dial shows, and never reject:
- * failures are logged.
+ * failures are logged. A blink is part of the operation that asked for it, so a tap during a blink waits for it to end.
  */
 export class LampScreens {
   private readonly screens = new Map<string, Screen>();
   private queue: Promise<void> = Promise.resolve();
+  private blinkOnShow = false;
 
   /** Subscribes to every change made to the lamps, to redraw the lamp screens. */
   constructor() {
@@ -62,7 +66,15 @@ export class LampScreens {
     return this.screens.get(dialId)?.id;
   }
 
-  /** Shows the lamp after the one on screen, the first lamp from the main screen, and the main screen after the last. */
+  /** Turns on or off the blink of each lamp as a tap shows its screen. It applies from the next tap. */
+  setBlinkOnShow(blink: boolean): void {
+    this.blinkOnShow = blink;
+  }
+
+  /**
+   * Shows the lamp after the one on screen, the first lamp from the main screen, and the main screen after the last.
+   * With the blink on, the lamp shown blinks once it's drawn.
+   */
   tap(dial: LampScreenDial, owner: DialOwner): Promise<void> {
     return this.enqueue(async () => {
       const { lamps } = await readLampStatuses();
@@ -77,6 +89,9 @@ export class LampScreens {
         return;
       }
       await this.show(dial, next, lamps, owner);
+      if (this.blinkOnShow) {
+        await blink(dial, next.id);
+      }
     });
   }
 
@@ -87,10 +102,7 @@ export class LampScreens {
       if (screen === undefined) {
         return;
       }
-      const result = await identifyLamp(screen.id);
-      if (!result.ok) {
-        await dial.showAlert();
-      }
+      await blink(dial, screen.id);
     });
   }
 
@@ -167,6 +179,14 @@ export class LampScreens {
 // so its thin strokes don't blur into the background at 18 px. The font still joins its "ff" into one shape (#153).
 const ON_POWER = { color: "white", font: { size: 18, weight: 400 } };
 const OFF_POWER = { color: "#202020", font: { size: 18, weight: 700 } };
+
+/** Blinks a lamp, by its id, and shows an alert on the dial when it can't. */
+async function blink(dial: LampScreenDial, lampId: string): Promise<void> {
+  const result = await identifyLamp(lampId);
+  if (!result.ok) {
+    await dial.showAlert();
+  }
+}
 
 /** Fills the slots of the lamp layout. The power is given its look each time, since a slot keeps what it was given. */
 async function draw(dial: LampScreenDial, lamp: LampStatus, lamps: LampStatus[]): Promise<void> {

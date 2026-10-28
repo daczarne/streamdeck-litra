@@ -472,6 +472,36 @@ describe("the lamp screens", () => {
     expect(first.brightnessInLumen).toBe(second.brightnessInLumen);
   });
 
+  it("blink each lamp as a tap shows it, on every dial, once the dials' setting is on (#144)", async () => {
+    const [first, second] = [beam({ serialNumber: "SERIAL-A" }), beam({ serialNumber: "SERIAL-B", on: false })];
+    plugIn(second, first);
+    const brightnessDial = await deck.dial(BRIGHTNESS);
+    const temperatureDial = await deck.dial(TEMPERATURE);
+
+    await deck.tap(brightnessDial);
+
+    expect([first.writes("power"), second.writes("power")]).toEqual([[], []]);
+
+    sdk.changeGlobalSettings({ blinkOnLampScreen: true });
+    await deck.quickly(() => {
+      void deck.tap(brightnessDial);
+      void deck.tap(brightnessDial);
+    });
+
+    // The second lamp blinks on and back off, as it was, and the way back to the main screen blinks nothing.
+    expect([first.writes("power"), second.writes("power")]).toEqual([[], [1, 0]]);
+    expect([first.on, second.on]).toEqual([true, false]);
+    expect(brightnessDial.setFeedbackLayout).toHaveBeenLastCalledWith("$B1");
+
+    await deck.tap(temperatureDial);
+
+    expect([first.writes("power"), second.writes("power")]).toEqual([
+      [0, 1],
+      [1, 0],
+    ]);
+    expect(textOf(temperatureDial)).toMatchObject({ lamp: "Beam - AL-A", position: "1 of 2" });
+  });
+
   it.each([
     ["Brightness", BRIGHTNESS],
     ["Temperature", TEMPERATURE],
