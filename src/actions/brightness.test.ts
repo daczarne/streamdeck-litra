@@ -15,7 +15,9 @@ import {
 import { logger } from "../logging";
 import { at } from "../test-support/at";
 import { FakeDeck } from "../test-support/fake-deck";
+import { changeGlobalSettings } from "../test-support/fake-stream-deck";
 import { BrightnessAction, barFill } from "./brightness";
+import { followGlobalSettings } from "./global-settings";
 import { LampScreens } from "./lamp-screens";
 
 //* Fakes
@@ -77,8 +79,12 @@ let deck: FakeDeck;
 // What the action does when litra-manager announces that the lamps changed.
 let lampsChanged: () => Promise<void>;
 
+// The global settings, which the tests change as a settings page does (#145).
+followGlobalSettings();
+
 beforeEach(() => {
   vi.useFakeTimers();
+  changeGlobalSettings({});
   // The debouncer flushes every turn at once: its own timing is litra-manager's to test.
   vi.mocked(createDialDebouncer).mockImplementation((flush) => (ticks) => void flush(ticks));
   // The lamps, as a dial that appears or returns to its main screen reads them, and as the lamp screens read them.
@@ -204,7 +210,7 @@ describe("BrightnessAction", () => {
 
       await deck.turn(dial, 3);
 
-      expect(adjustLampsBrightness).toHaveBeenCalledWith("all", 3, 5);
+      expect(adjustLampsBrightness).toHaveBeenCalledWith("all", 3, 5, "together");
       expect(dial.setFeedback).not.toHaveBeenCalled();
     });
 
@@ -299,8 +305,44 @@ describe("BrightnessAction", () => {
 
       await deck.turn(dial, 3);
 
-      expect(adjustLampsBrightness).toHaveBeenCalledExactlyOnceWith("all", 3, 10);
+      expect(adjustLampsBrightness).toHaveBeenCalledExactlyOnceWith("all", 3, 10, "together");
       expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("stepPercentage"));
+    });
+  });
+
+  describe("with the brightness difference kept (#145)", () => {
+    beforeEach(() => {
+      changeGlobalSettings({ keepBrightnessDifference: true });
+      vi.mocked(adjustLampsBrightness).mockResolvedValue(REACHED_AT_CAP);
+    });
+
+    it("steps each lamp from its own brightness on a turn on the main screen, and logs it", async () => {
+      const dial = await deck.dial(BRIGHTNESS, { stepPercentage: 5 });
+      clearCalls();
+
+      await deck.turn(dial, 3);
+
+      expect(adjustLampsBrightness).toHaveBeenCalledExactlyOnceWith("all", 3, 5, "each");
+      expect(logger.info).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("each lamp"));
+    });
+
+    it("still turns the lamp on screen alone on a lamp screen", async () => {
+      const dial = await deck.dial(BRIGHTNESS, { stepPercentage: 5 });
+      await deck.tap(dial);
+      clearCalls();
+
+      await deck.turn(dial, 3);
+
+      expect(adjustLampsBrightness).toHaveBeenCalledExactlyOnceWith([BEAM.id], 3, 5, "together");
+    });
+
+    it("steps the lamps together when only the temperature difference is kept", async () => {
+      changeGlobalSettings({ keepTemperatureDifference: true });
+      const dial = await deck.dial(BRIGHTNESS, { stepPercentage: 5 });
+
+      await deck.turn(dial, 3);
+
+      expect(adjustLampsBrightness).toHaveBeenCalledExactlyOnceWith("all", 3, 5, "together");
     });
   });
 
@@ -366,7 +408,7 @@ describe("BrightnessAction", () => {
 
       await deck.turn(dial, 3);
 
-      expect(adjustLampsBrightness).toHaveBeenCalledExactlyOnceWith([BEAM.id], 3, 5);
+      expect(adjustLampsBrightness).toHaveBeenCalledExactlyOnceWith([BEAM.id], 3, 5, "together");
     });
 
     it("moves the lamps that were on screen as the dial turned, even when the strip is tapped before (#20)", async () => {
@@ -389,9 +431,9 @@ describe("BrightnessAction", () => {
       }
 
       expect(vi.mocked(adjustLampsBrightness).mock.calls).toEqual([
-        ["all", 1, 5],
-        [[BEAM.id], 2, 5],
-        [[OTHER_BEAM.id], 3, 5],
+        ["all", 1, 5, "together"],
+        [[BEAM.id], 2, 5, "together"],
+        [[OTHER_BEAM.id], 3, 5, "together"],
       ]);
     });
 

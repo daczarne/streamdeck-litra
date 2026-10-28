@@ -1,22 +1,23 @@
 import streamDeck from "@elgato/streamdeck";
 import type { JsonObject } from "@elgato/utils";
 
+import type { Stepping } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
-import { type LampScreens, lampScreens as sharedLampScreens } from "./lamp-screens";
-import { globalSettings, parseSettings } from "./settings";
+import { type GlobalSettings, globalSettings, parseSettings } from "./settings";
 
 const logger = pluginLogger.createScope("Global settings");
 
+// The global settings as last read, their defaults until the first read answers.
+let current: GlobalSettings = parseSettings({}, globalSettings, logger);
+
 /**
- * Follows the plugin's global settings, which the dials' settings pages save (#144): reads them once Stream Deck is
- * connected, and again whenever a page changes them, and hands the blink to the lamp screens. They're kept rather than
- * asked for on every tap, so a tap never waits on Stream Deck. Until the first read answers, the lamp screens keep the
- * blink's default, off.
+ * Follows the plugin's global settings, which the settings pages save (#144): reads them once Stream Deck is
+ * connected, and again whenever a page changes them. They're kept rather than asked for on every tap, turn or press, so
+ * none of them waits on Stream Deck.
  */
-export function followGlobalSettings(lampScreens: LampScreens = sharedLampScreens): void {
+export function followGlobalSettings(): void {
   const apply = (settings: JsonObject): void => {
-    const { blinkOnLampScreen } = parseSettings(settings, globalSettings, logger);
-    lampScreens.setBlinkOnShow(blinkOnLampScreen);
+    current = parseSettings(settings, globalSettings, logger);
   };
   streamDeck.settings.onDidReceiveGlobalSettings((ev) => apply(ev.settings));
   streamDeck.settings
@@ -25,4 +26,19 @@ export function followGlobalSettings(lampScreens: LampScreens = sharedLampScreen
     .catch((error: unknown) => {
       logger.error("Reading the global settings failed", error);
     });
+}
+
+/** The global settings as last read, or their defaults until the first read answers. */
+export function currentGlobalSettings(): GlobalSettings {
+  return current;
+}
+
+/** How a turn on a Brightness dial's main screen, or a Brightness step key's press, steps the lamps (#145). */
+export function brightnessStepping(): Stepping {
+  return current.keepBrightnessDifference ? "each" : "together";
+}
+
+/** How a turn on a Temperature dial's main screen, or a Temperature step key's press, steps the lamps (#145). */
+export function temperatureStepping(): Stepping {
+  return current.keepTemperatureDifference ? "each" : "together";
 }

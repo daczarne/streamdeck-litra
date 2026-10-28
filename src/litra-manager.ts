@@ -40,6 +40,19 @@ export type BroadcastResult = {
 /** Which lamps an operation acts on: every lamp connected, or the ones with these ids (see {@link lampId}, #20). */
 export type LampSelection = "all" | readonly string[];
 
+/**
+ * How a step moves several lamps (#145): `"together"` sends every lamp to one value, stepped from the one the dial
+ * shows, which brings lamps set apart back in sync, and `"each"` steps every lamp from its own value, which keeps them
+ * apart. A lamp at an end of its range, or at its cap, stays there while the others keep going.
+ */
+export type Stepping = "together" | "each";
+
+/**
+ * Where a brightness change sends the lamps, in % of their range: one value for every lamp, or a step taken from the
+ * brightest lamp's value for every lamp, or from each lamp's own.
+ */
+type BrightnessTarget = number | { from: Stepping; step: (percentage: number) => number };
+
 /** A connected lamp, as a settings page lists it (#20). */
 export type FoundLamp = {
   id: string;
@@ -535,20 +548,21 @@ export function setLampsBrightness(
 }
 
 /**
- * Moves the selected lamps to one target, stepped from the brightest of them along the multiples of the step, as
- * {@link moveLampsBrightness} does.
+ * Steps the selected lamps' brightness along the multiples of the step, as {@link moveLampsBrightness} does: together,
+ * to one target stepped from the brightest of them, or each from its own brightness (#145).
  */
 export function adjustLampsBrightness(
   lamps: LampSelection,
   ticks: number,
   stepPercentage: number,
+  stepping: Stepping = "together",
   settleMs = BRIGHTNESS_SETTLE_MS,
 ): Promise<BroadcastResult> {
   return oneBrightnessChangeAtATime(() =>
     moveLampsBrightness(
       "adjust brightness",
       lamps,
-      (brightest) => stepOnGrid(brightest, ticks, stepPercentage, 0, 100),
+      { from: stepping, step: (percentage) => stepOnGrid(percentage, ticks, stepPercentage, 0, 100) },
       settleMs,
     ),
   ).finally(announceLampsChanged);
@@ -582,9 +596,9 @@ function oneBrightnessChangeAtATime(change: () => Promise<BroadcastResult>): Pro
 }
 
 /**
- * Moves the selected lamps to one target and reports the brightest once they've settled. The target is a percentage,
- * or a function of the brightest selected lamp's percentage, which is then read first. A temperature, when given, is set on each
- * lamp before its brightness. Each lamp is sent the target or its cap, whichever is lower, and a lamp that reaches less
+ * Moves the selected lamps to their target and reports the brightest once they've settled. The target is a percentage,
+ * or a step from the brightest selected lamp's percentage or from each lamp's own, which are then read first. A
+ * temperature, when given, is set on each lamp before its brightness. Each lamp is sent the target or its cap, whichever is lower, and a lamp that reaches less
  * than it was sent has its cap learned. Right after a lamp's cap is learned, the next change waits until the lamp can
  * no longer go back to its cap (see {@link capReversalEndsAt}). The lamps stay open from the first read to the last,
  * so calls mustn't overlap: they go through {@link oneBrightnessChangeAtATime}.
@@ -592,7 +606,7 @@ function oneBrightnessChangeAtATime(change: () => Promise<BroadcastResult>): Pro
 async function moveLampsBrightness(
   operation: string,
   lamps: LampSelection,
-  target: number | ((brightest: number) => number),
+  target: BrightnessTarget,
   settleMs: number,
   kelvin?: number,
 ): Promise<BroadcastResult> {
@@ -622,27 +636,41 @@ async function moveLampsBrightness(
   };
 
   try {
-    let brightest: number | undefined;
+    // Each lamp's percentage before the change, read only when the target steps from it.
+    const before = new Map<Device, number>();
     for (const device of devices) {
       attempt(device, () => {
         ensureOn(operation, device);
         if (kelvin !== undefined) {
           setSnappedTemperature(operation, device, kelvin);
         }
-        if (typeof target === "function") {
-          const pct = brightnessPercentage(device, getBrightnessInLumenSafe(device));
-          brightest = Math.max(brightest ?? pct, pct);
+        if (typeof target !== "number") {
+          before.set(device, brightnessPercentage(device, getBrightnessInLumenSafe(device)));
         }
       });
     }
 
-    const targetPercentage =
-      typeof target === "number" ? target : brightest === undefined ? undefined : target(brightest);
+    // A lamp that couldn't be read gets no target, and when none could, nothing is sent.
+    const targets = new Map<Device, number>();
+    const brightest = before.size === 0 ? undefined : Math.max(...before.values());
+    const targetOf = (device: Device): number | undefined => {
+      if (typeof target === "number") {
+        return target;
+      }
+      const from = target.from === "each" ? before.get(device) : brightest;
+      return from === undefined ? undefined : target.step(from);
+    };
+    for (const device of devices) {
+      const percentage = targetOf(device);
+      if (percentage !== undefined) {
+        targets.set(device, Math.max(0, Math.min(100, percentage)));
+      }
+    }
+
     const sent = new Map<Device, number>();
     const sentAt = Date.now();
-    if (targetPercentage !== undefined) {
-      const pct = Math.max(0, Math.min(100, targetPercentage));
-      for (const device of devices) {
+    if (targets.size > 0) {
+      for (const [device, pct] of targets) {
         attempt(device, () => {
           const lumen = withinCap(operation, device, brightnessLumen(device, pct));
           setBrightnessInLumen(device, lumen);
@@ -856,11 +884,17 @@ export function setLampsTemperature(lamps: LampSelection, kelvin: number): Broad
 }
 
 /**
- * Moves the selected lamps to one target, stepped from the first one's temperature (the one the dial shows) along the
- * grid lowest + k × step. When the first lamp can't be read, the next one becomes the starting point.
+ * Steps the selected lamps' temperature along the grid lowest + k × step: together, to one target stepped from the
+ * first one's temperature (the one the dial shows), or each from its own (#145). When the first lamp can't be read,
+ * the next one becomes the starting point of the lamps stepped together.
  */
-export function adjustLampsTemperature(lamps: LampSelection, ticks: number, stepKelvin: number): BroadcastResult {
-  let target: number | undefined;
+export function adjustLampsTemperature(
+  lamps: LampSelection,
+  ticks: number,
+  stepKelvin: number,
+  stepping: Stepping = "together",
+): BroadcastResult {
+  let together: number | undefined;
   let representative: number | undefined;
   let representativePercentage: number | undefined;
   const operation = "adjust temperature";
@@ -873,8 +907,11 @@ export function adjustLampsTemperature(lamps: LampSelection, ticks: number, step
       if (lowest === undefined || highest === undefined) {
         throw new Error("Lamp reports no allowed temperatures");
       }
-      target ??= stepOnGrid(getTemperatureInKelvin(device), ticks, stepKelvin, lowest, highest);
-      const snapped = snapKelvin(target, allowed);
+      const stepped = (): number => stepOnGrid(getTemperatureInKelvin(device), ticks, stepKelvin, lowest, highest);
+      if (stepping === "together") {
+        together ??= stepped();
+      }
+      const snapped = snapKelvin(together ?? stepped(), allowed);
       setTemperatureInKelvin(device, snapped);
       drainAck(device);
       logger.info(`${operation}: ${lampLabel(device)} set to ${snapped} K`);

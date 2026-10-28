@@ -26,7 +26,7 @@ A page and the plugin exchange messages through Stream Deck, which the lamp pick
 
 ## Global settings
 
-Besides each key's and dial's own settings, a plugin has one set of global settings, which every action shares, and Stream Deck keeps across restarts. The dials' blink of each lamp as its lamp screen appears is one ([#144]):
+Besides each key's and dial's own settings, a plugin has one set of global settings, which every action shares, and Stream Deck keeps across restarts. The dials' blink of each lamp as its lamp screen appears is one ([#144]), and whether the lamps keep their difference when a dial or a step key steps them are two more ([#145]):
 
 - On a page, a sdpi-components control with the `global` attribute reads and saves a global setting instead of one of the action's. It asks Stream Deck for them (`getGlobalSettings`) when the page loads, and holds every save until the answer arrives. A save sends them whole (`setGlobalSettings`), keeping the ones the page doesn't show.
 - The plugin reads them with `streamDeck.settings.getGlobalSettings()`, which waits for the connection to Stream Deck, and follows a page's changes with `streamDeck.settings.onDidReceiveGlobalSettings`. Since Stream Deck 7.1, the listener isn't called for the plugin's own reads. Its event holds the settings as `settings`, not `payload.settings` as an action's does.
@@ -64,4 +64,5 @@ Checked while adding the blink of each lamp as its lamp screen appears ([#144]):
 [#9]: https://github.com/daczarne/streamdeck-litra/issues/9
 [#20]: https://github.com/daczarne/streamdeck-litra/issues/20
 [#144]: https://github.com/daczarne/streamdeck-litra/issues/144
+[#145]: https://github.com/daczarne/streamdeck-litra/issues/145
 [manual-test]: ../manual_testing/settings_pages.md

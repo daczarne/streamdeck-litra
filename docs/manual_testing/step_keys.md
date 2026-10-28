@@ -4,7 +4,7 @@
 - [Setup](#setup)
 - [Checks](#checks)
 
-The Brightness Up, Brightness Down, Temperature Up and Temperature Down keys step the lamps by their step, for decks without dials ([#129]). A press is a dial's tick: it goes through the same operation, so the lamps stop on the same values and within their caps, and presses as quick as a dial's ticks move them once. The unit tests check against a fake Stream Deck which way and by how much each key asks the lamps to move, and what each key shows as its title. The integration tests check against emulated lamps that the lamps move, stop at their caps, and that every step key follows a change. The checks below cover what they take for granted: that Stream Deck offers the actions with their icons and images, shows their settings pages and passes on their settings, draws the titles the plugin sets, and that the lamps follow. The keys here act on every connected lamp, as one group: picking a key's lamps is checked in [`lamp_picker.md`][lamp-picker].
+The Brightness Up, Brightness Down, Temperature Up and Temperature Down keys step the lamps by their step, for decks without dials ([#129]). A press is a dial's tick: it goes through the same operation, so the lamps stop on the same values and within their caps, and presses as quick as a dial's ticks move them once. The unit tests check against a fake Stream Deck which way and by how much each key asks the lamps to move, and what each key shows as its title. The integration tests check against emulated lamps that the lamps move, stop at their caps, and that every step key follows a change. The checks below cover what they take for granted: that Stream Deck offers the actions with their icons and images, shows their settings pages and passes on their settings, draws the titles the plugin sets, and that the lamps follow. The keys here act on every connected lamp, as one group: picking a key's lamps is checked in [`lamp_picker.md`][lamp-picker], and lamps kept apart by the global setting in [`lamps_apart.md`][lamps-apart].
 
 ## When to run these checks
 
@@ -35,3 +35,4 @@ In VS Code, the `Build and restart` task runs both. After a change to `manifest.
 
 [#129]: https://github.com/daczarne/streamdeck-litra/issues/129
 [lamp-picker]: lamp_picker.md
+[lamps-apart]: lamps_apart.md

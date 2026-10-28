@@ -1173,6 +1173,73 @@ describe("adjustLampsBrightness", () => {
   });
 });
 
+describe("adjustLampsBrightness, each lamp from its own (#145)", () => {
+  const adjust = (ticks: number, stepPercentage: number) =>
+    settled(manager.adjustLampsBrightness("all", ticks, stepPercentage, "each"));
+
+  it("steps every lamp from its own brightness, and reports the brightest", async () => {
+    const [first, second] = [beam({ brightnessInLumen: lumenAt(20) }), beam({ brightnessInLumen: lumenAt(50) })];
+    connect(first, second);
+
+    expect(await adjust(2, 5)).toEqual({
+      ok: true,
+      deviceCount: 2,
+      failures: 0,
+      representativeBrightnessPercentage: 60,
+      representativeBrightnessLumen: lumenAt(60),
+      brightnessPercentages: [30, 60],
+    });
+    expect([first.writes("brightness"), second.writes("brightness")]).toEqual([[lumenAt(30)], [lumenAt(60)]]);
+  });
+
+  it("keeps stepping the other lamps once one reaches an end of its range, and comes back down with them", async () => {
+    const [dim, bright] = [beam({ brightnessInLumen: lumenAt(50) }), beam({ brightnessInLumen: lumenAt(90) })];
+    connect(dim, bright);
+
+    await adjust(2, 10);
+    await adjust(1, 10);
+
+    expect([dim.brightnessInLumen, bright.brightnessInLumen]).toEqual([lumenAt(80), BEAM_MAX_LUMEN]);
+
+    await adjust(-3, 10);
+
+    expect([dim.brightnessInLumen, bright.brightnessInLumen]).toEqual([lumenAt(50), lumenAt(70)]);
+  });
+
+  it("keeps stepping the other lamps once one stops at its cap", async () => {
+    // A Beam capped at 58% on a Stream Deck + XL's USB hub.
+    const capped = beam({ brightnessInLumen: lumenAt(50), capInLumen: 244 });
+    const uncapped = beam({ brightnessInLumen: lumenAt(50) });
+    connect(capped, uncapped);
+
+    await adjust(2, 10);
+    await adjust(1, 10);
+
+    expect([capped.brightnessInLumen, uncapped.brightnessInLumen]).toEqual([244, lumenAt(80)]);
+    // Once its cap is learned, the capped lamp is sent no more than it.
+    expect(capped.writes("brightness")).toEqual([lumenAt(70), 244]);
+  });
+
+  it("steps a lamp off the step's multiples to the next one, and the others along them", async () => {
+    // 33%, set by a key.
+    const [offGrid, onGrid] = [beam({ brightnessInLumen: 153 }), beam({ brightnessInLumen: lumenAt(60) })];
+    connect(offGrid, onGrid);
+
+    await adjust(1, 20);
+
+    expect([offGrid.writes("brightness"), onGrid.writes("brightness")]).toEqual([[lumenAt(40)], [lumenAt(80)]]);
+  });
+
+  it("leaves a lamp that can't be read out of the writes, and steps the others", async () => {
+    const [first, second] = [beam({ brightnessInLumen: lumenAt(90) }), beam({ brightnessInLumen: lumenAt(50) })];
+    first.fail("readSync");
+    connect(first, second);
+
+    expect(await adjust(1, 10)).toMatchObject({ ok: false, failures: 1, brightnessPercentages: [60] });
+    expect([first.writes("brightness"), second.writes("brightness")]).toEqual([[], [lumenAt(60)]]);
+  });
+});
+
 describe("a lamp going back to its cap (#55)", () => {
   // Asking a lamp for more than its cap, then right away for 30%, from a key's preset and from the dial. Going down six
   // steps of 5 from a cap of 244 lm (58%) also ends at 30%.
@@ -1403,6 +1470,42 @@ describe("adjustLampsTemperature", () => {
 
     expect(result.representativeTemperatureKelvin).toBe(BEAM_MAX_KELVIN);
     expect(result.representativeTemperaturePercentage).toBe(100);
+  });
+});
+
+describe("adjustLampsTemperature, each lamp from its own (#145)", () => {
+  it("steps every lamp from its own temperature, and reports the first lamp's", () => {
+    const [first, second] = [beam({ temperatureInKelvin: 3100 }), beam({ temperatureInKelvin: 4700 })];
+    connect(first, second);
+
+    expect(manager.adjustLampsTemperature("all", 2, 200, "each")).toEqual({
+      ok: true,
+      deviceCount: 2,
+      failures: 0,
+      representativeTemperatureKelvin: 3500,
+      representativeTemperaturePercentage: 21,
+    });
+    expect([first.writes("temperature"), second.writes("temperature")]).toEqual([[3500], [5100]]);
+  });
+
+  it("keeps stepping the other lamps once one reaches an end of its range", () => {
+    const [warm, cool] = [beam({ temperatureInKelvin: 5700 }), beam({ temperatureInKelvin: 6300 })];
+    connect(warm, cool);
+
+    manager.adjustLampsTemperature("all", 1, 200, "each");
+    manager.adjustLampsTemperature("all", 1, 200, "each");
+
+    expect([warm.temperatureInKelvin, cool.temperatureInKelvin]).toEqual([6100, BEAM_MAX_KELVIN]);
+  });
+
+  it("steps each lamp along the grid counted from the lowest allowed value (#16)", () => {
+    // The default preset, off the 200 K grid that starts at 2700 K, and a lamp on it.
+    const [offGrid, onGrid] = [beam({ temperatureInKelvin: 4000 }), beam({ temperatureInKelvin: 3100 })];
+    connect(offGrid, onGrid);
+
+    manager.adjustLampsTemperature("all", 1, 200, "each");
+
+    expect([offGrid.writes("temperature"), onGrid.writes("temperature")]).toEqual([[4100], [3300]]);
   });
 });
 

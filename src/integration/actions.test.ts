@@ -22,6 +22,7 @@ const TEMPERATURE_DOWN = "com.daczarne.litra.temperature-down";
 const LUMEN_AT_50 = 215;
 const LUMEN_AT_60 = 252;
 const LUMEN_AT_80 = 326;
+const LUMEN_AT_90 = 363;
 const LUMEN_AT_100 = 400;
 
 let connect: (...lamps: EmulatedLitra[]) => void;
@@ -516,6 +517,47 @@ describe("the lamp screens", () => {
     await deck.press(powerKey);
 
     expect(dial.setFeedback).not.toHaveBeenCalled();
+  });
+});
+
+describe("lamps kept apart (#145)", () => {
+  it("step each from its own brightness on a dial and a step key, while their temperatures stay together", async () => {
+    const dim = beam({ brightnessInLumen: LUMEN_AT_50, temperatureInKelvin: 4000 });
+    const bright = beam({ brightnessInLumen: LUMEN_AT_80, temperatureInKelvin: 5000 });
+    plugIn(dim, bright);
+    const brightnessDial = await deck.dial(BRIGHTNESS, { stepPercentage: 10 });
+    const brightnessUp = await deck.key(BRIGHTNESS_UP, { stepPercentage: 10 });
+    const temperatureDial = await deck.dial(TEMPERATURE, { stepKelvin: 100 });
+    sdk.changeGlobalSettings({ keepBrightnessDifference: true });
+
+    await deck.turn(brightnessDial, 1);
+
+    expect([dim.brightnessInLumen, bright.brightnessInLumen]).toEqual([LUMEN_AT_60, LUMEN_AT_90]);
+    expect(textOf(brightnessDial)).toMatchObject({ value: "90%" });
+
+    // The brighter lamp stops at 100%, and the dimmer one keeps going.
+    await deck.press(brightnessUp);
+    await deck.press(brightnessUp);
+
+    expect([dim.brightnessInLumen, bright.brightnessInLumen]).toEqual([LUMEN_AT_80, LUMEN_AT_100]);
+    expect(titleOf(brightnessUp)).toBe("100%");
+
+    await deck.turn(temperatureDial, 1);
+
+    expect([dim.temperatureInKelvin, bright.temperatureInKelvin]).toEqual([4100, 4100]);
+  });
+
+  it("come back in sync on a turn once the setting is off again", async () => {
+    const [dim, bright] = [beam({ brightnessInLumen: LUMEN_AT_50 }), beam({ brightnessInLumen: LUMEN_AT_80 })];
+    plugIn(dim, bright);
+    const dial = await deck.dial(BRIGHTNESS, { stepPercentage: 10 });
+    sdk.changeGlobalSettings({ keepBrightnessDifference: true });
+    await deck.turn(dial, -1);
+    sdk.changeGlobalSettings({ keepBrightnessDifference: false });
+
+    await deck.turn(dial, -1);
+
+    expect([dim.brightnessInLumen, bright.brightnessInLumen]).toEqual([LUMEN_AT_60, LUMEN_AT_60]);
   });
 });
 

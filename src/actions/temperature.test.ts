@@ -15,6 +15,8 @@ import {
 import { logger } from "../logging";
 import { at } from "../test-support/at";
 import { FakeDeck } from "../test-support/fake-deck";
+import { changeGlobalSettings } from "../test-support/fake-stream-deck";
+import { followGlobalSettings } from "./global-settings";
 import { LampScreens } from "./lamp-screens";
 import { TemperatureAction } from "./temperature";
 
@@ -71,8 +73,12 @@ let deck: FakeDeck;
 // What the action does when litra-manager announces that the lamps changed.
 let lampsChanged: () => Promise<void>;
 
+// The global settings, which the tests change as a settings page does (#145).
+followGlobalSettings();
+
 beforeEach(() => {
   vi.useFakeTimers();
+  changeGlobalSettings({});
   // The debouncer flushes every turn at once: its own timing is litra-manager's to test.
   vi.mocked(createDialDebouncer).mockImplementation((flush) => (ticks) => void flush(ticks));
   // The lamps, as a dial that appears or returns to its main screen reads them, and as the lamp screens read them.
@@ -191,7 +197,7 @@ describe("TemperatureAction", () => {
 
       await deck.turn(dial, 2);
 
-      expect(adjustLampsTemperature).toHaveBeenCalledWith("all", 2, 100);
+      expect(adjustLampsTemperature).toHaveBeenCalledWith("all", 2, 100, "together");
       expect(dial.setFeedback).not.toHaveBeenCalled();
     });
 
@@ -213,7 +219,7 @@ describe("TemperatureAction", () => {
 
     await deck.turn(dial, 2);
 
-    expect(adjustLampsTemperature).toHaveBeenCalledExactlyOnceWith("all", 2, 200);
+    expect(adjustLampsTemperature).toHaveBeenCalledExactlyOnceWith("all", 2, 200, "together");
     expect(logger.warn).not.toHaveBeenCalled();
   });
 
@@ -296,8 +302,44 @@ describe("TemperatureAction", () => {
 
       await deck.turn(dial, 2);
 
-      expect(adjustLampsTemperature).toHaveBeenCalledExactlyOnceWith("all", 2, 300);
+      expect(adjustLampsTemperature).toHaveBeenCalledExactlyOnceWith("all", 2, 300, "together");
       expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("stepKelvin"));
+    });
+  });
+
+  describe("with the temperature difference kept (#145)", () => {
+    beforeEach(() => {
+      changeGlobalSettings({ keepTemperatureDifference: true });
+      vi.mocked(adjustLampsTemperature).mockReturnValue(SNAPPED);
+    });
+
+    it("steps each lamp from its own temperature on a turn on the main screen, and logs it", async () => {
+      const dial = await deck.dial(TEMPERATURE, { stepKelvin: 100 });
+      clearCalls();
+
+      await deck.turn(dial, 2);
+
+      expect(adjustLampsTemperature).toHaveBeenCalledExactlyOnceWith("all", 2, 100, "each");
+      expect(logger.info).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("each lamp"));
+    });
+
+    it("still turns the lamp on screen alone on a lamp screen", async () => {
+      const dial = await deck.dial(TEMPERATURE, { stepKelvin: 100 });
+      await deck.tap(dial);
+      clearCalls();
+
+      await deck.turn(dial, 2);
+
+      expect(adjustLampsTemperature).toHaveBeenCalledExactlyOnceWith([BEAM.id], 2, 100, "together");
+    });
+
+    it("steps the lamps together when only the brightness difference is kept", async () => {
+      changeGlobalSettings({ keepBrightnessDifference: true });
+      const dial = await deck.dial(TEMPERATURE, { stepKelvin: 100 });
+
+      await deck.turn(dial, 2);
+
+      expect(adjustLampsTemperature).toHaveBeenCalledExactlyOnceWith("all", 2, 100, "together");
     });
   });
 
@@ -362,7 +404,7 @@ describe("TemperatureAction", () => {
 
       await deck.turn(dial, 3);
 
-      expect(adjustLampsTemperature).toHaveBeenCalledExactlyOnceWith([BEAM.id], 3, 100);
+      expect(adjustLampsTemperature).toHaveBeenCalledExactlyOnceWith([BEAM.id], 3, 100, "together");
     });
 
     it("moves the lamps that were on screen as the dial turned, even when the strip is tapped before (#20)", async () => {
@@ -385,9 +427,9 @@ describe("TemperatureAction", () => {
       }
 
       expect(vi.mocked(adjustLampsTemperature).mock.calls).toEqual([
-        ["all", 1, 100],
-        [[BEAM.id], 2, 100],
-        [[OTHER_BEAM.id], 3, 100],
+        ["all", 1, 100, "together"],
+        [[BEAM.id], 2, 100, "together"],
+        [[OTHER_BEAM.id], 3, 100, "together"],
       ]);
     });
 

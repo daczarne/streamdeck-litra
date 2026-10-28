@@ -17,8 +17,10 @@ import {
   onLampsChanged,
   readLampsBrightness,
   readLampsTemperature,
+  type Stepping,
 } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
+import { brightnessStepping, temperatureStepping } from "./global-settings";
 import {
   brightnessStepSettings,
   describeLamps,
@@ -27,17 +29,27 @@ import {
   temperatureStepSettings,
 } from "./settings";
 
-/** What a step key moves: how it reads its step, moves the lamps by it, and reads what they're at for its title. */
+/**
+ * What a step key moves: how it reads its step, and how the global settings step several lamps (#145), moves the lamps
+ * by it, and reads what they're at for its title.
+ */
 type Stepped = {
   readStep: (settings: JsonObject, logger: Logger) => number;
+  readStepping: () => Stepping;
   unit: string;
-  adjust: (lamps: LampSelection, ticks: number, step: number) => BroadcastResult | Promise<BroadcastResult>;
+  adjust: (
+    lamps: LampSelection,
+    ticks: number,
+    step: number,
+    stepping: Stepping,
+  ) => BroadcastResult | Promise<BroadcastResult>;
   readTitle: (lamps: LampSelection) => Promise<string>;
 };
 
 /** The brightness, which a key shows as the dials do: the brightest lamp's %, or "—" when no lamp can be read. */
 const BRIGHTNESS: Stepped = {
   readStep: (settings, logger) => parseSettings(settings, brightnessStepSettings, logger).stepPercentage,
+  readStepping: brightnessStepping,
   unit: "%",
   adjust: adjustLampsBrightness,
   readTitle: async (lamps) => {
@@ -49,6 +61,7 @@ const BRIGHTNESS: Stepped = {
 /** The temperature, which a key shows as the dials do: the first lamp that answers, in kelvin, or "—" without one. */
 const TEMPERATURE: Stepped = {
   readStep: (settings, logger) => parseSettings(settings, temperatureStepSettings, logger).stepKelvin,
+  readStepping: temperatureStepping,
   unit: " K",
   adjust: adjustLampsTemperature,
   readTitle: async (lamps) => {
@@ -95,7 +108,7 @@ abstract class StepKeyAction extends SingletonAction {
 
   /**
    * Steps the lamps once, gathering quick presses for a moment so they move the lamps once, by the step the key has
-   * when they're applied. The keys follow through the subscription, and the key pressed shows an alert when a lamp fails.
+   * when they're applied, together or each from its own as the global settings say then (#145). The keys follow through the subscription, and the key pressed shows an alert when a lamp fails.
    */
   override onKeyDown(ev: KeyDownEvent): void {
     const id = ev.action.id;
@@ -104,10 +117,12 @@ abstract class StepKeyAction extends SingletonAction {
     if (!queue) {
       queue = createDialDebouncer(async (presses) => {
         const step = this.stepped.readStep(this.latestSettings.get(id) ?? {}, this.logger);
+        const stepping = this.stepped.readStepping();
         const lamps = this.lampsOf(id);
         const steps = `${presses} ${presses === 1 ? "step" : "steps"} of ${step}${this.stepped.unit}`;
-        this.logger.info(`Key pressed: ${steps}, on ${describeLamps(lamps)}`);
-        const result = await this.stepped.adjust(lamps, this.direction * presses, step);
+        const each = stepping === "each" ? ", each lamp from its own" : "";
+        this.logger.info(`Key pressed: ${steps}, on ${describeLamps(lamps)}${each}`);
+        const result = await this.stepped.adjust(lamps, this.direction * presses, step, stepping);
         if (!result.ok) {
           await ev.action.showAlert();
         }

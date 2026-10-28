@@ -59,7 +59,7 @@ An action shows an alert on the key or dial that failed. On a key, the redraw th
 
 ## Turning a dial
 
-A dial sends a tick at a time, and a quick turn sends many. The dial gathers ticks for a moment (`createDialDebouncer`), so a turn moves the lamps once, by the step the dial has when they're applied. A dial gathers its ticks apart for each lamp it turns, its main screen counting as one, so ticks turned on a lamp screen reach that lamp even when the strip is tapped before they're applied ([#20]). The step keys gather their presses the same way. A step stops on the multiples of the step counted from the bottom of the range ([#14], [#16]), so a dial and a key go through the same values up and down.
+A dial sends a tick at a time, and a quick turn sends many. The dial gathers ticks for a moment (`createDialDebouncer`), so a turn moves the lamps once, by the step the dial has when they're applied. A dial gathers its ticks apart for each lamp it turns, its main screen counting as one, so ticks turned on a lamp screen reach that lamp even when the strip is tapped before they're applied ([#20]). The step keys gather their presses the same way. A step stops on the multiples of the step counted from the bottom of the range ([#14], [#16]), so a dial and a key go through the same values up and down. By default, `litra-manager` steps the value the dial shows, the brightest lamp's brightness or the first lamp's temperature, and sends every lamp there. When the global settings keep the lamps apart, it steps each lamp from its own value along the same multiples, as a turn on that lamp's screen would, so a tick on the main screen is a tick on every lamp's screen ([#145]). The settings are read once a turn's ticks are applied, so ticks gathered before a change follow the new setting.
 
 [#14]: https://github.com/daczarne/streamdeck-litra/issues/14
 [#16]: https://github.com/daczarne/streamdeck-litra/issues/16
@@ -70,6 +70,7 @@ A dial sends a tick at a time, and a quick turn sends many. The dial gathers tic
 [#96]: https://github.com/daczarne/streamdeck-litra/issues/96
 [#132]: https://github.com/daczarne/streamdeck-litra/issues/132
 [#144]: https://github.com/daczarne/streamdeck-litra/issues/144
+[#145]: https://github.com/daczarne/streamdeck-litra/issues/145
 [contributing]: contributing.md
 [keys]: elgato_sdk/keys.md
 [litra]: https://github.com/timrogers/litra
