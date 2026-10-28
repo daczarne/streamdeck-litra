@@ -39,11 +39,12 @@ A lamp that fails is logged, and the operation goes on with the others. Finding 
 
 ### What it does remember
 
-Three things outlive an operation, each because a lamp on a low-power supply needs it ([#55]):
+Four things outlive an operation. The first three are there because a lamp on a low-power supply needs them ([#55]):
 
 - The brightness each lamp can reach, its cap, learned the first time it falls short of what it was sent, and kept by its serial number with the path it was plugged in at. A lamp only moves to another power supply by being plugged in again, which on macOS gives it a new path, so a cap is forgotten once its lamp has another one. Whether Windows gives it a new path too isn't checked: if it kept the old one, a cap would outlive a move until the plugin restarts.
 - When a capped lamp may still go back to its cap after being asked for more, which can undo a lower brightness written in between: the next brightness change waits until then.
 - The queue of brightness changes, so that one starts only once the one before has been read back.
+- Where each lamp kept apart would be if an end of its range or its cap hadn't stopped it, with the brightness or temperature it was left at ([#145]). Its next step goes on from there, so a lamp held at its cap or at 0% while the others went on comes back with them, and they keep the difference they had. A step counts only while a lamp still moves, so turning on once every lamp is at its end piles nothing up. A turn planned before a lamp's cap is learned can still take it past its end, so before each turn, lamps that are all past their ends come back together by the steps they all have past them, and the next step the other way moves one of them. A position is forgotten once its lamp is set any other way, and ignored once the lamp is no longer where it was left, such as after a change with its own buttons. A restart forgets them all, as it does the caps.
 
 ## Reading what a lamp sends
 
@@ -59,7 +60,7 @@ An action shows an alert on the key or dial that failed. On a key, the redraw th
 
 ## Turning a dial
 
-A dial sends a tick at a time, and a quick turn sends many. The dial gathers ticks for a moment (`createDialDebouncer`), so a turn moves the lamps once, by the step the dial has when they're applied. A dial gathers its ticks apart for each lamp it turns, its main screen counting as one, so ticks turned on a lamp screen reach that lamp even when the strip is tapped before they're applied ([#20]). The step keys gather their presses the same way. A step stops on the multiples of the step counted from the bottom of the range ([#14], [#16]), so a dial and a key go through the same values up and down. By default, `litra-manager` steps the value the dial shows, the brightest lamp's brightness or the first lamp's temperature, and sends every lamp there. When the global settings keep the lamps apart, it steps each lamp from its own value along the same multiples, as a turn on that lamp's screen would, so a tick on the main screen is a tick on every lamp's screen ([#145]). The settings are read once a turn's ticks are applied, so ticks gathered before a change follow the new setting.
+A dial sends a tick at a time, and a quick turn sends many. The dial gathers ticks for a moment (`createDialDebouncer`), so a turn moves the lamps once, by the step the dial has when they're applied. A dial gathers its ticks apart for each lamp it turns, its main screen counting as one, so ticks turned on a lamp screen reach that lamp even when the strip is tapped before they're applied ([#20]). The step keys gather their presses the same way. A step stops on the multiples of the step counted from the bottom of the range ([#14], [#16]), so a dial and a key go through the same values up and down. By default, `litra-manager` steps the value the dial shows, the brightest lamp's brightness or the first lamp's temperature, and sends every lamp there. When the global settings keep the lamps apart, it steps each lamp from its own value along the same multiples, as a turn on that lamp's screen would, so a tick on the main screen is a tick on every lamp's screen, and remembers where a lamp stopped by an end would be (see [What it does remember](#what-it-does-remember)) ([#145]). The settings are read once a turn's ticks are applied, so ticks gathered before a change follow the new setting.
 
 [#14]: https://github.com/daczarne/streamdeck-litra/issues/14
 [#16]: https://github.com/daczarne/streamdeck-litra/issues/16

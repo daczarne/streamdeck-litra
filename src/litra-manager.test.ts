@@ -1192,7 +1192,7 @@ describe("adjustLampsBrightness, each lamp from its own (#145)", () => {
     expect([first.writes("brightness"), second.writes("brightness")]).toEqual([[lumenAt(30)], [lumenAt(60)]]);
   });
 
-  it("keeps stepping the other lamps once one reaches an end of its range, and comes back down with them", async () => {
+  it("keeps stepping the other lamps once one reaches an end of its range, and comes back with their difference", async () => {
     const [dim, bright] = [beam({ brightnessInLumen: lumenAt(50) }), beam({ brightnessInLumen: lumenAt(90) })];
     connect(dim, bright);
 
@@ -1203,7 +1203,83 @@ describe("adjustLampsBrightness, each lamp from its own (#145)", () => {
 
     await adjust(-3, 10);
 
-    expect([dim.brightnessInLumen, bright.brightnessInLumen]).toEqual([lumenAt(50), lumenAt(70)]);
+    expect([dim.brightnessInLumen, bright.brightnessInLumen]).toEqual([lumenAt(50), lumenAt(90)]);
+  });
+
+  it("keeps the lamps a step apart through their caps and down to 0%, and back up (#145)", async () => {
+    // Two Beams on a Stream Deck + XL's USB hub, which stop at 79% and 58%, the first one step ahead.
+    const ahead = beam({ brightnessInLumen: lumenAt(10), capInLumen: 324 });
+    const behind = beam({ brightnessInLumen: BEAM_MIN_LUMEN, capInLumen: 244 });
+    connect(ahead, behind);
+    const levels = () => [ahead.brightnessInLumen, behind.brightnessInLumen];
+
+    await adjust(5, 10);
+
+    expect(levels()).toEqual([lumenAt(60), lumenAt(50)]);
+
+    await adjust(1, 10);
+    await adjust(1, 10);
+
+    expect(levels()).toEqual([324, 244]);
+
+    // Both are at their caps: a turn up does nothing, so the next turn down moves at once.
+    await adjust(3, 10);
+    await adjust(-1, 10);
+
+    expect(levels()).toEqual([lumenAt(70), 244]);
+
+    await adjust(-1, 10);
+
+    expect(levels()).toEqual([lumenAt(60), lumenAt(50)]);
+
+    await adjust(-6, 10);
+
+    expect(levels()).toEqual([lumenAt(0), lumenAt(0)]);
+
+    // Both are at 0%: a turn down does nothing, and the first lamp is still a step ahead on the way up.
+    await adjust(-3, 10);
+    await adjust(1, 10);
+
+    expect(levels()).toEqual([lumenAt(10), lumenAt(0)]);
+  });
+
+  it("moves the lamps on the first tick down after a turn up went past caps it hadn't learned yet", async () => {
+    // Two Beams on a Stream Deck + XL's USB hub, which stop at 79% and 58%, whose caps aren't learned yet: a quick
+    // turn up is planned as if they could reach every step of it.
+    const first = beam({ brightnessInLumen: lumenAt(70), capInLumen: 324 });
+    const second = beam({ brightnessInLumen: lumenAt(50), capInLumen: 244 });
+    connect(first, second);
+
+    await adjust(2, 10);
+
+    expect([first.brightnessInLumen, second.brightnessInLumen]).toEqual([324, 244]);
+
+    await adjust(-1, 10);
+
+    expect([first.brightnessInLumen, second.brightnessInLumen]).toEqual([lumenAt(70), lumenAt(50)]);
+  });
+
+  it("steps a lamp set by anything else from where it is, even where its position left it", async () => {
+    const [dim, bright] = [beam({ brightnessInLumen: lumenAt(50) }), beam({ brightnessInLumen: lumenAt(90) })];
+    connect(dim, bright);
+    // The bright lamp is left at 100%, with its position a step above.
+    await adjust(2, 10);
+
+    await settled(manager.setLampsBrightness("all", 100));
+    await adjust(-1, 10);
+
+    expect([dim.brightnessInLumen, bright.brightnessInLumen]).toEqual([lumenAt(90), lumenAt(90)]);
+  });
+
+  it("steps a lamp moved with its own buttons from where it is", async () => {
+    const [dim, bright] = [beam({ brightnessInLumen: lumenAt(50) }), beam({ brightnessInLumen: lumenAt(90) })];
+    connect(dim, bright);
+    await adjust(2, 10);
+
+    bright.brightnessInLumen = lumenAt(60);
+    await adjust(-1, 10);
+
+    expect([dim.brightnessInLumen, bright.brightnessInLumen]).toEqual([lumenAt(60), lumenAt(50)]);
   });
 
   it("keeps stepping the other lamps once one stops at its cap", async () => {
@@ -1496,6 +1572,35 @@ describe("adjustLampsTemperature, each lamp from its own (#145)", () => {
     manager.adjustLampsTemperature("all", 1, 200, "each");
 
     expect([warm.temperatureInKelvin, cool.temperatureInKelvin]).toEqual([6100, BEAM_MAX_KELVIN]);
+  });
+
+  it("keeps the lamps' difference through the end of the range, and does nothing once both are there", () => {
+    const [warm, cool] = [beam({ temperatureInKelvin: 6100 }), beam({ temperatureInKelvin: 6300 })];
+    connect(warm, cool);
+    const temperatures = () => [warm.temperatureInKelvin, cool.temperatureInKelvin];
+
+    manager.adjustLampsTemperature("all", 4, 200, "each");
+
+    expect(temperatures()).toEqual([BEAM_MAX_KELVIN, BEAM_MAX_KELVIN]);
+
+    manager.adjustLampsTemperature("all", -1, 200, "each");
+
+    expect(temperatures()).toEqual([6300, BEAM_MAX_KELVIN]);
+
+    manager.adjustLampsTemperature("all", -1, 200, "each");
+
+    expect(temperatures()).toEqual([6100, 6300]);
+  });
+
+  it("steps a lamp set by anything else from where it is, rather than from its position", () => {
+    const [warm, cool] = [beam({ temperatureInKelvin: 6100 }), beam({ temperatureInKelvin: 6300 })];
+    connect(warm, cool);
+    manager.adjustLampsTemperature("all", 2, 200, "each");
+
+    manager.setLampsTemperature("all", 5000);
+    manager.adjustLampsTemperature("all", 1, 200, "each");
+
+    expect([warm.temperatureInKelvin, cool.temperatureInKelvin]).toEqual([5100, 5100]);
   });
 
   it("steps each lamp along the grid counted from the lowest allowed value (#16)", () => {

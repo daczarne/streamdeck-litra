@@ -19,6 +19,8 @@ const TEMPERATURE_UP = "com.daczarne.litra.temperature-up";
 const TEMPERATURE_DOWN = "com.daczarne.litra.temperature-down";
 
 // A Beam's brightness in lumens at a percentage of its range (30–400 lm), as litra rounds it.
+const LUMEN_AT_0 = 30;
+const LUMEN_AT_10 = 67;
 const LUMEN_AT_50 = 215;
 const LUMEN_AT_60 = 252;
 const LUMEN_AT_80 = 326;
@@ -545,6 +547,34 @@ describe("lamps kept apart (#145)", () => {
     await deck.turn(temperatureDial, 1);
 
     expect([dim.temperatureInKelvin, bright.temperatureInKelvin]).toEqual([4100, 4100]);
+  });
+
+  it("stay a step apart through their caps, down to 0% and back up, on a dial", async () => {
+    // Two Beams on a Stream Deck + XL's USB hub, which stop at 79% and 58%, the first one set a step ahead.
+    const ahead = beam({ serialNumber: "SERIAL-A", brightnessInLumen: LUMEN_AT_10, capInLumen: 324 });
+    const behind = beam({ serialNumber: "SERIAL-B", brightnessInLumen: LUMEN_AT_0, capInLumen: 244 });
+    plugIn(ahead, behind);
+    const dial = await deck.dial(BRIGHTNESS, { stepPercentage: 10 });
+    sdk.changeGlobalSettings({ keepBrightnessDifference: true });
+    const levels = () => [ahead.brightnessInLumen, behind.brightnessInLumen];
+
+    for (let tick = 0; tick < 10; tick++) {
+      await deck.turn(dial, 1);
+    }
+
+    expect(levels()).toEqual([324, 244]);
+
+    await deck.turn(dial, -1);
+    await deck.turn(dial, -1);
+
+    expect(levels()).toEqual([LUMEN_AT_60, LUMEN_AT_50]);
+
+    for (let tick = 0; tick < 10; tick++) {
+      await deck.turn(dial, -1);
+    }
+    await deck.turn(dial, 1);
+
+    expect(levels()).toEqual([LUMEN_AT_10, LUMEN_AT_0]);
   });
 
   it("come back in sync on a turn once the setting is off again", async () => {
