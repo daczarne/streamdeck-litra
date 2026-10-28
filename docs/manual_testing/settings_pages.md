@@ -11,7 +11,7 @@ The browser tests (`npm run test:browser`) check every settings page on every pu
 - It tells each page whether its action sits on a key or a dial.
 - It passes the settings a page sends on to the plugin.
 - It carries the lamp picker's messages between a page and the plugin, which [`lamp_picker.md`][lamp-picker] checks.
-- It keeps the plugin's global settings, gives them to every page that asks, and passes a page's changes on to the plugin, which [`lamp_screens.md`][lamp-screens] checks.
+- It keeps the plugin's global settings, gives them to every page that asks, and passes a page's changes on to the plugin, which [`lamp_screens.md`][lamp-screens] and [`lamps_apart.md`][lamps-apart] check.
 - It draws the page in its own panel, whose width and fonts decide whether a slider and its value fit on one line. The tests check what the page shows, not how it looks.
 
 The checks below cover the other four points, on the Deck. How Stream Deck does each of them is described in [`property_inspector.md`][property-inspector].
@@ -75,4 +75,5 @@ Remove `localhost:23654` from the targets in `chrome://inspect` too.
 
 [lamp-picker]: lamp_picker.md
 [lamp-screens]: lamp_screens.md
+[lamps-apart]: lamps_apart.md
 [property-inspector]: ../elgato_sdk/property_inspector.md

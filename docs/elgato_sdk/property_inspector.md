@@ -61,6 +61,8 @@ Checked while adding the lamp picker ([#20]): the messages and `useSettings` in 
 
 Checked while adding the blink of each lamp as its lamp screen appears ([#144]): `useGlobalSettings`, the `global` attribute and the checkbox in the vendored `ui/vendor/sdpi-components.js`, and the plugin's side in `@elgato/streamdeck/dist/plugin/settings.js` and `events/global-settings-event.d.ts`, then the checkbox on the Deck, shared by both dials, followed by the plugin as it changed, and kept across a restart of the plugin and of Stream Deck.
 
+Checked while adding the lamps' kept difference ([#145]): a page's save keeps the global settings it doesn't show, in the browser tests and on the Deck, with the brightness's and the temperature's saved from different pages and the blink from a third.
+
 [#9]: https://github.com/daczarne/streamdeck-litra/issues/9
 [#20]: https://github.com/daczarne/streamdeck-litra/issues/20
 [#144]: https://github.com/daczarne/streamdeck-litra/issues/144

@@ -23,7 +23,7 @@ Asking a lamp for more than its cap is how the plugin learns it, and for about a
 
 ## Setup
 
-Plug two Beams into a Stream Deck + XL's USB hub, so each has its own cap below 100%. Place two Brightness dials and two Brightness keys on the Deck, one key set to 100% and the other to 30%. Build the branch and restart the plugin:
+Plug two Beams into a Stream Deck + XL's USB hub, so each has its own cap below 100%. Place two Brightness dials and two Brightness keys on the Deck, one key set to 100% and the other to 30%. Leave "Each lamp" unchecked on the settings pages, its default, so the lamps step together (see [`lamps_apart.md`][lamps-apart]). Build the branch and restart the plugin:
 
 ```shell
 npm run build
