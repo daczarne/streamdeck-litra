@@ -2,6 +2,7 @@
 
 - [How Stream Deck loads a page](#how-stream-deck-loads-a-page)
 - [Talking to the plugin](#talking-to-the-plugin)
+- [Global settings](#global-settings)
 - [Content-Security-Policy](#content-security-policy)
 - [Debugging a page](#debugging-a-page)
 - [Sources](#sources)
@@ -22,6 +23,14 @@ A page and the plugin exchange messages through Stream Deck, which the lamp pick
 - A page sends `sendToPlugin` over its WebSocket, with a payload of its own. The plugin receives it through `streamDeck.ui.onSendToPlugin`, whichever action the page belongs to, so one listener can answer every page. `streamDeck.ui.sendToPropertyInspector` answers, and only reaches the page that's shown.
 - sdpi-components' `SDPIComponents.streamDeckClient.get(…)` sends a message and waits for the reply that matches it. Its `datasource` attribute fills a select or a checkbox list the same way, but a checkbox list's items are only a checkbox and a label, so they can't hold a button.
 - `SDPIComponents.useSettings(key)` reads and saves one setting while keeping the others, for a page script that draws its own controls. sdpi-components' checkbox and button work there as plain elements: without a `setting`, a checkbox saves nothing itself.
+
+## Global settings
+
+Besides each key's and dial's own settings, a plugin has one set of global settings, which every action shares, and Stream Deck keeps across restarts. The dials' blink of each lamp as its lamp screen appears is one ([#144]):
+
+- On a page, a sdpi-components control with the `global` attribute reads and saves a global setting instead of one of the action's. It asks Stream Deck for them (`getGlobalSettings`) when the page loads, and holds every save until the answer arrives. A save sends them whole (`setGlobalSettings`), keeping the ones the page doesn't show.
+- The plugin reads them with `streamDeck.settings.getGlobalSettings()`, which waits for the connection to Stream Deck, and follows a page's changes with `streamDeck.settings.onDidReceiveGlobalSettings`. Since Stream Deck 7.1, the listener isn't called for the plugin's own reads. Its event holds the settings as `settings`, not `payload.settings` as an action's does.
+- A checkbox saves `true` or `false`. Its `default` attribute is text, so `default="false"` would check it: a checkbox that starts unchecked has none, and an unsaved setting reads as missing.
 
 ## Content-Security-Policy
 
@@ -50,6 +59,9 @@ Checked on Stream Deck 7.6, on macOS, while adding the Content-Security-Policy (
 
 Checked while adding the lamp picker ([#20]): the messages and `useSettings` in the vendored `ui/vendor/sdpi-components.js` and in `@elgato/streamdeck/dist/plugin/ui.d.ts`, then the picker on the Deck, listing the lamps, saving them and blinking one.
 
+Checked while adding the blink of each lamp as its lamp screen appears ([#144]): `useGlobalSettings`, the `global` attribute and the checkbox in the vendored `ui/vendor/sdpi-components.js`, and the plugin's side in `@elgato/streamdeck/dist/plugin/settings.js` and `events/global-settings-event.d.ts`, then the checkbox on the Deck, shared by both dials, followed by the plugin as it changed, and kept across a restart of the plugin and of Stream Deck.
+
 [#9]: https://github.com/daczarne/streamdeck-litra/issues/9
 [#20]: https://github.com/daczarne/streamdeck-litra/issues/20
+[#144]: https://github.com/daczarne/streamdeck-litra/issues/144
 [manual-test]: ../manual_testing/settings_pages.md

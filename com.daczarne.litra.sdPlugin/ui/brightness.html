@@ -38,7 +38,7 @@
   </head>
 
   <body>
-    <!-- Key tiles: snap to a fixed brightness. Dial tiles: step size only. -->
+    <!-- Key tiles: snap to a fixed brightness. Dial tiles: step size, and the lamp screens' blink. -->
     <div id="key-settings" hidden>
       <sdpi-item label="Brightness">
         <div class="range">
@@ -71,6 +71,14 @@
           ></sdpi-range>
           <output for="step-percentage" data-suffix="%"></output>
         </div>
+      </sdpi-item>
+      <!-- Saved to the plugin's global settings, which every Brightness and Temperature dial shares (#144). -->
+      <sdpi-item label="Lamp screens">
+        <sdpi-checkbox
+          setting="blinkOnLampScreen"
+          global
+          label="Blink each lamp as it's shown, on every dial"
+        ></sdpi-checkbox>
       </sdpi-item>
     </div>
     <script src="controller-toggle.js"></script>

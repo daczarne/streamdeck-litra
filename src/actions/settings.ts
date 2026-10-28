@@ -73,6 +73,15 @@ function oneOf<T extends string>(allowed: readonly T[], fallback: T): Setting<T>
   };
 }
 
+/** A setting that is on or off, as a checkbox saves it. */
+function flag(fallback: boolean): Setting<boolean> {
+  return {
+    default: fallback,
+    expected: "true or false",
+    parse: (value) => (typeof value === "boolean" ? value : undefined),
+  };
+}
+
 /**
  * The lamps a key acts on (#20): `"all"`, which takes in lamps plugged in later, or the lamps checked on the settings
  * page, saved with their ids and the labels the page showed them with, so a lamp that isn't connected keeps its name
@@ -152,8 +161,15 @@ export const sceneSettings = {
 // The lamps alone, for an action that reads them apart from its other settings.
 export const lampSettings = { lamps };
 
+// The plugin's own settings, which every dial shares rather than each saving its own. With the blink on, tapping a dial
+// through its lamp screens blinks each lamp as its screen appears (#144). It's off by default, since every lamp then
+// blinks in turn, which shows on camera.
+export const globalSettings = {
+  blinkOnLampScreen: flag(false),
+};
+
 /**
- * Reads an action's settings, as Stream Deck sent them, against the action's schema (#22). A setting that is missing
+ * Reads an action's settings, or the plugin's global ones, as Stream Deck sent them, against their schema (#22). A setting that is missing
  * takes its default. One that isn't valid, from an older or edited profile, takes its default too, with a warning.
  */
 export function parseSettings<S extends Schema>(

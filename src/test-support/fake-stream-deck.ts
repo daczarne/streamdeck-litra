@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import type { JsonValue } from "@elgato/utils";
+import type { JsonObject, JsonValue } from "@elgato/utils";
 
 import { vi } from "vitest";
 
@@ -106,6 +106,18 @@ export function sentToPropertyInspector(): readonly JsonValue[] {
   return toPropertyInspector;
 }
 
+// The plugin's global settings, as Stream Deck keeps them, and the plugin's listeners for their changes.
+let globalSettings: JsonObject = {};
+const globalSettingsListeners: Array<(ev: { settings: JsonObject }) => void> = [];
+
+/** Saves the plugin's global settings from a settings page, which Stream Deck passes on to the plugin. */
+export function changeGlobalSettings(settings: JsonObject): void {
+  globalSettings = settings;
+  for (const listener of globalSettingsListeners) {
+    listener({ settings });
+  }
+}
+
 export default {
   logger: { setLevel: (_level: string): void => {} },
   ui: {
@@ -115,6 +127,13 @@ export default {
     },
     sendToPropertyInspector: async (payload: JsonValue): Promise<void> => {
       toPropertyInspector.push(payload);
+    },
+  },
+  settings: {
+    getGlobalSettings: async (): Promise<JsonObject> => globalSettings,
+    onDidReceiveGlobalSettings: (listener: (ev: { settings: JsonObject }) => void): { dispose: () => void } => {
+      globalSettingsListeners.push(listener);
+      return { dispose: () => globalSettingsListeners.splice(globalSettingsListeners.indexOf(listener), 1) };
     },
   },
   actions: {
