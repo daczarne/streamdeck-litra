@@ -440,9 +440,13 @@ describe("settings pages", () => {
       })()`);
     }
 
-    /** Waits for the page to have asked for the global settings, which it then shows. */
-    async function globalSettingsRead(uuid: string): Promise<void> {
-      await streamDeck.waitFor((m) => m.event === "getGlobalSettings" && m.context === uuid);
+    /**
+     * Waits for the page to have the global settings, not only to have asked for them: sdpi-components' getter answers
+     * once they've arrived, by when the checkboxes show them. Checking a box before then would race the answer, which
+     * sdpi-components applies over the click, so the page would save again, late enough to reach the next test.
+     */
+    async function globalSettingsRead(page: Page): Promise<void> {
+      await page.evaluate(`SDPIComponents.useGlobalSettings("${setting}")[0]()`);
     }
 
     /** Checks the setting's checkbox, and returns the global settings the page saves. */
@@ -457,8 +461,8 @@ describe("settings pages", () => {
     }
 
     it("shows the default in settings.ts when nothing is saved", async () => {
-      const { page, uuid } = await openPanel(panel);
-      await globalSettingsRead(uuid);
+      const { page } = await openPanel(panel);
+      await globalSettingsRead(page);
       const checked = await isChecked(page);
       await page.close();
 
@@ -467,15 +471,15 @@ describe("settings pages", () => {
 
     it("shows what the global settings hold, whatever the action saved", async () => {
       streamDeck.globalSettings = { [setting]: true };
-      const { page, uuid } = await openPanel(panel, { [setting]: false });
-      await globalSettingsRead(uuid);
+      const { page } = await openPanel(panel, { [setting]: false });
+      await globalSettingsRead(page);
       await expect.poll(() => isChecked(page)).toBe(true);
       await page.close();
     });
 
     it("saves to the global settings, as settings.ts takes it, and leaves the action's own alone", async () => {
       const { page, uuid } = await openPanel(panel);
-      await globalSettingsRead(uuid);
+      await globalSettingsRead(page);
       const saved = await check(page, uuid);
       // Long enough for a save of the action's own settings to arrive, which there mustn't be.
       await new Promise((resolve) => setTimeout(resolve, 300));
@@ -490,7 +494,7 @@ describe("settings pages", () => {
       const other = Object.keys(globalSettings).find((name) => name !== setting) ?? "";
       streamDeck.globalSettings = { [other]: true };
       const { page, uuid } = await openPanel(panel);
-      await globalSettingsRead(uuid);
+      await globalSettingsRead(page);
       const saved = await check(page, uuid);
       await page.close();
 
