@@ -14,11 +14,12 @@ An action's settings page is its Property Inspector: an HTML page from the plugi
 - Stream Deck renders the pages with Qt WebEngine, which is Chromium. A page that works in Chrome generally works there too.
 - A plugin's page loads from `file://`, at its path in the plugin folder. For this linked plugin, that's the repository: `file:///Users/.../streamdeck-litra/com.daczarne.litra.sdPlugin/ui/temperature.html`. Stream Deck also registers its own `sdpi:` scheme, but uses it for its own panels (`sdpi://ui`), not for plugins' pages.
 - Only the page of the selected action exists. Selecting another action replaces it with a new page.
+- A manifest names a page per action, or one at its top for every action that names none (`PropertyInspectorPath`), and nothing else: Stream Deck 7.6 has no page for a plugin's own settings, such as under Preferences > Plugins. Checked in `@elgato/schemas` and in the manifest keys the app's binary reads. The plugin settings ([#146]) are therefore a view that every action's page shows, from one script.
 - Stream Deck calls a global function on the page, `connectElgatoStreamDeckSocket`, with a port and the action's details, including whether it sits on a key or a dial. The page then opens a WebSocket to `ws://localhost:<port>`, through which it reads and saves the settings. sdpi-components defines that function, so the pages here don't.
 
 ## Talking to the plugin
 
-A page and the plugin exchange messages through Stream Deck, which the lamp picker on the keys' pages relies on ([#20]):
+A page and the plugin exchange messages through Stream Deck, which the lamp picker on the keys' pages ([#20]) and the plugin settings on every page ([#146]) rely on:
 
 - A page sends `sendToPlugin` over its WebSocket, with a payload of its own. The plugin receives it through `streamDeck.ui.onSendToPlugin`, whichever action the page belongs to, so one listener can answer every page. `streamDeck.ui.sendToPropertyInspector` answers, and only reaches the page that's shown.
 - sdpi-components' `SDPIComponents.streamDeckClient.get(…)` sends a message and waits for the reply that matches it. Its `datasource` attribute fills a select or a checkbox list the same way, but a checkbox list's items are only a checkbox and a label, so they can't hold a button.
@@ -26,10 +27,11 @@ A page and the plugin exchange messages through Stream Deck, which the lamp pick
 
 ## Global settings
 
-Besides each key's and dial's own settings, a plugin has one set of global settings, which every action shares, and Stream Deck keeps across restarts. The dials' blink of each lamp as its lamp screen appears is one ([#144]), and whether the lamps keep their difference when a dial or a step key steps them are two more ([#145]):
+Besides each key's and dial's own settings, a plugin has one set of global settings, which every action shares, and Stream Deck keeps across restarts. The dials' blink of each lamp as its lamp screen appears is one ([#144]), and whether the lamps keep their difference when a dial or a step key steps them are two more ([#145]). The lamps' names are another ([#146]), which only the pages read:
 
 - On a page, a sdpi-components control with the `global` attribute reads and saves a global setting instead of one of the action's. It asks Stream Deck for them (`getGlobalSettings`) when the page loads, and holds every save until the answer arrives. A save sends them whole (`setGlobalSettings`), keeping the ones the page doesn't show.
 - The plugin reads them with `streamDeck.settings.getGlobalSettings()`, which waits for the connection to Stream Deck, and follows a page's changes with `streamDeck.settings.onDidReceiveGlobalSettings`. Since Stream Deck 7.1, the listener isn't called for the plugin's own reads. Its event holds the settings as `settings`, not `payload.settings` as an action's does.
+- `SDPIComponents.useGlobalSettings(key)` does for a page script what `useSettings` does for the action's. A save from the page doesn't reach the page's other readers of that key, which only hear from Stream Deck's answers, so the plugin settings tell the lamp picker of a name changed through an event on the document.
 - A checkbox saves `true` or `false`. Its `default` attribute is text, so `default="false"` would check it: a checkbox that starts unchecked has none, and an unsaved setting reads as missing.
 
 ## Content-Security-Policy
@@ -63,8 +65,11 @@ Checked while adding the blink of each lamp as its lamp screen appears ([#144]):
 
 Checked while adding the lamps' kept difference ([#145]): a page's save keeps the global settings it doesn't show, in the browser tests and on the Deck, with the brightness's and the temperature's saved from different pages and the blink from a third.
 
+Checked while adding the plugin settings ([#146]): the manifest schema and the app's binary for a plugin-wide page, `useGlobalSettings` and `sdpi-textfield` in the vendored `ui/vendor/sdpi-components.js`, then the plugin settings on the Deck, on keys and dials, with names kept across a restart of Stream Deck.
+
 [#9]: https://github.com/daczarne/streamdeck-litra/issues/9
 [#20]: https://github.com/daczarne/streamdeck-litra/issues/20
 [#144]: https://github.com/daczarne/streamdeck-litra/issues/144
 [#145]: https://github.com/daczarne/streamdeck-litra/issues/145
+[#146]: https://github.com/daczarne/streamdeck-litra/issues/146
 [manual-test]: ../manual_testing/settings_pages.md

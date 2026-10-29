@@ -5,12 +5,12 @@
 - [Checks](#checks)
 - [Afterwards](#afterwards)
 
-The browser tests (`npm run test:browser`) check every settings page on every pull request: the controls it shows on a key and on a dial, that each control's default and values are the ones the plugin takes (`src/actions/settings.ts`), the settings it sends, its own and the plugin's global ones, the value shown next to each slider, the lamp picker, and that its Content-Security-Policy refuses anything remote or inline. They run the pages in a headless Chrome, with a fake standing in for Stream Deck, so they take for granted what Stream Deck itself does:
+The browser tests (`npm run test:browser`) check every settings page on every pull request: the controls it shows on a key and on a dial, that each control's default and values are the ones the plugin takes (`src/actions/settings.ts`), the settings it sends, its own and the plugin's global ones, the value shown next to each slider, the lamp picker and the plugin settings, and that its Content-Security-Policy refuses anything remote or inline. They run the pages in a headless Chrome, with a fake standing in for Stream Deck, so they take for granted what Stream Deck itself does:
 
 - It enforces the policy, in its own Chromium, which is older than the Chrome the tests use.
 - It tells each page whether its action sits on a key or a dial.
 - It passes the settings a page sends on to the plugin.
-- It carries the lamp picker's messages between a page and the plugin, which [`lamp_picker.md`][lamp-picker] checks.
+- It carries the lamp picker's and the plugin settings' messages between a page and the plugin, which [`lamp_picker.md`][lamp-picker] and [`plugin_settings.md`][plugin-settings] check.
 - It keeps the plugin's global settings, gives them to every page that asks, and passes a page's changes on to the plugin, which [`lamp_screens.md`][lamp-screens] and [`lamps_apart.md`][lamps-apart] check.
 - It draws the page in its own panel, whose width and fonts decide whether a slider and its value fit on one line. The tests check what the page shows, not how it looks.
 
@@ -74,6 +74,7 @@ Remove `localhost:23654` from the targets in `chrome://inspect` too.
 > The port has no authentication: while it's open, any process on the computer can connect to it and run code in the pages.
 
 [lamp-picker]: lamp_picker.md
+[plugin-settings]: plugin_settings.md
 [lamp-screens]: lamp_screens.md
 [lamps-apart]: lamps_apart.md
 [property-inspector]: ../elgato_sdk/property_inspector.md
