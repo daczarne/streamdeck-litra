@@ -5,6 +5,11 @@ import type { AddressInfo, Socket } from "node:net";
 // Fixed by the WebSocket protocol (RFC 6455): the server proves the handshake by hashing the client's key with it.
 const WEBSOCKET_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
+// Stream Deck answers from another process, and on a slow machine, such as a CI runner, its answer reaches a page after
+// the page has gone on. Holding the global settings back as long makes every run meet that, so a test that acts on a
+// page before it has them fails here too, rather than only now and then in CI.
+const GLOBAL_SETTINGS_DELAY_MS = 150;
+
 export type StreamDeckMessage = { event: string; context?: string; payload?: Record<string, unknown> };
 
 /** A lamp as the plugin lists it for a settings page (#20). */
@@ -85,12 +90,16 @@ export class FakeStreamDeck {
   }
 
   /**
-   * Answers a page that asks for the global settings, and keeps the ones it saves, as Stream Deck does, and a page
-   * that asks the plugin for the lamps, as `src/actions/lamp-picker.ts` does.
+   * Answers a page that asks for the global settings, a moment later, and keeps the ones it saves, as Stream Deck
+   * does, and a page that asks the plugin for the lamps, as `src/actions/lamp-picker.ts` does.
    */
   private answer(message: StreamDeckMessage, socket: Socket): void {
     if (message.event === "getGlobalSettings") {
-      this.send(socket, { event: "didReceiveGlobalSettings", payload: { settings: this.globalSettings } });
+      const settings = this.globalSettings;
+      setTimeout(
+        () => this.send(socket, { event: "didReceiveGlobalSettings", payload: { settings } }),
+        GLOBAL_SETTINGS_DELAY_MS,
+      );
     } else if (message.event === "setGlobalSettings") {
       this.globalSettings = message.payload ?? {};
     } else if (message.event === "sendToPlugin" && message.payload?.event === "lamps") {
