@@ -8,11 +8,11 @@ on:
       - opened
       - reopened
       - synchronize
+  # Not on tags: the only ones are the releases', which GitHub creates on a commit main already checked when a draft is
+  # published. A run for one would repeat every check, skip the release job, and be what the commit shows.
   push:
     branches:
       - main
-    tags:
-      - "**/**"
 
 permissions: {}
 
