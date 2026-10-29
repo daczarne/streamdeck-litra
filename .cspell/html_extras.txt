@@ -1,3 +1,5 @@
+maxlength
 sdpi
+Segoe
 showlabels
 valuechange

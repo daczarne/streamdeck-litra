@@ -665,6 +665,11 @@ describe("lamps picked on a key's settings page (#20)", () => {
     return { id: lampId(lamp.serialNumber), label: `Beam - ${lamp.serialNumber.slice(-4)}` };
   }
 
+  /** A lamp as the plugin lists it for a page: as it's saved, with its model and the end of its serial (#146). */
+  function listed(lamp: EmulatedLitra) {
+    return { ...picked(lamp), model: "Beam", serialEnd: lamp.serialNumber.slice(-4) };
+  }
+
   it("are the only ones a key switches, and its state shows theirs", async () => {
     const [first, second] = [beam({ on: false }), beam({ on: false })];
     plugIn(first, second);
@@ -695,7 +700,7 @@ describe("lamps picked on a key's settings page (#20)", () => {
     sdk.sendToPlugin({ event: "lamps" });
     await vi.runAllTimersAsync();
 
-    expect(sdk.sentToPropertyInspector()).toEqual([{ event: "lamps", lamps: [picked(first), picked(second)] }]);
+    expect(sdk.sentToPropertyInspector()).toEqual([{ event: "lamps", lamps: [listed(first), listed(second)] }]);
 
     sdk.sendToPlugin({ event: "identify", id: lampId(second.serialNumber) });
     await vi.runAllTimersAsync();

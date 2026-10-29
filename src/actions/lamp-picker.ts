@@ -7,8 +7,9 @@ import { logger as pluginLogger } from "../logging";
 const logger = pluginLogger.createScope("Lamp picker");
 
 /**
- * Answers the lamp picker on the keys' settings pages (#20, `ui/lamp-picker.js`), whichever action's page it's on: the
- * connected lamps when the page asks for them, and a blink of one when its Identify button is pressed.
+ * Answers the lamp picker on the keys' settings pages (#20, `ui/lamp-picker.js`) and the plugin settings on every page
+ * (#146, `ui/plugin-settings.js`), whichever action's page they're on: the connected lamps when a page asks for them,
+ * and a blink of one when its Identify button is pressed.
  */
 export function answerLampPickers(): void {
   streamDeck.ui.onSendToPlugin((ev) => {
@@ -25,7 +26,7 @@ export async function answer(payload: JsonValue): Promise<void> {
   }
   if (payload.event === "lamps") {
     logger.info("Settings page asked for the lamps");
-    const lamps = findLamps().map(({ id, label }) => ({ id, label }));
+    const lamps = findLamps();
     await streamDeck.ui.sendToPropertyInspector({ event: "lamps", lamps });
   } else if (payload.event === "identify" && typeof payload.id === "string") {
     logger.info("Identify pressed on a settings page");

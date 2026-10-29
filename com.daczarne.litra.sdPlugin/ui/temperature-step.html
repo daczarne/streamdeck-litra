@@ -20,6 +20,9 @@
   </head>
 
   <body>
+    <!-- The plugin's own settings, the same on every page, which plugin-settings.js shows in place of the action's
+      (#146). -->
+    <div id="plugin-settings"></div>
     <!-- How far a press of a Temperature Up or Down key moves the lamps: the same steps as a Temperature dial's. -->
     <sdpi-item label="Step K">
       <sdpi-select setting="stepKelvin" default="300">
@@ -42,6 +45,7 @@
       <div id="lamp-picker"></div>
     </sdpi-item>
     <script src="lamp-picker.js"></script>
+    <script src="plugin-settings.js"></script>
   </body>
 
 </html>

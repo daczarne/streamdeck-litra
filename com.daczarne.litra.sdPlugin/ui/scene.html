@@ -38,6 +38,9 @@
   </head>
 
   <body>
+    <!-- The plugin's own settings, the same on every page, which plugin-settings.js shows in place of the action's
+      (#146). -->
+    <div id="plugin-settings"></div>
     <!-- The scene a press sets every lamp to, on: the same presets as the Brightness and Temperature keys. -->
     <sdpi-item label="Brightness">
       <div class="range">
@@ -71,6 +74,7 @@
     </sdpi-item>
     <script src="range-value.js"></script>
     <script src="lamp-picker.js"></script>
+    <script src="plugin-settings.js"></script>
   </body>
 
 </html>

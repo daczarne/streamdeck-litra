@@ -520,13 +520,20 @@ describe("settings pages", () => {
     });
   });
 
+  const FIRST: ListedLamp = { id: "0123456789abcdef", label: "Beam - 1111", model: "Beam", serialEnd: "1111" };
+  const SECOND: ListedLamp = { id: "fedcba9876543210", label: "Beam LX - 2222", model: "Beam LX", serialEnd: "2222" };
+
+  /** A lamp as a key saves it: its id, and the label it was listed with. */
+  function savedLamp({ id, label }: ListedLamp) {
+    return { id, label };
+  }
+
   describe("the lamp picker (#20)", () => {
     const POWER = at(PANELS, 0);
-    const FIRST: ListedLamp = { id: "0123456789abcdef", label: "Beam - 1111" };
-    const SECOND: ListedLamp = { id: "fedcba9876543210", label: "Beam LX - 2222" };
 
     afterEach(() => {
       streamDeck.lamps = [];
+      streamDeck.globalSettings = {};
     });
 
     /** Opens the Power key's page with the lamps the plugin finds and the key's saved settings, once it lists them. */
@@ -545,16 +552,17 @@ describe("settings pages", () => {
       return message.payload?.lamps;
     }
 
-    it("lists every lamp found, with an Identify button, all checked for a key with no lamps saved", async () => {
+    it("lists every lamp found, by its label, all checked for a key with no lamps saved", async () => {
       const { page } = await openPicker([FIRST, SECOND]);
 
       expect(await pickerOf(page)).toEqual({
         lamps: [
-          { label: FIRST.label, checked: true, identify: true, missing: false },
-          { label: SECOND.label, checked: true, identify: true, missing: false },
+          { label: FIRST.label, checked: true, missing: false },
+          { label: SECOND.label, checked: true, missing: false },
         ],
         all: true,
         notes: [],
+        buttons: [],
       });
       // A key with no lamps saved acts on every lamp, settings.ts's default.
       expect(read("lamps", "all")).toEqual({ value: defaultOf("lamps"), valid: true });
@@ -562,7 +570,7 @@ describe("settings pages", () => {
     });
 
     it("checks the lamps the key has saved, and leaves All unchecked", async () => {
-      const { page } = await openPicker([FIRST, SECOND], { lamps: [SECOND] });
+      const { page } = await openPicker([FIRST, SECOND], { lamps: [savedLamp(SECOND)] });
 
       expect(await pickerOf(page)).toMatchObject({
         lamps: [{ checked: false }, { checked: true }],
@@ -575,20 +583,20 @@ describe("settings pages", () => {
       const { page, uuid } = await openPicker([FIRST, SECOND]);
 
       const after = streamDeck.messages.length;
-      await click(page, "sdpi-checkbox", FIRST.label);
+      await clickInPicker(page, FIRST.label);
       const saved = await nextSave(uuid, after);
 
-      expect(saved).toEqual([SECOND]);
+      expect(saved).toEqual([savedLamp(SECOND)]);
       expect(read("lamps", saved as JsonValue)).toEqual({ value: [SECOND.id], valid: true });
       expect(await pickerOf(page)).toMatchObject({ lamps: [{ checked: false }, { checked: true }], all: false });
       await page.close();
     });
 
     it("saves every lamp when All is checked, and checks them all", async () => {
-      const { page, uuid } = await openPicker([FIRST, SECOND], { lamps: [FIRST] });
+      const { page, uuid } = await openPicker([FIRST, SECOND], { lamps: [savedLamp(FIRST)] });
 
       const after = streamDeck.messages.length;
-      await click(page, "sdpi-checkbox", "All");
+      await clickInPicker(page, "All");
 
       expect(await nextSave(uuid, after)).toBe("all");
       expect(await pickerOf(page)).toMatchObject({ lamps: [{ checked: true }, { checked: true }], all: true });
@@ -599,7 +607,7 @@ describe("settings pages", () => {
       const { page, uuid } = await openPicker([FIRST, SECOND]);
 
       const after = streamDeck.messages.length;
-      await click(page, "sdpi-checkbox", "All");
+      await clickInPicker(page, "All");
       const saved = await nextSave(uuid, after);
 
       expect(saved).toEqual([]);
@@ -608,62 +616,214 @@ describe("settings pages", () => {
     });
 
     it("saves the lamps checked one by one as a list, not as All, which would take in lamps plugged in later", async () => {
-      const { page, uuid } = await openPicker([FIRST, SECOND], { lamps: [FIRST] });
+      const { page, uuid } = await openPicker([FIRST, SECOND], { lamps: [savedLamp(FIRST)] });
 
       const after = streamDeck.messages.length;
-      await click(page, "sdpi-checkbox", SECOND.label);
+      await clickInPicker(page, SECOND.label);
 
-      expect(await nextSave(uuid, after)).toEqual([FIRST, SECOND]);
+      expect(await nextSave(uuid, after)).toEqual([savedLamp(FIRST), savedLamp(SECOND)]);
       expect(await pickerOf(page)).toMatchObject({ all: false });
       await page.close();
     });
 
     it("keeps a saved lamp that isn't connected, checked and marked as not found, so it can be unchecked", async () => {
-      const { page, uuid } = await openPicker([FIRST], { lamps: [FIRST, SECOND] });
+      const { page, uuid } = await openPicker([FIRST], { lamps: [savedLamp(FIRST), savedLamp(SECOND)] });
 
       expect(await pickerOf(page)).toMatchObject({
         lamps: [
-          { label: FIRST.label, checked: true, identify: true, missing: false },
-          { label: SECOND.label, checked: true, identify: false, missing: true },
+          { label: FIRST.label, checked: true, missing: false },
+          { label: SECOND.label, checked: true, missing: true },
         ],
       });
 
       const after = streamDeck.messages.length;
-      await click(page, "sdpi-checkbox", SECOND.label);
+      await clickInPicker(page, SECOND.label);
 
-      expect(await nextSave(uuid, after)).toEqual([FIRST]);
+      expect(await nextSave(uuid, after)).toEqual([savedLamp(FIRST)]);
       await page.close();
     });
 
     it("says so when no lamp is found", async () => {
       const { page } = await openPicker([]);
 
-      expect(await pickerOf(page)).toEqual({ lamps: [], all: true, notes: ["No lamps found"] });
+      expect(await pickerOf(page)).toEqual({ lamps: [], all: true, notes: ["No lamps found"], buttons: [] });
       await page.close();
     });
 
-    it("asks the plugin again on Find lamps, and lists the lamps plugged in since", async () => {
-      const { page, uuid } = await openPicker([FIRST]);
+    it("shows a named lamp by its name, connected or not, and saves it with its label (#146)", async () => {
+      streamDeck.globalSettings = { lampNames: { [FIRST.id]: "Left", [SECOND.id]: "Key light" } };
+      const { page, uuid } = await openPicker([FIRST], { lamps: [savedLamp(SECOND)] });
 
-      streamDeck.lamps = [FIRST, SECOND];
-      await click(page, "sdpi-button", "Find lamps");
+      expect(await pickerOf(page)).toMatchObject({
+        lamps: [
+          { label: "Left", checked: false, missing: false },
+          { label: "Key light", checked: true, missing: true },
+        ],
+      });
 
-      await expect
-        .poll(async () => (await pickerOf(page)).lamps.map((lamp) => lamp.label))
-        .toEqual([FIRST.label, SECOND.label]);
-      expect(streamDeck.messages.filter((m) => isLampsRequest(m, uuid))).toHaveLength(2);
+      const after = streamDeck.messages.length;
+      await clickInPicker(page, "Left");
+
+      expect(await nextSave(uuid, after)).toEqual([savedLamp(FIRST), savedLamp(SECOND)]);
       await page.close();
     });
 
-    it("asks the plugin to blink a lamp on its Identify button", async () => {
-      const { page, uuid } = await openPicker([FIRST, SECOND]);
+    it("shows a lamp by its label when its saved name isn't text", async () => {
+      streamDeck.globalSettings = { lampNames: { [FIRST.id]: 7 } };
+      const { page } = await openPicker([FIRST]);
 
-      await click(page, "sdpi-button", "Identify", SECOND.label);
+      await expect.poll(async () => (await pickerOf(page)).lamps.map((lamp) => lamp.label)).toEqual([FIRST.label]);
+      await page.close();
+    });
+  });
+
+  describe.each(PANELS)("the plugin settings of $page on $controller (#146)", (panel) => {
+    it("start closed, behind a Plugin settings button at the top of the page", async () => {
+      const { page } = await openPanel(panel);
+      await expect.poll(() => pluginSettingsOf(page)).toMatchObject({ buttons: ["Plugin settings"] });
+
+      expect(await pluginSettingsOf(page)).toEqual({
+        first: true,
+        open: false,
+        actionShown: true,
+        buttons: ["Plugin settings"],
+        lamps: [],
+        notes: [],
+      });
+      await page.close();
+    });
+
+    it("show in place of the action's settings, and give way to them again on Back", async () => {
+      streamDeck.lamps = [FIRST];
+      const { page } = await openPanel(panel);
+
+      await clickInPluginSettings(page, "Plugin settings");
+      await expect.poll(() => pluginSettingsOf(page)).toMatchObject({ lamps: [{ serialEnd: FIRST.serialEnd }] });
+      expect(await pluginSettingsOf(page)).toMatchObject({
+        open: true,
+        actionShown: false,
+        buttons: ["Back", "Find lamps", "Identify"],
+      });
+
+      await clickInPluginSettings(page, "Back");
+      expect(await pluginSettingsOf(page)).toMatchObject({
+        open: false,
+        actionShown: true,
+        buttons: ["Plugin settings"],
+      });
+      streamDeck.lamps = [];
+      await page.close();
+    });
+  });
+
+  describe("the plugin settings (#146)", () => {
+    const POWER = at(PANELS, 0);
+
+    afterEach(() => {
+      streamDeck.lamps = [];
+      streamDeck.globalSettings = {};
+    });
+
+    /** Opens the Power key's page with the lamps the plugin finds, then its plugin settings, once they list them. */
+    async function openPluginSettings(lamps: ListedLamp[]) {
+      streamDeck.lamps = lamps;
+      const opened = await openPanel(POWER);
+      await clickInPluginSettings(opened.page, "Plugin settings");
+      await expect.poll(async () => (await pluginSettingsOf(opened.page)).notes).not.toContain("Looking for lamps…");
+      return opened;
+    }
+
+    /** The next global settings the page saves. */
+    async function nextGlobalSave(uuid: string, after: number): Promise<unknown> {
+      const message = await streamDeck.waitFor(
+        (m) => m.event === "setGlobalSettings" && m.context === uuid && streamDeck.messages.indexOf(m) >= after,
+      );
+      return message.payload;
+    }
+
+    it("list every lamp found by the end of its serial, its model and its name, with an Identify button", async () => {
+      streamDeck.globalSettings = { lampNames: { [SECOND.id]: "Key light" } };
+      const { page } = await openPluginSettings([FIRST, SECOND]);
+
+      expect(await pluginSettingsOf(page)).toMatchObject({
+        headers: ["ID", "Model", "Name", ""],
+        lamps: [
+          { serialEnd: "1111", model: "Beam", name: "", placeholder: FIRST.label, maxLength: "24", identify: true },
+          {
+            serialEnd: "2222",
+            model: "Beam LX",
+            name: "Key light",
+            placeholder: SECOND.label,
+            maxLength: "24",
+            identify: true,
+          },
+        ],
+        notes: [],
+      });
+      await page.close();
+    });
+
+    it("save a name typed, by lamp id, keeping the other global settings, and show it in the lamp picker", async () => {
+      streamDeck.globalSettings = { blinkOnLampScreen: true, lampNames: { [SECOND.id]: "Key light" } };
+      const { page, uuid } = await openPluginSettings([FIRST, SECOND]);
+
+      const after = streamDeck.messages.length;
+      await typeName(page, FIRST.serialEnd, "  Left ");
+
+      expect(await nextGlobalSave(uuid, after)).toEqual({
+        blinkOnLampScreen: true,
+        lampNames: { [SECOND.id]: "Key light", [FIRST.id]: "Left" },
+      });
+      await clickInPluginSettings(page, "Back");
+      expect((await pickerOf(page)).lamps.map((lamp) => lamp.label)).toEqual(["Left", "Key light"]);
+      await page.close();
+    });
+
+    it("take a name away when its field is emptied, and show the lamp by its label again", async () => {
+      streamDeck.globalSettings = { lampNames: { [FIRST.id]: "Left", [SECOND.id]: "Key light" } };
+      const { page, uuid } = await openPluginSettings([FIRST, SECOND]);
+
+      const after = streamDeck.messages.length;
+      await typeName(page, FIRST.serialEnd, " ");
+
+      expect(await nextGlobalSave(uuid, after)).toEqual({ lampNames: { [SECOND.id]: "Key light" } });
+      await clickInPluginSettings(page, "Back");
+      expect((await pickerOf(page)).lamps.map((lamp) => lamp.label)).toEqual([FIRST.label, "Key light"]);
+      await page.close();
+    });
+
+    it("ask the plugin to blink a lamp on its Identify button", async () => {
+      const { page, uuid } = await openPluginSettings([FIRST, SECOND]);
+
+      await clickInPluginSettings(page, "Identify", SECOND.serialEnd);
       const message = await streamDeck.waitFor(
         (m) => m.event === "sendToPlugin" && m.context === uuid && m.payload?.event === "identify",
       );
 
       expect(message.payload).toEqual({ event: "identify", id: SECOND.id });
+      await page.close();
+    });
+
+    it("ask the plugin again on Find lamps, and list the lamps plugged in since, as the lamp picker does", async () => {
+      const { page, uuid } = await openPluginSettings([FIRST]);
+
+      streamDeck.lamps = [FIRST, SECOND];
+      await clickInPluginSettings(page, "Find lamps");
+
+      await expect
+        .poll(async () => (await pluginSettingsOf(page)).lamps.map((lamp) => lamp.serialEnd))
+        .toEqual([FIRST.serialEnd, SECOND.serialEnd]);
+      // Once by the lamp picker as the page opened, once as the plugin settings opened, and once on Find lamps.
+      expect(streamDeck.messages.filter((m) => isLampsRequest(m, uuid))).toHaveLength(3);
+      await clickInPluginSettings(page, "Back");
+      expect((await pickerOf(page)).lamps.map((lamp) => lamp.label)).toEqual([FIRST.label, SECOND.label]);
+      await page.close();
+    });
+
+    it("say so when no lamp is found", async () => {
+      const { page } = await openPluginSettings([]);
+
+      expect(await pluginSettingsOf(page)).toMatchObject({ lamps: [], notes: ["No lamps found"] });
       await page.close();
     });
   });
@@ -674,16 +834,17 @@ function isLampsRequest(message: { event: string; context?: string; payload?: Re
   return message.event === "sendToPlugin" && message.context === uuid && message.payload?.event === "lamps";
 }
 
-type PickerLamp = { label: string | null; checked: boolean; identify: boolean; missing: boolean };
+type PickerLamp = { label: string | null; checked: boolean; missing: boolean };
 
-/** What the lamp picker shows: each lamp's row, the All checkbox, if shown yet, and its notes. */
-function pickerOf(page: Page): Promise<{ lamps: PickerLamp[]; all: boolean | undefined; notes: string[] }> {
+/** What the lamp picker shows: each lamp's row, the All checkbox, if shown yet, its notes and its buttons. */
+function pickerOf(
+  page: Page,
+): Promise<{ lamps: PickerLamp[]; all: boolean | undefined; notes: string[]; buttons: string[] }> {
   return page.evaluate(`(() => {
     const picker = document.getElementById("lamp-picker");
     const lamps = [...picker.querySelectorAll(".lamp")].map((row) => ({
       label: row.querySelector("sdpi-checkbox").getAttribute("label"),
       checked: row.querySelector("sdpi-checkbox").value === true,
-      identify: row.querySelector("sdpi-button") !== null,
       missing: row.querySelector(".note") !== null,
     }));
     const all = [...picker.children].find((child) => child.localName === "sdpi-checkbox");
@@ -691,21 +852,97 @@ function pickerOf(page: Page): Promise<{ lamps: PickerLamp[]; all: boolean | und
       lamps,
       all: all === undefined ? undefined : all.value === true,
       notes: [...picker.querySelectorAll(":scope > .note")].map((note) => note.textContent),
+      buttons: [...picker.querySelectorAll("sdpi-button")].map((button) => button.textContent),
+    };
+  })()`);
+}
+
+/** Clicks a checkbox of the lamp picker by its label, as the user would: on the input inside the component. */
+function clickInPicker(page: Page, label: string): Promise<void> {
+  return page.evaluate(`(async () => {
+    const picker = document.getElementById("lamp-picker");
+    const host = [...picker.querySelectorAll("sdpi-checkbox")].find((element) =>
+      element.getAttribute("label") === ${JSON.stringify(label)});
+    await host.updateComplete;
+    host.shadowRoot.querySelector("input").click();
+  })()`);
+}
+
+type PluginSettingsLamp = {
+  serialEnd: string;
+  model: string;
+  name: string;
+  placeholder: string | null;
+  maxLength: string | null;
+  identify: boolean;
+};
+
+type PluginSettings = {
+  /** Whether they're the first thing on the page. */
+  first: boolean;
+  open: boolean;
+  /** Whether any of the action's own settings show. */
+  actionShown: boolean;
+  buttons: string[];
+  headers?: string[];
+  lamps: PluginSettingsLamp[];
+  notes: string[];
+};
+
+/** What the plugin settings show, and whether the action's own settings show beside them. */
+function pluginSettingsOf(page: Page): Promise<PluginSettings> {
+  return page.evaluate(`(() => {
+    const container = document.getElementById("plugin-settings");
+    const headers = [...container.querySelectorAll("th")].map((th) => th.textContent);
+    return {
+      first: document.body.firstElementChild === container,
+      open: document.body.classList.contains("plugin-settings-open"),
+      actionShown: [...document.body.children].some(
+        (child) => child !== container && child.localName !== "script" && child.checkVisibility(),
+      ),
+      buttons: [...container.querySelectorAll("sdpi-button")].map((button) => button.textContent),
+      ...(headers.length === 0 ? {} : { headers }),
+      lamps: [...container.querySelectorAll("tr.lamp")].map((row) => {
+        const [serialEnd, model] = [...row.children].map((td) => td.textContent);
+        const name = row.querySelector("sdpi-textfield");
+        return {
+          serialEnd,
+          model,
+          name: name.value ?? "",
+          placeholder: name.getAttribute("placeholder"),
+          maxLength: name.getAttribute("maxlength"),
+          identify: row.querySelector("sdpi-button")?.textContent === "Identify",
+        };
+      }),
+      notes: [...container.querySelectorAll(".note")].map((note) => note.textContent),
     };
   })()`);
 }
 
 /**
- * Clicks a checkbox of the lamp picker by its label, or a button by its text, in the row of the lamp labelled `row`
- * when given, as the user would: on the input or button inside the component.
+ * Clicks a button of the plugin settings by its text, in the row of the lamp whose serial ends in `row` when given, as
+ * the user would: on the button inside the component.
  */
-function click(page: Page, tag: "sdpi-checkbox" | "sdpi-button", name: string, row?: string): Promise<void> {
+function clickInPluginSettings(page: Page, text: string, row?: string): Promise<void> {
   return page.evaluate(`(async () => {
-    const picker = document.getElementById("lamp-picker");
-    const scope = ${row === undefined ? "picker" : `[...picker.querySelectorAll(".lamp")].find((r) => r.querySelector("sdpi-checkbox").getAttribute("label") === ${JSON.stringify(row)})`};
-    const host = [...scope.querySelectorAll("${tag}")].find((element) =>
-      (element.getAttribute("label") ?? element.textContent) === ${JSON.stringify(name)});
+    const container = document.getElementById("plugin-settings");
+    const scope = ${row === undefined ? "container" : `[...container.querySelectorAll("tr.lamp")].find((r) => r.firstElementChild.textContent === ${JSON.stringify(row)})`};
+    const host = [...scope.querySelectorAll("sdpi-button")].find((element) => element.textContent === ${JSON.stringify(text)});
     await host.updateComplete;
-    host.shadowRoot.querySelector("input, button").click();
+    host.shadowRoot.querySelector("button").click();
+  })()`);
+}
+
+/** Types a name into the field of the lamp whose serial ends in `row`, as the user would, replacing what it held. */
+function typeName(page: Page, row: string, name: string): Promise<void> {
+  return page.evaluate(`(async () => {
+    const container = document.getElementById("plugin-settings");
+    const lamp = [...container.querySelectorAll("tr.lamp")].find((r) => r.firstElementChild.textContent === ${JSON.stringify(row)});
+    const host = lamp.querySelector("sdpi-textfield");
+    await host.updateComplete;
+    const input = host.shadowRoot.querySelector("input");
+    input.focus();
+    input.value = ${JSON.stringify(name)};
+    input.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
   })()`);
 }
