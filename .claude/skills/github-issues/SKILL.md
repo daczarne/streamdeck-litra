@@ -41,7 +41,7 @@ While working on something, a task shows up that doesn't belong in the current b
 The issue is read later, by someone else or by Claude in another session, without the conversation that raised it, so it stands on its own:
 
 - **Title.** Says what is needed, in at most 72 characters, without a final period.
-- **Body.** Follows the Markdown section of `docs/style_guide.md`. The title is the document's H1, so the body has neither an H1 nor a table of contents. An opening paragraph without a heading states the task and why it's needed. Then, as needed: the current state (with file paths), the proposed approach, the alternatives considered and why they were set aside, and open questions. Background and rejected alternatives belong here, not in pull requests. The length follows the task: a small fix gets a few sentences.
+- **Body.** Follows the Markdown section of `docs/style_guide.md`. The title is the document's H1, so the body has neither an H1 nor a table of contents. An opening paragraph without a heading states the task and why it's needed. Then, as needed: the current state (with file paths), the proposed approach, the alternatives considered and why they were set aside, and open questions, numbered, so a discussion can refer to each by its number. Background and rejected alternatives belong here, not in pull requests. The length follows the task: a small fix gets a few sentences.
 
 ## Comment on an existing issue
 
