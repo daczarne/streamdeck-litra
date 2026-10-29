@@ -1,6 +1,7 @@
-// The lamps a key acts on (#20): a checkbox for each lamp the plugin finds, with a button that blinks it, and one for
-// every lamp. The key's `lamps` setting is "all", or the lamps checked, each with its id and the label shown for it,
-// so a lamp that isn't connected keeps its name here. A file rather than an inline script, so the pages'
+// The lamps a key acts on (#20): a checkbox for each lamp the plugin finds, and one for every lamp. Each lamp shows
+// with the name given to it in the plugin settings (plugin-settings.js, #146), or else its label, such as
+// "Beam - 7K98". The key's `lamps` setting is "all", or the lamps checked, each with its id and its label, so a lamp
+// that isn't connected keeps its place here. A file rather than an inline script, so the pages'
 // Content-Security-Policy doesn't have to allow inline scripts.
 (() => {
   const picker = document.getElementById("lamp-picker");
@@ -13,6 +14,8 @@
   let saved = "all";
   // The lamps the plugin found, or undefined while it's asked.
   let found;
+  // The lamps' names, by id, from the plugin's global settings.
+  let names = {};
 
   const style = document.createElement("style");
   style.textContent = `
@@ -41,10 +44,22 @@
     0,
   );
 
+  // Names saved by other pages arrive with the global settings.
+  const [readNames] = SDPIComponents.useGlobalSettings("lampNames", (value) => {
+    names = validNames(value);
+    render();
+  });
+
+  /** The names in the global settings, or none when they aren't a set of names by id. */
+  function validNames(value) {
+    if (typeof value !== "object" || value === null || Array.isArray(value)) {
+      return {};
+    }
+    return Object.fromEntries(Object.entries(value).filter(([, name]) => typeof name === "string"));
+  }
+
   /** Asks the plugin for the lamps connected now, and shows them. */
   async function findLamps() {
-    found = undefined;
-    render();
     const reply = await client.get(
       "sendToPlugin",
       "sendToPropertyInspector",
@@ -96,14 +111,6 @@
     return box;
   }
 
-  /** A button from sdpi-components. */
-  function button(text, onClick) {
-    const element = document.createElement("sdpi-button");
-    element.textContent = text;
-    element.addEventListener("click", onClick);
-    return element;
-  }
-
   /** A line of grey text. */
   function note(text) {
     const element = document.createElement("p");
@@ -112,25 +119,21 @@
     return element;
   }
 
-  /** A lamp's row: its checkbox, and a button that blinks it, or a note when it isn't connected. */
+  /** A lamp's row: its checkbox, by its name or else its label, and a note when it isn't connected. */
   function lampRow(lamp) {
     const row = document.createElement("div");
     row.className = "lamp";
     const checked = saved === "all" || saved.some(({ id }) => id === lamp.id);
-    row.append(checkbox(lamp.label, checked, (value) => toggleLamp(lamp, value)));
+    row.append(checkbox(names[lamp.id] ?? lamp.label, checked, (value) => toggleLamp(lamp, value)));
     if (lamp.missing) {
       row.append(note("not found"));
-    } else {
-      row.append(button("Identify", () => client.send("sendToPlugin", { event: "identify", id: lamp.id })));
     }
     return row;
   }
 
   /** Draws the picker from what the key has saved and what the plugin found. */
   function render() {
-    const rows = [
-      button("Find lamps", () => findLamps().catch((error) => console.error("Can't find the lamps", error))),
-    ];
+    const rows = [];
     if (found === undefined) {
       rows.push(note("Looking for lamps…"));
     } else {
@@ -150,7 +153,17 @@
     if (info?.actionInfo?.payload?.controller === "Encoder") {
       return;
     }
-    saved = (await readSaved()) ?? "all";
+    // The plugin settings tell of the names they change and the lamps they find.
+    document.addEventListener("litra:lamp-names", (event) => {
+      names = event.detail;
+      render();
+    });
+    document.addEventListener("litra:lamps", (event) => {
+      found = event.detail;
+      render();
+    });
+    render();
+    [saved, names] = await Promise.all([readSaved().then((value) => value ?? "all"), readNames().then(validNames)]);
     await findLamps();
   })().catch((error) => console.error("Can't show the lamps", error));
 })();

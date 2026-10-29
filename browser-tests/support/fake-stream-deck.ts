@@ -12,8 +12,8 @@ const GLOBAL_SETTINGS_DELAY_MS = 150;
 
 export type StreamDeckMessage = { event: string; context?: string; payload?: Record<string, unknown> };
 
-/** A lamp as the plugin lists it for a settings page (#20). */
-export type ListedLamp = { id: string; label: string };
+/** A lamp as the plugin lists it for a settings page (#20, #146). */
+export type ListedLamp = { id: string; label: string; model: string; serialEnd: string };
 
 /**
  * Stands in for the WebSocket that Stream Deck opens for a settings page: it accepts the page's connection and

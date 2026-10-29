@@ -59,6 +59,10 @@ export type FoundLamp = {
   id: string;
   /** Its model and the last 4 characters of its serial number, such as "Beam - 7K98". */
   label: string;
+  /** Its model, such as "Beam", which the plugin settings list apart from the end of its serial (#146). */
+  model: string;
+  /** The last 4 characters of its serial number, such as "7K98". */
+  serialEnd: string;
 };
 
 /** What a lamp screen shows about one lamp (#48). */
@@ -908,7 +912,8 @@ export async function readLampStatuses(): Promise<{ ok: boolean; lamps: LampStat
 }
 
 /**
- * Lists the connected lamps for the settings pages, sorted by serial number as the lamp screens are (#20). Finding a
+ * Lists the connected lamps for the settings pages, sorted by serial number as the lamp screens are (#20), with what the
+ * keys' lamp pickers and the plugin settings show of each (#146). Finding a
  * lamp tells its model and serial, so none is read, and none of the brightness changes has to be waited for. Lists none
  * when finding them fails.
  */
@@ -917,7 +922,12 @@ export function findLamps(): FoundLamp[] {
   try {
     return [...devices]
       .sort((a, b) => bySerialNumber(a.serialNumber, b.serialNumber))
-      .map((device) => ({ id: lampId(device.serialNumber), label: displayLabel(device) }));
+      .map((device) => ({
+        id: lampId(device.serialNumber),
+        label: displayLabel(device),
+        model: MODEL_BY_DEVICE_TYPE[device.type],
+        serialEnd: device.serialNumber.slice(-4),
+      }));
   } finally {
     for (const device of devices) {
       closeDevice(device);

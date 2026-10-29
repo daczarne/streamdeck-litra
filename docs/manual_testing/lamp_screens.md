@@ -25,7 +25,7 @@ In VS Code, the `Build and restart` task runs both.
 ## Checks
 
 1. **The screen is readable.** Tap the Brightness dial's strip. It shows the first lamp: "Beam - " followed by the last 4 characters of its serial number, with "1 of 2" at the right, on the first row, the thermometer icon with the kelvin and "On" at the right on the second, and the sun icon with the % and the lumens on the third. Every value reads clearly from where you sit. Share a photo of the strip.
-2. **Each lamp in turn.** Tap again: the strip shows the other lamp's label, "2 of 2" and its values. Each label is the one a key's settings page lists for that lamp ([`lamp_picker.md`][lamp-picker]). Tap again: the strip goes back to the brightness with its bar.
+2. **Each lamp in turn.** Tap again: the strip shows the other lamp's label, "2 of 2" and its values. Each label is the lamp's model and the end of its serial number, as the plugin settings list it, in the same order ([`plugin_settings.md`][plugin-settings]). Tap again: the strip goes back to the brightness with its bar.
 3. **Holding blinks the lamp on screen.** On a lamp screen, hold the strip: only that lamp goes off for a moment and comes back at the same brightness and temperature, and the strip stays on its screen. Turn that lamp off with its own button, tap through to its screen again, and hold: it lights up for a moment and goes off again. On the main screen, holding the strip does nothing.
 4. **A lamp screen stays.** Tap to a lamp screen and leave the dial alone for a minute: the strip still shows the lamp screen. Only tapping past the last lamp goes back to the main screen.
 5. **Turning moves the lamp on screen.** On the Brightness dial, tap to "1 of 2" and turn the dial: only lamp 1's brightness changes, and its screen shows the new %. Tap through both screens and back: the new % is still on "1 of 2". On the Temperature dial, tap to "2 of 2" and turn: only lamp 2's temperature changes. If lamp 1 was off, the brightness turn lights it, as a turn on the main screen does.
@@ -47,4 +47,4 @@ In VS Code, the `Build and restart` task runs both.
 [#20]: https://github.com/daczarne/streamdeck-litra/issues/20
 [#48]: https://github.com/daczarne/streamdeck-litra/issues/48
 [#144]: https://github.com/daczarne/streamdeck-litra/issues/144
-[lamp-picker]: lamp_picker.md
+[plugin-settings]: plugin_settings.md

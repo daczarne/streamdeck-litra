@@ -25,8 +25,8 @@ vi.mock("../litra-manager", () => ({
 }));
 
 const LAMPS = [
-  { id: "lamp-1", label: "Beam - 1111" },
-  { id: "lamp-2", label: "Beam LX - 2222" },
+  { id: "lamp-1", label: "Beam - 1111", model: "Beam", serialEnd: "1111" },
+  { id: "lamp-2", label: "Beam LX - 2222", model: "Beam LX", serialEnd: "2222" },
 ];
 
 beforeEach(() => {
@@ -38,7 +38,7 @@ beforeEach(() => {
 //* Tests
 
 describe("the lamp picker's answers (#20)", () => {
-  it("send a page that asks for the lamps the ones connected now, by id and label", async () => {
+  it("send a page that asks for the lamps the ones connected now, by id, label, model and serial end", async () => {
     await answer({ event: "lamps" });
 
     expect(findLamps).toHaveBeenCalledOnce();

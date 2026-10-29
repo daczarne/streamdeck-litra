@@ -38,6 +38,9 @@
   </head>
 
   <body>
+    <!-- The plugin's own settings, the same on every page, which plugin-settings.js shows in place of the action's
+      (#146). -->
+    <div id="plugin-settings"></div>
     <!-- How far a press of a Brightness Up or Down key moves the lamps: the same steps as a Brightness dial's. -->
     <sdpi-item label="Step">
       <div class="range">
@@ -66,6 +69,7 @@
     </sdpi-item>
     <script src="range-value.js"></script>
     <script src="lamp-picker.js"></script>
+    <script src="plugin-settings.js"></script>
   </body>
 
 </html>

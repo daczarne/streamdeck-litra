@@ -20,6 +20,9 @@
   </head>
 
   <body>
+    <!-- The plugin's own settings, the same on every page, which plugin-settings.js shows in place of the action's
+      (#146). -->
+    <div id="plugin-settings"></div>
     <sdpi-item label="Mode">
       <sdpi-select setting="mode" default="toggle">
         <option value="toggle">Toggle</option>
@@ -32,6 +35,7 @@
       <div id="lamp-picker"></div>
     </sdpi-item>
     <script src="lamp-picker.js"></script>
+    <script src="plugin-settings.js"></script>
   </body>
 
 </html>
