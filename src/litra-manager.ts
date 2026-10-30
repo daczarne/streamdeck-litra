@@ -95,8 +95,9 @@ const BRIGHTNESS_SETTLE_MS = 250;
 // between (#55). A later write stays, so a brightness change waits until this long after such a request.
 const CAP_REVERSAL_WINDOW_MS = 1500;
 
-// Long enough to see the lamp go off and back on, short enough not to disturb.
-const IDENTIFY_BLINK_MS = 300;
+// A lamp fades out when switched off, in about 750 ms at any brightness, so a shorter blink brings it back before it has
+// dimmed enough to notice, which with other lamps on hides it (#171).
+const IDENTIFY_BLINK_MS = 750;
 
 // Reports a lamp sends unasked (ACKs, change notices, error reports) can arrive ahead of the reply to a query.
 const MAX_SKIPPED_REPORTS = 10;
