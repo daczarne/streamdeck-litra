@@ -33,7 +33,7 @@ type Panel = {
   controller: Controller;
   /** The settings whose controls the panel shows, by their `setting` attribute. */
   settings: string[];
-  /** The plugin's global settings whose controls the panel shows, which every action shares (#144). */
+  /** The plugin's global settings whose controls the panel shows itself, which every action shares (#144). */
   globalSettings?: string[];
   /** A setting to change through its control, and the value Stream Deck should receive for it. */
   change: { setting: string; value: string; saved: unknown };
@@ -59,7 +59,7 @@ const PANELS: Panel[] = [
     page: "ui/brightness.html",
     controller: "Encoder",
     settings: ["stepPercentage"],
-    globalSettings: ["keepBrightnessDifference", "blinkOnLampScreen"],
+    globalSettings: ["blinkOnLampScreen"],
     change: { setting: "stepPercentage", value: "20", saved: 20 },
     sliders: [{ setting: "stepPercentage", suffix: "%", value: "20" }],
   },
@@ -74,7 +74,7 @@ const PANELS: Panel[] = [
     page: "ui/temperature.html",
     controller: "Encoder",
     settings: ["stepKelvin"],
-    globalSettings: ["keepTemperatureDifference", "blinkOnLampScreen"],
+    globalSettings: ["blinkOnLampScreen"],
     change: { setting: "stepKelvin", value: "500", saved: "500" },
   },
   {
@@ -91,7 +91,6 @@ const PANELS: Panel[] = [
     page: "ui/brightness-step.html",
     controller: "Keypad",
     settings: ["stepPercentage"],
-    globalSettings: ["keepBrightnessDifference"],
     change: { setting: "stepPercentage", value: "20", saved: 20 },
     sliders: [{ setting: "stepPercentage", suffix: "%", value: "20" }],
   },
@@ -99,10 +98,12 @@ const PANELS: Panel[] = [
     page: "ui/temperature-step.html",
     controller: "Keypad",
     settings: ["stepKelvin"],
-    globalSettings: ["keepTemperatureDifference"],
     change: { setting: "stepKelvin", value: "500", saved: "500" },
   },
 ];
+
+// The global settings the plugin settings show, on every page, which every dial and key shares (#145, #146).
+const PLUGIN_SETTINGS_GLOBALS = ["keepBrightnessDifference", "keepTemperatureDifference"];
 
 // What the plugin accepts for each setting, by its name, and the default it takes: settings.ts says these are what
 // each page offers, and the pages' own defaults.
@@ -422,85 +423,102 @@ describe("settings pages", () => {
     });
   });
 
-  // Every checkbox of a global setting, on every page that shows it (#144, #145).
-  const globalCheckboxes = PANELS.flatMap((panel) =>
-    (panel.globalSettings ?? []).map((setting) => ({ panel, setting })),
-  );
-  describe.each(globalCheckboxes)("the global $setting on $panel.page on $panel.controller", ({ panel, setting }) => {
-    afterEach(() => {
-      streamDeck.globalSettings = {};
-    });
+  // Every checkbox of a global setting, on every page that shows it (#144), and in the plugin settings, on a key's page
+  // and a dial's (#145, #146).
+  const globalCheckboxes = [
+    ...PANELS.flatMap((panel) =>
+      (panel.globalSettings ?? []).map((setting) => ({ panel, setting, where: "", inPluginSettings: false })),
+    ),
+    ...[at(PANELS, 0), at(PANELS, 2)].flatMap((panel) =>
+      PLUGIN_SETTINGS_GLOBALS.map((setting) => ({
+        panel,
+        setting,
+        where: " in the plugin settings",
+        inPluginSettings: true,
+      })),
+    ),
+  ];
+  describe.each(globalCheckboxes)(
+    "the global $setting$where on $panel.page on $panel.controller",
+    ({ panel, setting, inPluginSettings }) => {
+      afterEach(() => {
+        streamDeck.globalSettings = {};
+      });
 
-    /** Whether the setting's checkbox is checked. */
-    function isChecked(page: Page): Promise<boolean> {
-      return page.evaluate(`(async () => {
+      /** Whether the setting's checkbox is checked. */
+      function isChecked(page: Page): Promise<boolean> {
+        return page.evaluate(`(async () => {
         const host = document.querySelector('[setting="${setting}"]');
         await host.updateComplete;
         return host.shadowRoot.querySelector("input").checked;
       })()`);
-    }
+      }
 
-    /**
-     * Waits for the page to have the global settings, not only to have asked for them: sdpi-components' getter answers
-     * once they've arrived, by when the checkboxes show them. Checking a box before then would race the answer, which
-     * sdpi-components applies over the click, so the page would save again, late enough to reach the next test.
-     */
-    async function globalSettingsRead(page: Page): Promise<void> {
-      await page.evaluate(`SDPIComponents.useGlobalSettings("${setting}")[0]()`);
-    }
+      /**
+       * Waits for the page to have the global settings, not only to have asked for them: sdpi-components' getter answers
+       * once they've arrived, by when the checkboxes show them. Checking a box before then would race the answer, which
+       * sdpi-components applies over the click, so the page would save again, late enough to reach the next test.
+       */
+      async function globalSettingsRead(page: Page): Promise<void> {
+        await page.evaluate(`SDPIComponents.useGlobalSettings("${setting}")[0]()`);
+      }
 
-    /** Checks the setting's checkbox, and returns the global settings the page saves. */
-    async function check(page: Page, uuid: string): Promise<unknown> {
-      await page.evaluate(`(async () => {
+      /** Checks the setting's checkbox, as the user would, and returns the global settings the page saves. */
+      async function check(page: Page, uuid: string): Promise<unknown> {
+        if (inPluginSettings) {
+          await clickInPluginSettings(page, "Plugin settings");
+        }
+        await page.evaluate(`(async () => {
         const host = document.querySelector('[setting="${setting}"]');
         await host.updateComplete;
         host.shadowRoot.querySelector("input").click();
       })()`);
-      const message = await streamDeck.waitFor((m) => m.event === "setGlobalSettings" && m.context === uuid);
-      return message.payload;
-    }
+        const message = await streamDeck.waitFor((m) => m.event === "setGlobalSettings" && m.context === uuid);
+        return message.payload;
+      }
 
-    it("shows the default in settings.ts when nothing is saved", async () => {
-      const { page } = await openPanel(panel);
-      await globalSettingsRead(page);
-      const checked = await isChecked(page);
-      await page.close();
+      it("shows the default in settings.ts when nothing is saved", async () => {
+        const { page } = await openPanel(panel);
+        await globalSettingsRead(page);
+        const checked = await isChecked(page);
+        await page.close();
 
-      expect(checked).toBe(defaultOf(setting));
-    });
+        expect(checked).toBe(defaultOf(setting));
+      });
 
-    it("shows what the global settings hold, whatever the action saved", async () => {
-      streamDeck.globalSettings = { [setting]: true };
-      const { page } = await openPanel(panel, { [setting]: false });
-      await globalSettingsRead(page);
-      await expect.poll(() => isChecked(page)).toBe(true);
-      await page.close();
-    });
+      it("shows what the global settings hold, whatever the action saved", async () => {
+        streamDeck.globalSettings = { [setting]: true };
+        const { page } = await openPanel(panel, { [setting]: false });
+        await globalSettingsRead(page);
+        await expect.poll(() => isChecked(page)).toBe(true);
+        await page.close();
+      });
 
-    it("saves to the global settings, as settings.ts takes it, and leaves the action's own alone", async () => {
-      const { page, uuid } = await openPanel(panel);
-      await globalSettingsRead(page);
-      const saved = await check(page, uuid);
-      // Long enough for a save of the action's own settings to arrive, which there mustn't be.
-      await new Promise((resolve) => setTimeout(resolve, 300));
-      await page.close();
+      it("saves to the global settings, as settings.ts takes it, and leaves the action's own alone", async () => {
+        const { page, uuid } = await openPanel(panel);
+        await globalSettingsRead(page);
+        const saved = await check(page, uuid);
+        // Long enough for a save of the action's own settings to arrive, which there mustn't be.
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        await page.close();
 
-      expect(saved).toEqual({ [setting]: true });
-      expect(read(setting, true)).toEqual({ value: true, valid: true });
-      expect(streamDeck.messages.filter((m) => m.event === "setSettings" && m.context === uuid)).toEqual([]);
-    });
+        expect(saved).toEqual({ [setting]: true });
+        expect(read(setting, true)).toEqual({ value: true, valid: true });
+        expect(streamDeck.messages.filter((m) => m.event === "setSettings" && m.context === uuid)).toEqual([]);
+      });
 
-    it("keeps the other global settings when it saves", async () => {
-      const other = Object.keys(globalSettings).find((name) => name !== setting) ?? "";
-      streamDeck.globalSettings = { [other]: true };
-      const { page, uuid } = await openPanel(panel);
-      await globalSettingsRead(page);
-      const saved = await check(page, uuid);
-      await page.close();
+      it("keeps the other global settings when it saves", async () => {
+        const other = Object.keys(globalSettings).find((name) => name !== setting) ?? "";
+        streamDeck.globalSettings = { [other]: true };
+        const { page, uuid } = await openPanel(panel);
+        await globalSettingsRead(page);
+        const saved = await check(page, uuid);
+        await page.close();
 
-      expect(saved).toEqual({ [other]: true, [setting]: true });
-    });
-  });
+        expect(saved).toEqual({ [other]: true, [setting]: true });
+      });
+    },
+  );
 
   describe.each(PANELS)("the lamp picker of $page on $controller", (panel) => {
     const onKey = panel.controller === "Keypad";
@@ -704,6 +722,7 @@ describe("settings pages", () => {
         actionShown: false,
         buttons: ["Back", "Find lamps", "Identify"],
       });
+      expect(await shownGlobalSettings(page)).toEqual(PLUGIN_SETTINGS_GLOBALS);
 
       await clickInPluginSettings(page, "Back");
       expect(await pluginSettingsOf(page)).toMatchObject({
@@ -711,6 +730,7 @@ describe("settings pages", () => {
         actionShown: true,
         buttons: ["Plugin settings"],
       });
+      expect(await shownGlobalSettings(page)).toEqual(panel.globalSettings ?? []);
       streamDeck.lamps = [];
       await page.close();
     });
@@ -889,6 +909,15 @@ type PluginSettings = {
   notes: string[];
 };
 
+/** The `setting` of every global control the page shows, as the user sees it, wherever it sits on the page. */
+function shownGlobalSettings(page: Page): Promise<string[]> {
+  return page.evaluate(`
+    [...document.querySelectorAll("[setting][global]")]
+      .filter((control) => control.checkVisibility())
+      .map((control) => control.getAttribute("setting"))
+  `);
+}
+
 /** What the plugin settings show, and whether the action's own settings show beside them. */
 function pluginSettingsOf(page: Page): Promise<PluginSettings> {
   return page.evaluate(`(() => {
@@ -900,7 +929,9 @@ function pluginSettingsOf(page: Page): Promise<PluginSettings> {
       actionShown: [...document.body.children].some(
         (child) => child !== container && child.localName !== "script" && child.checkVisibility(),
       ),
-      buttons: [...container.querySelectorAll("sdpi-button")].map((button) => button.textContent),
+      buttons: [...container.querySelectorAll("sdpi-button")]
+        .filter((button) => button.checkVisibility())
+        .map((button) => button.textContent),
       ...(headers.length === 0 ? {} : { headers }),
       lamps: [...container.querySelectorAll("tr.lamp")].map((row) => {
         const [serialEnd, model] = [...row.children].map((td) => td.textContent);

@@ -2,8 +2,9 @@
 // place of the action's, and back. They list the lamps the plugin finds, each by the end of its serial number and its
 // model, with a field for its name and a button that blinks it. The names are kept in the plugin's global settings, as
 // `lampNames`, by lamp id, and the keys' lamp pickers show them (lamp-picker.js, which this tells of every name changed
-// and every lamp found, through events on the document). A file rather than an inline script, so the pages'
-// Content-Security-Policy doesn't have to allow inline scripts.
+// and every lamp found, through events on the document). Under the lamps come the global settings that every dial and
+// key shares, such as whether each lamp steps from its own value (#145). A file rather than an inline script, so the
+// pages' Content-Security-Policy doesn't have to allow inline scripts.
 (() => {
   const container = document.getElementById("plugin-settings");
   if (container === null) {
@@ -37,6 +38,7 @@
       color: #969696;
       font-family: "Segoe UI", Arial, Roboto, Helvetica, sans-serif;
       font-size: 9pt;
+      margin-bottom: 10px;
     }
 
     #plugin-settings th {
@@ -112,14 +114,31 @@
     }
   }
 
-  /** A button from sdpi-components, in a row of its own, as wide as the page's controls. */
-  function buttonItem(text, onClick) {
-    const item = document.createElement("sdpi-item");
-    const button = document.createElement("sdpi-button");
-    button.textContent = text;
-    button.addEventListener("click", onClick);
-    item.append(button);
-    return item;
+  /** A row of its own, as wide as the page's controls, holding `content`, with `label` on its left. */
+  function item(label, ...content) {
+    const element = document.createElement("sdpi-item");
+    if (label !== undefined) {
+      element.setAttribute("label", label);
+    }
+    element.append(...content);
+    return element;
+  }
+
+  /** A button from sdpi-components. */
+  function button(text, onClick) {
+    const element = document.createElement("sdpi-button");
+    element.textContent = text;
+    element.addEventListener("click", onClick);
+    return element;
+  }
+
+  /** A checkbox from sdpi-components that reads and saves a global setting itself. */
+  function globalCheckbox(setting, label) {
+    const box = document.createElement("sdpi-checkbox");
+    box.setAttribute("setting", setting);
+    box.setAttribute("global", "");
+    box.setAttribute("label", label);
+    return box;
   }
 
   /** A line of grey text. */
@@ -145,14 +164,12 @@
     name.value = names[lamp.id] ?? "";
     // Added after the value is set, so only the user's typing reaches it.
     name.addEventListener("valuechange", () => rename(lamp.id, name.value ?? ""));
-    const identify = document.createElement("sdpi-button");
-    identify.textContent = "Identify";
-    identify.addEventListener("click", () => client.send("sendToPlugin", { event: "identify", id: lamp.id }));
 
     const row = document.createElement("tr");
     row.className = "lamp";
     const nameCell = cell("td", name);
     nameCell.className = "name";
+    const identify = button("Identify", () => client.send("sendToPlugin", { event: "identify", id: lamp.id }));
     row.append(cell("td", lamp.serialEnd), cell("td", lamp.model), nameCell, cell("td", identify));
     return row;
   }
@@ -167,32 +184,47 @@
     return table;
   }
 
-  /**
-   * Draws the button, and the plugin settings when they're shown. A name field being typed in isn't redrawn, so the
-   * names that arrive from Stream Deck don't move its cursor.
-   */
-  function render() {
-    if (document.activeElement?.closest("#plugin-settings sdpi-textfield")) {
-      return;
-    }
-    const rows = [buttonItem(open ? "Back" : "Plugin settings", () => toggle().catch(showError))];
-    if (open) {
-      rows.push(buttonItem("Find lamps", () => findLamps().catch(showError)));
-      if (found === undefined) {
-        rows.push(note("Looking for lamps…"));
-      } else if (found.length === 0) {
-        rows.push(note("No lamps found"));
-      } else {
-        rows.push(lampTable(found));
-      }
-    }
-    container.replaceChildren(...rows);
-  }
-
   /** Logs a failure to find the lamps, which the page has no other way to show. */
   function showError(error) {
     console.error("Can't show the lamps", error);
   }
 
-  render();
+  // The checkboxes are on the page from the start, though hidden, since sdpi-components only gives a control the
+  // global settings that arrive once it's on the page. Only the lamps are drawn again.
+  const toggleButton = button("Plugin settings", () => toggle().catch(showError));
+  const lampList = document.createElement("div");
+  const view = document.createElement("div");
+  view.hidden = true;
+  view.append(
+    item(
+      undefined,
+      button("Find lamps", () => findLamps().catch(showError)),
+    ),
+    lampList,
+    item(
+      "Each lamp",
+      globalCheckbox("keepBrightnessDifference", "Steps from its own brightness, on every dial and key"),
+      globalCheckbox("keepTemperatureDifference", "Steps from its own temperature, on every dial and key"),
+    ),
+  );
+  container.append(item(undefined, toggleButton), view);
+
+  /**
+   * Shows the button's text, and the plugin settings when they're open, with the lamps found. A name field being typed
+   * in isn't redrawn, so the names that arrive from Stream Deck don't move its cursor.
+   */
+  function render() {
+    toggleButton.textContent = open ? "Back" : "Plugin settings";
+    view.hidden = !open;
+    if (!open || document.activeElement?.closest("#plugin-settings sdpi-textfield")) {
+      return;
+    }
+    if (found === undefined) {
+      lampList.replaceChildren(note("Looking for lamps…"));
+    } else if (found.length === 0) {
+      lampList.replaceChildren(note("No lamps found"));
+    } else {
+      lampList.replaceChildren(lampTable(found));
+    }
+  }
 })();

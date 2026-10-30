@@ -13,7 +13,7 @@ The unit tests check how the Temperature dial steps, against emulated lamps, and
 
 ## Setup
 
-Plug in two Beams. Place two Temperature dials and two Temperature keys on the Deck, one key set to 3000 K and the other to 6000 K. Leave "Each lamp" unchecked on the settings pages, its default, so the lamps step together (see [`lamps_apart.md`][lamps-apart]). Build the branch and restart the plugin:
+Plug in two Beams. Place two Temperature dials and two Temperature keys on the Deck, one key set to 3000 K and the other to 6000 K. Leave "Each lamp" unchecked in the plugin settings, its default, so the lamps step together (see [`lamps_apart.md`][lamps-apart]). Build the branch and restart the plugin:
 
 ```shell
 npm run build
