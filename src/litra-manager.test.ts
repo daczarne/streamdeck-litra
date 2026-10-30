@@ -23,6 +23,9 @@ const BEAM_ALLOWED_KELVIN = Array.from(
 // The id of a lamp that isn't plugged in.
 const MISSING_LAMP = "0123456789abcdef";
 
+// How long a blink lasts, in ms, the plugin settings' default.
+const BLINK_MS = 400;
+
 let manager: typeof import("./litra-manager");
 let litra: typeof import("litra");
 let hid: typeof import("./test-support/fake-node-hid");
@@ -765,7 +768,7 @@ describe("onLampsChanged", () => {
     ["readLampStatuses", () => manager.readLampStatuses()],
     ["readLampsBrightness", () => manager.readLampsBrightness("all")],
     ["readLampsTemperature", () => manager.readLampsTemperature("all")],
-    ["identifyLamp, which leaves the lamp as it was", () => manager.identifyLamp("FAKE")],
+    ["identifyLamp, which leaves the lamp as it was", () => manager.identifyLamp("FAKE", BLINK_MS)],
   ])("doesn't call the listeners after %s", async (_, operation) => {
     connect(beam(), beam());
     const listener = vi.fn();
@@ -1725,7 +1728,7 @@ describe("readLampStatuses", () => {
 });
 
 describe("identifyLamp", () => {
-  const identify = (serialNumber: string) => settled(manager.identifyLamp(manager.lampId(serialNumber)));
+  const identify = (serialNumber: string) => settled(manager.identifyLamp(manager.lampId(serialNumber), BLINK_MS));
 
   it("switches a lamp that is on off and back on, and leaves the other lamps alone", async () => {
     const [target, other] = [beam({ on: true }), beam()];
@@ -1746,6 +1749,21 @@ describe("identifyLamp", () => {
 
     expect(lamp.writes("power")).toEqual([1, 0]);
     expect(lamp.on).toBe(false);
+  });
+
+  it("keeps the lamp switched for the time it's given", async () => {
+    const lamp = beam({ on: true });
+    connect(lamp);
+
+    const blinked = manager.identifyLamp(manager.lampId(lamp.serialNumber), 1000);
+    await vi.advanceTimersByTimeAsync(999);
+
+    expect(lamp.writes("power")).toEqual([0]);
+
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(lamp.writes("power")).toEqual([0, 1]);
+    await blinked;
   });
 
   it("writes no brightness", async () => {
@@ -1780,7 +1798,10 @@ describe("identifyLamp", () => {
     connect(lamp);
 
     await settled(
-      Promise.all([manager.setLampsBrightness("all", 100), manager.identifyLamp(manager.lampId(lamp.serialNumber))]),
+      Promise.all([
+        manager.setLampsBrightness("all", 100),
+        manager.identifyLamp(manager.lampId(lamp.serialNumber), BLINK_MS),
+      ]),
     );
 
     // The change reads its lamp back before the blink starts.
@@ -1854,7 +1875,7 @@ describe("logs", () => {
     ["set scene", () => manager.setLampsScene("all", 50, 4000)],
     ["read brightness", () => manager.readLampsBrightness("all")],
     ["read lamp status", () => manager.readLampStatuses()],
-    ["identify", () => manager.identifyLamp("FAKE9999")],
+    ["identify", () => manager.identifyLamp("FAKE9999", BLINK_MS)],
     ["set temperature", () => manager.setLampsTemperature("all", 4000)],
     ["adjust temperature", () => manager.adjustLampsTemperature("all", 1, 100)],
     ["read temperature", () => manager.readLampsTemperature("all")],
@@ -1923,7 +1944,7 @@ describe("logs", () => {
     lamp.fail("readSync");
     connect(lamp);
 
-    await run(() => manager.identifyLamp(manager.lampId(lamp.serialNumber)));
+    await run(() => manager.identifyLamp(manager.lampId(lamp.serialNumber), BLINK_MS));
 
     const message = onlyMessage("error");
     expect(message).toContain("identify");
@@ -1944,7 +1965,7 @@ describe("logs", () => {
   });
 
   it.each<[string, () => unknown]>([
-    ["identify", () => manager.identifyLamp(MISSING_LAMP)],
+    ["identify", () => manager.identifyLamp(MISSING_LAMP, BLINK_MS)],
     ["toggle", () => manager.toggleLamps([MISSING_LAMP])],
     ["adjust brightness", () => manager.adjustLampsBrightness([MISSING_LAMP], 1, 5)],
     ["adjust temperature", () => manager.adjustLampsTemperature([MISSING_LAMP], 1, 100)],
@@ -2000,7 +2021,7 @@ describe("logs", () => {
     const lamp = beam();
     connect(lamp);
 
-    await run(() => manager.identifyLamp(manager.lampId(lamp.serialNumber)));
+    await run(() => manager.identifyLamp(manager.lampId(lamp.serialNumber), BLINK_MS));
 
     const message = onlyMessage("info");
     expect(message).toContain("identify");

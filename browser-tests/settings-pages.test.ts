@@ -98,8 +98,11 @@ const PANELS: Panel[] = [
   },
 ];
 
-// The global settings the plugin settings show, on every page, which every dial and key shares (#145, #146).
-const PLUGIN_SETTINGS_GLOBALS = ["keepBrightnessDifference", "keepTemperatureDifference"];
+// The global checkboxes of sdpi-components the plugin settings show, on every page, which every dial and key shares
+// (#145, #146), and every global setting they show through sdpi-components, in their order, the blink's length last
+// (#171).
+const PLUGIN_SETTINGS_CHECKBOXES = ["keepBrightnessDifference", "keepTemperatureDifference"];
+const PLUGIN_SETTINGS_GLOBALS = [...PLUGIN_SETTINGS_CHECKBOXES, "identifyBlinkMs"];
 
 // What the plugin accepts for each setting, by its name, and the default it takes: settings.ts says these are what
 // each page offers, and the pages' own defaults.
@@ -424,7 +427,7 @@ describe("settings pages", () => {
   // Every checkbox of sdpi-components that saves a global setting itself, in the plugin settings, on a key's page and a
   // dial's (#145, #146).
   const globalCheckboxes = [at(PANELS, 0), at(PANELS, 2)].flatMap((panel) =>
-    PLUGIN_SETTINGS_GLOBALS.map((setting) => ({ panel, setting })),
+    PLUGIN_SETTINGS_CHECKBOXES.map((setting) => ({ panel, setting })),
   );
   describe.each(globalCheckboxes)(
     "the global $setting in the plugin settings on $panel.page on $panel.controller",
@@ -502,6 +505,99 @@ describe("settings pages", () => {
         await page.close();
 
         expect(saved).toEqual({ [other]: true, [setting]: true });
+      });
+    },
+  );
+
+  // How long a blink lasts, a slider in the plugin settings, on a page without sliders of its own and on one with them,
+  // whose values a script shows (#171).
+  describe.each([at(PANELS, 0), at(PANELS, 2)])(
+    "the blink's length in the plugin settings on $page on $controller",
+    (panel) => {
+      const SETTING = "identifyBlinkMs";
+
+      afterEach(() => {
+        streamDeck.globalSettings = {};
+      });
+
+      /** Waits for the page to have the global settings, which the slider shows once they've arrived. */
+      async function globalSettingsRead(page: Page): Promise<void> {
+        await page.evaluate(`SDPIComponents.useGlobalSettings("${SETTING}")[0]()`);
+      }
+
+      /** Moves the slider to `value`, as a drag does, and releases it unless asked not to. */
+      async function slide(page: Page, value: number, { release = true } = {}): Promise<void> {
+        await page.evaluate(`(async () => {
+          const host = document.querySelector('[setting="${SETTING}"]');
+          await host.updateComplete;
+          const control = host.shadowRoot.querySelector("input");
+          control.value = "${value}";
+          control.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+          if (${release}) {
+            control.dispatchEvent(new Event("change", { bubbles: true, composed: true }));
+          }
+        })()`);
+      }
+
+      it("defaults to its default in settings.ts, and shows it next to it", async () => {
+        const { page } = await openPanel(panel);
+        const control = await controlOf(page, SETTING);
+        await globalSettingsRead(page);
+        const shown = await shownValue(page, SETTING);
+        await page.close();
+
+        expect(read(SETTING, saved(control, control.default ?? ""))).toEqual({
+          value: defaultOf(SETTING),
+          valid: true,
+        });
+        expect(shown).toBe(`${defaultOf(SETTING)} ms`);
+      });
+
+      it("offers only values that settings.ts accepts, and ends where it does", async () => {
+        const { page } = await openPanel(panel);
+        const control = await controlOf(page, SETTING);
+        await page.close();
+
+        const [min, max, step] = [Number(control.min), Number(control.max), Number(control.step)];
+        for (let value = min; value <= max; value += step) {
+          expect(read(SETTING, value), `${SETTING} set to ${value}`).toMatchObject({ valid: true });
+        }
+        expect(read(SETTING, min - step).valid).toBe(false);
+        expect(read(SETTING, max + step).valid).toBe(false);
+      });
+
+      it("shows what the global settings hold", async () => {
+        streamDeck.globalSettings = { [SETTING]: 1000 };
+        const { page } = await openPanel(panel);
+        await globalSettingsRead(page);
+        await expect.poll(() => shownValue(page, SETTING)).toBe("1000 ms");
+        await page.close();
+      });
+
+      it("follows the slider while it's dragged, before it's released", async () => {
+        const { page } = await openPanel(panel);
+        await globalSettingsRead(page);
+        await slide(page, 900, { release: false });
+        const shown = await shownValue(page, SETTING);
+        await page.close();
+
+        expect(shown).toBe("900 ms");
+      });
+
+      it("saves to the global settings, as settings.ts takes it, keeping the others and the action's own", async () => {
+        streamDeck.globalSettings = { blinkOnLampScreen: true };
+        const { page, uuid } = await openPanel(panel);
+        await globalSettingsRead(page);
+        await clickInPluginSettings(page, "Plugin settings");
+        await slide(page, 900);
+        const message = await streamDeck.waitFor((m) => m.event === "setGlobalSettings" && m.context === uuid);
+        // Long enough for a save of the action's own settings to arrive, which there mustn't be.
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        await page.close();
+
+        expect(message.payload).toEqual({ blinkOnLampScreen: true, [SETTING]: 900 });
+        expect(read(SETTING, 900)).toEqual({ value: 900, valid: true });
+        expect(streamDeck.messages.filter((m) => m.event === "setSettings" && m.context === uuid)).toEqual([]);
       });
     },
   );

@@ -43,6 +43,7 @@ const DEFAULTS = {
   blinkOnLampScreenExceptions: [],
   keepBrightnessDifference: false,
   keepTemperatureDifference: false,
+  identifyBlinkMs: 400,
 };
 
 //* Tests
@@ -153,5 +154,26 @@ describe("how the lamps step (#145)", () => {
     changeFromPage({ keepBrightnessDifference: true });
 
     expect([globalSettings.brightnessStepping(), globalSettings.temperatureStepping()]).toEqual(["each", "together"]);
+  });
+});
+
+describe("how long a blink lasts (#171)", () => {
+  it("follows the plugin settings", async () => {
+    await follow();
+
+    expect(globalSettings.identifyBlinkMs()).toBe(400);
+
+    changeFromPage({ identifyBlinkMs: 1000 });
+
+    expect(globalSettings.identifyBlinkMs()).toBe(1000);
+  });
+
+  it.each([200, 2000, 650.5])("takes its default, with a warning, when it's %s", async (saved) => {
+    settings.getGlobalSettings.mockResolvedValue({ identifyBlinkMs: saved });
+
+    await follow();
+
+    expect(globalSettings.identifyBlinkMs()).toBe(400);
+    expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("identifyBlinkMs"));
   });
 });

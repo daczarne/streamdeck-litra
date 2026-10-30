@@ -6,6 +6,7 @@ import { at } from "../test-support/at";
 import { changeGlobalSettings, createFakeDial } from "../test-support/fake-stream-deck";
 import { followGlobalSettings } from "./global-settings";
 import { type DialOwner, LampScreens, MAIN_LAYOUT } from "./lamp-screens";
+import { globalSettings } from "./settings";
 
 //* Fakes
 
@@ -23,6 +24,9 @@ vi.mock("../litra-manager", () => ({
 }));
 
 const LAMP_LAYOUT = "layouts/lamp.json";
+
+// How long a blink lasts unless the plugin settings say otherwise.
+const BLINK_MS = globalSettings.identifyBlinkMs.default;
 
 /** A Beam on a Stream Deck + XL's USB hub, at its cap. */
 function beam(serialNumber: string, overrides: Partial<LampStatus> = {}): LampStatus {
@@ -194,8 +198,19 @@ describe("LampScreens", () => {
 
       await screens.identify(dial);
 
-      expect(identifyLamp).toHaveBeenCalledExactlyOnceWith(B.id);
+      expect(identifyLamp).toHaveBeenCalledExactlyOnceWith(B.id, BLINK_MS);
       expect(dial.showAlert).not.toHaveBeenCalled();
+    });
+
+    it("blinks for as long as the plugin settings say (#171)", async () => {
+      const dial = createFakeDial();
+      vi.mocked(identifyLamp).mockResolvedValue({ ok: true, deviceCount: 1, failures: 0 });
+      changeGlobalSettings({ identifyBlinkMs: 1000 });
+      await screens.tap(dial, owner);
+
+      await screens.identify(dial);
+
+      expect(identifyLamp).toHaveBeenCalledExactlyOnceWith(A.id, 1000);
     });
 
     it("shows an alert when the lamp can't be blinked", async () => {
@@ -228,7 +243,7 @@ describe("LampScreens", () => {
 
       await screens.tap(dial, owner);
 
-      expect(identifyLamp).toHaveBeenCalledExactlyOnceWith(A.id);
+      expect(identifyLamp).toHaveBeenCalledExactlyOnceWith(A.id, BLINK_MS);
       expect(at(dial.setFeedback.mock.invocationCallOrder, 0)).toBeLessThan(
         at(vi.mocked(identifyLamp).mock.invocationCallOrder, 0),
       );
@@ -236,7 +251,10 @@ describe("LampScreens", () => {
       await screens.tap(dial, owner);
       await screens.tap(dial, owner);
 
-      expect(vi.mocked(identifyLamp).mock.calls).toEqual([[A.id], [B.id]]);
+      expect(vi.mocked(identifyLamp).mock.calls).toEqual([
+        [A.id, BLINK_MS],
+        [B.id, BLINK_MS],
+      ]);
       expect(showMain).toHaveBeenCalledOnce();
     });
 
@@ -260,7 +278,10 @@ describe("LampScreens", () => {
       await Promise.all([first, second]);
 
       expect(dial.setFeedback).toHaveBeenLastCalledWith(lampScreenOf(B, 2, 2));
-      expect(vi.mocked(identifyLamp).mock.calls).toEqual([[A.id], [B.id]]);
+      expect(vi.mocked(identifyLamp).mock.calls).toEqual([
+        [A.id, BLINK_MS],
+        [B.id, BLINK_MS],
+      ]);
     });
 
     it("shows an alert when the lamp can't be blinked, and stays on its screen", async () => {
@@ -289,7 +310,16 @@ describe("LampScreens", () => {
       await screens.tap(dial, owner);
       await screens.tap(other, owner);
 
-      expect(identifyLamp).toHaveBeenCalledExactlyOnceWith(A.id);
+      expect(identifyLamp).toHaveBeenCalledExactlyOnceWith(A.id, BLINK_MS);
+    });
+
+    it("blinks for as long as the plugin settings say (#171)", async () => {
+      const dial = createFakeDial();
+      changeGlobalSettings({ blinkOnLampScreen: true, identifyBlinkMs: 1000 });
+
+      await screens.tap(dial, owner);
+
+      expect(identifyLamp).toHaveBeenCalledExactlyOnceWith(A.id, 1000);
     });
 
     it("stops blinking once turned off", async () => {
@@ -299,7 +329,7 @@ describe("LampScreens", () => {
       changeGlobalSettings({ blinkOnLampScreen: false });
       await screens.tap(dial, owner);
 
-      expect(identifyLamp).toHaveBeenCalledExactlyOnceWith(A.id);
+      expect(identifyLamp).toHaveBeenCalledExactlyOnceWith(A.id, BLINK_MS);
     });
   });
 

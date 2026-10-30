@@ -723,4 +723,19 @@ describe("lamps picked on a key's settings page (#20)", () => {
 
     expect([first.writes("power"), second.writes("power")]).toEqual([[], [0, 1]]);
   });
+
+  it("blink for as long as the plugin settings say (#171)", async () => {
+    const lamp = beam();
+    plugIn(lamp);
+
+    sdk.changeGlobalSettings({ identifyBlinkMs: 1000 });
+    sdk.sendToPlugin({ event: "identify", id: lampId(lamp.serialNumber) });
+    await vi.advanceTimersByTimeAsync(999);
+
+    expect(lamp.writes("power")).toEqual([0]);
+
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(lamp.writes("power")).toEqual([0, 1]);
+  });
 });

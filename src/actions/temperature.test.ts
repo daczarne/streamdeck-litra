@@ -18,6 +18,7 @@ import { FakeDeck } from "../test-support/fake-deck";
 import { changeGlobalSettings } from "../test-support/fake-stream-deck";
 import { followGlobalSettings } from "./global-settings";
 import { LampScreens } from "./lamp-screens";
+import { globalSettings } from "./settings";
 import { TemperatureAction } from "./temperature";
 
 //* Fakes
@@ -361,7 +362,7 @@ describe("TemperatureAction", () => {
 
       await deck.hold(dial);
 
-      expect(identifyLamp).toHaveBeenCalledExactlyOnceWith(BEAM.id);
+      expect(identifyLamp).toHaveBeenCalledExactlyOnceWith(BEAM.id, globalSettings.identifyBlinkMs.default);
       expect(dial.setFeedbackLayout).toHaveBeenLastCalledWith("layouts/lamp.json");
     });
 

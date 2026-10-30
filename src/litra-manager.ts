@@ -95,11 +95,6 @@ const BRIGHTNESS_SETTLE_MS = 250;
 // between (#55). A later write stays, so a brightness change waits until this long after such a request.
 const CAP_REVERSAL_WINDOW_MS = 1500;
 
-// A lamp fades out when switched off, in about 750 ms at any brightness. A 300 ms blink brought it back before it had
-// dimmed enough to notice, which with other lamps on hid it, while 600 ms shows even at full brightness, and each tap
-// through the lamp screens waits less than for the whole fade (#171).
-const IDENTIFY_BLINK_MS = 600;
-
 // Reports a lamp sends unasked (ACKs, change notices, error reports) can arrive ahead of the reply to a query.
 const MAX_SKIPPED_REPORTS = 10;
 
@@ -944,10 +939,10 @@ function bySerialNumber(a: string, b: string): number {
 
 /**
  * Blinks one lamp, by its id, so the user can tell which one it is (#48): switches it off and back on, or on and back
- * off when it's off. A blink writes no brightness, so it shows at any brightness and leaves learned caps alone, and the
- * lamp ends as it started. Fails when the lamp isn't connected.
+ * off when it's off, `blinkMs` later (#171). A blink writes no brightness, so it shows at any brightness and leaves
+ * learned caps alone, and the lamp ends as it started. Fails when the lamp isn't connected.
  */
-export function identifyLamp(id: string, blinkMs = IDENTIFY_BLINK_MS): Promise<BroadcastResult> {
+export function identifyLamp(id: string, blinkMs: number): Promise<BroadcastResult> {
   return oneBrightnessChangeAtATime(async () => {
     const operation = "identify";
     const devices = openDevices(operation, [id]);

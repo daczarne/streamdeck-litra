@@ -41,6 +41,11 @@ export function blinksOnLampScreen(dialId: string): boolean {
   return current.blinkOnLampScreen !== current.blinkOnLampScreenExceptions.includes(dialId);
 }
 
+/** How long a blink that identifies a lamp keeps it switched, in ms (#171). */
+export function identifyBlinkMs(): number {
+  return current.identifyBlinkMs;
+}
+
 /** How a turn on a Brightness dial's main screen, or a Brightness step key's press, steps the lamps (#145). */
 export function brightnessStepping(): Stepping {
   return current.keepBrightnessDifference ? "each" : "together";
