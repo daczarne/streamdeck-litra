@@ -73,6 +73,11 @@
       gap: 4px;
     }
 
+    /* The editors' plain values, centered on their label as a checkbox's text is. */
+    #plugin-settings .cell-editor .note {
+      padding: 7px 0;
+    }
+
     #plugin-settings .cell {
       display: flex;
       flex-direction: column;
