@@ -58,6 +58,7 @@ Measured on a Stream Deck + XL's touch strip, while trying to show the lumens ne
 - At icon sizes of about 22 px, an outlined circle is hard to make out. A filled one reads better, which is why the brightness glyph, shown at that size on the lamp screens, uses a filled sun.
 - Two texts share an 18 px row when both are short: a label like "Beam - 7K98" in 120 px, and "1 of 2" in 56 px.
 - Two texts whose slots overlap are both drawn in full, one over the other, so two long values in one row, such as a label in each of a lamp screen's two cells, run into each other ([#177]).
+- A left-aligned text is drawn about 7 px inside its slot, while a right-aligned one reaches its slot's edge. So a row whose slots start and end 12 px from the canvas's edges shows a left margin about twice its right one. The lamp layout's left cells start at the canvas's edge instead, which gives both sides about the same margin ([#177]).
 - Dark text, such as `#202020`, contrasts with a bright background like orange, but in the font's normal weight its strokes are too thin to read at 18 px. Bold reads, though the font joins the "ff" of "Off" into one shape ([#153]).
 - On the bar, a grey of `#999999` is barely readable against the bar's background, while `#c0c0c0` reads well ([#59]).
 
@@ -69,7 +70,7 @@ Checked against `@elgato/streamdeck` 3.0.3 and the schemas in `@elgato/schemas`,
 - The item types and the `title` key: `@elgato/streamdeck/dist/api/layout.d.ts` and `@elgato/schemas/streamdeck/plugins/layout.json`.
 - `setFeedback`, `setFeedbackLayout`, `setImage` and `showAlert`: `@elgato/streamdeck/dist/plugin/actions/dial.d.ts`.
 - A dial's alert: seen on the Deck, turning a dial on the lamp screen of a lamp that had been unplugged ([#20]).
-- Overlapping items with different `zOrder`s, `enabled` in `setFeedback`, and overlapping texts: seen on the Deck, choosing what each cell of the lamp screens shows ([#177]).
+- Overlapping items with different `zOrder`s, `enabled` in `setFeedback`, overlapping texts, and the margin a left-aligned text keeps in its slot: seen on the Deck, choosing what each cell of the lamp screens shows ([#177]).
 
 [#8]: https://github.com/daczarne/streamdeck-litra/issues/8
 [#20]: https://github.com/daczarne/streamdeck-litra/issues/20
