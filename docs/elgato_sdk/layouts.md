@@ -33,13 +33,14 @@ The dials use `$B1`, the layout of Stream Deck's own volume and microphone dials
 
 A custom layout is a JSON file in the plugin folder, validated by the schema at `https://schemas.elgato.com/streamdeck/plugins/layout.json`. It lists items of four types (`text`, `pixmap`, `bar` and `gbar`), each with a `key` that the plugin fills and a `rect` on the canvas. A text item whose `key` is `title` follows the font settings the user picks in Stream Deck, and `setTitle` updates it.
 
-Items can't overlap unless their `zOrder` differs. Stream Deck refuses a layout with overlapping items and shows the dial's title and icon instead. The reason only appears in Stream Deck's own log, `~/Library/Logs/ElgatoStreamDeck/StreamDeck.log`, as a line starting with "Layout instantiation failed" that names the two items. A `pixmap`'s `value` can be set in the layout file, as a path from the plugin folder, so a fixed icon needs no `setFeedback`.
+Items can't overlap unless their `zOrder` differs. Stream Deck refuses a layout with overlapping items and shows the dial's title and icon instead. The reason only appears in Stream Deck's own log, `~/Library/Logs/ElgatoStreamDeck/StreamDeck.log`, as a line starting with "Layout instantiation failed" that names the two items. With different `zOrder`s, overlapping items are accepted and all drawn, which the lamp layout relies on: since an item can't move, each of its cells has a text placed after an icon and one without, both spanning the row, and shows one of them ([#177]). A `pixmap`'s `value` can be set in the layout file, as a path from the plugin folder, so a fixed icon needs no `setFeedback`.
 
 ## Updating what a dial shows
 
 - `Encoder.layout` in `manifest.json` sets a dial's layout, by name or by the path to a custom one. `setFeedbackLayout` replaces it at runtime.
 - `setFeedback` fills the slots, keyed by their `key`. A slot takes either a plain value (a string or a number) or an object that changes its other properties too, such as a text's color, except its `key`, `rect` and `type`, which are fixed.
 - The integration tests check that every key the plugin sends is one of its layout's: a custom layout's items, read from its file, and a built-in layout's slots, as listed in this document. A screen that uses another built-in layout needs its slots added to the tests.
+- `enabled: false` in `setFeedback` hides a slot, a text or a pixmap, and `enabled: true` shows it again. A hidden slot leaves its place empty, and the slots around it stay where they are ([#177]).
 - `showAlert` on a dial flashes its part of the touch strip red, where a key shows a yellow triangle (see [the notes on keys][keys]). It showed in full on a dial that went back to its main screen as it was shown, with another layout and new values.
 - A bar's `bar_fill_c` takes a single color or a gradient of `{offset}:{color}` stops. The stops span the bar's filled part, not the whole bar, so a point at a given level sits at that level divided by the bar's `value`. Two stops 0.001 apart draw a sharp edge between two colors.
 
@@ -56,6 +57,7 @@ Measured on a Stream Deck + XL's touch strip, while trying to show the lumens ne
 - Three rows of 18 px text, two of them led by a 22 px icon, fit in the 200 × 100 px canvas and read well.
 - At icon sizes of about 22 px, an outlined circle is hard to make out. A filled one reads better, which is why the brightness glyph, shown at that size on the lamp screens, uses a filled sun.
 - Two texts share an 18 px row when both are short: a label like "Beam - 7K98" in 120 px, and "1 of 2" in 56 px.
+- Two texts whose slots overlap are both drawn in full, one over the other, so two long values in one row, such as a label in each of a lamp screen's two cells, run into each other ([#177]).
 - Dark text, such as `#202020`, contrasts with a bright background like orange, but in the font's normal weight its strokes are too thin to read at 18 px. Bold reads, though the font joins the "ff" of "Off" into one shape ([#153]).
 - On the bar, a grey of `#999999` is barely readable against the bar's background, while `#c0c0c0` reads well ([#59]).
 
@@ -67,6 +69,7 @@ Checked against `@elgato/streamdeck` 3.0.3 and the schemas in `@elgato/schemas`,
 - The item types and the `title` key: `@elgato/streamdeck/dist/api/layout.d.ts` and `@elgato/schemas/streamdeck/plugins/layout.json`.
 - `setFeedback`, `setFeedbackLayout`, `setImage` and `showAlert`: `@elgato/streamdeck/dist/plugin/actions/dial.d.ts`.
 - A dial's alert: seen on the Deck, turning a dial on the lamp screen of a lamp that had been unplugged ([#20]).
+- Overlapping items with different `zOrder`s, `enabled` in `setFeedback`, and overlapping texts: seen on the Deck, choosing what each cell of the lamp screens shows ([#177]).
 
 [#8]: https://github.com/daczarne/streamdeck-litra/issues/8
 [#20]: https://github.com/daczarne/streamdeck-litra/issues/20
@@ -74,4 +77,5 @@ Checked against `@elgato/streamdeck` 3.0.3 and the schemas in `@elgato/schemas`,
 [#51]: https://github.com/daczarne/streamdeck-litra/issues/51
 [#59]: https://github.com/daczarne/streamdeck-litra/issues/59
 [#153]: https://github.com/daczarne/streamdeck-litra/issues/153
+[#177]: https://github.com/daczarne/streamdeck-litra/issues/177
 [keys]: keys.md

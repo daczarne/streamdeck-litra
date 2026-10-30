@@ -3,12 +3,28 @@ import type { JsonObject } from "@elgato/utils";
 
 import type { Stepping } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
-import { type GlobalSettings, globalSettings, parseSettings } from "./settings";
+import {
+  type GlobalSettings,
+  globalSettings,
+  type LampScreenCell,
+  type LampScreenItem,
+  parseSettings,
+} from "./settings";
 
 const logger = pluginLogger.createScope("Global settings");
 
 // The global settings as last read, their defaults until the first read answers.
 let current: GlobalSettings = parseSettings({}, globalSettings, logger);
+
+const changedListeners: Array<() => void | Promise<void>> = [];
+
+/**
+ * Registers a listener called whenever the global settings are read, so that what the Deck shows from them can follow
+ * a settings page's changes, such as the lamp screens' cells (#177).
+ */
+export function onGlobalSettingsChanged(listener: () => void | Promise<void>): void {
+  changedListeners.push(listener);
+}
 
 /**
  * Follows the plugin's global settings, which the settings pages save (#144): reads them once Stream Deck is
@@ -18,6 +34,13 @@ let current: GlobalSettings = parseSettings({}, globalSettings, logger);
 export function followGlobalSettings(): void {
   const apply = (settings: JsonObject): void => {
     current = parseSettings(settings, globalSettings, logger);
+    for (const listener of changedListeners) {
+      Promise.resolve()
+        .then(listener)
+        .catch((error: unknown) => {
+          logger.error("Global settings listener failed", error);
+        });
+    }
   };
   streamDeck.settings.onDidReceiveGlobalSettings((ev) => apply(ev.settings));
   streamDeck.settings
@@ -44,6 +67,18 @@ export function blinksOnLampScreen(dialId: string): boolean {
 /** How long a blink that identifies a lamp keeps it switched, in ms (#171). */
 export function identifyBlinkMs(): number {
   return current.identifyBlinkMs;
+}
+
+/** What each cell of the lamp screens shows (#177). */
+export function lampScreenCells(): Record<LampScreenCell, LampScreenItem> {
+  return {
+    topLeft: current.lampScreenTopLeft,
+    topRight: current.lampScreenTopRight,
+    middleLeft: current.lampScreenMiddleLeft,
+    middleRight: current.lampScreenMiddleRight,
+    bottomLeft: current.lampScreenBottomLeft,
+    bottomRight: current.lampScreenBottomRight,
+  };
 }
 
 /** How a turn on a Brightness dial's main screen, or a Brightness step key's press, steps the lamps (#145). */

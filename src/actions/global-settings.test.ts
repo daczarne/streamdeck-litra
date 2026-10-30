@@ -44,6 +44,12 @@ const DEFAULTS = {
   keepBrightnessDifference: false,
   keepTemperatureDifference: false,
   identifyBlinkMs: 400,
+  lampScreenTopLeft: "identification",
+  lampScreenTopRight: "counter",
+  lampScreenMiddleLeft: "temperature",
+  lampScreenMiddleRight: "power",
+  lampScreenBottomLeft: "brightnessPercentage",
+  lampScreenBottomRight: "brightnessLumen",
 };
 
 //* Tests
@@ -175,5 +181,58 @@ describe("how long a blink lasts (#171)", () => {
 
     expect(globalSettings.identifyBlinkMs()).toBe(400);
     expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("identifyBlinkMs"));
+  });
+});
+
+describe("what the lamp screens show (#177)", () => {
+  it("is, cell by cell, what the plugin settings choose, and what they showed before by default", async () => {
+    await follow();
+
+    expect(globalSettings.lampScreenCells()).toEqual({
+      topLeft: "identification",
+      topRight: "counter",
+      middleLeft: "temperature",
+      middleRight: "power",
+      bottomLeft: "brightnessPercentage",
+      bottomRight: "brightnessLumen",
+    });
+
+    changeFromPage({ lampScreenTopLeft: "none", lampScreenBottomRight: "identification" });
+
+    expect(globalSettings.lampScreenCells()).toMatchObject({ topLeft: "none", bottomRight: "identification" });
+  });
+
+  it("takes a cell's default, with a warning, when what is saved isn't one of the choices", async () => {
+    settings.getGlobalSettings.mockResolvedValue({ lampScreenTopRight: "name" });
+
+    await follow();
+
+    expect(globalSettings.lampScreenCells().topRight).toBe("counter");
+    expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("lampScreenTopRight"));
+  });
+
+  it("tells its listeners each time they're read", async () => {
+    const listener = vi.fn();
+    globalSettings.onGlobalSettingsChanged(listener);
+    await follow();
+    await vi.waitFor(() => expect(listener).toHaveBeenCalledOnce());
+
+    changeFromPage({ lampScreenTopLeft: "none" });
+
+    await vi.waitFor(() => expect(listener).toHaveBeenCalledTimes(2));
+  });
+
+  it("logs a listener that fails, and still tells the others", async () => {
+    const error = new Error("redraw failed");
+    const other = vi.fn();
+    globalSettings.onGlobalSettingsChanged(() => {
+      throw error;
+    });
+    globalSettings.onGlobalSettingsChanged(other);
+
+    await follow();
+
+    await vi.waitFor(() => expect(logger.error).toHaveBeenCalledExactlyOnceWith(expect.any(String), error));
+    expect(other).toHaveBeenCalledOnce();
   });
 });

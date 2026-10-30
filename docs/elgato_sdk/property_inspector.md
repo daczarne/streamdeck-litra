@@ -27,10 +27,10 @@ A page and the plugin exchange messages through Stream Deck, which the lamp pick
 
 ## Global settings
 
-Besides each key's and dial's own settings, a plugin has one set of global settings, which every action shares, and Stream Deck keeps across restarts. The lamp screens' blink is one ([#144]): every dial's, and the dials that chose otherwise. Whether the lamps keep their difference when a dial or a step key steps them are two more ([#145]), and how long a blink lasts another ([#171]). The lamps' names are another ([#146]), which only the pages read:
+Besides each key's and dial's own settings, a plugin has one set of global settings, which every action shares, and Stream Deck keeps across restarts. The lamp screens' blink is one ([#144]): every dial's, and the dials that chose otherwise. Whether the lamps keep their difference when a dial or a step key steps them are two more ([#145]), how long a blink lasts another ([#171]), and what each cell of the lamp screens shows six more ([#177]). The lamps' names are another ([#146]), which only the pages read:
 
 - On a page, a sdpi-components control with the `global` attribute reads and saves a global setting instead of one of the action's. It asks Stream Deck for them (`getGlobalSettings`) when the page loads, and holds every save until the answer arrives. A save sends them whole (`setGlobalSettings`), keeping the ones the page doesn't show.
-- A control with `global` only gets the global settings that arrive once it's on the page: it doesn't ask for them itself. One added later, such as when a view opens, shows its default until another answer arrives. The plugin settings therefore put their checkboxes and their slider on the page as it loads, hidden ([#146]).
+- A control with `global` only gets the global settings that arrive once it's on the page: it doesn't ask for them itself. One added later, such as when a view opens, shows its default until another answer arrives. The plugin settings therefore put their checkboxes, lists and slider on the page as it loads, hidden ([#146]).
 - The plugin reads them with `streamDeck.settings.getGlobalSettings()`, which waits for the connection to Stream Deck, and follows a page's changes with `streamDeck.settings.onDidReceiveGlobalSettings`. Since Stream Deck 7.1, the listener isn't called for the plugin's own reads. Its event holds the settings as `settings`, not `payload.settings` as an action's does.
 - `SDPIComponents.useGlobalSettings(key)` does for a page script what `useSettings` does for the action's. A save from the page doesn't reach the page's other readers of that key, which only hear from Stream Deck's answers, so the plugin settings tell the lamp picker of a name changed through an event on the document.
 - A checkbox saves `true` or `false`. Its `default` attribute is text, so `default="false"` would check it: a checkbox that starts unchecked has none, and an unsaved setting reads as missing.
@@ -71,10 +71,13 @@ Checked while adding the plugin settings ([#146]): the manifest schema and the a
 
 Checked while adding the blink's length ([#171]): a slider with `global`, which saves a number to the global settings, in the browser tests and on the Deck, kept across a restart of the plugin.
 
+Checked while adding the lamp screens' cells ([#177]): lists with `global`, made by a script with their options added before they're on the page, in the browser tests and on the Deck.
+
 [#9]: https://github.com/daczarne/streamdeck-litra/issues/9
 [#20]: https://github.com/daczarne/streamdeck-litra/issues/20
 [#144]: https://github.com/daczarne/streamdeck-litra/issues/144
 [#145]: https://github.com/daczarne/streamdeck-litra/issues/145
 [#146]: https://github.com/daczarne/streamdeck-litra/issues/146
 [#171]: https://github.com/daczarne/streamdeck-litra/issues/171
+[#177]: https://github.com/daczarne/streamdeck-litra/issues/177
 [manual-test]: ../manual_testing/settings_pages.md

@@ -3,58 +3,136 @@
   "id": "com.daczarne.litra.lamp",
   "items": [
     {
-      "key": "lamp",
+      "key": "topLeftIcon",
+      "type": "pixmap",
+      "rect": [12, 8, 22, 22],
+      "zOrder": 0
+    },
+    {
+      "key": "topLeftAfterIcon",
       "type": "text",
-      "rect": [12, 6, 120, 26],
+      "rect": [40, 6, 148, 26],
       "alignment": "left",
-      "font": { "size": 18 }
+      "font": { "size": 18 },
+      "zOrder": 1
     },
     {
-      "key": "position",
+      "key": "topLeft",
       "type": "text",
-      "rect": [132, 6, 56, 26],
-      "alignment": "right",
-      "font": { "size": 18 }
+      "rect": [12, 6, 176, 26],
+      "alignment": "left",
+      "font": { "size": 18 },
+      "zOrder": 2
     },
     {
-      "key": "temperatureIcon",
+      "key": "topRightIcon",
+      "type": "pixmap",
+      "rect": [166, 8, 22, 22],
+      "zOrder": 0
+    },
+    {
+      "key": "topRightAfterIcon",
+      "type": "text",
+      "rect": [12, 6, 148, 26],
+      "alignment": "right",
+      "font": { "size": 18 },
+      "zOrder": 3
+    },
+    {
+      "key": "topRight",
+      "type": "text",
+      "rect": [12, 6, 176, 26],
+      "alignment": "right",
+      "font": { "size": 18 },
+      "zOrder": 4
+    },
+    {
+      "key": "middleLeftIcon",
       "type": "pixmap",
       "rect": [12, 40, 22, 22],
-      "value": "imgs/actions/temperature/glyph@2x.png"
+      "zOrder": 0
     },
     {
-      "key": "temperature",
+      "key": "middleLeftAfterIcon",
       "type": "text",
-      "rect": [40, 38, 88, 26],
+      "rect": [40, 38, 148, 26],
       "alignment": "left",
-      "font": { "size": 18 }
+      "font": { "size": 18 },
+      "zOrder": 1
     },
     {
-      "key": "power",
+      "key": "middleLeft",
       "type": "text",
-      "rect": [140, 38, 48, 26],
-      "alignment": "right",
-      "font": { "size": 18 }
+      "rect": [12, 38, 176, 26],
+      "alignment": "left",
+      "font": { "size": 18 },
+      "zOrder": 2
     },
     {
-      "key": "brightnessIcon",
+      "key": "middleRightIcon",
+      "type": "pixmap",
+      "rect": [166, 40, 22, 22],
+      "zOrder": 0
+    },
+    {
+      "key": "middleRightAfterIcon",
+      "type": "text",
+      "rect": [12, 38, 148, 26],
+      "alignment": "right",
+      "font": { "size": 18 },
+      "zOrder": 3
+    },
+    {
+      "key": "middleRight",
+      "type": "text",
+      "rect": [12, 38, 176, 26],
+      "alignment": "right",
+      "font": { "size": 18 },
+      "zOrder": 4
+    },
+    {
+      "key": "bottomLeftIcon",
       "type": "pixmap",
       "rect": [12, 70, 22, 22],
-      "value": "imgs/actions/brightness/glyph@2x.png"
+      "zOrder": 0
     },
     {
-      "key": "brightness",
+      "key": "bottomLeftAfterIcon",
       "type": "text",
-      "rect": [40, 68, 58, 26],
+      "rect": [40, 68, 148, 26],
       "alignment": "left",
-      "font": { "size": 18 }
+      "font": { "size": 18 },
+      "zOrder": 1
     },
     {
-      "key": "lumens",
+      "key": "bottomLeft",
       "type": "text",
-      "rect": [100, 68, 88, 26],
+      "rect": [12, 68, 176, 26],
+      "alignment": "left",
+      "font": { "size": 18 },
+      "zOrder": 2
+    },
+    {
+      "key": "bottomRightIcon",
+      "type": "pixmap",
+      "rect": [166, 70, 22, 22],
+      "zOrder": 0
+    },
+    {
+      "key": "bottomRightAfterIcon",
+      "type": "text",
+      "rect": [12, 68, 148, 26],
       "alignment": "right",
-      "font": { "size": 18 }
+      "font": { "size": 18 },
+      "zOrder": 3
+    },
+    {
+      "key": "bottomRight",
+      "type": "text",
+      "rect": [12, 68, 176, 26],
+      "alignment": "right",
+      "font": { "size": 18 },
+      "zOrder": 4
     }
   ]
 }
