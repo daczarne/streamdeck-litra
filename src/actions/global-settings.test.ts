@@ -38,7 +38,12 @@ function changeFromPage(saved: JsonObject): void {
   listener({ settings: saved });
 }
 
-const DEFAULTS = { blinkOnLampScreen: false, keepBrightnessDifference: false, keepTemperatureDifference: false };
+const DEFAULTS = {
+  blinkOnLampScreen: false,
+  blinkOnLampScreenExceptions: [],
+  keepBrightnessDifference: false,
+  keepTemperatureDifference: false,
+};
 
 //* Tests
 
@@ -92,6 +97,39 @@ describe("the global settings (#144)", () => {
 
     await vi.waitFor(() => expect(logger.error).toHaveBeenCalledExactlyOnceWith(expect.any(String), error));
     expect(globalSettings.currentGlobalSettings()).toEqual(DEFAULTS);
+  });
+});
+
+describe("whether a dial blinks each lamp as its lamp screen shows it (#144)", () => {
+  it.each([
+    [false, false],
+    [true, true],
+  ])("follows the plugin's setting, %s, for a dial with no choice of its own", async (blink, blinks) => {
+    await follow();
+
+    changeFromPage({ blinkOnLampScreen: blink, blinkOnLampScreenExceptions: ["other-dial"] });
+
+    expect(globalSettings.blinksOnLampScreen("dial")).toBe(blinks);
+  });
+
+  it.each([
+    [false, true],
+    [true, false],
+  ])("does the opposite of the plugin's setting, %s, for a dial that chose otherwise", async (blink, blinks) => {
+    await follow();
+
+    changeFromPage({ blinkOnLampScreen: blink, blinkOnLampScreenExceptions: ["dial"] });
+
+    expect(globalSettings.blinksOnLampScreen("dial")).toBe(blinks);
+  });
+
+  it("follows the plugin's setting, with a warning, when the dials that chose otherwise aren't a list of ids", async () => {
+    settings.getGlobalSettings.mockResolvedValue({ blinkOnLampScreen: true, blinkOnLampScreenExceptions: ["dial", 7] });
+
+    await follow();
+
+    expect(globalSettings.blinksOnLampScreen("dial")).toBe(true);
+    expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("blinkOnLampScreenExceptions"));
   });
 });
 

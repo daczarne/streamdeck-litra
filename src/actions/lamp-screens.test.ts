@@ -282,6 +282,16 @@ describe("LampScreens", () => {
       expect(identifyLamp).toHaveBeenCalledOnce();
     });
 
+    it("blinks nothing on a dial that chose otherwise, while the others still blink", async () => {
+      const [dial, other] = [createFakeDial(), createFakeDial()];
+      changeGlobalSettings({ blinkOnLampScreen: true, blinkOnLampScreenExceptions: [dial.id] });
+
+      await screens.tap(dial, owner);
+      await screens.tap(other, owner);
+
+      expect(identifyLamp).toHaveBeenCalledExactlyOnceWith(A.id);
+    });
+
     it("stops blinking once turned off", async () => {
       const dial = createFakeDial();
       await screens.tap(dial, owner);

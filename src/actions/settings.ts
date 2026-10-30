@@ -82,6 +82,16 @@ function flag(fallback: boolean): Setting<boolean> {
   };
 }
 
+/** A setting that takes a list of text, such as the ids of some dials. */
+function textList(): Setting<readonly string[]> {
+  return {
+    default: [],
+    expected: "a list of text",
+    parse: (value) =>
+      Array.isArray(value) && value.every((item): item is string => typeof item === "string") ? value : undefined,
+  };
+}
+
 /**
  * The lamps a key acts on (#20): `"all"`, which takes in lamps plugged in later, or the lamps checked on the settings
  * page, saved with their ids and the labels the page showed them with, so a lamp that isn't connected keeps its name
@@ -163,12 +173,15 @@ export const lampSettings = { lamps };
 
 // The plugin's own settings, which every dial and key shares rather than each saving its own. With the blink on, tapping
 // a dial through its lamp screens blinks each lamp as its screen appears (#144). It's off by default, since every lamp
-// then blinks in turn, which shows on camera. With a difference kept, a turn on a dial's main screen and a step key's
+// then blinks in turn, which shows on camera. A dial can choose otherwise on its own page: the dials that do are kept
+// here too, by id, rather than in their own settings, so the plugin settings can tell when the dials differ, and reset
+// every dial at once, even the ones not on screen. With a difference kept, a turn on a dial's main screen and a step key's
 // press step each lamp from its own value, instead of bringing the lamps back in sync (#145). Brightness and
 // temperature each have their own, so lamps can keep their brightness apart while their colors stay matched. Both are
 // off by default: the lamps are managed together (see docs/contributing.md).
 export const globalSettings = {
   blinkOnLampScreen: flag(false),
+  blinkOnLampScreenExceptions: textList(),
   keepBrightnessDifference: flag(false),
   keepTemperatureDifference: flag(false),
 };
