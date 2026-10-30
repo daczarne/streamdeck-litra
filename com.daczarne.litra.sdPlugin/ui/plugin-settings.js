@@ -3,8 +3,8 @@
 // model, with a field for its name and a button that blinks it. The names are kept in the plugin's global settings, as
 // `lampNames`, by lamp id, and the keys' lamp pickers show them (lamp-picker.js, which this tells of every name changed
 // and every lamp found, through events on the document). Under the lamps come the global settings that every dial and
-// key shares, such as whether each lamp steps from its own value (#145), and the lamp screens' blink (#144), which a
-// dial's own page can turn on or off for that dial alone. A file rather than an inline script, so the pages'
+// key shares, such as whether each lamp steps from its own value (#145), the lamp screens' blink (#144), which a dial's
+// own page can turn on or off for that dial alone, and how long a blink lasts (#171). A file rather than an inline script, so the pages'
 // Content-Security-Policy doesn't have to allow inline scripts.
 (() => {
   const container = document.getElementById("plugin-settings");
@@ -62,6 +62,23 @@
 
     #plugin-settings td.name {
       width: 100%;
+    }
+
+    /* A slider with its value on its right, as on the actions' pages. */
+    #plugin-settings .range {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    #plugin-settings .range sdpi-range {
+      flex: 1;
+    }
+
+    #plugin-settings .range output {
+      min-width: 7ch;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
     }
 
     /* A checkbox with a third, indeterminate state, drawn as sdpi-components draws its own, which has none, with its
@@ -177,6 +194,35 @@
     box.setAttribute("setting", setting);
     box.setAttribute("global", "");
     box.setAttribute("label", label);
+    return box;
+  }
+
+  /**
+   * A slider from sdpi-components that reads and saves a global setting itself, with its value on its right, shown as
+   * range-value.js shows the actions' sliders, which runs before this adds the slider.
+   */
+  function globalSlider(setting, { min, max, step, fallback, suffix }) {
+    const range = document.createElement("sdpi-range");
+    range.id = `plugin-settings-${setting}`;
+    range.setAttribute("setting", setting);
+    range.setAttribute("global", "");
+    range.setAttribute("min", String(min));
+    range.setAttribute("max", String(max));
+    range.setAttribute("step", String(step));
+    range.setAttribute("default", String(fallback));
+    const output = document.createElement("output");
+    output.htmlFor = range.id;
+    const show = (value) => {
+      output.value = value === undefined || value === "" ? "" : `${value}${suffix}`;
+    };
+    // The global settings arriving from Stream Deck, or the slider released.
+    range.addEventListener("valuechange", () => show(range.value ?? fallback));
+    // sdpi-range only takes the slider's value on release, so a drag is followed on the slider itself.
+    range.addEventListener("input", (event) => show(event.composedPath()[0].value));
+    show(fallback);
+    const box = document.createElement("div");
+    box.className = "range";
+    box.append(range, output);
     return box;
   }
 
@@ -361,6 +407,10 @@
       globalCheckbox("keepTemperatureDifference", "Steps from its own temperature, on every dial and key"),
     ),
     item("Lamp screens", everyDialBlink),
+    item(
+      "Blink length",
+      globalSlider("identifyBlinkMs", { min: 300, max: 1500, step: 50, fallback: 400, suffix: " ms" }),
+    ),
   );
   container.append(item(undefined, toggleButton), view);
 

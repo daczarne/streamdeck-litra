@@ -4,6 +4,7 @@ import { findLamps, identifyLamp } from "../litra-manager";
 import { logger } from "../logging";
 import { at } from "../test-support/at";
 import { answer, answerLampPickers } from "./lamp-picker";
+import { globalSettings } from "./settings";
 
 //* Fakes
 
@@ -56,7 +57,7 @@ describe("the lamp picker's answers (#20)", () => {
   it("blink the lamp whose Identify button was pressed", async () => {
     await answer({ event: "identify", id: "lamp-2" });
 
-    expect(identifyLamp).toHaveBeenCalledExactlyOnceWith("lamp-2");
+    expect(identifyLamp).toHaveBeenCalledExactlyOnceWith("lamp-2", globalSettings.identifyBlinkMs.default);
     expect(ui.sendToPropertyInspector).not.toHaveBeenCalled();
   });
 

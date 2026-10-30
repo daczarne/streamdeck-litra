@@ -3,6 +3,7 @@ import type { JsonValue } from "@elgato/utils";
 
 import { findLamps, identifyLamp } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
+import { identifyBlinkMs } from "./global-settings";
 
 const logger = pluginLogger.createScope("Lamp picker");
 
@@ -31,6 +32,6 @@ export async function answer(payload: JsonValue): Promise<void> {
   } else if (payload.event === "identify" && typeof payload.id === "string") {
     logger.info("Identify pressed on a settings page");
     // The page has no alert to show: litra-manager logs a lamp it can't find or blink.
-    await identifyLamp(payload.id);
+    await identifyLamp(payload.id, identifyBlinkMs());
   }
 }

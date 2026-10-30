@@ -19,6 +19,7 @@ import { changeGlobalSettings } from "../test-support/fake-stream-deck";
 import { BrightnessAction, barFill } from "./brightness";
 import { followGlobalSettings } from "./global-settings";
 import { LampScreens } from "./lamp-screens";
+import { globalSettings } from "./settings";
 
 //* Fakes
 
@@ -365,7 +366,7 @@ describe("BrightnessAction", () => {
 
       await deck.hold(dial);
 
-      expect(identifyLamp).toHaveBeenCalledExactlyOnceWith(BEAM.id);
+      expect(identifyLamp).toHaveBeenCalledExactlyOnceWith(BEAM.id, globalSettings.identifyBlinkMs.default);
       expect(dial.setFeedbackLayout).toHaveBeenLastCalledWith("layouts/lamp.json");
     });
 

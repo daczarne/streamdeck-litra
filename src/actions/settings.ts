@@ -178,12 +178,18 @@ export const lampSettings = { lamps };
 // every dial at once, even the ones not on screen. With a difference kept, a turn on a dial's main screen and a step key's
 // press step each lamp from its own value, instead of bringing the lamps back in sync (#145). Brightness and
 // temperature each have their own, so lamps can keep their brightness apart while their colors stay matched. Both are
-// off by default: the lamps are managed together (see docs/contributing.md).
+// off by default: the lamps are managed together (see docs/contributing.md). Every blink that identifies a lamp, from
+// the plugin settings or on a lamp screen, lasts as long as the plugin settings say, in ms (#171). A lamp fades out
+// when switched off, in about 750 ms at any brightness, so a blink much shorter than the fade brings the lamp back
+// before it has dimmed enough to notice among lamps that stay on, while one as long as the whole fade makes each tap
+// through the lamp screens wait longer than it needs to. The default suits dim lamps, and a bright lamp among others
+// needs a longer one. The longest is twice the fade.
 export const globalSettings = {
   blinkOnLampScreen: flag(false),
   blinkOnLampScreenExceptions: textList(),
   keepBrightnessDifference: flag(false),
   keepTemperatureDifference: flag(false),
+  identifyBlinkMs: wholeNumberFrom(300, 1500, 400),
 };
 
 export type GlobalSettings = Parsed<typeof globalSettings>;

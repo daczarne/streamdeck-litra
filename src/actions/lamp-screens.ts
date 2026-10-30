@@ -2,7 +2,7 @@ import type { TouchTapEvent } from "@elgato/streamdeck";
 
 import { identifyLamp, type LampStatus, onLampsChanged, readLampStatuses } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
-import { blinksOnLampScreen } from "./global-settings";
+import { blinksOnLampScreen, identifyBlinkMs } from "./global-settings";
 
 /** What the lamp screens use of a dial, whichever action it belongs to. */
 export type LampScreenDial = Pick<
@@ -177,7 +177,7 @@ const OFF_POWER = { color: "#202020", font: { size: 18, weight: 700 } };
 
 /** Blinks a lamp, by its id, and shows an alert on the dial when it can't. */
 async function blink(dial: LampScreenDial, lampId: string): Promise<void> {
-  const result = await identifyLamp(lampId);
+  const result = await identifyLamp(lampId, identifyBlinkMs());
   if (!result.ok) {
     await dial.showAlert();
   }
