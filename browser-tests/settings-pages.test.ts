@@ -8,6 +8,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 import {
   brightnessSettings,
   globalSettings,
+  LAMP_SCREEN_ITEMS,
   lampSettings,
   parseSettings,
   powerSettings,
@@ -99,10 +100,18 @@ const PANELS: Panel[] = [
 ];
 
 // The global checkboxes of sdpi-components the plugin settings show, on every page, which every dial and key shares
-// (#145, #146), and every global setting they show through sdpi-components, in their order, the blink's length last
-// (#171).
+// (#145, #146), the lists of the lamp screens' cells, in the order the cells are read (#177), and every global setting
+// they show through sdpi-components, in their order, the blink's length last (#171).
 const PLUGIN_SETTINGS_CHECKBOXES = ["keepBrightnessDifference", "keepTemperatureDifference"];
-const PLUGIN_SETTINGS_GLOBALS = [...PLUGIN_SETTINGS_CHECKBOXES, "identifyBlinkMs"];
+const LAMP_SCREEN_LISTS = [
+  "lampScreenTopLeft",
+  "lampScreenTopRight",
+  "lampScreenMiddleLeft",
+  "lampScreenMiddleRight",
+  "lampScreenBottomLeft",
+  "lampScreenBottomRight",
+];
+const PLUGIN_SETTINGS_GLOBALS = [...PLUGIN_SETTINGS_CHECKBOXES, ...LAMP_SCREEN_LISTS, "identifyBlinkMs"];
 
 // What the plugin accepts for each setting, by its name, and the default it takes: settings.ts says these are what
 // each page offers, and the pages' own defaults.
@@ -505,6 +514,75 @@ describe("settings pages", () => {
         await page.close();
 
         expect(saved).toEqual({ [other]: true, [setting]: true });
+      });
+    },
+  );
+
+  // What each cell of the lamp screens shows, a list per cell in the plugin settings, on a key's page and a dial's (#177).
+  const lampScreenLists = [at(PANELS, 0), at(PANELS, 2)].flatMap((panel) =>
+    LAMP_SCREEN_LISTS.map((setting) => ({ panel, setting })),
+  );
+  describe.each(lampScreenLists)(
+    "the global $setting in the plugin settings on $panel.page on $panel.controller",
+    ({ panel, setting }) => {
+      afterEach(() => {
+        streamDeck.globalSettings = {};
+      });
+
+      /** Waits for the page to have the global settings, which the list shows once they've arrived. */
+      async function globalSettingsRead(page: Page): Promise<void> {
+        await page.evaluate(`SDPIComponents.useGlobalSettings("${setting}")[0]()`);
+      }
+
+      /** The option the list shows as chosen. */
+      function chosen(page: Page): Promise<string> {
+        return page.evaluate(`(async () => {
+        const host = document.querySelector('[setting="${setting}"]');
+        await host.updateComplete;
+        return host.shadowRoot.querySelector("select").value;
+      })()`);
+      }
+
+      it("defaults to its default in settings.ts, and offers every choice it accepts, and only those", async () => {
+        const { page } = await openPanel(panel);
+        const control = await controlOf(page, setting);
+        await globalSettingsRead(page);
+        const shown = await chosen(page);
+        await page.close();
+
+        expect(read(setting, control.default ?? "")).toEqual({ value: defaultOf(setting), valid: true });
+        expect(shown).toBe(defaultOf(setting));
+        expect(control.options).toEqual([...LAMP_SCREEN_ITEMS]);
+      });
+
+      it("shows what the global settings hold", async () => {
+        streamDeck.globalSettings = { [setting]: "none" };
+        const { page } = await openPanel(panel);
+        await globalSettingsRead(page);
+        await expect.poll(() => chosen(page)).toBe("none");
+        await page.close();
+      });
+
+      it("saves to the global settings, as settings.ts takes it, keeping the others and the action's own", async () => {
+        streamDeck.globalSettings = { blinkOnLampScreen: true };
+        const { page, uuid } = await openPanel(panel);
+        await globalSettingsRead(page);
+        await clickInPluginSettings(page, "Plugin settings");
+        await page.evaluate(`(async () => {
+        const host = document.querySelector('[setting="${setting}"]');
+        await host.updateComplete;
+        const control = host.shadowRoot.querySelector("select");
+        control.value = "power";
+        control.dispatchEvent(new Event("change", { bubbles: true, composed: true }));
+      })()`);
+        const message = await streamDeck.waitFor((m) => m.event === "setGlobalSettings" && m.context === uuid);
+        // Long enough for a save of the action's own settings to arrive, which there mustn't be.
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        await page.close();
+
+        expect(message.payload).toEqual({ blinkOnLampScreen: true, [setting]: "power" });
+        expect(read(setting, "power")).toEqual({ value: "power", valid: true });
+        expect(streamDeck.messages.filter((m) => m.event === "setSettings" && m.context === uuid)).toEqual([]);
       });
     },
   );

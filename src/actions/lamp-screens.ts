@@ -2,7 +2,8 @@ import type { TouchTapEvent } from "@elgato/streamdeck";
 
 import { identifyLamp, type LampStatus, onLampsChanged, readLampStatuses } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
-import { blinksOnLampScreen, identifyBlinkMs } from "./global-settings";
+import { blinksOnLampScreen, identifyBlinkMs, lampScreenCells, onGlobalSettingsChanged } from "./global-settings";
+import { LAMP_SCREEN_CELLS, type LampScreenCell, type LampScreenItem } from "./settings";
 
 /** What the lamp screens use of a dial, whichever action it belongs to. */
 export type LampScreenDial = Pick<
@@ -43,17 +44,20 @@ const LAMP_TRIGGER_DESCRIPTIONS = { push: "Power", touch: "Next lamp", longTouch
  * With the blink on, which the dials share as a global setting, a tap that shows a lamp also blinks it, so tapping
  * through the lamps shows which one the dial is about to adjust (#144).
  *
+ * What each of a lamp screen's six cells shows is a global setting, the same on every dial (#177).
+ *
  * Every dial shares one instance, which redraws every lamp screen whenever the lamps change, whichever action changed
- * them. Operations run one at a time, since each reads the lamps and changes what a dial shows, and never reject:
+ * them, and whenever the global settings do. Operations run one at a time, since each reads the lamps and changes what a dial shows, and never reject:
  * failures are logged. A blink is part of the operation that asked for it, so a tap during a blink waits for it to end.
  */
 export class LampScreens {
   private readonly screens = new Map<string, Screen>();
   private queue: Promise<void> = Promise.resolve();
 
-  /** Subscribes to every change made to the lamps, to redraw the lamp screens. */
+  /** Subscribes to every change made to the lamps, and to the global settings, to redraw the lamp screens. */
   constructor() {
     onLampsChanged(() => this.refresh());
+    onGlobalSettingsChanged(() => this.refresh());
   }
 
   /** Whether a dial is on a lamp screen rather than its main screen. */
@@ -172,8 +176,14 @@ export class LampScreens {
 
 // "Off" stands out from the lamp screen's other text, which stays white on the strip's own background: dark, and bold,
 // so its thin strokes don't blur into the background at 18 px. The font still joins its "ff" into one shape (#153).
-const ON_POWER = { color: "white", font: { size: 18, weight: 400 } };
+const PLAIN = { color: "white", font: { size: 18, weight: 400 } };
 const OFF_POWER = { color: "#202020", font: { size: 18, weight: 700 } };
+
+// The icons that lead the temperature and the brightness in %, wherever they're shown.
+const ICONS: Partial<Record<LampScreenItem, string>> = {
+  temperature: "imgs/actions/temperature/glyph@2x.png",
+  brightnessPercentage: "imgs/actions/brightness/glyph@2x.png",
+};
 
 /** Blinks a lamp, by its id, and shows an alert on the dial when it can't. */
 async function blink(dial: LampScreenDial, lampId: string): Promise<void> {
@@ -183,17 +193,49 @@ async function blink(dial: LampScreenDial, lampId: string): Promise<void> {
   }
 }
 
-/** Fills the slots of the lamp layout. The power is given its look each time, since a slot keeps what it was given. */
+/** What an item shows for a lamp, with its look, or undefined for none. */
+function textOf(item: LampScreenItem, lamp: LampStatus, lamps: LampStatus[]) {
+  switch (item) {
+    case "identification":
+      // Named as the keys' settings pages name a lamp with no name, so a lamp found here matches the picker (#20).
+      return { value: lamp.label, ...PLAIN };
+    case "counter":
+      return { value: `${lamps.indexOf(lamp) + 1} of ${lamps.length}`, ...PLAIN };
+    case "temperature":
+      return { value: `${lamp.temperatureKelvin} K`, ...PLAIN };
+    case "power":
+      return lamp.on ? { value: "On", ...PLAIN } : { value: "Off", ...OFF_POWER };
+    case "brightnessPercentage":
+      return { value: `${lamp.brightnessPercentage}%`, ...PLAIN };
+    case "brightnessLumen":
+      return { value: `${lamp.brightnessLumen} lm`, ...PLAIN };
+    case "none":
+      return undefined;
+  }
+}
+
+/**
+ * The slots of one cell of the lamp layout: its icon, a text placed after the icon, and one without, each spanning the
+ * row and aligned to the cell's side, since a slot can't move (#177). The cell shows the slots its item needs, and
+ * hides the others. Every slot is given its whole look each time, since a slot keeps what it was given.
+ */
+function cellSlots(cell: LampScreenCell, item: LampScreenItem, lamp: LampStatus, lamps: LampStatus[]) {
+  const text = textOf(item, lamp, lamps);
+  const icon = ICONS[item];
+  const hidden = { value: "", enabled: false };
+  return {
+    [`${cell}Icon`]: icon === undefined ? { enabled: false } : { value: icon, enabled: true },
+    [`${cell}AfterIcon`]: text === undefined || icon === undefined ? hidden : { ...text, enabled: true },
+    [cell]: text === undefined || icon !== undefined ? hidden : { ...text, enabled: true },
+  };
+}
+
+/** Fills the slots of the lamp layout, each cell with what the global settings give it (#177). */
 async function draw(dial: LampScreenDial, lamp: LampStatus, lamps: LampStatus[]): Promise<void> {
-  await dial.setFeedback({
-    // Named as the keys' settings pages name it, so a lamp found here matches the picker (#20).
-    lamp: lamp.label,
-    position: `${lamps.indexOf(lamp) + 1} of ${lamps.length}`,
-    power: lamp.on ? { value: "On", ...ON_POWER } : { value: "Off", ...OFF_POWER },
-    temperature: `${lamp.temperatureKelvin} K`,
-    brightness: `${lamp.brightnessPercentage}%`,
-    lumens: `${lamp.brightnessLumen} lm`,
-  });
+  const cells = lampScreenCells();
+  await dial.setFeedback(
+    Object.assign({}, ...LAMP_SCREEN_CELLS.map((cell) => cellSlots(cell, cells[cell], lamp, lamps))),
+  );
 }
 
 /** The lamp screens every action shares. */

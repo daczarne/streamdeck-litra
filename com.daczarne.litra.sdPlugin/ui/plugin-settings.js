@@ -4,7 +4,8 @@
 // `lampNames`, by lamp id, and the keys' lamp pickers show them (lamp-picker.js, which this tells of every name changed
 // and every lamp found, through events on the document). Under the lamps come the global settings that every dial and
 // key shares, such as whether each lamp steps from its own value (#145), the lamp screens' blink (#144), which a dial's
-// own page can turn on or off for that dial alone, and how long a blink lasts (#171). A file rather than an inline script, so the pages'
+// own page can turn on or off for that dial alone, what each cell of the lamp screens shows (#177), and how long a blink
+// lasts (#171). A file rather than an inline script, so the pages'
 // Content-Security-Policy doesn't have to allow inline scripts.
 (() => {
   const container = document.getElementById("plugin-settings");
@@ -62,6 +63,13 @@
 
     #plugin-settings td.name {
       width: 100%;
+    }
+
+    /* The lamp screens' cells, three rows of two, as the strip shows them. */
+    #plugin-settings .cells {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px;
     }
 
     /* A slider with its value on its right, as on the actions' pages. */
@@ -224,6 +232,47 @@
     box.className = "range";
     box.append(range, output);
     return box;
+  }
+
+  /** A list from sdpi-components that reads and saves a global setting itself, with its options as [value, text]. */
+  function globalSelect(setting, options, fallback) {
+    const select = document.createElement("sdpi-select");
+    select.setAttribute("setting", setting);
+    select.setAttribute("global", "");
+    select.setAttribute("default", fallback);
+    for (const [value, text] of options) {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = text;
+      select.append(option);
+    }
+    return select;
+  }
+
+  // What each cell of the lamp screens can show, in the order the lists offer it (#177).
+  const LAMP_SCREEN_ITEMS = [
+    ["identification", "Identification"],
+    ["counter", "Lamp counter"],
+    ["temperature", "Temperature"],
+    ["power", "Power"],
+    ["brightnessPercentage", "Brightness %"],
+    ["brightnessLumen", "Brightness lm"],
+    ["none", "None"],
+  ];
+
+  /** A list for each cell of the lamp screens, laid out as the cells are, each with what the cell shows by default. */
+  function lampScreenCells() {
+    const cells = document.createElement("div");
+    cells.className = "cells";
+    cells.append(
+      globalSelect("lampScreenTopLeft", LAMP_SCREEN_ITEMS, "identification"),
+      globalSelect("lampScreenTopRight", LAMP_SCREEN_ITEMS, "counter"),
+      globalSelect("lampScreenMiddleLeft", LAMP_SCREEN_ITEMS, "temperature"),
+      globalSelect("lampScreenMiddleRight", LAMP_SCREEN_ITEMS, "power"),
+      globalSelect("lampScreenBottomLeft", LAMP_SCREEN_ITEMS, "brightnessPercentage"),
+      globalSelect("lampScreenBottomRight", LAMP_SCREEN_ITEMS, "brightnessLumen"),
+    );
+    return cells;
   }
 
   /** A line of grey text. */
@@ -389,7 +438,7 @@
     console.error("Can't show the lamps", error);
   }
 
-  // The checkboxes are on the page from the start, though hidden, since sdpi-components only gives a control the
+  // The controls are on the page from the start, though hidden, since sdpi-components only gives a control the
   // global settings that arrive once it's on the page. Only the lamps are drawn again.
   const toggleButton = button("Plugin settings", () => toggle().catch(showError));
   const lampList = document.createElement("div");
@@ -407,6 +456,7 @@
       globalCheckbox("keepTemperatureDifference", "Steps from its own temperature, on every dial and key"),
     ),
     item("Lamp screens", everyDialBlink),
+    item("Layout", lampScreenCells()),
     item(
       "Blink length",
       globalSlider("identifyBlinkMs", { min: 300, max: 1500, step: 50, fallback: 400, suffix: " ms" }),

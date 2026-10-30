@@ -171,6 +171,32 @@ export const sceneSettings = {
 // The lamps alone, for an action that reads them apart from its other settings.
 export const lampSettings = { lamps };
 
+// What a lamp screen can show in each of its cells (#177): the lamp's model and the end of its serial number, its place
+// among the lamps, its temperature, whether it's on, its brightness in % or in lumens, or nothing.
+export const LAMP_SCREEN_ITEMS = [
+  "identification",
+  "counter",
+  "temperature",
+  "power",
+  "brightnessPercentage",
+  "brightnessLumen",
+  "none",
+] as const;
+
+export type LampScreenItem = (typeof LAMP_SCREEN_ITEMS)[number];
+
+// The cells of a lamp screen, three rows of two, as the strip gives each dial room for (#177).
+export const LAMP_SCREEN_CELLS = [
+  "topLeft",
+  "topRight",
+  "middleLeft",
+  "middleRight",
+  "bottomLeft",
+  "bottomRight",
+] as const;
+
+export type LampScreenCell = (typeof LAMP_SCREEN_CELLS)[number];
+
 // The plugin's own settings, which every dial and key shares rather than each saving its own. With the blink on, tapping
 // a dial through its lamp screens blinks each lamp as its screen appears (#144). It's off by default, since every lamp
 // then blinks in turn, which shows on camera. A dial can choose otherwise on its own page: the dials that do are kept
@@ -183,13 +209,20 @@ export const lampSettings = { lamps };
 // when switched off, in about 750 ms at any brightness, so a blink much shorter than the fade brings the lamp back
 // before it has dimmed enough to notice among lamps that stay on, while one as long as the whole fade makes each tap
 // through the lamp screens wait longer than it needs to. The default suits dim lamps, and a bright lamp among others
-// needs a longer one. The longest is twice the fade.
+// needs a longer one. The longest is twice the fade. What each cell of the lamp screens shows is the same on every dial,
+// and the defaults are what the lamp screens showed before it could be chosen (#177).
 export const globalSettings = {
   blinkOnLampScreen: flag(false),
   blinkOnLampScreenExceptions: textList(),
   keepBrightnessDifference: flag(false),
   keepTemperatureDifference: flag(false),
   identifyBlinkMs: wholeNumberFrom(300, 1500, 400),
+  lampScreenTopLeft: oneOf(LAMP_SCREEN_ITEMS, "identification"),
+  lampScreenTopRight: oneOf(LAMP_SCREEN_ITEMS, "counter"),
+  lampScreenMiddleLeft: oneOf(LAMP_SCREEN_ITEMS, "temperature"),
+  lampScreenMiddleRight: oneOf(LAMP_SCREEN_ITEMS, "power"),
+  lampScreenBottomLeft: oneOf(LAMP_SCREEN_ITEMS, "brightnessPercentage"),
+  lampScreenBottomRight: oneOf(LAMP_SCREEN_ITEMS, "brightnessLumen"),
 };
 
 export type GlobalSettings = Parsed<typeof globalSettings>;

@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { LAMP_SCREEN_CELLS } from "../actions/settings";
 import { at } from "../test-support/at";
 import { loadOnEmulatedLamps } from "../test-support/emulated-lamps";
 import { EmulatedLitra } from "../test-support/emulated-litra";
@@ -95,6 +96,18 @@ function textOf(dial: Awaited<ReturnType<FakeDeck["dial"]>>): Record<string, unk
     typeof value === "object" && value !== null && "value" in value ? value.value : value,
   ]);
   return Object.fromEntries(shown);
+}
+
+/**
+ * What each cell of a dial's lamp screen was last told to show (#177): the text of whichever of its two text slots is
+ * shown, after its icon or without one, or nothing for a cell that shows none.
+ */
+function cellsOf(dial: Awaited<ReturnType<FakeDeck["dial"]>>): Record<string, string> {
+  const slots = feedbackOf(dial) as Record<string, { value?: string; enabled?: boolean }>;
+  const shownIn = (slot: string) => (slots[slot]?.enabled === true ? slots[slot].value : undefined);
+  return Object.fromEntries(
+    LAMP_SCREEN_CELLS.map((cell) => [cell, shownIn(`${cell}AfterIcon`) ?? shownIn(cell) ?? ""]),
+  );
 }
 
 //* Tests
@@ -418,14 +431,14 @@ describe("the lamp screens", () => {
 
     expect(dial.setFeedbackLayout).toHaveBeenLastCalledWith("layouts/lamp.json");
     // The first lamp is off, which its power shows in bold dark grey.
-    expect(feedbackOf(dial)).toMatchObject({ power: { value: "Off", color: "#202020", font: { weight: 700 } } });
-    expect(textOf(dial)).toEqual({
-      lamp: "Beam - AL-A",
-      position: "1 of 2",
-      power: "Off",
-      brightness: "100%",
-      lumens: "400 lm",
-      temperature: "6500 K",
+    expect(feedbackOf(dial)).toMatchObject({ middleRight: { value: "Off", color: "#202020", font: { weight: 700 } } });
+    expect(cellsOf(dial)).toEqual({
+      topLeft: "Beam - AL-A",
+      topRight: "1 of 2",
+      middleLeft: "6500 K",
+      middleRight: "Off",
+      bottomLeft: "100%",
+      bottomRight: "400 lm",
     });
   });
 
@@ -435,7 +448,7 @@ describe("the lamp screens", () => {
 
     await deck.press(key);
 
-    expect(textOf(dial)).toMatchObject({ lamp: "Beam - AL-A", position: "1 of 2", temperature: "5000 K" });
+    expect(cellsOf(dial)).toMatchObject({ topLeft: "Beam - AL-A", topRight: "1 of 2", middleLeft: "5000 K" });
   });
 
   it("let each dial turn and toggle its lamp alone, until a turn on a main screen brings them back in sync (#20)", async () => {
@@ -450,29 +463,53 @@ describe("the lamp screens", () => {
     // A brightness change turns its lamp on, as on the main screen.
     expect([first.on, first.brightnessInLumen, first.temperatureInKelvin]).toEqual([true, LUMEN_AT_80, 6500]);
     expect([second.on, second.brightnessInLumen, second.temperatureInKelvin]).toEqual([true, LUMEN_AT_50, 4100]);
-    expect(textOf(dial)).toMatchObject({
-      lamp: "Beam - AL-A",
-      position: "1 of 2",
-      brightness: "80%",
-      temperature: "6500 K",
+    expect(cellsOf(dial)).toMatchObject({
+      topLeft: "Beam - AL-A",
+      topRight: "1 of 2",
+      bottomLeft: "80%",
+      middleLeft: "6500 K",
     });
-    expect(textOf(temperatureDial)).toMatchObject({
-      lamp: "Beam - AL-B",
-      position: "2 of 2",
-      brightness: "50%",
-      temperature: "4100 K",
+    expect(cellsOf(temperatureDial)).toMatchObject({
+      topLeft: "Beam - AL-B",
+      topRight: "2 of 2",
+      bottomLeft: "50%",
+      middleLeft: "4100 K",
     });
 
     await deck.push(dial);
 
     expect([first.on, second.on]).toEqual([false, true]);
-    expect(textOf(dial)).toMatchObject({ power: "Off" });
+    expect(cellsOf(dial)).toMatchObject({ middleRight: "Off" });
 
     const mainDial = await deck.dial(BRIGHTNESS, { stepPercentage: 10 });
     await deck.turn(mainDial, 1);
 
     expect([first.on, second.on]).toEqual([true, true]);
     expect(first.brightnessInLumen).toBe(second.brightnessInLumen);
+  });
+
+  it("show in each cell what the plugin settings choose, and follow a change on every dial on a lamp screen (#177)", async () => {
+    const { dial } = await onFirstLampScreen();
+    const temperatureDial = await deck.dial(TEMPERATURE);
+    await deck.tap(temperatureDial);
+
+    sdk.changeGlobalSettings({
+      lampScreenTopLeft: "power",
+      lampScreenMiddleRight: "none",
+      lampScreenBottomRight: "counter",
+    });
+    await vi.runAllTimersAsync();
+
+    for (const shown of [dial, temperatureDial]) {
+      expect(cellsOf(shown)).toEqual({
+        topLeft: "Off",
+        topRight: "1 of 2",
+        middleLeft: "6500 K",
+        middleRight: "",
+        bottomLeft: "100%",
+        bottomRight: "1 of 2",
+      });
+    }
   });
 
   it("blink each lamp as a tap shows it, on every dial, once the dials' setting is on (#144)", async () => {
@@ -502,7 +539,7 @@ describe("the lamp screens", () => {
       [0, 1],
       [1, 0],
     ]);
-    expect(textOf(temperatureDial)).toMatchObject({ lamp: "Beam - AL-A", position: "1 of 2" });
+    expect(cellsOf(temperatureDial)).toMatchObject({ topLeft: "Beam - AL-A", topRight: "1 of 2" });
   });
 
   it("blink nothing on a dial that chose otherwise on its own page, while the other dials blink", async () => {

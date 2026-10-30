@@ -4,7 +4,7 @@ import { identifyLamp, type LampStatus, onLampsChanged, readLampStatuses } from 
 import { logger } from "../logging";
 import { at } from "../test-support/at";
 import { changeGlobalSettings, createFakeDial } from "../test-support/fake-stream-deck";
-import { followGlobalSettings } from "./global-settings";
+import { followGlobalSettings, onGlobalSettingsChanged } from "./global-settings";
 import { type DialOwner, LampScreens, MAIN_LAYOUT } from "./lamp-screens";
 import { globalSettings } from "./settings";
 
@@ -15,6 +15,13 @@ vi.mock("@elgato/streamdeck", () => import("../test-support/fake-stream-deck"));
 
 // The real logger writes to a logs/ folder.
 vi.mock("../logging", () => import("../test-support/fake-logging"));
+
+// The global settings are the real ones, followed from the fake SDK, but the listeners each instance registers are
+// kept by the mock, so the instances of earlier tests don't redraw.
+vi.mock("./global-settings", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./global-settings")>()),
+  onGlobalSettingsChanged: vi.fn(),
+}));
 
 // The real litra-manager loads node-hid's native binary on import and talks to real lamps.
 vi.mock("../litra-manager", () => ({
@@ -48,17 +55,40 @@ function connect(...lamps: LampStatus[]): void {
   vi.mocked(readLampStatuses).mockResolvedValue({ ok: lamps.length > 0, lamps });
 }
 
-/** What a dial's lamp screen shows for a lamp, the `position`-th of `count`. */
+// The looks every text on a lamp screen is given, and how a slot left out of its cell is hidden (#177).
+const PLAIN = { color: "white", font: { size: 18, weight: 400 } };
+const OFF_POWER = { color: "#202020", font: { size: 18, weight: 700 } };
+const HIDDEN = { value: "", enabled: false };
+const NO_ICON = { enabled: false };
+const TEMPERATURE_ICON = { value: "imgs/actions/temperature/glyph@2x.png", enabled: true };
+const BRIGHTNESS_ICON = { value: "imgs/actions/brightness/glyph@2x.png", enabled: true };
+
+/** A text shown in a slot, with its look. */
+function shown(value: string, look: object = PLAIN) {
+  return { value, ...look, enabled: true };
+}
+
+/** What a dial's lamp screen shows for a lamp, the `position`-th of `count`, with every cell at its default. */
 function lampScreenOf(lamp: LampStatus, position: number, count: number) {
   return {
-    lamp: lamp.label,
-    position: `${position} of ${count}`,
-    power: lamp.on
-      ? { value: "On", color: "white", font: { size: 18, weight: 400 } }
-      : { value: "Off", color: "#202020", font: { size: 18, weight: 700 } },
-    temperature: `${lamp.temperatureKelvin} K`,
-    brightness: `${lamp.brightnessPercentage}%`,
-    lumens: `${lamp.brightnessLumen} lm`,
+    topLeftIcon: NO_ICON,
+    topLeftAfterIcon: HIDDEN,
+    topLeft: shown(lamp.label),
+    topRightIcon: NO_ICON,
+    topRightAfterIcon: HIDDEN,
+    topRight: shown(`${position} of ${count}`),
+    middleLeftIcon: TEMPERATURE_ICON,
+    middleLeftAfterIcon: shown(`${lamp.temperatureKelvin} K`),
+    middleLeft: HIDDEN,
+    middleRightIcon: NO_ICON,
+    middleRightAfterIcon: HIDDEN,
+    middleRight: lamp.on ? shown("On") : shown("Off", OFF_POWER),
+    bottomLeftIcon: BRIGHTNESS_ICON,
+    bottomLeftAfterIcon: shown(`${lamp.brightnessPercentage}%`),
+    bottomLeft: HIDDEN,
+    bottomRightIcon: NO_ICON,
+    bottomRightAfterIcon: HIDDEN,
+    bottomRight: shown(`${lamp.brightnessLumen} lm`),
   };
 }
 
@@ -186,6 +216,65 @@ describe("LampScreens", () => {
 
       expect(screens.isShowing(otherDial.id)).toBe(false);
       expect(otherDial.setFeedback).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("with the cells chosen in the plugin settings (#177)", () => {
+    it("shows in each cell what it's given, an icon on the outer side of its text, and nothing in a cell given none", async () => {
+      const dial = createFakeDial();
+      changeGlobalSettings({
+        lampScreenTopLeft: "power",
+        lampScreenTopRight: "temperature",
+        lampScreenMiddleLeft: "none",
+        lampScreenMiddleRight: "brightnessPercentage",
+        lampScreenBottomLeft: "brightnessLumen",
+        lampScreenBottomRight: "identification",
+      });
+
+      await screens.tap(dial, owner);
+
+      expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith({
+        topLeftIcon: NO_ICON,
+        topLeftAfterIcon: HIDDEN,
+        topLeft: shown("On"),
+        topRightIcon: TEMPERATURE_ICON,
+        topRightAfterIcon: shown(`${A.temperatureKelvin} K`),
+        topRight: HIDDEN,
+        middleLeftIcon: NO_ICON,
+        middleLeftAfterIcon: HIDDEN,
+        middleLeft: HIDDEN,
+        middleRightIcon: BRIGHTNESS_ICON,
+        middleRightAfterIcon: shown(`${A.brightnessPercentage}%`),
+        middleRight: HIDDEN,
+        bottomLeftIcon: NO_ICON,
+        bottomLeftAfterIcon: HIDDEN,
+        bottomLeft: shown(`${A.brightnessLumen} lm`),
+        bottomRightIcon: NO_ICON,
+        bottomRightAfterIcon: HIDDEN,
+        bottomRight: shown(A.label),
+      });
+    });
+
+    it("shows the same in several cells", async () => {
+      const dial = createFakeDial();
+      changeGlobalSettings({ lampScreenTopLeft: "counter", lampScreenTopRight: "counter" });
+
+      await screens.tap(dial, owner);
+
+      expect(dial.setFeedback).toHaveBeenCalledWith(
+        expect.objectContaining({ topLeft: shown("1 of 2"), topRight: shown("1 of 2") }),
+      );
+    });
+
+    it("redraws the lamp screens on show when they change", async () => {
+      const dial = createFakeDial();
+      await screens.tap(dial, owner);
+
+      changeGlobalSettings({ lampScreenBottomRight: "none" });
+      const globalSettingsChanged = vi.mocked(onGlobalSettingsChanged).mock.lastCall?.[0];
+      await globalSettingsChanged?.();
+
+      expect(dial.setFeedback).toHaveBeenLastCalledWith({ ...lampScreenOf(A, 1, 2), bottomRight: HIDDEN });
     });
   });
 
@@ -386,18 +475,13 @@ describe("LampScreens", () => {
       await screens.refresh();
 
       expect(dial.setFeedback).toHaveBeenLastCalledWith(
-        expect.objectContaining({
-          lamp: A.label,
-          power: { value: "Off", color: "#202020", font: { size: 18, weight: 700 } },
-        }),
+        expect.objectContaining({ topLeft: shown(A.label), middleRight: shown("Off", OFF_POWER) }),
       );
 
       connect(A, B);
       await screens.refresh();
 
-      expect(dial.setFeedback).toHaveBeenLastCalledWith(
-        expect.objectContaining({ power: { value: "On", color: "white", font: { size: 18, weight: 400 } } }),
-      );
+      expect(dial.setFeedback).toHaveBeenLastCalledWith(expect.objectContaining({ middleRight: shown("On") }));
     });
 
     it("doesn't read the lamps when no dial shows a lamp screen", async () => {
