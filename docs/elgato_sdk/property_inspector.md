@@ -71,6 +71,8 @@ Checked while adding the plugin settings ([#146]): the manifest schema and the a
 
 Checked while adding the blink's length ([#171]): a slider with `global`, which saves a number to the global settings, in the browser tests and on the Deck, kept across a restart of the plugin.
 
+Checked while adding the lamp screens' cells ([#177]): lists with `global`, made by a script with their options added before they're on the page, in the browser tests and on the Deck.
+
 [#9]: https://github.com/daczarne/streamdeck-litra/issues/9
 [#20]: https://github.com/daczarne/streamdeck-litra/issues/20
 [#144]: https://github.com/daczarne/streamdeck-litra/issues/144

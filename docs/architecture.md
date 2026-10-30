@@ -56,6 +56,8 @@ After every write, it reads the write's ACK (`drainAck`), so that a read on the 
 
 After every operation that writes to the lamps, failed ones included, `litra-manager` calls the listeners registered with `onLampsChanged` ([#57]). Every action that shows the lamps listens: the Power keys, the step keys, the Brightness and Temperature dials, and the lamp screens. So whichever key or dial changed the lamps, everything on the Deck follows, from one read per action, or per set of lamps for the keys, which each show their own. A change made with a lamp's own buttons isn't noticed, and shows at the next change made through the plugin.
 
+The global settings are followed the same way: each time `src/actions/global-settings.ts` reads them, once the plugin is connected and whenever a page changes them, it calls the listeners registered with `onGlobalSettingsChanged`. The lamp screens listen, so a change to what their cells show redraws every lamp screen on the Deck at once ([#177]).
+
 An action shows an alert on the key or dial that failed. On a key, the redraw that follows leaves the alert visible when it sets the title, and hides it when it sets the state: the Power key shows its alert after its state for that reason ([#132], see [the SDK notes on keys][keys]).
 
 ## Turning a dial
@@ -72,6 +74,7 @@ A dial sends a tick at a time, and a quick turn sends many. The dial gathers tic
 [#132]: https://github.com/daczarne/streamdeck-litra/issues/132
 [#144]: https://github.com/daczarne/streamdeck-litra/issues/144
 [#145]: https://github.com/daczarne/streamdeck-litra/issues/145
+[#177]: https://github.com/daczarne/streamdeck-litra/issues/177
 [contributing]: contributing.md
 [keys]: elgato_sdk/keys.md
 [litra]: https://github.com/timrogers/litra
