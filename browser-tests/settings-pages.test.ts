@@ -33,8 +33,6 @@ type Panel = {
   controller: Controller;
   /** The settings whose controls the panel shows, by their `setting` attribute. */
   settings: string[];
-  /** The plugin's global settings whose controls the panel shows itself, which every action shares (#144). */
-  globalSettings?: string[];
   /** A setting to change through its control, and the value Stream Deck should receive for it. */
   change: { setting: string; value: string; saved: unknown };
   sliders?: Slider[];
@@ -59,7 +57,6 @@ const PANELS: Panel[] = [
     page: "ui/brightness.html",
     controller: "Encoder",
     settings: ["stepPercentage"],
-    globalSettings: ["blinkOnLampScreen"],
     change: { setting: "stepPercentage", value: "20", saved: 20 },
     sliders: [{ setting: "stepPercentage", suffix: "%", value: "20" }],
   },
@@ -74,7 +71,6 @@ const PANELS: Panel[] = [
     page: "ui/temperature.html",
     controller: "Encoder",
     settings: ["stepKelvin"],
-    globalSettings: ["blinkOnLampScreen"],
     change: { setting: "stepKelvin", value: "500", saved: "500" },
   },
   {
@@ -163,6 +159,8 @@ afterAll(async () => {
 type OpenedPanel = {
   page: Page;
   uuid: string;
+  /** The id of the action whose page this is, as the plugin knows it. */
+  context: string;
   /** URLs the page requested, from the moment it started loading. */
   requests: string[];
   /** Errors in the console and uncaught exceptions, including the policy's own reports. */
@@ -172,11 +170,12 @@ type OpenedPanel = {
 /**
  * Opens a settings page the way Stream Deck does: loads it from the plugin folder, then calls the page's
  * `connectElgatoStreamDeckSocket` with the fake Stream Deck's port and the action's details, including its saved
- * settings.
+ * settings and its id, `context`, a new one unless given.
  */
 async function openPanel(
   { page: file, controller }: Panel,
   settings: Record<string, unknown> = {},
+  context = randomUUID().replaceAll("-", ""),
 ): Promise<OpenedPanel> {
   const page = await chrome.newPage();
   const uuid = randomUUID();
@@ -212,7 +211,7 @@ async function openPanel(
   };
   const actionInfo = {
     action: action.UUID,
-    context: randomUUID(),
+    context,
     device: "device",
     payload: { controller, settings },
   };
@@ -221,7 +220,7 @@ async function openPanel(
       `${JSON.stringify(JSON.stringify(info))}, ${JSON.stringify(JSON.stringify(actionInfo))})`,
   );
   await streamDeck.waitFor((m) => m.event === "registerPropertyInspector" && "uuid" in m && m.uuid === uuid);
-  return { page, uuid, requests, errors };
+  return { page, uuid, context, requests, errors };
 }
 
 /**
@@ -296,11 +295,10 @@ describe("settings pages", () => {
       await page.close();
     });
 
-    const shown = [...panel.settings, ...(panel.globalSettings ?? [])];
-    it(`shows the ${shown.join(", ")} controls only`, async () => {
+    it(`shows the ${panel.settings.join(", ")} controls only`, async () => {
       const { page } = await openPanel(panel);
       await expect.poll(() => visibleSettings(page)).toEqual(panel.settings);
-      await expect.poll(() => visibleSettings(page, { global: true })).toEqual(panel.globalSettings ?? []);
+      await expect.poll(() => visibleSettings(page, { global: true })).toEqual([]);
       await page.close();
     });
 
@@ -423,24 +421,14 @@ describe("settings pages", () => {
     });
   });
 
-  // Every checkbox of a global setting, on every page that shows it (#144), and in the plugin settings, on a key's page
-  // and a dial's (#145, #146).
-  const globalCheckboxes = [
-    ...PANELS.flatMap((panel) =>
-      (panel.globalSettings ?? []).map((setting) => ({ panel, setting, where: "", inPluginSettings: false })),
-    ),
-    ...[at(PANELS, 0), at(PANELS, 2)].flatMap((panel) =>
-      PLUGIN_SETTINGS_GLOBALS.map((setting) => ({
-        panel,
-        setting,
-        where: " in the plugin settings",
-        inPluginSettings: true,
-      })),
-    ),
-  ];
+  // Every checkbox of sdpi-components that saves a global setting itself, in the plugin settings, on a key's page and a
+  // dial's (#145, #146).
+  const globalCheckboxes = [at(PANELS, 0), at(PANELS, 2)].flatMap((panel) =>
+    PLUGIN_SETTINGS_GLOBALS.map((setting) => ({ panel, setting })),
+  );
   describe.each(globalCheckboxes)(
-    "the global $setting$where on $panel.page on $panel.controller",
-    ({ panel, setting, inPluginSettings }) => {
+    "the global $setting in the plugin settings on $panel.page on $panel.controller",
+    ({ panel, setting }) => {
       afterEach(() => {
         streamDeck.globalSettings = {};
       });
@@ -465,9 +453,7 @@ describe("settings pages", () => {
 
       /** Checks the setting's checkbox, as the user would, and returns the global settings the page saves. */
       async function check(page: Page, uuid: string): Promise<unknown> {
-        if (inPluginSettings) {
-          await clickInPluginSettings(page, "Plugin settings");
-        }
+        await clickInPluginSettings(page, "Plugin settings");
         await page.evaluate(`(async () => {
         const host = document.querySelector('[setting="${setting}"]');
         await host.updateComplete;
@@ -695,6 +681,163 @@ describe("settings pages", () => {
     });
   });
 
+  describe.each(PANELS)("the lamp screens' blink on $page on $controller (#144)", (panel) => {
+    const onDial = panel.controller === "Encoder";
+
+    it(onDial ? "shows the dial's own checkbox" : "shows no dial's checkbox", async () => {
+      const { page } = await openPanel(panel);
+      // Long enough for the page to know where its action sits.
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      const shown = await dialBlinkOf(page);
+      await page.close();
+
+      expect(shown).toMatchObject(
+        onDial ? { shown: true, label: "Blink each lamp as it's shown, on this dial" } : { shown: false },
+      );
+    });
+  });
+
+  describe("the lamp screens' blink (#144)", () => {
+    const KEY = at(PANELS, 0);
+    const DIAL = at(PANELS, 2);
+    const NEW_CONTEXT = "0123456789abcdef0123456789abcdef";
+
+    afterEach(() => {
+      streamDeck.globalSettings = {};
+    });
+
+    /** Opens a page once it shows the blink as the global settings hold it. */
+    async function openBlink(panel: Panel, context?: string) {
+      const opened = await openPanel(panel, {}, context);
+      await opened.page.evaluate(`Promise.all([
+        SDPIComponents.useGlobalSettings("blinkOnLampScreen")[0](),
+        SDPIComponents.useGlobalSettings("blinkOnLampScreenExceptions")[0](),
+      ])`);
+      if (panel.controller === "Encoder") {
+        await expect.poll(() => dialBlinkOf(opened.page)).toMatchObject({ shown: true });
+      }
+      return opened;
+    }
+
+    /** Opens the plugin settings on a page, and returns what every dial's checkbox shows. */
+    async function openEveryDialBlink(page: Page): Promise<string | null> {
+      await clickInPluginSettings(page, "Plugin settings");
+      return everyDialBlinkOf(page);
+    }
+
+    it("shows a dial's own as the plugin's setting, for a dial that made no choice of its own", async () => {
+      streamDeck.globalSettings = { blinkOnLampScreen: true, blinkOnLampScreenExceptions: ["other-dial"] };
+      const { page } = await openBlink(DIAL);
+
+      expect(await dialBlinkOf(page)).toMatchObject({ checked: true });
+      await page.close();
+    });
+
+    it.each([true, false])(
+      "shows a dial's own as the opposite of the plugin's setting, %s, for a dial that chose otherwise",
+      async (blink) => {
+        streamDeck.globalSettings = { blinkOnLampScreen: blink, blinkOnLampScreenExceptions: [NEW_CONTEXT] };
+        const { page } = await openBlink(DIAL, NEW_CONTEXT);
+
+        expect(await dialBlinkOf(page)).toMatchObject({ checked: !blink });
+        await page.close();
+      },
+    );
+
+    it("saves a click on a dial's own as the dial's choice, keeping the other global settings, and a second click takes it back", async () => {
+      streamDeck.globalSettings = { keepBrightnessDifference: true };
+      const { page, uuid, context } = await openBlink(DIAL);
+
+      await clickDialBlink(page);
+
+      await expect
+        .poll(() => streamDeck.globalSettings)
+        .toEqual({
+          keepBrightnessDifference: true,
+          blinkOnLampScreenExceptions: [context],
+        });
+      expect(await dialBlinkOf(page)).toMatchObject({ checked: true });
+      expect(read("blinkOnLampScreenExceptions", [context])).toEqual({ value: [context], valid: true });
+
+      await clickDialBlink(page);
+
+      await expect
+        .poll(() => streamDeck.globalSettings)
+        .toEqual({
+          keepBrightnessDifference: true,
+          blinkOnLampScreenExceptions: [],
+        });
+      expect(await dialBlinkOf(page)).toMatchObject({ checked: false });
+      expect(streamDeck.messages.filter((m) => m.event === "setSettings" && m.context === uuid)).toEqual([]);
+      await page.close();
+    });
+
+    it.each([
+      ["unchecked, settings.ts's default, when nothing is saved", {}, "false"],
+      ["checked when every dial blinks", { blinkOnLampScreen: true, blinkOnLampScreenExceptions: [] }, "true"],
+      [
+        "indeterminate when a dial doesn't",
+        { blinkOnLampScreen: true, blinkOnLampScreenExceptions: ["a-dial"] },
+        "mixed",
+      ],
+      [
+        "indeterminate when a dial does",
+        { blinkOnLampScreen: false, blinkOnLampScreenExceptions: ["a-dial"] },
+        "mixed",
+      ],
+    ])("shows every dial's in the plugin settings %s", async (_, saved, shown) => {
+      streamDeck.globalSettings = saved;
+      const { page } = await openBlink(KEY);
+
+      expect(await openEveryDialBlink(page)).toBe(shown);
+      expect(read("blinkOnLampScreen", false)).toEqual({ value: defaultOf("blinkOnLampScreen"), valid: true });
+      await page.close();
+    });
+
+    it.each([
+      ["indeterminate turns it on", { blinkOnLampScreen: false, blinkOnLampScreenExceptions: ["a-dial"] }, true],
+      ["indeterminate keeps it on", { blinkOnLampScreen: true, blinkOnLampScreenExceptions: ["a-dial"] }, true],
+      ["checked turns it off", { blinkOnLampScreen: true }, false],
+      ["unchecked turns it on", {}, true],
+    ])(
+      "saves a click on every dial's, where %s for every dial, keeping the other global settings",
+      async (_, saved, blink) => {
+        streamDeck.globalSettings = { keepTemperatureDifference: true, ...saved };
+        const { page } = await openBlink(KEY);
+        await openEveryDialBlink(page);
+
+        await clickEveryDialBlink(page);
+
+        await expect
+          .poll(() => streamDeck.globalSettings)
+          .toEqual({
+            keepTemperatureDifference: true,
+            blinkOnLampScreen: blink,
+            blinkOnLampScreenExceptions: [],
+          });
+        expect(await everyDialBlinkOf(page)).toBe(String(blink));
+        await page.close();
+      },
+    );
+
+    it("keeps every dial's and the dial's own in step on a dial's page", async () => {
+      streamDeck.globalSettings = { blinkOnLampScreen: true, blinkOnLampScreenExceptions: [NEW_CONTEXT] };
+      const { page } = await openBlink(DIAL, NEW_CONTEXT);
+      expect(await dialBlinkOf(page)).toMatchObject({ checked: false });
+
+      expect(await openEveryDialBlink(page)).toBe("mixed");
+      await clickEveryDialBlink(page);
+      await clickInPluginSettings(page, "Back");
+
+      expect(await dialBlinkOf(page)).toMatchObject({ checked: true });
+
+      await clickDialBlink(page);
+
+      expect(await openEveryDialBlink(page)).toBe("mixed");
+      await page.close();
+    });
+  });
+
   describe.each(PANELS)("the plugin settings of $page on $controller (#146)", (panel) => {
     it("start closed, behind a Plugin settings button at the top of the page", async () => {
       const { page } = await openPanel(panel);
@@ -730,7 +873,7 @@ describe("settings pages", () => {
         actionShown: true,
         buttons: ["Plugin settings"],
       });
-      expect(await shownGlobalSettings(page)).toEqual(panel.globalSettings ?? []);
+      expect(await shownGlobalSettings(page)).toEqual([]);
       streamDeck.lamps = [];
       await page.close();
     });
@@ -848,6 +991,35 @@ describe("settings pages", () => {
     });
   });
 });
+
+/** What a dial's page shows of the dial's own blink: whether it shows it, and if so, its label and whether it's checked. */
+function dialBlinkOf(page: Page): Promise<{ shown: boolean; label?: string | null; checked?: boolean }> {
+  return page.evaluate(`(() => {
+    const box = document.querySelector("#dial-blink sdpi-checkbox");
+    return box === null || !box.checkVisibility()
+      ? { shown: false }
+      : { shown: true, label: box.getAttribute("label"), checked: box.value === true };
+  })()`);
+}
+
+/** Clicks the dial's own blink, as the user would: on the input inside the component. */
+function clickDialBlink(page: Page): Promise<void> {
+  return page.evaluate(`(async () => {
+    const host = document.querySelector("#dial-blink sdpi-checkbox");
+    await host.updateComplete;
+    host.shadowRoot.querySelector("input").click();
+  })()`);
+}
+
+/** What every dial's blink shows in the plugin settings: "true", "false" or "mixed". */
+function everyDialBlinkOf(page: Page): Promise<string | null> {
+  return page.evaluate(`document.querySelector("#plugin-settings .tri-state").getAttribute("aria-checked")`);
+}
+
+/** Clicks every dial's blink in the plugin settings. */
+function clickEveryDialBlink(page: Page): Promise<void> {
+  return page.evaluate(`document.querySelector("#plugin-settings .tri-state").click()`);
+}
 
 /** Whether a message is a page asking the plugin for the lamps. */
 function isLampsRequest(message: { event: string; context?: string; payload?: Record<string, unknown> }, uuid: string) {

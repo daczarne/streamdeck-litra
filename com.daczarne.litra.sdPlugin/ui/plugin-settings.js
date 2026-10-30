@@ -3,8 +3,9 @@
 // model, with a field for its name and a button that blinks it. The names are kept in the plugin's global settings, as
 // `lampNames`, by lamp id, and the keys' lamp pickers show them (lamp-picker.js, which this tells of every name changed
 // and every lamp found, through events on the document). Under the lamps come the global settings that every dial and
-// key shares, such as whether each lamp steps from its own value (#145). A file rather than an inline script, so the
-// pages' Content-Security-Policy doesn't have to allow inline scripts.
+// key shares, such as whether each lamp steps from its own value (#145), and the lamp screens' blink (#144), which a
+// dial's own page can turn on or off for that dial alone. A file rather than an inline script, so the pages'
+// Content-Security-Policy doesn't have to allow inline scripts.
 (() => {
   const container = document.getElementById("plugin-settings");
   if (container === null) {
@@ -61,6 +62,44 @@
 
     #plugin-settings td.name {
       width: 100%;
+    }
+
+    /* A checkbox with a third, indeterminate state, drawn as sdpi-components draws its own, which has none, with its
+      check mark. Inside quotes, a data: URL only needs its "#" encoded. */
+    .tri-state {
+      align-items: center;
+      cursor: pointer;
+      display: inline-flex;
+      outline: 0;
+      padding: 5px 0 0 0;
+      user-select: none;
+    }
+
+    .tri-state .symbol {
+      align-self: flex-start;
+      background: #3d3d3d;
+      border: 1px solid rgba(0, 0, 0, 0.2);
+      border-radius: 3px;
+      flex: 0 0 16px;
+      height: 16px;
+      width: 16px;
+    }
+
+    .tri-state .text {
+      margin: 0 0 0 4px;
+    }
+
+    .tri-state:not([aria-checked="false"]) .symbol {
+      background: #77f no-repeat center center;
+      border: 1px solid rgba(0, 0, 0, 0.4);
+    }
+
+    .tri-state[aria-checked="true"] .symbol {
+      background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='10' viewBox='0 0 12 10'><polygon fill='%23FFF' points='7.2 7.5 7.2 -1.3 8.7 -1.3 8.6 9.1 2.7 8.7 2.7 7.2' transform='rotate(37 5.718 3.896)'/></svg>");
+    }
+
+    .tri-state[aria-checked="mixed"] .symbol {
+      background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='2' viewBox='0 0 10 2'><rect width='10' height='2' fill='%23FFF'/></svg>");
     }
   `;
   document.head.append(style);
@@ -184,6 +223,121 @@
     return table;
   }
 
+  /**
+   * A checkbox that can also be indeterminate, which calls `onClick` when it's clicked, or toggled with the space bar.
+   * Its state is its `aria-checked`: "true", "false" or "mixed".
+   */
+  function triStateCheckbox(label, onClick) {
+    const box = document.createElement("div");
+    box.className = "tri-state";
+    box.setAttribute("role", "checkbox");
+    box.setAttribute("aria-checked", "false");
+    box.tabIndex = 0;
+    const symbol = document.createElement("span");
+    symbol.className = "symbol";
+    const text = document.createElement("span");
+    text.className = "text";
+    text.textContent = label;
+    box.append(symbol, text);
+    box.addEventListener("click", onClick);
+    box.addEventListener("keydown", (event) => {
+      if (event.key === " ") {
+        event.preventDefault();
+        onClick();
+      }
+    });
+    return box;
+  }
+
+  //* The lamp screens' blink (#144): whether every dial blinks each lamp as its lamp screen shows it, and the dials that
+  // chose otherwise on their own page, by id. The plugin settings show every dial's at once, indeterminate when the
+  // dials differ, and a click there gives every dial the same again, even the ones not on screen. A dial's page shows
+  // its own (`#dial-blink`).
+
+  // The plugin's setting, and the ids of the dials that chose otherwise.
+  let blink = false;
+  let blinkExceptions = [];
+  // The id of the dial whose page this is, or undefined on a key's page or until it's known.
+  let dialId;
+
+  // Saved at once, without sdpi-components' wait for more changes, so a page closed right after a click keeps it.
+  const [readBlink, saveBlink] = SDPIComponents.useGlobalSettings(
+    "blinkOnLampScreen",
+    (value) => {
+      blink = value === true;
+      renderBlink();
+    },
+    0,
+  );
+  const [readBlinkExceptions, saveBlinkExceptions] = SDPIComponents.useGlobalSettings(
+    "blinkOnLampScreenExceptions",
+    (value) => {
+      blinkExceptions = validIds(value);
+      renderBlink();
+    },
+    0,
+  );
+
+  /** The ids in the global settings, or none when they aren't a list of ids. */
+  function validIds(value) {
+    return Array.isArray(value) ? value.filter((id) => typeof id === "string") : [];
+  }
+
+  /** Whether the dial whose page this is blinks: the plugin's setting, or the opposite if it chose otherwise. */
+  function dialBlinks() {
+    return blink !== blinkExceptions.includes(dialId);
+  }
+
+  /** Shows the blink on both checkboxes, and saves the dials that chose otherwise. */
+  function storeBlinkExceptions() {
+    renderBlink();
+    saveBlinkExceptions(blinkExceptions).catch((error) => console.error("Can't save the blink's dials", error));
+  }
+
+  // Every dial's: checked turns it off for every dial, and empty or indeterminate turns it on for every dial.
+  const everyDialBlink = triStateCheckbox("Blink each lamp as it's shown, on every dial", () => {
+    blink = !(blink && blinkExceptions.length === 0);
+    blinkExceptions = [];
+    saveBlink(blink).catch((error) => console.error("Can't save the blink", error));
+    storeBlinkExceptions();
+  });
+
+  // The dial's own, on a dial's page. A checkbox from sdpi-components that saves nothing itself, and also reports the
+  // changes this script makes, which match the setting already and are left out, so only a click changes it.
+  const dialBlinkContainer = document.getElementById("dial-blink");
+  const dialBlink = document.createElement("sdpi-checkbox");
+  dialBlink.setAttribute("label", "Blink each lamp as it's shown, on this dial");
+  dialBlink.addEventListener("valuechange", () => {
+    if (dialId === undefined || dialBlink.value === dialBlinks()) {
+      return;
+    }
+    blinkExceptions = blinkExceptions.includes(dialId)
+      ? blinkExceptions.filter((id) => id !== dialId)
+      : [...blinkExceptions, dialId];
+    storeBlinkExceptions();
+  });
+
+  /** Shows the blink on both checkboxes. */
+  function renderBlink() {
+    everyDialBlink.setAttribute("aria-checked", blinkExceptions.length > 0 ? "mixed" : String(blink));
+    if (dialId !== undefined) {
+      dialBlink.value = dialBlinks();
+    }
+  }
+
+  (async () => {
+    const info = await client.getConnectionInfo();
+    if (info?.actionInfo?.payload?.controller === "Encoder" && dialBlinkContainer !== null) {
+      dialId = info.actionInfo.context;
+      dialBlinkContainer.append(dialBlink);
+    }
+    [blink, blinkExceptions] = await Promise.all([
+      readBlink().then((value) => value === true),
+      readBlinkExceptions().then(validIds),
+    ]);
+    renderBlink();
+  })().catch((error) => console.error("Can't show the blink", error));
+
   /** Logs a failure to find the lamps, which the page has no other way to show. */
   function showError(error) {
     console.error("Can't show the lamps", error);
@@ -206,6 +360,7 @@
       globalCheckbox("keepBrightnessDifference", "Steps from its own brightness, on every dial and key"),
       globalCheckbox("keepTemperatureDifference", "Steps from its own temperature, on every dial and key"),
     ),
+    item("Lamp screens", everyDialBlink),
   );
   container.append(item(undefined, toggleButton), view);
 

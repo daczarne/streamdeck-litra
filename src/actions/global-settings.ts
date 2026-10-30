@@ -33,6 +33,14 @@ export function currentGlobalSettings(): GlobalSettings {
   return current;
 }
 
+/**
+ * Whether a dial blinks each lamp as its lamp screen shows it (#144): the plugin's setting, or the opposite for a dial
+ * that chose otherwise on its own page.
+ */
+export function blinksOnLampScreen(dialId: string): boolean {
+  return current.blinkOnLampScreen !== current.blinkOnLampScreenExceptions.includes(dialId);
+}
+
 /** How a turn on a Brightness dial's main screen, or a Brightness step key's press, steps the lamps (#145). */
 export function brightnessStepping(): Stepping {
   return current.keepBrightnessDifference ? "each" : "together";

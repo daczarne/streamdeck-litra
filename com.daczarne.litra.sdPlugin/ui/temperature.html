@@ -70,13 +70,10 @@
           <option value="500">500</option>
         </sdpi-select>
       </sdpi-item>
-      <!-- Saved to the plugin's global settings, which every Brightness and Temperature dial shares (#144). -->
+      <!-- The dial's own blink of each lamp as its lamp screen shows it, which plugin-settings.js shows and saves to the
+        plugin's global settings, beside every dial's (#144). -->
       <sdpi-item label="Lamp screens">
-        <sdpi-checkbox
-          setting="blinkOnLampScreen"
-          global
-          label="Blink each lamp as it's shown, on every dial"
-        ></sdpi-checkbox>
+        <div id="dial-blink"></div>
       </sdpi-item>
     </div>
     <script src="controller-toggle.js"></script>

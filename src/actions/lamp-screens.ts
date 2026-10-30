@@ -2,7 +2,7 @@ import type { TouchTapEvent } from "@elgato/streamdeck";
 
 import { identifyLamp, type LampStatus, onLampsChanged, readLampStatuses } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
-import { currentGlobalSettings } from "./global-settings";
+import { blinksOnLampScreen } from "./global-settings";
 
 /** What the lamp screens use of a dial, whichever action it belongs to. */
 export type LampScreenDial = Pick<
@@ -68,7 +68,7 @@ export class LampScreens {
 
   /**
    * Shows the lamp after the one on screen, the first lamp from the main screen, and the main screen after the last.
-   * With the blink on, the lamp shown blinks once it's drawn.
+   * With the blink on for the dial, the lamp shown blinks once it's drawn.
    */
   tap(dial: LampScreenDial, owner: DialOwner): Promise<void> {
     return this.enqueue(async () => {
@@ -84,7 +84,7 @@ export class LampScreens {
         return;
       }
       await this.show(dial, next, lamps, owner);
-      if (currentGlobalSettings().blinkOnLampScreen) {
+      if (blinksOnLampScreen(dial.id)) {
         await blink(dial, next.id);
       }
     });

@@ -505,6 +505,22 @@ describe("the lamp screens", () => {
     expect(textOf(temperatureDial)).toMatchObject({ lamp: "Beam - AL-A", position: "1 of 2" });
   });
 
+  it("blink nothing on a dial that chose otherwise on its own page, while the other dials blink", async () => {
+    const [first, second] = [beam({ serialNumber: "SERIAL-A" }), beam({ serialNumber: "SERIAL-B" })];
+    plugIn(second, first);
+    const brightnessDial = await deck.dial(BRIGHTNESS);
+    const temperatureDial = await deck.dial(TEMPERATURE);
+
+    sdk.changeGlobalSettings({ blinkOnLampScreen: true, blinkOnLampScreenExceptions: [brightnessDial.id] });
+    await deck.tap(brightnessDial);
+
+    expect(first.writes("power")).toEqual([]);
+
+    await deck.tap(temperatureDial);
+
+    expect(first.writes("power")).toEqual([0, 1]);
+  });
+
   it.each([
     ["Brightness", BRIGHTNESS],
     ["Temperature", TEMPERATURE],
