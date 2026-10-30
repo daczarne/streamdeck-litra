@@ -99,14 +99,17 @@ function textOf(dial: Awaited<ReturnType<FakeDeck["dial"]>>): Record<string, unk
 }
 
 /**
- * What each cell of a dial's lamp screen was last told to show (#177): the text of whichever of its two text slots is
- * shown, after its icon or without one, or nothing for a cell that shows none.
+ * What each cell of a dial's lamp screen was last told to show (#177): the text of whichever of its text slots is
+ * shown, beside an icon on either side or without one, or nothing for a cell that shows none.
  */
 function cellsOf(dial: Awaited<ReturnType<FakeDeck["dial"]>>): Record<string, string> {
   const slots = feedbackOf(dial) as Record<string, { value?: string; enabled?: boolean }>;
   const shownIn = (slot: string) => (slots[slot]?.enabled === true ? slots[slot].value : undefined);
   return Object.fromEntries(
-    LAMP_SCREEN_CELLS.map((cell) => [cell, shownIn(`${cell}AfterIcon`) ?? shownIn(cell) ?? ""]),
+    LAMP_SCREEN_CELLS.map((cell) => [
+      cell,
+      shownIn(`${cell}BesideOuterIcon`) ?? shownIn(`${cell}BesideInnerIcon`) ?? shownIn(cell) ?? "",
+    ]),
   );
 }
 
@@ -510,6 +513,18 @@ describe("the lamp screens", () => {
         bottomRight: "1 of 2",
       });
     }
+  });
+
+  it("show the name a lamp was given in the plugin settings, in a cell set to show it (#177)", async () => {
+    const { first, dial } = await onFirstLampScreen();
+
+    sdk.changeGlobalSettings({
+      lampNames: { [lampId(first.serialNumber)]: "Key light" },
+      lampScreenOptions: { topLeft: { identification: { first: "name", second: "empty" } } },
+    });
+    await vi.runAllTimersAsync();
+
+    expect(cellsOf(dial)).toMatchObject({ topLeft: "Key light", topRight: "1 of 2" });
   });
 
   it("blink each lamp as a tap shows it, on every dial, once the dials' setting is on (#144)", async () => {

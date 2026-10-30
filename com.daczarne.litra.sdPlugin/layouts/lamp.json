@@ -3,13 +3,13 @@
   "id": "com.daczarne.litra.lamp",
   "items": [
     {
-      "key": "topLeftIcon",
+      "key": "topLeftOuterIcon",
       "type": "pixmap",
       "rect": [12, 8, 22, 22],
       "zOrder": 0
     },
     {
-      "key": "topLeftAfterIcon",
+      "key": "topLeftBesideOuterIcon",
       "type": "text",
       "rect": [40, 6, 148, 26],
       "alignment": "left",
@@ -17,26 +17,54 @@
       "zOrder": 1
     },
     {
+      "key": "topLeftInnerIcon",
+      "type": "pixmap",
+      "rect": [78, 8, 22, 22],
+      "zOrder": 2
+    },
+    {
+      "key": "topLeftBesideInnerIcon",
+      "type": "text",
+      "rect": [12, 6, 60, 26],
+      "alignment": "right",
+      "font": { "size": 18 },
+      "zOrder": 3
+    },
+    {
       "key": "topLeft",
       "type": "text",
       "rect": [12, 6, 176, 26],
       "alignment": "left",
       "font": { "size": 18 },
-      "zOrder": 2
+      "zOrder": 4
     },
     {
-      "key": "topRightIcon",
+      "key": "topRightOuterIcon",
       "type": "pixmap",
       "rect": [166, 8, 22, 22],
-      "zOrder": 0
+      "zOrder": 5
     },
     {
-      "key": "topRightAfterIcon",
+      "key": "topRightBesideOuterIcon",
       "type": "text",
       "rect": [12, 6, 148, 26],
       "alignment": "right",
       "font": { "size": 18 },
-      "zOrder": 3
+      "zOrder": 6
+    },
+    {
+      "key": "topRightInnerIcon",
+      "type": "pixmap",
+      "rect": [100, 8, 22, 22],
+      "zOrder": 7
+    },
+    {
+      "key": "topRightBesideInnerIcon",
+      "type": "text",
+      "rect": [128, 6, 60, 26],
+      "alignment": "left",
+      "font": { "size": 18 },
+      "zOrder": 8
     },
     {
       "key": "topRight",
@@ -44,16 +72,16 @@
       "rect": [12, 6, 176, 26],
       "alignment": "right",
       "font": { "size": 18 },
-      "zOrder": 4
+      "zOrder": 9
     },
     {
-      "key": "middleLeftIcon",
+      "key": "middleLeftOuterIcon",
       "type": "pixmap",
       "rect": [12, 40, 22, 22],
       "zOrder": 0
     },
     {
-      "key": "middleLeftAfterIcon",
+      "key": "middleLeftBesideOuterIcon",
       "type": "text",
       "rect": [40, 38, 148, 26],
       "alignment": "left",
@@ -61,26 +89,54 @@
       "zOrder": 1
     },
     {
+      "key": "middleLeftInnerIcon",
+      "type": "pixmap",
+      "rect": [78, 40, 22, 22],
+      "zOrder": 2
+    },
+    {
+      "key": "middleLeftBesideInnerIcon",
+      "type": "text",
+      "rect": [12, 38, 60, 26],
+      "alignment": "right",
+      "font": { "size": 18 },
+      "zOrder": 3
+    },
+    {
       "key": "middleLeft",
       "type": "text",
       "rect": [12, 38, 176, 26],
       "alignment": "left",
       "font": { "size": 18 },
-      "zOrder": 2
+      "zOrder": 4
     },
     {
-      "key": "middleRightIcon",
+      "key": "middleRightOuterIcon",
       "type": "pixmap",
       "rect": [166, 40, 22, 22],
-      "zOrder": 0
+      "zOrder": 5
     },
     {
-      "key": "middleRightAfterIcon",
+      "key": "middleRightBesideOuterIcon",
       "type": "text",
       "rect": [12, 38, 148, 26],
       "alignment": "right",
       "font": { "size": 18 },
-      "zOrder": 3
+      "zOrder": 6
+    },
+    {
+      "key": "middleRightInnerIcon",
+      "type": "pixmap",
+      "rect": [100, 40, 22, 22],
+      "zOrder": 7
+    },
+    {
+      "key": "middleRightBesideInnerIcon",
+      "type": "text",
+      "rect": [128, 38, 60, 26],
+      "alignment": "left",
+      "font": { "size": 18 },
+      "zOrder": 8
     },
     {
       "key": "middleRight",
@@ -88,16 +144,16 @@
       "rect": [12, 38, 176, 26],
       "alignment": "right",
       "font": { "size": 18 },
-      "zOrder": 4
+      "zOrder": 9
     },
     {
-      "key": "bottomLeftIcon",
+      "key": "bottomLeftOuterIcon",
       "type": "pixmap",
       "rect": [12, 70, 22, 22],
       "zOrder": 0
     },
     {
-      "key": "bottomLeftAfterIcon",
+      "key": "bottomLeftBesideOuterIcon",
       "type": "text",
       "rect": [40, 68, 148, 26],
       "alignment": "left",
@@ -105,26 +161,54 @@
       "zOrder": 1
     },
     {
+      "key": "bottomLeftInnerIcon",
+      "type": "pixmap",
+      "rect": [78, 70, 22, 22],
+      "zOrder": 2
+    },
+    {
+      "key": "bottomLeftBesideInnerIcon",
+      "type": "text",
+      "rect": [12, 68, 60, 26],
+      "alignment": "right",
+      "font": { "size": 18 },
+      "zOrder": 3
+    },
+    {
       "key": "bottomLeft",
       "type": "text",
       "rect": [12, 68, 176, 26],
       "alignment": "left",
       "font": { "size": 18 },
-      "zOrder": 2
+      "zOrder": 4
     },
     {
-      "key": "bottomRightIcon",
+      "key": "bottomRightOuterIcon",
       "type": "pixmap",
       "rect": [166, 70, 22, 22],
-      "zOrder": 0
+      "zOrder": 5
     },
     {
-      "key": "bottomRightAfterIcon",
+      "key": "bottomRightBesideOuterIcon",
       "type": "text",
       "rect": [12, 68, 148, 26],
       "alignment": "right",
       "font": { "size": 18 },
-      "zOrder": 3
+      "zOrder": 6
+    },
+    {
+      "key": "bottomRightInnerIcon",
+      "type": "pixmap",
+      "rect": [100, 70, 22, 22],
+      "zOrder": 7
+    },
+    {
+      "key": "bottomRightBesideInnerIcon",
+      "type": "text",
+      "rect": [128, 68, 60, 26],
+      "alignment": "left",
+      "font": { "size": 18 },
+      "zOrder": 8
     },
     {
       "key": "bottomRight",
@@ -132,7 +216,7 @@
       "rect": [12, 68, 176, 26],
       "alignment": "right",
       "font": { "size": 18 },
-      "zOrder": 4
+      "zOrder": 9
     }
   ]
 }

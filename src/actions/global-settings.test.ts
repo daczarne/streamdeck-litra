@@ -50,6 +50,8 @@ const DEFAULTS = {
   lampScreenMiddleRight: "power",
   lampScreenBottomLeft: "brightnessPercentage",
   lampScreenBottomRight: "brightnessLumen",
+  lampScreenOptions: {},
+  lampNames: {},
 };
 
 //* Tests
@@ -185,10 +187,15 @@ describe("how long a blink lasts (#171)", () => {
 });
 
 describe("what the lamp screens show (#177)", () => {
+  /** The item each cell shows. */
+  function items() {
+    return Object.fromEntries(Object.entries(globalSettings.lampScreenCells()).map(([cell, { item }]) => [cell, item]));
+  }
+
   it("is, cell by cell, what the plugin settings choose, and what they showed before by default", async () => {
     await follow();
 
-    expect(globalSettings.lampScreenCells()).toEqual({
+    expect(items()).toEqual({
       topLeft: "identification",
       topRight: "counter",
       middleLeft: "temperature",
@@ -199,7 +206,7 @@ describe("what the lamp screens show (#177)", () => {
 
     changeFromPage({ lampScreenTopLeft: "none", lampScreenBottomRight: "identification" });
 
-    expect(globalSettings.lampScreenCells()).toMatchObject({ topLeft: "none", bottomRight: "identification" });
+    expect(items()).toMatchObject({ topLeft: "none", bottomRight: "identification" });
   });
 
   it("takes a cell's default, with a warning, when what is saved isn't one of the choices", async () => {
@@ -207,7 +214,7 @@ describe("what the lamp screens show (#177)", () => {
 
     await follow();
 
-    expect(globalSettings.lampScreenCells().topRight).toBe("counter");
+    expect(globalSettings.lampScreenCells().topRight.item).toBe("counter");
     expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("lampScreenTopRight"));
   });
 
@@ -234,5 +241,71 @@ describe("what the lamp screens show (#177)", () => {
 
     await vi.waitFor(() => expect(logger.error).toHaveBeenCalledExactlyOnceWith(expect.any(String), error));
     expect(other).toHaveBeenCalledOnce();
+  });
+});
+
+describe("how each cell of the lamp screens shows its item (#177)", () => {
+  it("takes the defaults that draw what the lamp screens showed before", async () => {
+    await follow();
+
+    expect(globalSettings.lampScreenCells()).toEqual({
+      topLeft: { item: "identification", options: { first: "model", second: "id", trim: false } },
+      topRight: { item: "counter", options: { count: "countOf", format: "of" } },
+      middleLeft: { item: "temperature", options: { icon: true, unit: true, iconSide: "outer" } },
+      middleRight: {
+        item: "power",
+        options: { labels: "onOff", onColor: "#ffffff", onWeight: "normal", offColor: "#202020", offWeight: "bold" },
+      },
+      bottomLeft: { item: "brightnessPercentage", options: { icon: true, unit: true, iconSide: "outer" } },
+      bottomRight: { item: "brightnessLumen", options: { icon: false, unit: true, iconSide: "outer" } },
+    });
+  });
+
+  it("reads a cell's options for the item it shows, and leaves out the ones kept for other items", async () => {
+    settings.getGlobalSettings.mockResolvedValue({
+      lampScreenTopLeft: "counter",
+      lampScreenOptions: { topLeft: { counter: { format: "slash" }, identification: { trim: true } } },
+    });
+
+    await follow();
+
+    expect(globalSettings.lampScreenCells().topLeft).toEqual({
+      item: "counter",
+      options: { count: "countOf", format: "slash" },
+    });
+  });
+
+  it("takes an option's default, with a warning that names the cell, when what is saved isn't valid", async () => {
+    settings.getGlobalSettings.mockResolvedValue({
+      lampScreenOptions: { middleRight: { power: { onColor: "orange", labels: "upper" } } },
+    });
+
+    await follow();
+
+    expect(globalSettings.lampScreenCells().middleRight.options).toMatchObject({ onColor: "#ffffff", labels: "upper" });
+    expect(logger.warn).toHaveBeenCalledExactlyOnceWith(
+      expect.stringContaining("middleRight"),
+      expect.stringContaining("onColor"),
+    );
+  });
+
+  it("takes every default when the options aren't objects", async () => {
+    settings.getGlobalSettings.mockResolvedValue({ lampScreenOptions: { topLeft: "trim" } });
+
+    await follow();
+
+    expect(globalSettings.lampScreenCells().topLeft.options).toEqual({ first: "model", second: "id", trim: false });
+  });
+});
+
+describe("the lamps' names (#146)", () => {
+  it("are the ones the plugin settings saved, by lamp id, and none for a lamp without one", async () => {
+    settings.getGlobalSettings.mockResolvedValue({ lampNames: { "lamp-1": "Key light", "lamp-2": 7 } });
+
+    await follow();
+
+    expect(globalSettings.lampName("lamp-1")).toBe("Key light");
+    expect(globalSettings.lampName("lamp-2")).toBeUndefined();
+    expect(globalSettings.lampName("lamp-3")).toBeUndefined();
   });
 });

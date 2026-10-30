@@ -6,15 +6,25 @@ import { logger as pluginLogger } from "../logging";
 import {
   type GlobalSettings,
   globalSettings,
+  LAMP_SCREEN_CELLS,
   type LampScreenCell,
   type LampScreenItem,
+  type LampScreenItemOptions,
+  lampScreenItemOptions,
   parseSettings,
 } from "./settings";
 
+/** What a cell of the lamp screens shows, and how (#177). */
+export type LampScreenCellContent = {
+  [Item in LampScreenItem]: { item: Item; options: LampScreenItemOptions[Item] };
+}[LampScreenItem];
+
 const logger = pluginLogger.createScope("Global settings");
 
-// The global settings as last read, their defaults until the first read answers.
+// The global settings as last read, their defaults until the first read answers, and the lamp screens' cells read from
+// them, once per read, so an option that isn't valid is warned about once.
 let current: GlobalSettings = parseSettings({}, globalSettings, logger);
+let cells: Record<LampScreenCell, LampScreenCellContent> = readCells(current);
 
 const changedListeners: Array<() => void | Promise<void>> = [];
 
@@ -34,6 +44,7 @@ export function onGlobalSettingsChanged(listener: () => void | Promise<void>): v
 export function followGlobalSettings(): void {
   const apply = (settings: JsonObject): void => {
     current = parseSettings(settings, globalSettings, logger);
+    cells = readCells(current);
     for (const listener of changedListeners) {
       Promise.resolve()
         .then(listener)
@@ -69,16 +80,50 @@ export function identifyBlinkMs(): number {
   return current.identifyBlinkMs;
 }
 
-/** What each cell of the lamp screens shows (#177). */
-export function lampScreenCells(): Record<LampScreenCell, LampScreenItem> {
-  return {
-    topLeft: current.lampScreenTopLeft,
-    topRight: current.lampScreenTopRight,
-    middleLeft: current.lampScreenMiddleLeft,
-    middleRight: current.lampScreenMiddleRight,
-    bottomLeft: current.lampScreenBottomLeft,
-    bottomRight: current.lampScreenBottomRight,
+/** What each cell of the lamp screens shows, and how (#177). */
+export function lampScreenCells(): Record<LampScreenCell, LampScreenCellContent> {
+  return cells;
+}
+
+/** The name given to a lamp in the plugin settings (#146), or undefined for a lamp with none. */
+export function lampName(lampId: string): string | undefined {
+  return current.lampNames[lampId];
+}
+
+/**
+ * Reads each cell's item, and its options for that item against their schema, which take their defaults when they're
+ * missing, and with a warning that names the cell when they aren't valid.
+ */
+function readCells(settings: GlobalSettings): Record<LampScreenCell, LampScreenCellContent> {
+  const items: Record<LampScreenCell, LampScreenItem> = {
+    topLeft: settings.lampScreenTopLeft,
+    topRight: settings.lampScreenTopRight,
+    middleLeft: settings.lampScreenMiddleLeft,
+    middleRight: settings.lampScreenMiddleRight,
+    bottomLeft: settings.lampScreenBottomLeft,
+    bottomRight: settings.lampScreenBottomRight,
   };
+  const read = (cell: LampScreenCell): LampScreenCellContent => {
+    const item = items[cell];
+    const saved = objectAt(objectAt(settings.lampScreenOptions, cell), item);
+    // The schema matches the item, which TypeScript can't follow through the lookup.
+    return {
+      item,
+      options: parseSettings(saved, lampScreenItemOptions[item], {
+        warn: (...data) => logger.warn(`Lamp screens' ${cell} cell, ${item}:`, ...data),
+      }),
+    } as LampScreenCellContent;
+  };
+  return Object.fromEntries(LAMP_SCREEN_CELLS.map((cell) => [cell, read(cell)])) as Record<
+    LampScreenCell,
+    LampScreenCellContent
+  >;
+}
+
+/** The object at a key of another, or an empty one when there's none. */
+function objectAt(object: JsonObject, key: string): JsonObject {
+  const value = object[key];
+  return typeof value === "object" && value !== null && !Array.isArray(value) ? value : {};
 }
 
 /** How a turn on a Brightness dial's main screen, or a Brightness step key's press, steps the lamps (#145). */

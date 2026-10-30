@@ -1,4 +1,5 @@
 maxlength
+rrggbb
 sdpi
 Segoe
 showlabels
