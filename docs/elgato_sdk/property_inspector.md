@@ -69,6 +69,8 @@ Checked while adding the lamps' kept difference ([#145]): a page's save keeps th
 
 Checked while adding the plugin settings ([#146]): the manifest schema and the app's binary for a plugin-wide page, `useGlobalSettings` and `sdpi-textfield` in the vendored `ui/vendor/sdpi-components.js`, then the plugin settings on the Deck, on keys and dials, with names kept across a restart of Stream Deck.
 
+Checked while adding the blink's length ([#171]): a slider with `global`, which saves a number to the global settings, in the browser tests and on the Deck, kept across a restart of the plugin.
+
 [#9]: https://github.com/daczarne/streamdeck-litra/issues/9
 [#20]: https://github.com/daczarne/streamdeck-litra/issues/20
 [#144]: https://github.com/daczarne/streamdeck-litra/issues/144

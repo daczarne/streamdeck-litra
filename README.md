@@ -180,7 +180,7 @@ The policy allows only what the pages need:
 | `base-uri 'none'`              | No `<base>` element, which would change where relative paths point.                 |
 | `form-action 'none'`           | No form submissions.                                                                |
 
-Since inline scripts are blocked, the pages' scripts live in `ui/`: `controller-toggle.js` shows the key or the dial settings on the Brightness and Temperature pages, `range-value.js` shows each slider's value, `lamp-picker.js` lists the lamps on the keys' pages and saves the ones checked, and `plugin-settings.js` shows the plugin settings on every page and saves the lamps' names. The policy is repeated in each page and in [`scripts/check-ui.mjs`][check-ui], so a change to it updates all of them and the table above.
+Since inline scripts are blocked, the pages' scripts live in `ui/`: `controller-toggle.js` shows the key or the dial settings on the Brightness and Temperature pages, `range-value.js` shows the value of each of the actions' sliders, `lamp-picker.js` lists the lamps on the keys' pages and saves the ones checked, and `plugin-settings.js` shows the plugin settings on every page, with the value of its slider, and saves the lamps' names. The policy is repeated in each page and in [`scripts/check-ui.mjs`][check-ui], so a change to it updates all of them and the table above.
 
 ## Third-party code
 
