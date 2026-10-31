@@ -3,9 +3,11 @@
 // model, with a field for its name and a button that blinks it. The names are kept in the plugin's global settings, as
 // `lampNames`, by lamp id, and the keys' lamp pickers show them (lamp-picker.js, which this tells of every name changed
 // and every lamp found, through events on the document). Under the lamps come the global settings that every dial and
-// key shares, such as whether each lamp steps from its own value (#145), the lamp screens' blink (#144), which a dial's
-// own page can turn on or off for that dial alone, what each cell of the lamp screens shows, with a Configure button
-// that shows the cell's options in place of the plugin settings (#177), and how long a blink lasts (#171). A file rather
+// key shares, such as whether each lamp steps from its own value (#145), how long a blink lasts (#171), whether keys
+// take in lamps plugged in later (#147), which a key's own page can choose for that key alone, and tells its lamp
+// picker, the lamp screens' blink (#144), which a dial's own page can turn on or off for that dial alone, and what each
+// cell of the lamp screens shows, with a Configure button that shows the cell's options in place of the plugin settings
+// (#177). A file rather
 // than an inline script, so the pages' Content-Security-Policy doesn't have to allow inline scripts.
 (() => {
   const container = document.getElementById("plugin-settings");
@@ -83,6 +85,12 @@
 
     #plugin-settings td.name {
       width: 100%;
+    }
+
+    /* A key's own choice of new lamps, under its lamps, set apart from them so it doesn't read as one more (#147). */
+    #key-new-lamps {
+      display: block;
+      margin-top: 8px;
     }
 
     /* The sections, by the reach of their settings, and the parts of a section with several settings. */
@@ -742,94 +750,121 @@
     return box;
   }
 
-  //* The lamp screens' blink (#144): whether every dial blinks each lamp as its lamp screen shows it, and the dials that
-  // chose otherwise on their own page, by id. The plugin settings show every dial's at once, indeterminate when the
-  // dials differ, and a click there gives every dial the same again, even the ones not on screen. A dial's page shows
-  // its own (`#dial-blink`).
-
-  // The plugin's setting, and the ids of the dials that chose otherwise.
-  let blink = false;
-  let blinkExceptions = [];
-  // The id of the dial whose page this is, or undefined on a key's page or until it's known.
-  let dialId;
-
-  // Saved at once, without sdpi-components' wait for more changes, so a page closed right after a click keeps it.
-  const [readBlink, saveBlink] = SDPIComponents.useGlobalSettings(
-    "blinkOnLampScreen",
-    (value) => {
-      blink = value === true;
-      renderBlink();
-    },
-    0,
-  );
-  const [readBlinkExceptions, saveBlinkExceptions] = SDPIComponents.useGlobalSettings(
-    "blinkOnLampScreenExceptions",
-    (value) => {
-      blinkExceptions = validIds(value);
-      renderBlink();
-    },
-    0,
-  );
+  //* Choices every dial or every key shares, which one dial or one key can make otherwise on its own page: the lamp
+  // screens' blink (#144), and whether a key adds lamps plugged in later (#147). Each is a global setting, and the ids of
+  // the dials or keys that chose otherwise. The plugin settings show every one's at once, indeterminate when they differ,
+  // and a click there gives every one the same again, even the ones not on screen. A dial's or key's page shows its own,
+  // in the element the page has for it.
 
   /** The ids in the global settings, or none when they aren't a list of ids. */
   function validIds(value) {
     return Array.isArray(value) ? value.filter((id) => typeof id === "string") : [];
   }
 
-  /** Whether the dial whose page this is blinks: the plugin's setting, or the opposite if it chose otherwise. */
-  function dialBlinks() {
-    return blink !== blinkExceptions.includes(dialId);
+  /**
+   * A choice every dial or every key shares, kept in the global setting `setting` and the ids in `exceptions`, which
+   * holds `fallback` until the global settings arrive. Returns the plugin settings' checkbox for every one, labeled
+   * `every`, and puts the page's own, labeled `own`, in the element with the id `ownElement`, on a page for that
+   * `controller` ("Encoder" or "Keypad"). `onOwnChange` hears the page's own choice each time it's shown.
+   */
+  function sharedChoice({ setting, exceptions, fallback, every, own, ownElement, controller, onOwnChange = () => {} }) {
+    // The plugin's setting, the ids that chose otherwise, and the id of the dial or key whose page this is, if it is one.
+    let chosen = fallback;
+    let others = [];
+    let ownId;
+    const read = (value) => (typeof value === "boolean" ? value : fallback);
+
+    // Saved at once, without sdpi-components' wait for more changes, so a page closed right after a click keeps it.
+    const [readChosen, saveChosen] = SDPIComponents.useGlobalSettings(
+      setting,
+      (value) => {
+        chosen = read(value);
+        render();
+      },
+      0,
+    );
+    const [readOthers, saveOthers] = SDPIComponents.useGlobalSettings(
+      exceptions,
+      (value) => {
+        others = validIds(value);
+        render();
+      },
+      0,
+    );
+
+    /** The choice of the dial or key whose page this is: the plugin's setting, or the opposite if it chose otherwise. */
+    const ownChoice = () => chosen !== others.includes(ownId);
+
+    /** Shows the choice on both checkboxes, and saves the ids that chose otherwise. */
+    const storeOthers = () => {
+      render();
+      saveOthers(others).catch((error) => console.error(`Can't save ${exceptions}`, error));
+    };
+
+    // Every one's: checked turns it off for every one, and empty or indeterminate turns it on for every one.
+    const everyBox = triStateCheckbox(every, () => {
+      chosen = !(chosen && others.length === 0);
+      others = [];
+      saveChosen(chosen).catch((error) => console.error(`Can't save ${setting}`, error));
+      storeOthers();
+    });
+
+    // The page's own. A checkbox from sdpi-components that saves nothing itself, and also reports the changes this
+    // script makes, which match the setting already and are left out, so only a click changes it.
+    const ownBox = document.createElement("sdpi-checkbox");
+    ownBox.setAttribute("label", own);
+    ownBox.addEventListener("valuechange", () => {
+      if (ownId === undefined || ownBox.value === ownChoice()) {
+        return;
+      }
+      others = others.includes(ownId) ? others.filter((id) => id !== ownId) : [...others, ownId];
+      storeOthers();
+    });
+
+    /** Shows the choice on both checkboxes. */
+    function render() {
+      everyBox.setAttribute("aria-checked", others.length > 0 ? "mixed" : String(chosen));
+      if (ownId !== undefined) {
+        ownBox.value = ownChoice();
+        onOwnChange(ownChoice());
+      }
+    }
+
+    (async () => {
+      const info = await client.getConnectionInfo();
+      const ownContainer = document.getElementById(ownElement);
+      if (info?.actionInfo?.payload?.controller === controller && ownContainer !== null) {
+        ownId = info.actionInfo.context;
+        ownContainer.append(ownBox);
+      }
+      [chosen, others] = await Promise.all([readChosen().then(read), readOthers().then(validIds)]);
+      render();
+    })().catch((error) => console.error(`Can't show ${setting}`, error));
+
+    return everyBox;
   }
 
-  /** Shows the blink on both checkboxes, and saves the dials that chose otherwise. */
-  function storeBlinkExceptions() {
-    renderBlink();
-    saveBlinkExceptions(blinkExceptions).catch((error) => console.error("Can't save the blink's dials", error));
-  }
-
-  // Every dial's: checked turns it off for every dial, and empty or indeterminate turns it on for every dial.
-  const everyDialBlink = triStateCheckbox("Blink each lamp as it's shown, on every dial", () => {
-    blink = !(blink && blinkExceptions.length === 0);
-    blinkExceptions = [];
-    saveBlink(blink).catch((error) => console.error("Can't save the blink", error));
-    storeBlinkExceptions();
+  const everyDialBlink = sharedChoice({
+    setting: "blinkOnLampScreen",
+    exceptions: "blinkOnLampScreenExceptions",
+    fallback: false,
+    every: "Blink each lamp as it's shown, on every dial",
+    own: "Blink each lamp as it's shown, on this dial",
+    ownElement: "dial-blink",
+    controller: "Encoder",
   });
 
-  // The dial's own, on a dial's page. A checkbox from sdpi-components that saves nothing itself, and also reports the
-  // changes this script makes, which match the setting already and are left out, so only a click changes it.
-  const dialBlinkContainer = document.getElementById("dial-blink");
-  const dialBlink = document.createElement("sdpi-checkbox");
-  dialBlink.setAttribute("label", "Blink each lamp as it's shown, on this dial");
-  dialBlink.addEventListener("valuechange", () => {
-    if (dialId === undefined || dialBlink.value === dialBlinks()) {
-      return;
-    }
-    blinkExceptions = blinkExceptions.includes(dialId)
-      ? blinkExceptions.filter((id) => id !== dialId)
-      : [...blinkExceptions, dialId];
-    storeBlinkExceptions();
+  // The key's own choice also tells the lamp picker whether a lamp it hasn't listed yet is one the key acts on.
+  const everyKeyAddsNewLamps = sharedChoice({
+    setting: "addNewLamps",
+    exceptions: "addNewLampsExceptions",
+    fallback: true,
+    every: "Add new lamps automatically, on every key",
+    own: "Add new lamps automatically, on this key",
+    ownElement: "key-new-lamps",
+    controller: "Keypad",
+    onOwnChange: (adds) => document.dispatchEvent(new CustomEvent("litra:adds-new-lamps", { detail: adds })),
   });
-
-  /** Shows the blink on both checkboxes. */
-  function renderBlink() {
-    everyDialBlink.setAttribute("aria-checked", blinkExceptions.length > 0 ? "mixed" : String(blink));
-    if (dialId !== undefined) {
-      dialBlink.value = dialBlinks();
-    }
-  }
-
-  (async () => {
-    const info = await client.getConnectionInfo();
-    if (info?.actionInfo?.payload?.controller === "Encoder" && dialBlinkContainer !== null) {
-      dialId = info.actionInfo.context;
-      dialBlinkContainer.append(dialBlink);
-    }
-    [blink, blinkExceptions] = await Promise.all([
-      readBlink().then((value) => value === true),
-      readBlinkExceptions().then(validIds),
-    ]);
-    renderBlink();
-  })().catch((error) => console.error("Can't show the blink", error));
 
   /** Logs a failure to find the lamps, which the page has no other way to show. */
   function showError(error) {
@@ -868,6 +903,8 @@
       "Blink length",
       globalSlider("identifyBlinkMs", { min: 300, max: 1500, step: 50, fallback: 400, suffix: " ms" }),
     ),
+    section("Keys"),
+    item("New lamps", everyKeyAddsNewLamps),
     section("Dials"),
     item(undefined, subsection("Lamp screens")),
     item("Blink", everyDialBlink),

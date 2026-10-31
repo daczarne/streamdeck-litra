@@ -4,6 +4,8 @@ import { setLampsScene } from "../litra-manager";
 import { logger } from "../logging";
 import { at } from "../test-support/at";
 import { FakeDeck } from "../test-support/fake-deck";
+import { changeGlobalSettings } from "../test-support/fake-stream-deck";
+import { followGlobalSettings } from "./global-settings";
 import { SceneAction } from "./scene";
 
 //* Fakes
@@ -26,12 +28,16 @@ let deck: FakeDeck;
 
 beforeEach(() => {
   vi.useFakeTimers();
+  changeGlobalSettings({});
   deck = new FakeDeck([new SceneAction()]);
 });
 
 afterEach(() => {
   vi.useRealTimers();
 });
+
+// The keys read whether they add new lamps from the global settings, which each test sets afresh (#147).
+followGlobalSettings();
 
 //* Tests
 
@@ -69,6 +75,8 @@ describe("SceneAction", () => {
     });
 
     it("sets the key's lamps alone, picked on the settings page (#20)", async () => {
+      // A key that adds no new lamps acts on the lamps checked alone (#147).
+      changeGlobalSettings({ addNewLamps: false });
       const lamps = [{ id: "lamp-1", label: "Beam - 1111" }];
       const key = await deck.key(SCENE, { presetPercentage: 100, presetKelvin: 6500, lamps });
       vi.mocked(setLampsScene).mockResolvedValue(SET);

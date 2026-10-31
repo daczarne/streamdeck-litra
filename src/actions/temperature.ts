@@ -22,7 +22,7 @@ import {
   toggleLamps,
 } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
-import { temperatureStepping } from "./global-settings";
+import { keyLamps, temperatureStepping } from "./global-settings";
 import { type LampScreens, lampScreens as sharedLampScreens } from "./lamp-screens";
 import { describeLamps, parseSettings, temperatureSettings } from "./settings";
 
@@ -75,7 +75,8 @@ export class TemperatureAction extends SingletonAction {
    * with the temperature the lamps were set to: the preset snapped to an allowed one.
    */
   override async onKeyDown(ev: KeyDownEvent): Promise<void> {
-    const { presetKelvin: preset, lamps } = parseSettings(ev.payload.settings, temperatureSettings, logger);
+    const { presetKelvin: preset, ...saved } = parseSettings(ev.payload.settings, temperatureSettings, logger);
+    const lamps = keyLamps(ev.action.id, saved);
     logger.info(`Key pressed: preset ${preset} K, on ${describeLamps(lamps)}`);
     const result = setLampsTemperature(lamps, preset);
     if (!result.ok) {

@@ -156,6 +156,8 @@ describe("TemperatureAction", () => {
 
   describe("on a key press", () => {
     it("sets the key's lamps alone, picked on the settings page (#20)", async () => {
+      // A key that adds no new lamps acts on the lamps checked alone (#147).
+      changeGlobalSettings({ addNewLamps: false });
       const lamps = [{ id: "lamp-1", label: "Beam - 1111" }];
       const key = await deck.key(TEMPERATURE, { presetKelvin: 5000, lamps });
       clearCalls();

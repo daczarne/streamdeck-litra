@@ -20,7 +20,7 @@ import {
   type Stepping,
 } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
-import { brightnessStepping, temperatureStepping } from "./global-settings";
+import { brightnessStepping, keyLamps, onGlobalSettingsChanged, temperatureStepping } from "./global-settings";
 import {
   brightnessStepSettings,
   describeLamps,
@@ -80,7 +80,10 @@ abstract class StepKeyAction extends SingletonAction {
   private readonly queues = new Map<string, (presses: number) => void>();
   private readonly latestSettings = new Map<string, JsonObject>();
 
-  /** Takes what the key steps and which way, and subscribes the keys to every change made to the lamps. */
+  /**
+   * Takes what the key steps and which way, and subscribes the keys to every change made to the lamps, and to the global
+   * settings, which choose their lamps (#147).
+   */
   constructor(
     private readonly logger: Logger,
     private readonly stepped: Stepped,
@@ -88,6 +91,7 @@ abstract class StepKeyAction extends SingletonAction {
   ) {
     super();
     onLampsChanged(() => this.syncEveryKey());
+    onGlobalSettingsChanged(() => this.syncEveryKey());
   }
 
   /** Shows what its lamps are at as soon as the key is placed or shown. */
@@ -154,7 +158,7 @@ abstract class StepKeyAction extends SingletonAction {
 
   /** The lamps a key acts on, from the settings it was last seen with. */
   private lampsOf(id: string): LampSelection {
-    return parseSettings(this.latestSettings.get(id) ?? {}, lampSettings, this.logger).lamps;
+    return keyLamps(id, parseSettings(this.latestSettings.get(id) ?? {}, lampSettings, this.logger));
   }
 }
 

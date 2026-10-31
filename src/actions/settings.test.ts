@@ -11,18 +11,18 @@ const logger = { warn: vi.fn() };
 
 describe("parseSettings", () => {
   it.each([
-    ["Power", powerSettings, { mode: "toggle", lamps: "all" }],
-    ["Brightness", brightnessSettings, { presetPercentage: 0, stepPercentage: 10, lamps: "all" }],
-    ["Temperature", temperatureSettings, { presetKelvin: 2700, stepKelvin: 300, lamps: "all" }],
+    ["Power", powerSettings, { mode: "toggle", lamps: "all", leftOutLamps: [] }],
+    ["Brightness", brightnessSettings, { presetPercentage: 0, stepPercentage: 10, lamps: "all", leftOutLamps: [] }],
+    ["Temperature", temperatureSettings, { presetKelvin: 2700, stepKelvin: 300, lamps: "all", leftOutLamps: [] }],
   ])("gives %s's defaults for the settings that are missing, without a warning", (_action, schema, defaults) => {
     expect(parseSettings({}, schema, logger)).toEqual(defaults);
     expect(logger.warn).not.toHaveBeenCalled();
   });
 
   it.each([
-    ["Power", powerSettings, { mode: "off", lamps: "all" }],
-    ["Brightness", brightnessSettings, { presetPercentage: 40, stepPercentage: 20, lamps: "all" }],
-    ["Temperature", temperatureSettings, { presetKelvin: 5000, stepKelvin: 500, lamps: "all" }],
+    ["Power", powerSettings, { mode: "off", lamps: "all", leftOutLamps: [] }],
+    ["Brightness", brightnessSettings, { presetPercentage: 40, stepPercentage: 20, lamps: "all", leftOutLamps: [] }],
+    ["Temperature", temperatureSettings, { presetKelvin: 5000, stepKelvin: 500, lamps: "all", leftOutLamps: [] }],
   ])("keeps %s's valid settings", (_action, schema, settings) => {
     expect(parseSettings(settings, schema, logger)).toEqual(settings);
     expect(logger.warn).not.toHaveBeenCalled();
@@ -88,6 +88,9 @@ describe("parseSettings", () => {
       ["lamps", powerSettings, ["0123456789abcdef"]],
       ["lamps", powerSettings, [{ label: "Beam - 1234" }]],
       ["lamps", powerSettings, [{ id: 1, label: "Beam - 1234" }]],
+      // The lamps a key's page left out are a list too, never every lamp (#147).
+      ["leftOutLamps", powerSettings, "all"],
+      ["leftOutLamps", powerSettings, ["0123456789abcdef"]],
     ];
 
     it.each(invalid)("%s set to %j", (name, schema, value) => {
@@ -108,7 +111,7 @@ describe("parseSettings", () => {
   it("warns once for each setting that isn't valid, and keeps the others", () => {
     const parsed = parseSettings({ presetPercentage: "abc", stepPercentage: 20 }, brightnessSettings, logger);
 
-    expect(parsed).toEqual({ presetPercentage: 0, stepPercentage: 20, lamps: "all" });
+    expect(parsed).toEqual({ presetPercentage: 0, stepPercentage: 20, lamps: "all", leftOutLamps: [] });
     expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("presetPercentage"));
   });
 
@@ -132,6 +135,15 @@ describe("parseSettings", () => {
       expect(parseSettings({ lamps }, powerSettings, logger)).toMatchObject({ lamps });
       expect(logger.warn).not.toHaveBeenCalled();
     });
+
+    it("takes the ids of the lamps the settings page left out, leaving their labels (#147)", () => {
+      const leftOutLamps = [{ id: "fedcba9876543210", label: "Beam - 5678" }];
+
+      expect(parseSettings({ leftOutLamps }, powerSettings, logger)).toMatchObject({
+        leftOutLamps: ["fedcba9876543210"],
+      });
+      expect(logger.warn).not.toHaveBeenCalled();
+    });
   });
 });
 
@@ -141,6 +153,9 @@ describe("describeLamps", () => {
     [["0123456789abcdef"], "1 lamp"],
     [["0123456789abcdef", "fedcba9876543210"], "2 lamps"],
     [[], "0 lamps"],
+    [{ except: [] }, "every lamp"],
+    [{ except: ["fedcba9876543210"] }, "every lamp but 1 lamp"],
+    [{ except: ["0123456789abcdef", "fedcba9876543210"] }, "every lamp but 2 lamps"],
   ] as const)("describes %j as %s", (lamps, description) => {
     expect(describeLamps(lamps)).toBe(description);
   });

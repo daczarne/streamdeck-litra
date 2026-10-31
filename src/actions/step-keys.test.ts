@@ -303,6 +303,11 @@ describe("the step keys", () => {
   });
 
   describe("with lamps picked on the settings page (#20)", () => {
+    // A key that adds no new lamps acts on the lamps checked alone (#147).
+    beforeEach(() => {
+      changeGlobalSettings({ addNewLamps: false });
+    });
+
     it.each([
       ["Brightness Up", BRIGHTNESS_UP, { stepPercentage: 5 }, adjustLampsBrightness, 5],
       ["Temperature Down", TEMPERATURE_DOWN, { stepKelvin: 200 }, adjustLampsTemperature, 200],
@@ -324,7 +329,7 @@ describe("the step keys", () => {
       // Lamp 1 at 63%, lamp 2 at 79%.
       vi.mocked(readLampsBrightness).mockImplementation(async (lamps) => ({
         ...LAMPS,
-        brightnessPercentages: lamps === "all" ? [63, 79] : lamps.map((id) => (id === LAMP_1.id ? 63 : 79)),
+        brightnessPercentages: Array.isArray(lamps) ? lamps.map((id) => (id === LAMP_1.id ? 63 : 79)) : [63, 79],
       }));
 
       await lampsChanged();

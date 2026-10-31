@@ -124,19 +124,18 @@ function textList(): Setting<readonly string[]> {
   };
 }
 
+/** The lamps a key's page checked (#20): `"all"`, for a key saved before it could pick its lamps, or their ids. */
+export type CheckedLamps = "all" | readonly string[];
+
 /**
- * The lamps a key acts on (#20): `"all"`, which takes in lamps plugged in later, or the lamps checked on the settings
- * page, saved with their ids and the labels the page showed them with, so a lamp that isn't connected keeps its name
- * there. The plugin only takes the ids.
+ * Lamps a key's settings page saved, with their ids and the labels the page showed them with, so a lamp that isn't
+ * connected keeps its name there. The plugin only takes the ids.
  */
-function lampSelection(): Setting<LampSelection> {
+function lampList(): Setting<readonly string[]> {
   return {
-    default: "all",
-    expected: '"all", or a list of lamps with their ids',
+    default: [],
+    expected: "a list of lamps with their ids",
     parse: (value) => {
-      if (value === "all") {
-        return "all";
-      }
       if (!Array.isArray(value)) {
         return undefined;
       }
@@ -152,9 +151,29 @@ function lampSelection(): Setting<LampSelection> {
   };
 }
 
+/**
+ * The lamps checked on a key's settings page (#20), or `"all"`, which acts on every lamp, for a key saved before lamps
+ * could be picked, or never saved.
+ */
+function checkedLamps(): Setting<CheckedLamps> {
+  const list = lampList();
+  return {
+    default: "all",
+    expected: '"all", or a list of lamps with their ids',
+    parse: (value) => (value === "all" ? "all" : list.parse(value)),
+  };
+}
+
 /** The lamps a key acts on, as its log line says it. */
 export function describeLamps(lamps: LampSelection): string {
-  return lamps === "all" ? "every lamp" : lamps.length === 1 ? "1 lamp" : `${lamps.length} lamps`;
+  const count = (n: number): string => (n === 1 ? "1 lamp" : `${n} lamps`);
+  if (lamps === "all") {
+    return "every lamp";
+  }
+  if ("except" in lamps) {
+    return lamps.except.length === 0 ? "every lamp" : `every lamp but ${count(lamps.except.length)}`;
+  }
+  return count(lamps.length);
 }
 
 //* The actions' settings
@@ -163,34 +182,42 @@ export function describeLamps(lamps: LampSelection): string {
 // key or dial saves. The browser tests check both against the pages.
 
 // Every key picks its lamps, while a dial's main screen acts on every lamp, and its lamp screens on the lamp on screen.
-const lamps = lampSelection();
+// A key also keeps the lamps its page listed and left unchecked, so a lamp plugged in later can join a key that adds
+// new lamps without the ones left out joining too (#147).
+const lamps = checkedLamps();
+const leftOutLamps = lampList();
 
 export const powerSettings = {
   mode: oneOf(["toggle", "on", "off"], "toggle"),
   lamps,
+  leftOutLamps,
 };
 
 export const brightnessSettings = {
   presetPercentage: numberFrom(0, 100, 0),
   stepPercentage: wholeNumberFrom(1, 25, 10),
   lamps,
+  leftOutLamps,
 };
 
 export const temperatureSettings = {
   presetKelvin: numberFrom(2700, 6500, 2700),
   stepKelvin: oneOfNumbers([100, 200, 300, 500], 300),
   lamps,
+  leftOutLamps,
 };
 
 // The step keys step as the dials do, by the same steps.
 export const brightnessStepSettings = {
   stepPercentage: brightnessSettings.stepPercentage,
   lamps,
+  leftOutLamps,
 };
 
 export const temperatureStepSettings = {
   stepKelvin: temperatureSettings.stepKelvin,
   lamps,
+  leftOutLamps,
 };
 
 // A scene sets both presets, taken as the Brightness and Temperature keys take theirs.
@@ -198,10 +225,11 @@ export const sceneSettings = {
   presetPercentage: brightnessSettings.presetPercentage,
   presetKelvin: temperatureSettings.presetKelvin,
   lamps,
+  leftOutLamps,
 };
 
 // The lamps alone, for an action that reads them apart from its other settings.
-export const lampSettings = { lamps };
+export const lampSettings = { lamps, leftOutLamps };
 
 // What a lamp screen can show in each of its cells (#177): the lamp's model and the end of its serial number, its place
 // among the lamps, its temperature, whether it's on, its brightness in % or in lumens, or nothing.
@@ -280,7 +308,10 @@ export type LampScreenItemOptions = {
   [Item in LampScreenItem]: Parsed<(typeof lampScreenItemOptions)[Item]>;
 };
 
-// The plugin's own settings, which every dial and key shares rather than each saving its own. With the blink on, tapping
+// The plugin's own settings, which every dial and key shares rather than each saving its own. A key that adds new lamps
+// acts on every lamp but the ones its page left unchecked, so a lamp plugged in later joins it, and one that doesn't acts
+// on the lamps checked (#147). Every key adds them by default, as every key did before, and the keys that chose
+// otherwise on their own page are kept by id, as the dials that chose otherwise about the blink are. With the blink on, tapping
 // a dial through its lamp screens blinks each lamp as its screen appears (#144). It's off by default, since every lamp
 // then blinks in turn, which shows on camera. A dial can choose otherwise on its own page: the dials that do are kept
 // here too, by id, rather than in their own settings, so the plugin settings can tell when the dials differ, and reset
@@ -301,6 +332,8 @@ export type LampScreenItemOptions = {
 // stop at 16 px, below which text is hard to read on the strip (#8), and at 22 px, which still fits the 26 px rows of
 // layouts/lamp.json. Only Primary and Secondary are used by default, which draws what the lamp screens showed before.
 export const globalSettings = {
+  addNewLamps: flag(true),
+  addNewLampsExceptions: textList(),
   blinkOnLampScreen: flag(false),
   blinkOnLampScreenExceptions: textList(),
   keepBrightnessDifference: flag(false),

@@ -6,6 +6,7 @@
 - [Features ship with tests](#features-ship-with-tests)
 - [Dependencies](#dependencies)
 - [Unused code](#unused-code)
+- [Before 1.0, settings change without a migration](#before-10-settings-change-without-a-migration)
 - [Supported lamps](#supported-lamps)
 - [By default, lamps are managed together](#by-default-lamps-are-managed-together)
 - [The plugin settings are laid out by reach](#the-plugin-settings-are-laid-out-by-reach)
@@ -64,6 +65,12 @@ Every dependency is pinned, and every upgrade is a deliberate change of its own.
 
 Code or configuration that is unused, misleading or contradicts a decision already made is removed. For example, an entry relying on install scripts, now that `.npmrc` sets `ignore-scripts=true`, would contradict that decision even if it did nothing.
 
+## Before 1.0, settings change without a migration
+
+The plugin is at 0.x, and isn't on Elgato's Marketplace. Until 1.0, a change to what a key or a dial saves, or to what a saved setting means, needs no migration: a key or dial saved before the change may act differently until its page saves it again, and the pull request says so.
+
+A major version won't hold users back, either, after 1.0. Stream Deck updates plugins on its own by default, so a user gets a new major version like any other, and the version number only tells them that something may have broken.
+
 ## Supported lamps
 
 The Litra Beam is the plugin's target: it's what the plugin is checked on, and the tests, the fakes and the defaults use its real values. Other models are added one at a time, and a model is called supported once it has been checked on the lamp. The Beam LX comes next, front light first ([#100]), with its back light in [#19].
@@ -74,7 +81,7 @@ The Glow isn't planned. The plugin does for it whatever the code it shares with 
 
 Unless the user picks a lamp, the plugin assumes they want every connected lamp kept in sync and controlled as one. Questions about several lamps are answered from that rule, not decided case by case: every lamp is sent the same value, and what an action displays describes the group. For example, when one lamp can't reach the requested brightness, the others still go there, and the dial shows the brightest lamp ([#13]), with its bar marking where the dimmer lamps stop ([#59]).
 
-Per-lamp control ([#20]) comes in two places. Each key acts on the lamps picked on its settings page, every connected lamp unless others are picked, and what it shows describes those lamps. Each lamp screen ([#48]) shows a single lamp, so lamps that are out of sync can be told apart, and there, turning or pushing the dial acts on that lamp alone, and holding the strip blinks it, so it can be found, as can each tap that shows a lamp, on a dial whose blink is on ([#144]). The plugin settings turn the blink on or off for every dial, and a dial's own page for that dial alone. A dial's choice is kept in the global settings, by the dial's id, since the plugin only knows the dials on screen: kept with the dial, the plugin settings couldn't tell when the dials differ, nor give every dial the same again. A dial's main screen still acts on every lamp, and by default a turn there, or a step key's press, brings lamps set apart back in sync. A global setting for the brightness, and another for the temperature, keep them apart instead: each lamp steps from its own value, and one that reaches an end of its range or its cap stays there while the others keep going, then comes back with them, so the lamps keep their difference ([#145]). Lamps can be named in the plugin settings, which every page shows ([#146]). A name is the lamp's, kept in the global settings by lamp id, and the keys' lamp pickers show it. A setting that lets the user choose otherwise comes as its own issue, such as whether lamps plugged in later join a key's ([#147]).
+Per-lamp control ([#20]) comes in two places. Each key acts on the lamps picked on its settings page, and what it shows describes those lamps. By default, a key also takes in lamps plugged in later, and acts on every lamp but the ones its page left unchecked. The plugin settings choose that for every key, and a key's own page for that key alone, kept like the dials' blink below ([#147]). Each lamp screen ([#48]) shows a single lamp, so lamps that are out of sync can be told apart, and there, turning or pushing the dial acts on that lamp alone, and holding the strip blinks it, so it can be found, as can each tap that shows a lamp, on a dial whose blink is on ([#144]). The plugin settings turn the blink on or off for every dial, and a dial's own page for that dial alone. A dial's choice is kept in the global settings, by the dial's id, since the plugin only knows the dials on screen: kept with the dial, the plugin settings couldn't tell when the dials differ, nor give every dial the same again. A dial's main screen still acts on every lamp, and by default a turn there, or a step key's press, brings lamps set apart back in sync. A global setting for the brightness, and another for the temperature, keep them apart instead: each lamp steps from its own value, and one that reaches an end of its range or its cap stays there while the others keep going, then comes back with them, so the lamps keep their difference ([#145]). Lamps can be named in the plugin settings, which every page shows ([#146]). A name is the lamp's, kept in the global settings by lamp id, and the keys' lamp pickers show it. A setting that lets the user choose otherwise comes as its own issue.
 
 While [#20] is worked on, the question changes: what would someone who controls each lamp separately need for the plugin to work for them?
 
@@ -83,8 +90,8 @@ While [#20] is worked on, the question changes: what would someone who controls 
 The plugin settings, which every settings page shows, hold settings of different reach: naming a lamp changes every key and dial, while a lamp screen's layout only changes the lamp screens. So the settings come in sections by what they reach, the widest first, and a setting goes in the section of what it reaches, not of what it resembles:
 
 1. **Lamps**: the lamps themselves, whichever key or dial acts on them. The table of the lamps leads, since naming and identifying them is the plugin settings' first use, then how each lamp steps, and how long a blink lasts, for Identify and on the lamp screens.
-2. **Dials**: every dial, first what applies to all of a dial, then its main screen, then its lamp screens, with their blink, their layout and their text styles ([#153]). The text styles are the lamp screens' because only the lamp screens use them, and would move up to all of a dial's if the main screens took them too ([#183]).
-3. **Keys**, if a setting ever reaches only the keys, after the dials.
+2. **Keys**: every key, such as whether it takes in lamps plugged in later ([#147]). The keys come before the dials, since every Deck has keys, and only some have dials.
+3. **Dials**: every dial, first what applies to all of a dial, then its main screen, then its lamp screens, with their blink, their layout and their text styles ([#153]). The text styles are the lamp screens' because only the lamp screens use them, and would move up to all of a dial's if the main screens took them too ([#183]).
 
 A section's parts with several settings get a heading, such as "Lamp screens". A part with a single setting is that setting's row label, such as "Brightness", until it grows a second one. A section or a part with no settings isn't shown: its heading comes with its first setting.
 

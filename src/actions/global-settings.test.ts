@@ -39,6 +39,8 @@ function changeFromPage(saved: JsonObject): void {
 }
 
 const DEFAULTS = {
+  addNewLamps: true,
+  addNewLampsExceptions: [],
   blinkOnLampScreen: false,
   blinkOnLampScreenExceptions: [],
   keepBrightnessDifference: false,
@@ -364,6 +366,45 @@ describe("the lamp screens' text styles (#153)", () => {
     expect(globalSettings.textStyles().primary.font.size).toBe(18);
     expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("lampScreenPrimarySize"));
   });
+});
+
+describe("the lamps a key acts on (#147)", () => {
+  const picked = { lamps: ["lamp-1"], leftOutLamps: ["lamp-2"] };
+
+  it("are every lamp but the ones its page left out, by default, so lamps plugged in later join it", async () => {
+    await follow();
+
+    expect(globalSettings.addsNewLamps("key")).toBe(true);
+    expect(globalSettings.keyLamps("key", picked)).toEqual({ except: ["lamp-2"] });
+  });
+
+  it("are the lamps checked, for a key that doesn't add new lamps", async () => {
+    settings.getGlobalSettings.mockResolvedValue({ addNewLamps: false });
+
+    await follow();
+
+    expect(globalSettings.keyLamps("key", picked)).toEqual(["lamp-1"]);
+  });
+
+  it("follow the key's own choice, the opposite of the plugin's, for a key that chose otherwise", async () => {
+    settings.getGlobalSettings.mockResolvedValue({ addNewLamps: false, addNewLampsExceptions: ["key"] });
+
+    await follow();
+
+    expect(globalSettings.keyLamps("key", picked)).toEqual({ except: ["lamp-2"] });
+    expect(globalSettings.keyLamps("other-key", picked)).toEqual(["lamp-1"]);
+  });
+
+  it.each([true, false])(
+    "are every lamp for a key saved before it could pick them, adding new lamps or not (%s)",
+    async (addNewLamps) => {
+      settings.getGlobalSettings.mockResolvedValue({ addNewLamps });
+
+      await follow();
+
+      expect(globalSettings.keyLamps("key", { lamps: "all", leftOutLamps: [] })).toBe("all");
+    },
+  );
 });
 
 describe("the lamps' names (#146)", () => {
