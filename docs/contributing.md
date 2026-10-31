@@ -69,8 +69,6 @@ Code or configuration that is unused, misleading or contradicts a decision alrea
 
 The plugin is at 0.x, and isn't on Elgato's Marketplace. Until 1.0, a change to what a key or a dial saves, or to what a saved setting means, needs no migration: a key or dial saved before the change may act differently until its page saves it again, and the pull request says so.
 
-A major version won't hold users back, either, after 1.0. Stream Deck updates plugins on its own by default, so a user gets a new major version like any other, and the version number only tells them that something may have broken.
-
 ## Supported lamps
 
 The Litra Beam is the plugin's target: it's what the plugin is checked on, and the tests, the fakes and the defaults use its real values. Other models are added one at a time, and a model is called supported once it has been checked on the lamp. The Beam LX comes next, front light first ([#100]), with its back light in [#19].
