@@ -5,7 +5,7 @@ allowed-tools: Bash(npm test), Bash(npm test -- *), Bash(npm run test:browser), 
 
 # Test
 
-Run the tests from CI's `tests` job, from the repository root, in this order:
+Run the tests from CI's `tests` and `browser-tests` jobs, from the repository root, in this order:
 
 1. The unit tests and the integration tests, with `npm test`.
 1. The browser tests, with `npm run test:browser`. They drive the settings pages in a headless Chrome, so they need Chrome installed. Run them even when the unit or integration tests fail.
