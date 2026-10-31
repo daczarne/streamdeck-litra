@@ -66,6 +66,26 @@
       width: 100%;
     }
 
+    /* The sections, by the reach of their settings, and the parts of a section with several settings. */
+    /* Outside sdpi-components' rows, so in its font and text color, written out. */
+    #plugin-settings .section {
+      border-bottom: 1px solid #666;
+      color: #d8d8d8;
+      font-family: "Segoe UI", Arial, Roboto, Helvetica, sans-serif;
+      font-size: 11pt;
+      font-weight: 600;
+      margin: 16px 0 8px;
+      padding-bottom: 4px;
+    }
+
+    #plugin-settings .subsection {
+      color: var(--input-font-color);
+      font-size: 10pt;
+      font-weight: 600;
+      margin: 4px 0;
+      text-align: center;
+    }
+
     /* The lamp screens' cells, three rows of two, as the strip shows them. */
     #plugin-settings .cells {
       display: grid;
@@ -610,6 +630,22 @@
     return box;
   }
 
+  /** The heading of a section of the plugin settings, across the page, with a line under it. */
+  function section(text) {
+    const element = document.createElement("h2");
+    element.className = "section";
+    element.textContent = text;
+    return element;
+  }
+
+  /** The heading of a part of a section, centered over the controls. */
+  function subsection(text) {
+    const element = document.createElement("h3");
+    element.className = "subsection";
+    element.textContent = text;
+    return element;
+  }
+
   /** A line of grey text. */
   function note(text) {
     const element = document.createElement("p");
@@ -782,25 +818,34 @@
   const editor = document.createElement("div");
   editor.className = "cell-editor";
   editor.hidden = true;
+  // The settings come by their reach: first the lamps', whichever key or dial acts on them, then the dials', with the
+  // lamp screens' under a heading of their own. A subsection with a single setting is a row's label until it grows. The
+  // "The plugin settings are laid out by reach" section of docs/contributing.md describes where a new setting goes.
   view.append(
+    section("Lamps"),
     item(
       undefined,
       button("Find lamps", () => findLamps().catch(showError)),
     ),
     lampList,
     item(
-      "Each lamp",
-      globalCheckbox("keepBrightnessDifference", "Steps from its own brightness, on every dial and key"),
-      globalCheckbox("keepTemperatureDifference", "Steps from its own temperature, on every dial and key"),
+      "Brightness",
+      globalCheckbox("keepBrightnessDifference", "Each lamp steps from its own brightness, on every dial and key"),
     ),
-    item("Lamp screens", everyDialBlink),
-    item("Layout", lampScreenCells()),
-    item("Text styles", textStyle("Primary", "lampScreenPrimary", "#ffffff")),
-    item(undefined, textStyle("Accent", "lampScreenAccent", "#202020")),
+    item(
+      "Temperature",
+      globalCheckbox("keepTemperatureDifference", "Each lamp steps from its own temperature, on every dial and key"),
+    ),
     item(
       "Blink length",
       globalSlider("identifyBlinkMs", { min: 300, max: 1500, step: 50, fallback: 400, suffix: " ms" }),
     ),
+    section("Dials"),
+    item(undefined, subsection("Lamp screens")),
+    item("Blink", everyDialBlink),
+    item("Layout", lampScreenCells()),
+    item("Text styles", textStyle("Primary", "lampScreenPrimary", "#ffffff")),
+    item(undefined, textStyle("Accent", "lampScreenAccent", "#202020")),
   );
   container.append(item(undefined, toggleButton), view, editor);
   readCellOptions()
