@@ -16,6 +16,7 @@ import {
   turnLampsOn,
 } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
+import { keyLamps, onGlobalSettingsChanged } from "./global-settings";
 import { describeLamps, lampSettings, parseSettings, powerSettings } from "./settings";
 
 const logger = pluginLogger.createScope("Power");
@@ -27,11 +28,13 @@ export class PowerAction extends SingletonAction {
   private readonly owedAlerts = new Set<string>();
   private readonly latestSettings = new Map<string, JsonObject>();
 
-  /** Subscribes the keys to every change made to the lamps. */
+  /** Subscribes the keys to every change made to the lamps, and to the global settings, which choose their lamps. */
   constructor() {
     super();
-    // Every Power key follows the lamps, whichever key or dial changed them, this one included (#57).
+    // Every Power key follows the lamps, whichever key or dial changed them, this one included (#57), and whether it
+    // adds new lamps (#147).
     onLampsChanged(() => this.syncEveryKey());
+    onGlobalSettingsChanged(() => this.syncEveryKey());
   }
 
   /** Shows its lamps' state on a key as soon as it is placed or shown. */
@@ -57,7 +60,8 @@ export class PowerAction extends SingletonAction {
    */
   override onKeyDown(ev: KeyDownEvent): void {
     this.latestSettings.set(ev.action.id, ev.payload.settings);
-    const { mode, lamps } = parseSettings(ev.payload.settings, powerSettings, logger);
+    const { mode, ...saved } = parseSettings(ev.payload.settings, powerSettings, logger);
+    const lamps = keyLamps(ev.action.id, saved);
     logger.info(`Key pressed: ${mode}, on ${describeLamps(lamps)}`);
     const result = mode === "on" ? turnLampsOn(lamps) : mode === "off" ? turnLampsOff(lamps) : toggleLamps(lamps);
 
@@ -92,7 +96,7 @@ export class PowerAction extends SingletonAction {
 
   /** The lamps a key acts on, from the settings it was last seen with. */
   private lampsOf(id: string): LampSelection {
-    return parseSettings(this.latestSettings.get(id) ?? {}, lampSettings, logger).lamps;
+    return keyLamps(id, parseSettings(this.latestSettings.get(id) ?? {}, lampSettings, logger));
   }
 
   /** A key's state: on (1) only if there is a lamp among its own and every one is on. */

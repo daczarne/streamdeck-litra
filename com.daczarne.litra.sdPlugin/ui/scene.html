@@ -68,9 +68,11 @@
         <output for="preset-kelvin" data-suffix=" K"></output>
       </div>
     </sdpi-item>
-    <!-- The lamps the key acts on, which lamp-picker.js lists and saves (#20). -->
+    <!-- The lamps the key acts on, which lamp-picker.js lists and saves (#20), and whether lamps plugged in later
+      join them, which plugin-settings.js shows and saves (#147). -->
     <sdpi-item label="Lamps">
       <div id="lamp-picker"></div>
+      <div id="key-new-lamps"></div>
     </sdpi-item>
     <script src="range-value.js"></script>
     <script src="lamp-picker.js"></script>

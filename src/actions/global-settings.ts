@@ -1,9 +1,10 @@
 import streamDeck from "@elgato/streamdeck";
 import type { JsonObject } from "@elgato/utils";
 
-import type { Stepping } from "../litra-manager";
+import type { LampSelection, Stepping } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
 import {
+  type CheckedLamps,
   type GlobalSettings,
   globalSettings,
   LAMP_SCREEN_CELLS,
@@ -80,6 +81,25 @@ export function currentGlobalSettings(): GlobalSettings {
  */
 export function blinksOnLampScreen(dialId: string): boolean {
   return current.blinkOnLampScreen !== current.blinkOnLampScreenExceptions.includes(dialId);
+}
+
+/** Whether a key adds lamps plugged in later (#147): the plugin's setting, or the opposite for a key that chose otherwise. */
+export function addsNewLamps(keyId: string): boolean {
+  return current.addNewLamps !== current.addNewLampsExceptions.includes(keyId);
+}
+
+/**
+ * The lamps a key acts on (#147), from the lamps its page checked and left out: every lamp for a key saved before it
+ * could pick them, every lamp but the left out ones for a key that adds new lamps, or the checked ones.
+ */
+export function keyLamps(
+  keyId: string,
+  saved: { lamps: CheckedLamps; leftOutLamps: readonly string[] },
+): LampSelection {
+  if (saved.lamps === "all") {
+    return "all";
+  }
+  return addsNewLamps(keyId) ? { except: saved.leftOutLamps } : saved.lamps;
 }
 
 /** How long a blink that identifies a lamp keeps it switched, in ms (#171). */

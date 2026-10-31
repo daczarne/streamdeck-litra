@@ -21,7 +21,7 @@ import {
   toggleLamps,
 } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
-import { brightnessStepping } from "./global-settings";
+import { brightnessStepping, keyLamps } from "./global-settings";
 import { type LampScreens, lampScreens as sharedLampScreens } from "./lamp-screens";
 import { brightnessSettings, describeLamps, parseSettings } from "./settings";
 
@@ -106,7 +106,8 @@ export class BrightnessAction extends SingletonAction {
    * with what the lamps reached, which is less for a lamp at its cap.
    */
   override async onKeyDown(ev: KeyDownEvent): Promise<void> {
-    const { presetPercentage: preset, lamps } = parseSettings(ev.payload.settings, brightnessSettings, logger);
+    const { presetPercentage: preset, ...saved } = parseSettings(ev.payload.settings, brightnessSettings, logger);
+    const lamps = keyLamps(ev.action.id, saved);
     logger.info(`Key pressed: preset ${preset}%, on ${describeLamps(lamps)}`);
     const result = await setLampsBrightness(lamps, preset);
     if (!result.ok) {

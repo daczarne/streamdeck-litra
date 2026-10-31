@@ -4,6 +4,8 @@ import { areLampsOn, onLampsChanged, toggleLamps, turnLampsOff, turnLampsOn } fr
 import { logger } from "../logging";
 import { at } from "../test-support/at";
 import { FakeDeck } from "../test-support/fake-deck";
+import { changeGlobalSettings } from "../test-support/fake-stream-deck";
+import { followGlobalSettings } from "./global-settings";
 import { PowerAction } from "./power";
 
 //* Fakes
@@ -55,6 +57,9 @@ afterEach(() => {
 function clearCalls(): void {
   vi.clearAllMocks();
 }
+
+// The keys read whether they add new lamps from the global settings, which each test sets afresh (#147).
+followGlobalSettings();
 
 //* Tests
 
@@ -178,6 +183,11 @@ describe("PowerAction", () => {
   });
 
   describe("with lamps picked on the settings page (#20)", () => {
+    // A key that adds no new lamps acts on the lamps checked alone (#147).
+    beforeEach(() => {
+      changeGlobalSettings({ addNewLamps: false });
+    });
+
     it.each([
       ["toggle" as const, toggleLamps],
       ["on" as const, turnLampsOn],
@@ -211,8 +221,8 @@ describe("PowerAction", () => {
       // Lamp 1 is on, lamp 2 off.
       vi.mocked(areLampsOn).mockImplementation(async (lamps) => ({
         ok: true,
-        allOn: lamps !== "all" && lamps.every((id) => id === LAMP_1.id),
-        deviceCount: lamps === "all" ? 2 : lamps.length,
+        allOn: Array.isArray(lamps) && lamps.every((id) => id === LAMP_1.id),
+        deviceCount: Array.isArray(lamps) ? lamps.length : 2,
       }));
 
       await lampsChanged();
@@ -250,6 +260,34 @@ describe("PowerAction", () => {
         [expect.stringContaining("1 lamp")],
         [expect.stringContaining("every lamp")],
       ]);
+    });
+  });
+
+  describe("with lamps plugged in later (#147)", () => {
+    beforeEach(() => {
+      changeGlobalSettings({});
+    });
+
+    it("switches every lamp but the ones its page left out, by default, so a lamp plugged in later joins", async () => {
+      const key = await deck.key(POWER, { mode: "on", lamps: [LAMP_1], leftOutLamps: [LAMP_2] });
+      clearCalls();
+      vi.mocked(turnLampsOn).mockReturnValue(SWITCHED);
+
+      await deck.press(key);
+
+      expect(turnLampsOn).toHaveBeenCalledExactlyOnceWith({ except: [LAMP_2.id] });
+    });
+
+    it("switches the lamps checked alone once it adds no new lamps, and shows their state at once", async () => {
+      const key = await deck.key(POWER, { mode: "on", lamps: [LAMP_1], leftOutLamps: [LAMP_2] });
+      clearCalls();
+      vi.mocked(turnLampsOn).mockReturnValue(SWITCHED);
+
+      changeGlobalSettings({ addNewLamps: false });
+      await vi.waitFor(() => expect(areLampsOn).toHaveBeenCalledWith([LAMP_1.id]));
+      await deck.press(key);
+
+      expect(turnLampsOn).toHaveBeenCalledExactlyOnceWith([LAMP_1.id]);
     });
   });
 });

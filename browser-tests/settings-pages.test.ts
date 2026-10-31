@@ -1027,12 +1027,18 @@ describe("settings pages", () => {
       return opened;
     }
 
-    /** The next settings the page saves. */
-    async function nextSave(uuid: string, after = streamDeck.messages.length): Promise<unknown> {
-      const message = await streamDeck.waitFor(
-        (m) => m.event === "setSettings" && m.context === uuid && streamDeck.messages.indexOf(m) >= after,
-      );
-      return message.payload?.lamps;
+    /**
+     * The lamps the page saves next: the ones checked and the ones left out, which it saves one after the other, so the
+     * second save holds both (#147).
+     */
+    async function nextSave(uuid: string, after = streamDeck.messages.length) {
+      const saves = () =>
+        streamDeck.messages.filter(
+          (m) => m.event === "setSettings" && m.context === uuid && streamDeck.messages.indexOf(m) >= after,
+        );
+      await expect.poll(() => saves().length).toBeGreaterThanOrEqual(2);
+      const payload = at(saves(), -1).payload ?? {};
+      return { lamps: payload.lamps, leftOutLamps: payload.leftOutLamps };
     }
 
     it("lists every lamp found, by its label, all checked for a key with no lamps saved", async () => {
@@ -1052,8 +1058,11 @@ describe("settings pages", () => {
       await page.close();
     });
 
-    it("checks the lamps the key has saved, and leaves All unchecked", async () => {
-      const { page } = await openPicker([FIRST, SECOND], { lamps: [savedLamp(SECOND)] });
+    it("checks the lamps the key has saved, leaves the ones it left out unchecked, and All unchecked", async () => {
+      const { page } = await openPicker([FIRST, SECOND], {
+        lamps: [savedLamp(SECOND)],
+        leftOutLamps: [savedLamp(FIRST)],
+      });
 
       expect(await pickerOf(page)).toMatchObject({
         lamps: [{ checked: false }, { checked: true }],
@@ -1062,50 +1071,78 @@ describe("settings pages", () => {
       await page.close();
     });
 
-    it("saves the lamps still checked when one is unchecked from All, which unchecks", async () => {
+    it.each([
+      [true, {}],
+      [false, { addNewLamps: false }],
+    ])(
+      "shows a lamp the key hasn't listed yet checked only for a key that adds new lamps (%s, #147)",
+      async (adds, globals) => {
+        streamDeck.globalSettings = globals;
+        const { page } = await openPicker([FIRST, SECOND], { lamps: [savedLamp(SECOND)] });
+
+        await expect.poll(async () => (await pickerOf(page)).lamps.map((lamp) => lamp.checked)).toEqual([adds, true]);
+        await page.close();
+      },
+    );
+
+    it("saves the lamps still checked, and the one left out, when one is unchecked from All", async () => {
       const { page, uuid } = await openPicker([FIRST, SECOND]);
 
       const after = streamDeck.messages.length;
       await clickInPicker(page, FIRST.label);
       const saved = await nextSave(uuid, after);
 
-      expect(saved).toEqual([savedLamp(SECOND)]);
-      expect(read("lamps", saved as JsonValue)).toEqual({ value: [SECOND.id], valid: true });
+      expect(saved).toEqual({ lamps: [savedLamp(SECOND)], leftOutLamps: [savedLamp(FIRST)] });
+      expect(read("lamps", saved.lamps as JsonValue)).toEqual({ value: [SECOND.id], valid: true });
+      expect(read("leftOutLamps", saved.leftOutLamps as JsonValue)).toEqual({ value: [FIRST.id], valid: true });
       expect(await pickerOf(page)).toMatchObject({ lamps: [{ checked: false }, { checked: true }], all: false });
       await page.close();
     });
 
-    it("saves every lamp when All is checked, and checks them all", async () => {
-      const { page, uuid } = await openPicker([FIRST, SECOND], { lamps: [savedLamp(FIRST)] });
+    it("saves every lamp listed, and none left out, when All is checked, and checks them all", async () => {
+      const { page, uuid } = await openPicker([FIRST, SECOND], {
+        lamps: [savedLamp(FIRST)],
+        leftOutLamps: [savedLamp(SECOND)],
+      });
 
       const after = streamDeck.messages.length;
       await clickInPicker(page, "All");
 
-      expect(await nextSave(uuid, after)).toBe("all");
+      expect(await nextSave(uuid, after)).toEqual({
+        lamps: [savedLamp(FIRST), savedLamp(SECOND)],
+        leftOutLamps: [],
+      });
       expect(await pickerOf(page)).toMatchObject({ lamps: [{ checked: true }, { checked: true }], all: true });
       await page.close();
     });
 
-    it("saves no lamp when All is unchecked", async () => {
+    it("saves no lamp, and every lamp listed as left out, when All is unchecked", async () => {
       const { page, uuid } = await openPicker([FIRST, SECOND]);
 
       const after = streamDeck.messages.length;
       await clickInPicker(page, "All");
-      const saved = await nextSave(uuid, after);
 
-      expect(saved).toEqual([]);
-      expect(read("lamps", saved as JsonValue)).toEqual({ value: [], valid: true });
+      expect(await nextSave(uuid, after)).toEqual({
+        lamps: [],
+        leftOutLamps: [savedLamp(FIRST), savedLamp(SECOND)],
+      });
       await page.close();
     });
 
-    it("saves the lamps checked one by one as a list, not as All, which would take in lamps plugged in later", async () => {
-      const { page, uuid } = await openPicker([FIRST, SECOND], { lamps: [savedLamp(FIRST)] });
+    it("checks All once every lamp is checked one by one", async () => {
+      const { page, uuid } = await openPicker([FIRST, SECOND], {
+        lamps: [savedLamp(FIRST)],
+        leftOutLamps: [savedLamp(SECOND)],
+      });
 
       const after = streamDeck.messages.length;
       await clickInPicker(page, SECOND.label);
 
-      expect(await nextSave(uuid, after)).toEqual([savedLamp(FIRST), savedLamp(SECOND)]);
-      expect(await pickerOf(page)).toMatchObject({ all: false });
+      expect(await nextSave(uuid, after)).toEqual({
+        lamps: [savedLamp(FIRST), savedLamp(SECOND)],
+        leftOutLamps: [],
+      });
+      expect(await pickerOf(page)).toMatchObject({ all: true });
       await page.close();
     });
 
@@ -1122,7 +1159,23 @@ describe("settings pages", () => {
       const after = streamDeck.messages.length;
       await clickInPicker(page, SECOND.label);
 
-      expect(await nextSave(uuid, after)).toEqual([savedLamp(FIRST)]);
+      expect(await nextSave(uuid, after)).toEqual({ lamps: [savedLamp(FIRST)], leftOutLamps: [savedLamp(SECOND)] });
+      await page.close();
+    });
+
+    it("keeps a left out lamp that isn't connected, unchecked and marked as not found (#147)", async () => {
+      const { page } = await openPicker([FIRST], {
+        lamps: [savedLamp(FIRST)],
+        leftOutLamps: [savedLamp(SECOND)],
+      });
+
+      expect(await pickerOf(page)).toMatchObject({
+        lamps: [
+          { label: FIRST.label, checked: true, missing: false },
+          { label: SECOND.label, checked: false, missing: true },
+        ],
+        all: false,
+      });
       await page.close();
     });
 
@@ -1135,7 +1188,10 @@ describe("settings pages", () => {
 
     it("shows a named lamp by its name, connected or not, and saves it with its label (#146)", async () => {
       streamDeck.globalSettings = { lampNames: { [FIRST.id]: "Left", [SECOND.id]: "Key light" } };
-      const { page, uuid } = await openPicker([FIRST], { lamps: [savedLamp(SECOND)] });
+      const { page, uuid } = await openPicker([FIRST], {
+        lamps: [savedLamp(SECOND)],
+        leftOutLamps: [savedLamp(FIRST)],
+      });
 
       expect(await pickerOf(page)).toMatchObject({
         lamps: [
@@ -1147,7 +1203,10 @@ describe("settings pages", () => {
       const after = streamDeck.messages.length;
       await clickInPicker(page, "Left");
 
-      expect(await nextSave(uuid, after)).toEqual([savedLamp(FIRST), savedLamp(SECOND)]);
+      expect(await nextSave(uuid, after)).toEqual({
+        lamps: [savedLamp(FIRST), savedLamp(SECOND)],
+        leftOutLamps: [],
+      });
       await page.close();
     });
 
@@ -1173,6 +1232,111 @@ describe("settings pages", () => {
       expect(shown).toMatchObject(
         onDial ? { shown: true, label: "Blink each lamp as it's shown, on this dial" } : { shown: false },
       );
+    });
+  });
+
+  describe.each(PANELS)("whether a key adds new lamps, on $page on $controller (#147)", (panel) => {
+    const onKey = panel.controller === "Keypad";
+
+    it(onKey ? "shows the key's own checkbox, under its lamps" : "shows no key's checkbox", async () => {
+      const { page } = await openPanel(panel);
+      // Long enough for the page to know where its action sits.
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      const shown = await keyNewLampsOf(page);
+      await page.close();
+
+      expect(shown).toMatchObject(
+        onKey ? { shown: true, label: "Add new lamps automatically, on this key" } : { shown: false },
+      );
+    });
+  });
+
+  describe("whether keys add new lamps (#147)", () => {
+    const KEY = at(PANELS, 0);
+    const NEW_CONTEXT = "0123456789abcdef0123456789abcdef";
+    const EVERY_KEY = "Add new lamps automatically, on every key";
+
+    afterEach(() => {
+      streamDeck.lamps = [];
+      streamDeck.globalSettings = {};
+    });
+
+    /** Opens a key's page, with its saved settings, once it shows whether the key adds new lamps. */
+    async function openKey(context?: string, settings: Record<string, unknown> = {}) {
+      const opened = await openPanel(KEY, settings, context);
+      await opened.page.evaluate(`Promise.all([
+        SDPIComponents.useGlobalSettings("addNewLamps")[0](),
+        SDPIComponents.useGlobalSettings("addNewLampsExceptions")[0](),
+      ])`);
+      await expect.poll(() => keyNewLampsOf(opened.page)).toMatchObject({ shown: true });
+      return opened;
+    }
+
+    it.each([
+      ["checked, settings.ts's default, when nothing is saved", {}, undefined, true],
+      ["the plugin's setting, for a key that made no choice of its own", { addNewLamps: false }, undefined, false],
+      [
+        "the opposite of the plugin's setting, for a key that chose otherwise",
+        { addNewLampsExceptions: [NEW_CONTEXT] },
+        NEW_CONTEXT,
+        false,
+      ],
+    ])("shows a key's own %s", async (_, saved, context, checked) => {
+      streamDeck.globalSettings = saved;
+      const { page } = await openKey(context);
+
+      await expect.poll(() => keyNewLampsOf(page)).toMatchObject({ checked });
+      expect(read("addNewLamps", true)).toEqual({ value: defaultOf("addNewLamps"), valid: true });
+      await page.close();
+    });
+
+    it("saves a click on a key's own as the key's choice, keeping the other global settings, and not the key's", async () => {
+      streamDeck.globalSettings = { keepBrightnessDifference: true };
+      const { page, uuid, context } = await openKey();
+
+      await clickKeyNewLamps(page);
+
+      await expect
+        .poll(() => streamDeck.globalSettings)
+        .toEqual({ keepBrightnessDifference: true, addNewLampsExceptions: [context] });
+      expect(await keyNewLampsOf(page)).toMatchObject({ checked: false });
+      expect(read("addNewLampsExceptions", [context])).toEqual({ value: [context], valid: true });
+      expect(streamDeck.messages.filter((m) => m.event === "setSettings" && m.context === uuid)).toEqual([]);
+      await page.close();
+    });
+
+    it.each([
+      ["checked, settings.ts's default, when nothing is saved", {}, "true"],
+      ["indeterminate when a key differs", { addNewLampsExceptions: ["a-key"] }, "mixed"],
+    ])("shows every key's in the plugin settings %s", async (_, saved, shown) => {
+      streamDeck.globalSettings = saved;
+      const { page } = await openKey();
+      await clickInPluginSettings(page, "Plugin settings");
+
+      expect(await page.evaluate(`${triState(EVERY_KEY)}.getAttribute("aria-checked")`)).toBe(shown);
+      await page.close();
+    });
+
+    it("saves a click on every key's, which turns it off for every key from checked", async () => {
+      streamDeck.globalSettings = { addNewLampsExceptions: [] };
+      const { page } = await openKey();
+      await clickInPluginSettings(page, "Plugin settings");
+
+      await page.evaluate(`${triState(EVERY_KEY)}.click()`);
+
+      await expect.poll(() => streamDeck.globalSettings).toEqual({ addNewLamps: false, addNewLampsExceptions: [] });
+      await page.close();
+    });
+
+    it("unchecks a lamp the key hasn't listed yet in the lamp picker once the key's own is unchecked", async () => {
+      streamDeck.lamps = [FIRST, SECOND];
+      const { page } = await openKey(undefined, { lamps: [savedLamp(SECOND)] });
+      await expect.poll(async () => (await pickerOf(page)).lamps.map((lamp) => lamp.checked)).toEqual([true, true]);
+
+      await clickKeyNewLamps(page);
+
+      await expect.poll(async () => (await pickerOf(page)).lamps.map((lamp) => lamp.checked)).toEqual([false, true]);
+      await page.close();
     });
   });
 
@@ -1498,14 +1662,39 @@ function clickDialBlink(page: Page): Promise<void> {
   })()`);
 }
 
+/** Whether a key's page shows the key's own new lamps checkbox (#147), and with what. */
+function keyNewLampsOf(page: Page): Promise<{ shown: boolean; label?: string | null; checked?: boolean }> {
+  return page.evaluate(`(() => {
+    const box = document.querySelector("#key-new-lamps sdpi-checkbox");
+    return box === null || !box.checkVisibility()
+      ? { shown: false }
+      : { shown: true, label: box.getAttribute("label"), checked: box.value === true };
+  })()`);
+}
+
+/** Clicks the key's own new lamps checkbox, as the user would: on the input inside the component. */
+function clickKeyNewLamps(page: Page): Promise<void> {
+  return page.evaluate(`(async () => {
+    const host = document.querySelector("#key-new-lamps sdpi-checkbox");
+    await host.updateComplete;
+    host.shadowRoot.querySelector("input").click();
+  })()`);
+}
+
+/** The expression that finds a checkbox of the plugin settings that can be indeterminate, by the start of its label. */
+function triState(label: string): string {
+  return `[...document.querySelectorAll("#plugin-settings .tri-state")].find((box) =>
+    box.querySelector(".text").textContent.startsWith(${JSON.stringify(label)}))`;
+}
+
 /** What every dial's blink shows in the plugin settings: "true", "false" or "mixed". */
 function everyDialBlinkOf(page: Page): Promise<string | null> {
-  return page.evaluate(`document.querySelector("#plugin-settings .tri-state").getAttribute("aria-checked")`);
+  return page.evaluate(`${triState("Blink each lamp")}.getAttribute("aria-checked")`);
 }
 
 /** Clicks every dial's blink in the plugin settings. */
 function clickEveryDialBlink(page: Page): Promise<void> {
-  return page.evaluate(`document.querySelector("#plugin-settings .tri-state").click()`);
+  return page.evaluate(`${triState("Blink each lamp")}.click()`);
 }
 
 /** Whether a message is a page asking the plugin for the lamps. */

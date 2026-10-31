@@ -736,6 +736,8 @@ describe("lamps picked on a key's settings page (#20)", () => {
   }
 
   it("are the only ones a key switches, and its state shows theirs", async () => {
+    // A key that adds no new lamps acts on the lamps checked alone (#147).
+    sdk.changeGlobalSettings({ addNewLamps: false });
     const [first, second] = [beam({ on: false }), beam({ on: false })];
     plugIn(first, second);
     const firstKey = await deck.key(POWER, { mode: "toggle", lamps: [picked(first)] });
@@ -748,6 +750,7 @@ describe("lamps picked on a key's settings page (#20)", () => {
   });
 
   it("are the only ones a step key steps, and its title shows them", async () => {
+    sdk.changeGlobalSettings({ addNewLamps: false });
     const [first, second] = [beam(), beam({ brightnessInLumen: LUMEN_AT_80 })];
     plugIn(first, second);
     const key = await deck.key(BRIGHTNESS_UP, { stepPercentage: 10, lamps: [picked(first)] });
@@ -756,6 +759,17 @@ describe("lamps picked on a key's settings page (#20)", () => {
 
     expect([first.brightnessInLumen, second.brightnessInLumen]).toEqual([LUMEN_AT_60, LUMEN_AT_80]);
     expect(titleOf(key)).toBe("60%");
+  });
+
+  it("take in a lamp plugged in later, but not the ones the page left out, by default (#147)", async () => {
+    const [first, second, third] = [beam({ on: false }), beam({ on: false }), beam({ on: false })];
+    plugIn(first, second);
+    const key = await deck.key(POWER, { mode: "on", lamps: [picked(first)], leftOutLamps: [picked(second)] });
+    plugIn(first, second, third);
+
+    await deck.press(key);
+
+    expect([first.on, second.on, third.on]).toEqual([true, false, true]);
   });
 
   it("are listed for the page from the lamps plugged in, and blinked by its Identify button", async () => {

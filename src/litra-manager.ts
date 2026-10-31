@@ -37,8 +37,11 @@ export type BroadcastResult = {
   representativeTemperaturePercentage?: number | undefined;
 };
 
-/** Which lamps an operation acts on: every lamp connected, or the ones with these ids (see {@link lampId}, #20). */
-export type LampSelection = "all" | readonly string[];
+/**
+ * Which lamps an operation acts on: every lamp connected, the ones with these ids (see {@link lampId}, #20), or every
+ * lamp connected but the ones with these ids, which takes in lamps plugged in later (#147).
+ */
+export type LampSelection = "all" | readonly string[] | { readonly except: readonly string[] };
 
 /**
  * How a step moves several lamps (#145): `"together"` sends every lamp to one value, stepped from the one the dial
@@ -420,12 +423,13 @@ function temperaturePercentage(kelvin: number, allowed: number[]): number {
 }
 
 /**
- * Opens the lamps an operation acts on, named in the logs: every connected lamp, or the selected ones, closing the
- * others. A selected lamp that isn't connected is logged, and so is a selection of none. Returns none when no lamp is
- * selected or connected, none of the selected ones is, or finding them fails.
+ * Opens the lamps an operation acts on, named in the logs: every connected lamp, the selected ones, or every connected
+ * lamp but the left out ones, closing the others. A selected lamp that isn't connected is logged, and so is a selection
+ * of none, or every connected lamp left out. Returns none when no lamp is selected or connected, none of the selected
+ * ones is, every connected one is left out, or finding them fails.
  */
 function openDevices(operation: string, lamps: LampSelection): Device[] {
-  if (lamps !== "all" && lamps.length === 0) {
+  if (Array.isArray(lamps) && lamps.length === 0) {
     logger.warn(`${operation}: no lamp selected`);
     return [];
   }
@@ -443,11 +447,21 @@ function openDevices(operation: string, lamps: LampSelection): Device[] {
   if (lamps === "all") {
     return devices;
   }
-  const selected = devices.filter((device) => lamps.includes(lampId(device.serialNumber)));
+  const chosen = (device: Device): boolean => {
+    const id = lampId(device.serialNumber);
+    return "except" in lamps ? !lamps.except.includes(id) : lamps.includes(id);
+  };
+  const selected = devices.filter(chosen);
   for (const device of devices) {
     if (!selected.includes(device)) {
       closeDevice(device);
     }
+  }
+  if ("except" in lamps) {
+    if (selected.length === 0) {
+      logger.warn(`${operation}: every lamp connected is left out`);
+    }
+    return selected;
   }
   for (const id of lamps) {
     if (!selected.some((device) => lampId(device.serialNumber) === id)) {
