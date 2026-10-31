@@ -31,7 +31,7 @@ Two libraries speak the lamps' protocol, both by Tim Rogers: `litra`, in TypeScr
 
 ## Every lamp, found afresh every time
 
-`litra-manager` keeps no list of lamps. Every operation finds the connected lamps again, opens each, applies the operation to every one, and closes them, so a lamp that was unplugged is simply not found, and one plugged in again is, without any code for either. An operation can also be given the lamps to act on, by their ids: the start of each serial number's SHA-256, which a key's settings can hold, and an exported profile carry, without revealing the serial ([#20]). A lamp screen gives its lamp the same way. Or it can be given the lamps to leave out, which is how a key takes in lamps plugged in later: every lamp found but those ([#147]). It then closes the others unused, and logs a selected lamp it doesn't find, or that every lamp found is left out. Finding the lamps is a call inside the plugin's process, not a new process, so doing it on every operation costs little.
+`litra-manager` keeps no list of lamps. Every operation finds the connected lamps again, opens each, applies the operation to every one, and closes them, so a lamp that was unplugged is simply not found, and one plugged in again is, without any code for either. An operation can also be given the lamps to act on, by their ids: the start of each serial number's SHA-256, which a key's settings can hold, and an exported profile carry, without revealing the serial ([#20]). A lamp screen gives its lamp the same way. Or it can be given the lamps to leave out, which is how a key takes in lamps plugged in later: every lamp found but those ([#147]). A scene is given one selection for each of its groups, and each lamp found takes the part of the first group that selects it ([#174]). It then closes the others unused, and logs a selected lamp it doesn't find, or that every lamp found is left out. Finding the lamps is a call inside the plugin's process, not a new process, so doing it on every operation costs little.
 
 Closing the handles matters because the plugin runs for as long as Stream Deck does: a handle left open would leak for the whole session. `litra`'s type for a lamp's handle leaves out `close`, which `node-hid`'s handle has, so the module reaches it through a type of its own.
 
@@ -76,6 +76,7 @@ A dial sends a tick at a time, and a quick turn sends many. The dial gathers tic
 [#145]: https://github.com/daczarne/streamdeck-litra/issues/145
 [#147]: https://github.com/daczarne/streamdeck-litra/issues/147
 [#153]: https://github.com/daczarne/streamdeck-litra/issues/153
+[#174]: https://github.com/daczarne/streamdeck-litra/issues/174
 [#177]: https://github.com/daczarne/streamdeck-litra/issues/177
 [contributing]: contributing.md
 [keys]: elgato_sdk/keys.md

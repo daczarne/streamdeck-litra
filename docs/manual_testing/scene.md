@@ -4,7 +4,7 @@
 - [Setup](#setup)
 - [Checks](#checks)
 
-A Scene key turns every lamp on at its brightness and temperature in one press ([#86]). The unit tests check against emulated lamps that each lamp is turned on, then set to the temperature, snapped to one it allows, then to the brightness, within its cap, and that a scene waits its turn behind a brightness change. They check against a fake Stream Deck what the key sends for its settings, and the integration tests that the Power keys and the dials follow a press. The checks below cover what they take for granted: that Stream Deck offers the action with its icon and image, shows its settings page, and passes on its settings, and that the lamps and the touch strip show the result. The keys here act on every connected lamp, as one group: picking a key's lamps is checked in [`lamp_picker.md`][lamp-picker].
+A Scene key turns every lamp on at its brightness and temperature in one press ([#86]). The unit tests check against emulated lamps that each lamp is turned on, then set to the temperature, snapped to one it allows, then to the brightness, within its cap, and that a scene waits its turn behind a brightness change, and, for a scene of several groups, that each lamp takes its group's part, and that a group that's off turns its lamps off and leaves their brightness and temperature ([#174]). They check against a fake Stream Deck what the key sends for its settings, and the integration tests that the Power keys and the dials follow a press. The checks below cover what they take for granted: that Stream Deck offers the action with its icon and image, shows its settings page, and passes on its settings, and that the lamps and the touch strip show the result. The keys here act on every connected lamp, as one group: picking a key's lamps is checked in [`lamp_picker.md`][lamp-picker].
 
 ## When to run these checks
 
@@ -31,4 +31,5 @@ In VS Code, the `Build and restart` task runs both. After a change to `manifest.
 5. **The log tells the press and each lamp.** `logs/litra.log` has a `Scene: Key pressed: scene 100% at 6500 K on every lamp` line, then, for each lamp, the lines of `set scene`: turned on, set to 6500 K, the lumens sent and reached, and the cap the first time it's learned.
 
 [#86]: https://github.com/daczarne/streamdeck-litra/issues/86
+[#174]: https://github.com/daczarne/streamdeck-litra/issues/174
 [lamp-picker]: lamp_picker.md
