@@ -1,3 +1,4 @@
+import { brightnessGlyph, svgDoc, temperatureGlyph } from "@daczarne/streamdeck-icons";
 import type { JsonObject } from "@elgato/utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -61,7 +62,11 @@ const PLAIN = { color: "#ffffff", font: { size: 18, weight: 400 } };
 const OFF_POWER = { color: "#202020", font: { size: 18, weight: 400 } };
 const HIDDEN = { value: "", enabled: false };
 const NO_ICON = { enabled: false };
-const THERMOMETER = "imgs/actions/temperature/glyph@2x.png";
+/** An icon as the lamp screens send it, drawn in a color: white by default (#153). */
+function iconIn(glyph: typeof temperatureGlyph, color = "#ffffff"): string {
+  return `data:image/svg+xml;base64,${Buffer.from(svgDoc(144, glyph(144, { color }))).toString("base64")}`;
+}
+const THERMOMETER = iconIn(temperatureGlyph);
 
 // Text styles other than the defaults, as the plugin settings save them, and how the lamp screens draw them (#153).
 const STYLES = {
@@ -74,7 +79,7 @@ const STYLES = {
 };
 const PRIMARY = { color: "#ffcc00", font: { size: 20, weight: 700 } };
 const SECONDARY = { color: "#336699", font: { size: 16, weight: 400 } };
-const SUN = "imgs/actions/brightness/glyph@2x.png";
+const SUN = iconIn(brightnessGlyph);
 
 /** A text shown in a slot, with its look. */
 function shown(value: string, look: object = PLAIN) {
@@ -416,8 +421,16 @@ describe("LampScreens", () => {
     it.each([
       ["identification", {}, cell("topLeft", shown(A.label, SECONDARY))],
       ["counter", {}, cell("topLeft", shown("1 of 2", SECONDARY))],
-      ["temperature", {}, cell("topLeft", shown(`${A.temperatureKelvin} K`, SECONDARY), THERMOMETER)],
-      ["brightnessPercentage", {}, cell("topLeft", shown(`${A.brightnessPercentage}%`, SECONDARY), SUN)],
+      [
+        "temperature",
+        {},
+        cell("topLeft", shown(`${A.temperatureKelvin} K`, SECONDARY), iconIn(temperatureGlyph, SECONDARY.color)),
+      ],
+      [
+        "brightnessPercentage",
+        {},
+        cell("topLeft", shown(`${A.brightnessPercentage}%`, SECONDARY), iconIn(brightnessGlyph, SECONDARY.color)),
+      ],
       ["brightnessLumen", {}, cell("topLeft", shown(`${A.brightnessLumen} lm`, SECONDARY))],
     ])("shows the %s in the text style chosen for its cell (#153)", async (item, options, slots) => {
       const dial = await topLeftOf(item, { ...options, style: "secondary" }, STYLES);
