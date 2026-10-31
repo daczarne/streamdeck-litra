@@ -90,7 +90,7 @@ A section's parts with several settings get a heading, such as "Lamp screens". A
 
 ## The lamp screens' text styles are roles
 
-Stream Deck lets each user pick the touch strip's background, which the plugin can't read, so no fixed look reads on every strip. The lamp screens' text takes its look from four styles, set in the plugin settings, which every dial shares ([#153]). Each is named for its role, not its look, so a user who restyles them keeps what each one means, and a text picks its style by what it says. An icon takes the color of the text beside it, so a cell reads as one piece in whatever style it picks:
+Stream Deck lets each user pick the touch strip's background, which the plugin can't read, so no fixed look reads on every strip. The lamp screens' text takes its look from four styles, set in the plugin settings, which every dial shares ([#153]). Each is named for its role, not its look, so a user who restyles them keeps what each one means, and a text picks its style by what it says:
 
 | Style     | Role                                          | Default look            | Used by default for |
 | --------- | --------------------------------------------- | ----------------------- | ------------------- |
@@ -99,7 +99,7 @@ Stream Deck lets each user pick the touch strip's background, which the plugin c
 | Accent    | Text that draws the eye, without a judgment   | Cyan `#4dd0e1`          | Nothing             |
 | Alert     | Something wrong, which needs attention        | Bold soft red `#ff6b6b` | Nothing             |
 
-Every style is 18 px by default, and Normal but for Alert, which is bold so it stands out even when its color is changed. Accent's cyan is far from Alert's red and Secondary's grey, and suggests neither a warning, as amber would, nor that all is well, as green would. Alert's red is the one the plugin settings show "No lamps found" in, so red means the same thing on the strip and in the panel. The defaults draw the lamp screens as they were before the styles: only Primary and Secondary are used until the user picks the others for a cell or a power state.
+Every style is 18 px by default, and Normal but for Alert, which is bold so it stands out even when its color is changed. Accent's cyan is far from Alert's red and Secondary's grey, and suggests neither a warning, as amber would, nor that all is well, as green would. Alert's red is the one the plugin settings show "No lamps found" in, so red means the same thing on the strip and in the panel. The defaults draw the lamp screens as they were before the styles: only Primary and Secondary are used until the user picks the others for a cell or a power state. An icon takes the color of the text beside it, so a cell reads as one piece in whatever style it picks.
 
 A text that the plugin itself would show in another style, such as a brightness held below what was asked, picks the style of its role, and comes as its own change: the styles don't change what the lamp screens show by default.
 
