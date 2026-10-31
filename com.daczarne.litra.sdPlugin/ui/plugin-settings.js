@@ -29,6 +29,13 @@
       display: none;
     }
 
+    /* sdpi-components only sets its font on its own elements, so the rest of the plugin settings, such as the lamps'
+      table, the messages about them and the headings, take it from here. */
+    #plugin-settings {
+      font-family: "Segoe UI", Arial, Roboto, Helvetica, sans-serif;
+      font-size: 9pt;
+    }
+
     #plugin-settings .note {
       color: #969696;
       margin: 0;
@@ -39,8 +46,6 @@
       width: 100%;
       border-collapse: collapse;
       color: #969696;
-      font-family: "Segoe UI", Arial, Roboto, Helvetica, sans-serif;
-      font-size: 9pt;
       margin-bottom: 10px;
     }
 
@@ -67,11 +72,10 @@
     }
 
     /* The sections, by the reach of their settings, and the parts of a section with several settings. */
-    /* Outside sdpi-components' rows, so in its font and text color, written out. */
+    /* Outside sdpi-components' rows, so in its text color, written out. */
     #plugin-settings .section {
       border-bottom: 1px solid #666;
       color: #d8d8d8;
-      font-family: "Segoe UI", Arial, Roboto, Helvetica, sans-serif;
       font-size: 11pt;
       font-weight: 600;
       margin: 16px 0 8px;

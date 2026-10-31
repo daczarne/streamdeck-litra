@@ -16,7 +16,7 @@ An action's settings page is its Property Inspector: an HTML page from the plugi
 - Only the page of the selected action exists. Selecting another action replaces it with a new page.
 - A manifest names a page per action, or one at its top for every action that names none (`PropertyInspectorPath`), and nothing else: Stream Deck 7.6 has no page for a plugin's own settings, such as under Preferences > Plugins. Checked in `@elgato/schemas` and in the manifest keys the app's binary reads. The plugin settings ([#146]) are therefore a view that every action's page shows, from one script.
 - Stream Deck calls a global function on the page, `connectElgatoStreamDeckSocket`, with a port and the action's details, including whether it sits on a key or a dial. The page then opens a WebSocket to `ws://localhost:<port>`, through which it reads and saves the settings. sdpi-components defines that function, so the pages here don't.
-- sdpi-components sets its font and its colors on its own elements, as custom properties such as `--font-family` and `--input-font-color`, so an element a page adds outside them, such as the plugin settings' table and section headings, takes the browser's defaults, a dark serif, unless the page's CSS writes them out.
+- sdpi-components sets its font and its colors on its own elements, as custom properties such as `--font-family` and `--input-font-color`, so an element a page adds outside them, such as the plugin settings' table, the messages about the lamps and the section headings, takes the browser's defaults, a dark serif, unless the page's CSS writes them out. The plugin settings set the font once, on their container.
 
 ## Talking to the plugin
 
