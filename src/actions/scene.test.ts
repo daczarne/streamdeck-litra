@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { setLampsScene } from "../litra-manager";
+import { type LampSelection, setLampsScene } from "../litra-manager";
 import { logger } from "../logging";
 import { at } from "../test-support/at";
 import { FakeDeck } from "../test-support/fake-deck";
@@ -23,6 +23,11 @@ vi.mock("../litra-manager", () => ({
 const SCENE = "com.daczarne.litra.scene";
 
 const SET = { ok: true, deviceCount: 2, failures: 0 };
+
+/** A group of a scene, as the key hands it to litra-manager, which turns its lamps on at these values. */
+function onAt(lamps: LampSelection, percentage: number, kelvin: number) {
+  return { lamps, on: true, percentage, kelvin };
+}
 
 let deck: FakeDeck;
 
@@ -49,7 +54,7 @@ describe("SceneAction", () => {
 
       await deck.press(key);
 
-      expect(setLampsScene).toHaveBeenCalledExactlyOnceWith("all", 100, 6500);
+      expect(setLampsScene).toHaveBeenCalledExactlyOnceWith([onAt("all", 100, 6500)]);
       expect(key.showAlert).not.toHaveBeenCalled();
     });
 
@@ -71,7 +76,7 @@ describe("SceneAction", () => {
 
       await deck.press(key);
 
-      expect(setLampsScene).toHaveBeenCalledExactlyOnceWith("all", 0, 2700);
+      expect(setLampsScene).toHaveBeenCalledExactlyOnceWith([onAt("all", 0, 2700)]);
     });
 
     it("sets the key's lamps alone, picked on the settings page (#20)", async () => {
@@ -83,8 +88,91 @@ describe("SceneAction", () => {
 
       await deck.press(key);
 
-      expect(setLampsScene).toHaveBeenCalledExactlyOnceWith(["lamp-1"], 100, 6500);
+      expect(setLampsScene).toHaveBeenCalledExactlyOnceWith([onAt(["lamp-1"], 100, 6500)]);
       expect(logger.info).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("1 lamp"));
+    });
+
+    it("turns the key's lamps off when its power is off (#174)", async () => {
+      const key = await deck.key(SCENE, { power: "off", presetPercentage: 100, presetKelvin: 6500 });
+      vi.mocked(setLampsScene).mockResolvedValue(SET);
+
+      await deck.press(key);
+
+      expect(setLampsScene).toHaveBeenCalledExactlyOnceWith([{ ...onAt("all", 100, 6500), on: false }]);
+    });
+  });
+
+  describe("with groups added after the first (#174)", () => {
+    const LAMP_2 = { id: "lamp-2", label: "Beam - 2222" };
+    const LAMP_3 = { id: "lamp-3", label: "Beam - 3333" };
+
+    it("sets each group's lamps to its own power, brightness and temperature, and leaves them out of the first", async () => {
+      const key = await deck.key(SCENE, {
+        presetPercentage: 50,
+        presetKelvin: 5000,
+        addedGroups: [
+          { power: "off", presetPercentage: 0, presetKelvin: 2700, lamps: [LAMP_2] },
+          { power: "on", presetPercentage: 30, presetKelvin: 3000, lamps: [LAMP_3] },
+        ],
+      });
+      vi.mocked(setLampsScene).mockResolvedValue(SET);
+
+      await deck.press(key);
+
+      expect(setLampsScene).toHaveBeenCalledExactlyOnceWith([
+        onAt({ except: ["lamp-2", "lamp-3"] }, 50, 5000),
+        { ...onAt(["lamp-2"], 0, 2700), on: false },
+        onAt(["lamp-3"], 30, 3000),
+      ]);
+    });
+
+    it("leaves the groups' lamps out of the lamps the first group checked, for a key that adds no new lamps", async () => {
+      changeGlobalSettings({ addNewLamps: false });
+      const key = await deck.key(SCENE, {
+        presetPercentage: 50,
+        presetKelvin: 5000,
+        lamps: [{ id: "lamp-1", label: "Beam - 1111" }, LAMP_2],
+        addedGroups: [{ presetPercentage: 30, presetKelvin: 3000, lamps: [LAMP_2] }],
+      });
+      vi.mocked(setLampsScene).mockResolvedValue(SET);
+
+      await deck.press(key);
+
+      expect(setLampsScene).toHaveBeenCalledExactlyOnceWith([onAt(["lamp-1"], 50, 5000), onAt(["lamp-2"], 30, 3000)]);
+    });
+
+    it("leaves the groups' lamps out along with the ones the first group left out, for a key that adds new lamps", async () => {
+      const key = await deck.key(SCENE, {
+        presetPercentage: 50,
+        presetKelvin: 5000,
+        lamps: [{ id: "lamp-1", label: "Beam - 1111" }],
+        leftOutLamps: [LAMP_2],
+        addedGroups: [{ presetPercentage: 30, presetKelvin: 3000, lamps: [LAMP_3] }],
+      });
+      vi.mocked(setLampsScene).mockResolvedValue(SET);
+
+      await deck.press(key);
+
+      expect(setLampsScene).toHaveBeenCalledExactlyOnceWith([
+        onAt({ except: ["lamp-2", "lamp-3"] }, 50, 5000),
+        onAt(["lamp-3"], 30, 3000),
+      ]);
+    });
+
+    it("turns a group's lamps on, at the default brightness and temperature, for a group with no settings but its lamps", async () => {
+      const key = await deck.key(SCENE, {
+        presetPercentage: 50,
+        presetKelvin: 5000,
+        addedGroups: [{ lamps: [LAMP_2] }],
+      });
+      vi.mocked(setLampsScene).mockResolvedValue(SET);
+
+      await deck.press(key);
+
+      expect(setLampsScene).toHaveBeenCalledExactlyOnceWith([
+        onAt({ except: ["lamp-2"] }, 50, 5000),
+        onAt(["lamp-2"], 0, 2700),
+      ]);
     });
   });
 
@@ -101,8 +189,32 @@ describe("SceneAction", () => {
 
       await deck.press(key);
 
-      expect(setLampsScene).toHaveBeenCalledExactlyOnceWith("all", 0, 6500);
+      expect(setLampsScene).toHaveBeenCalledExactlyOnceWith([onAt("all", 0, 6500)]);
       expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("presetPercentage"));
+    });
+
+    it("uses the default of a group's setting that isn't valid, keeps the group's others, and warns (#174)", async () => {
+      const lamps = [{ id: "lamp-2", label: "Beam - 2222" }];
+      const key = await deck.key(SCENE, { addedGroups: [{ presetPercentage: 150, presetKelvin: 3000, lamps }] });
+      vi.mocked(setLampsScene).mockResolvedValue(SET);
+
+      await deck.press(key);
+
+      expect(setLampsScene).toHaveBeenCalledExactlyOnceWith([
+        onAt({ except: ["lamp-2"] }, 0, 2700),
+        onAt(["lamp-2"], 0, 3000),
+      ]);
+      expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("presetPercentage"));
+    });
+
+    it("sets the first group alone when the groups added aren't a list of groups, and warns (#174)", async () => {
+      const key = await deck.key(SCENE, { addedGroups: ["lamp-2"] });
+      vi.mocked(setLampsScene).mockResolvedValue(SET);
+
+      await deck.press(key);
+
+      expect(setLampsScene).toHaveBeenCalledExactlyOnceWith([onAt("all", 0, 2700)]);
+      expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("addedGroups"));
     });
   });
 
@@ -118,6 +230,21 @@ describe("SceneAction", () => {
       expect(message).toContain("5000 K");
       expect(at(vi.mocked(logger.info).mock.invocationCallOrder, 0)).toBeLessThan(
         at(vi.mocked(setLampsScene).mock.invocationCallOrder, 0),
+      );
+    });
+
+    it("a key press, with what each group sets and on how many lamps (#174)", async () => {
+      const key = await deck.key(SCENE, {
+        presetPercentage: 40,
+        presetKelvin: 5000,
+        addedGroups: [{ power: "off", lamps: [{ id: "lamp-2", label: "Beam - 2222" }] }],
+      });
+      vi.mocked(setLampsScene).mockResolvedValue(SET);
+
+      await deck.press(key);
+
+      expect(logger.info).toHaveBeenCalledExactlyOnceWith(
+        "Key pressed: scene 40% at 5000 K on every lamp but 1 lamp; off on 1 lamp",
       );
     });
   });

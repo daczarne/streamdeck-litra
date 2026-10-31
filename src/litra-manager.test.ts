@@ -1,7 +1,7 @@
 import type { Device } from "litra";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { BroadcastResult } from "./litra-manager";
+import type { BroadcastResult, SceneGroup } from "./litra-manager";
 import { at } from "./test-support/at";
 import { loadOnEmulatedLamps } from "./test-support/emulated-lamps";
 import { EmulatedLitra, kindOf, type LitraModel, type ReportKind } from "./test-support/emulated-litra";
@@ -67,6 +67,11 @@ function connect(...lamps: EmulatedLitra[]): void {
 /** Brightness in lumen at the given percentage of a Beam's range. */
 function lumenAt(percentage: number): number {
   return BEAM_MIN_LUMEN + ((BEAM_MAX_LUMEN - BEAM_MIN_LUMEN) * percentage) / 100;
+}
+
+/** A scene of one group, which turns every lamp on at a brightness and a temperature. */
+function everyLampAt(percentage: number, kelvin: number): SceneGroup[] {
+  return [{ lamps: "all", on: true, percentage, kelvin }];
 }
 
 /** Waits for an operation, letting the time it waits for pass: the lamps settling, a blink. */
@@ -748,7 +753,7 @@ describe("onLampsChanged", () => {
     ["adjustLampsBrightness", () => manager.adjustLampsBrightness("all", 1, 5)],
     ["setLampsTemperature", () => manager.setLampsTemperature("all", 4000)],
     ["adjustLampsTemperature", () => manager.adjustLampsTemperature("all", 1, 100)],
-    ["setLampsScene", () => manager.setLampsScene("all", 50, 4000)],
+    ["setLampsScene", () => manager.setLampsScene(everyLampAt(50, 4000))],
   ])("calls every listener once after %s", async (_, operation) => {
     connect(beam(), beam());
     const listener = vi.fn();
@@ -1411,7 +1416,7 @@ describe("readLampsBrightness", () => {
 });
 
 describe("setLampsScene", () => {
-  const scene = (percentage: number, kelvin: number) => settled(manager.setLampsScene("all", percentage, kelvin));
+  const scene = (percentage: number, kelvin: number) => settled(manager.setLampsScene(everyLampAt(percentage, kelvin)));
 
   it("turns every lamp on, then sets its temperature, snapped to an allowed one, then its brightness", async () => {
     const pair = [beam({ on: false }), beam({ on: false })];
@@ -1449,13 +1454,82 @@ describe("setLampsScene", () => {
     const lamp = beam({ capInLumen: 244 });
     connect(lamp);
 
-    await settled(Promise.all([manager.setLampsBrightness("all", 100), manager.setLampsScene("all", 30, 2700)]));
+    await settled(Promise.all([manager.setLampsBrightness("all", 100), manager.setLampsScene(everyLampAt(30, 2700))]));
 
     expect(lamp.brightnessInLumen).toBe(lumenAt(30));
   });
 
   it("fails without writing when no lamp is connected", async () => {
     expect(await scene(40, 4000)).toEqual({ ok: false, deviceCount: 0, failures: 1 });
+  });
+
+  describe("with groups (#174)", () => {
+    const id = (lamp: EmulatedLitra) => manager.lampId(lamp.serialNumber);
+
+    it("sets each group's lamps to the group's own brightness and temperature, in one pass", async () => {
+      const [left, center, right] = [beam(), beam(), beam()];
+      connect(left, center, right);
+
+      const result = await settled(
+        manager.setLampsScene([
+          { lamps: [id(left), id(right)], on: true, percentage: 50, kelvin: 5000 },
+          { lamps: [id(center)], on: true, percentage: 30, kelvin: 3000 },
+        ]),
+      );
+
+      expect([left, center, right].map((lamp) => [lamp.brightnessInLumen, lamp.temperatureInKelvin])).toEqual([
+        [lumenAt(50), 5000],
+        [lumenAt(30), 3000],
+        [lumenAt(50), 5000],
+      ]);
+      expect(result).toMatchObject({ ok: true, deviceCount: 3, failures: 0, representativeBrightnessPercentage: 50 });
+    });
+
+    it("turns a group's lamps off, and leaves their brightness and temperature as they are", async () => {
+      const [lit, dark] = [beam({ on: false }), beam()];
+      connect(lit, dark);
+
+      const result = await settled(
+        manager.setLampsScene([
+          { lamps: [id(lit)], on: true, percentage: 40, kelvin: 4000 },
+          { lamps: [id(dark)], on: false, percentage: 100, kelvin: 6500 },
+        ]),
+      );
+
+      expect([lit.on, dark.on]).toEqual([true, false]);
+      expect([dark.writes("power"), dark.writes("brightness"), dark.writes("temperature")]).toEqual([[0], [], []]);
+      expect(result).toMatchObject({ ok: true, deviceCount: 2, failures: 0, brightnessPercentages: [40] });
+    });
+
+    it("gives a lamp that two groups select the first group's part", async () => {
+      const [taken, rest] = [beam(), beam()];
+      connect(taken, rest);
+
+      await settled(
+        manager.setLampsScene([
+          { lamps: [id(taken)], on: false, percentage: 0, kelvin: 2700 },
+          { lamps: "all", on: true, percentage: 40, kelvin: 4000 },
+        ]),
+      );
+
+      expect([taken.on, taken.writes("brightness")]).toEqual([false, []]);
+      expect(rest.brightnessInLumen).toBe(lumenAt(40));
+    });
+
+    it("sets the lamps of the groups that select some, when another group selects none", async () => {
+      const lamp = beam();
+      connect(lamp);
+
+      const result = await settled(
+        manager.setLampsScene([
+          { lamps: [], on: true, percentage: 100, kelvin: 6500 },
+          { lamps: "all", on: true, percentage: 40, kelvin: 4000 },
+        ]),
+      );
+
+      expect(lamp.brightnessInLumen).toBe(lumenAt(40));
+      expect(result.ok).toBe(true);
+    });
   });
 });
 
@@ -1872,7 +1946,7 @@ describe("logs", () => {
     ["read power", () => manager.areLampsOn("all")],
     ["set brightness", () => manager.setLampsBrightness("all", 50)],
     ["adjust brightness", () => manager.adjustLampsBrightness("all", 1, 5)],
-    ["set scene", () => manager.setLampsScene("all", 50, 4000)],
+    ["set scene", () => manager.setLampsScene(everyLampAt(50, 4000))],
     ["read brightness", () => manager.readLampsBrightness("all")],
     ["read lamp status", () => manager.readLampStatuses()],
     ["identify", () => manager.identifyLamp("FAKE9999", BLINK_MS)],
@@ -1904,7 +1978,12 @@ describe("logs", () => {
     ["toggle", () => manager.toggleLamps("all"), (lamp) => lamp.failWrites("power"), "write"],
     ["read power", () => manager.areLampsOn("all"), (lamp) => lamp.fail("readSync"), "read"],
     ["set brightness", () => manager.setLampsBrightness("all", 50), (lamp) => lamp.failWrites("brightness"), "write"],
-    ["set scene", () => manager.setLampsScene("all", 50, 4000), (lamp) => lamp.failWrites("temperature"), "write"],
+    [
+      "set scene",
+      () => manager.setLampsScene(everyLampAt(50, 4000)),
+      (lamp) => lamp.failWrites("temperature"),
+      "write",
+    ],
     [
       "adjust brightness",
       () => manager.adjustLampsBrightness("all", 1, 5),
@@ -1969,6 +2048,7 @@ describe("logs", () => {
     ["toggle", () => manager.toggleLamps([MISSING_LAMP])],
     ["adjust brightness", () => manager.adjustLampsBrightness([MISSING_LAMP], 1, 5)],
     ["adjust temperature", () => manager.adjustLampsTemperature([MISSING_LAMP], 1, 100)],
+    ["set scene", () => manager.setLampsScene([{ lamps: [MISSING_LAMP], on: true, percentage: 50, kelvin: 4000 }])],
   ])("warns, with its id, when the lamp to %s isn't connected", async (operation, operate) => {
     connect(beam());
 
@@ -1984,6 +2064,14 @@ describe("logs", () => {
     ["read power", () => manager.areLampsOn([])],
     ["set brightness", () => manager.setLampsBrightness([], 50)],
     ["read temperature", () => manager.readLampsTemperature([])],
+    [
+      "set scene",
+      () =>
+        manager.setLampsScene([
+          { lamps: [], on: true, percentage: 50, kelvin: 4000 },
+          { lamps: [], on: false, percentage: 0, kelvin: 2700 },
+        ]),
+    ],
   ])("warns when %s is given no lamp, without looking for any", async (operation, operate) => {
     connect(beam());
 
@@ -2015,6 +2103,15 @@ describe("logs", () => {
       expect(message).toContain(operation);
       expect(message).toContain(value);
     }
+  });
+
+  it("logs each lamp a scene turns off (#174)", async () => {
+    const lamp = beam();
+    connect(lamp);
+
+    await run(() => manager.setLampsScene([{ lamps: "all", on: false, percentage: 50, kelvin: 4000 }]));
+
+    expect(onlyMessage("info")).toContain(`set scene: ${labelOf(lamp)} turned off`);
   });
 
   it("logs the lamp it blinked when identifying a lamp", async () => {

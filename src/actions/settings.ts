@@ -114,6 +114,19 @@ function anObject(): Setting<JsonObject> {
   };
 }
 
+/** A setting that takes a list of objects, each of which whoever uses it reads further against a schema of its own. */
+function objectList(): Setting<readonly JsonObject[]> {
+  return {
+    default: [],
+    expected: "a list of objects",
+    parse: (value) =>
+      Array.isArray(value) &&
+      value.every((item): item is JsonObject => typeof item === "object" && item !== null && !Array.isArray(item))
+        ? value
+        : undefined,
+  };
+}
+
 /** A setting that takes a list of text, such as the ids of some dials. */
 function textList(): Setting<readonly string[]> {
   return {
@@ -220,12 +233,27 @@ export const temperatureStepSettings = {
   leftOutLamps,
 };
 
-// A scene sets both presets, taken as the Brightness and Temperature keys take theirs.
+// A scene is made of groups, each of which turns its lamps off, or on at its own brightness and temperature, taken as
+// the Brightness and Temperature keys take their presets (#174). The first group is the key's own settings, as a scene
+// saved before groups had them, and picks its lamps as every key does, lamps plugged in later included. Each group
+// added after it is saved with its power, its presets and the lamps checked for it, read against sceneGroupSettings,
+// and a lamp it checks leaves the first group. A group turns its lamps on by default, as every scene did.
+const scenePower = oneOf(["on", "off"], "on");
+
 export const sceneSettings = {
+  power: scenePower,
   presetPercentage: brightnessSettings.presetPercentage,
   presetKelvin: temperatureSettings.presetKelvin,
   lamps,
   leftOutLamps,
+  addedGroups: objectList(),
+};
+
+export const sceneGroupSettings = {
+  power: scenePower,
+  presetPercentage: brightnessSettings.presetPercentage,
+  presetKelvin: temperatureSettings.presetKelvin,
+  lamps: lampList(),
 };
 
 // The lamps alone, for an action that reads them apart from its other settings.

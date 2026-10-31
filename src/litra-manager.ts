@@ -44,6 +44,17 @@ export type BroadcastResult = {
 export type LampSelection = "all" | readonly string[] | { readonly except: readonly string[] };
 
 /**
+ * A group of a scene (#174): the lamps it acts on, and whether it turns them on, at a brightness, in % of their range,
+ * and a temperature, or off, which leaves their brightness and temperature as they are.
+ */
+export type SceneGroup = {
+  readonly lamps: LampSelection;
+  readonly on: boolean;
+  readonly percentage: number;
+  readonly kelvin: number;
+};
+
+/**
  * How a step moves several lamps (#145): `"together"` sends every lamp to one value, stepped from the one the dial
  * shows, which brings lamps set apart back in sync, and `"each"` steps every lamp from its own value, which keeps them
  * apart. A lamp at an end of its range, or at its cap, stays there while the others keep going, and comes back with
@@ -422,6 +433,14 @@ function temperaturePercentage(kelvin: number, allowed: number[]): number {
   return percentageInRange(kelvin, lowest, highest);
 }
 
+/** Whether a selection takes in the lamp with this id. */
+function selects(lamps: LampSelection, id: string): boolean {
+  if (lamps === "all") {
+    return true;
+  }
+  return "except" in lamps ? !lamps.except.includes(id) : lamps.includes(id);
+}
+
 /**
  * Opens the lamps an operation acts on, named in the logs: every connected lamp, the selected ones, or every connected
  * lamp but the left out ones, closing the others. A selected lamp that isn't connected is logged, and so is a selection
@@ -429,46 +448,61 @@ function temperaturePercentage(kelvin: number, allowed: number[]): number {
  * ones is, every connected one is left out, or finding them fails.
  */
 function openDevices(operation: string, lamps: LampSelection): Device[] {
-  if (Array.isArray(lamps) && lamps.length === 0) {
+  return [...openGroups(operation, [{ lamps }]).keys()];
+}
+
+/**
+ * Opens the lamps of several groups, as {@link openDevices} opens one group's, each with the first group that selects
+ * it, so a lamp two groups select takes the first one's part. A selection of none is logged only when every group
+ * selects none, since a group may lose its lamps to another.
+ */
+function openGroups<G extends { readonly lamps: LampSelection }>(
+  operation: string,
+  groups: readonly G[],
+): Map<Device, G> {
+  const opened = new Map<Device, G>();
+  if (groups.every(({ lamps }) => Array.isArray(lamps) && lamps.length === 0)) {
     logger.warn(`${operation}: no lamp selected`);
-    return [];
+    return opened;
   }
   let devices: Device[];
   try {
     devices = findDevices();
   } catch (error) {
     logger.error(`${operation}: finding the lamps failed: ${String(error)}`);
-    return [];
+    return opened;
   }
   if (devices.length === 0) {
     logger.warn(`${operation}: no lamps found`);
-    return devices;
+    return opened;
   }
-  if (lamps === "all") {
-    return devices;
-  }
-  const chosen = (device: Device): boolean => {
-    const id = lampId(device.serialNumber);
-    return "except" in lamps ? !lamps.except.includes(id) : lamps.includes(id);
-  };
-  const selected = devices.filter(chosen);
   for (const device of devices) {
-    if (!selected.includes(device)) {
+    const id = lampId(device.serialNumber);
+    const group = groups.find(({ lamps }) => selects(lamps, id));
+    if (group === undefined) {
       closeDevice(device);
+    } else {
+      opened.set(device, group);
     }
   }
-  if ("except" in lamps) {
-    if (selected.length === 0) {
-      logger.warn(`${operation}: every lamp connected is left out`);
+  const connected = devices.map((device) => lampId(device.serialNumber));
+  for (const { lamps } of groups) {
+    if (lamps === "all") {
+      continue;
     }
-    return selected;
-  }
-  for (const id of lamps) {
-    if (!selected.some((device) => lampId(device.serialNumber) === id)) {
-      logger.warn(`${operation}: lamp ${id} not connected`);
+    if ("except" in lamps) {
+      if (opened.size === 0) {
+        logger.warn(`${operation}: every lamp connected is left out`);
+      }
+      continue;
+    }
+    for (const id of lamps) {
+      if (!connected.includes(id)) {
+        logger.warn(`${operation}: lamp ${id} not connected`);
+      }
     }
   }
-  return selected;
+  return opened;
 }
 
 /**
@@ -673,19 +707,15 @@ export function adjustLampsBrightness(
 }
 
 /**
- * Turns the selected lamps on and sets each to a scene in one pass: the temperature, snapped to one the lamp allows,
- * then the percentage, as {@link setLampsBrightness} sets it, caps included. Reports the brightest once they've
- * settled, as {@link moveLampsBrightness} does, and announces the change once.
+ * Sets each lamp to its group's part of a scene in one pass (#174), as {@link setScene} does, and announces the change
+ * once, so everything the Deck shows follows the whole scene at once. A lamp two groups select takes the first one's
+ * part.
  */
 export function setLampsScene(
-  lamps: LampSelection,
-  percentage: number,
-  kelvin: number,
+  groups: readonly SceneGroup[],
   settleMs = BRIGHTNESS_SETTLE_MS,
 ): Promise<BroadcastResult> {
-  return oneBrightnessChangeAtATime(() =>
-    moveLampsBrightness("set scene", lamps, percentage, settleMs, kelvin),
-  ).finally(announceLampsChanged);
+  return oneBrightnessChangeAtATime(() => setScene(groups, settleMs)).finally(announceLampsChanged);
 }
 
 /**
@@ -720,25 +750,140 @@ function inStages(operation: string): { failed: Set<Device>; attempt: (device: D
 }
 
 /**
+ * Waits, right after a lamp's cap was learned, until the lamp can no longer go back to its cap (see
+ * {@link capReversalEndsAt}), so a change that asks for less isn't undone.
+ */
+async function waitForCapReversal(operation: string): Promise<void> {
+  const reversalMs = capReversalEndsAt - Date.now();
+  if (reversalMs > 0) {
+    logger.debug(`${operation}: waiting ${reversalMs} ms, until no lamp can go back to its cap`);
+    await new Promise((resolve) => setTimeout(resolve, reversalMs));
+  }
+}
+
+/**
+ * Sends each lamp its percentage, or its cap, whichever is lower, lets them settle, and reads them back. A lamp that
+ * reaches less than it was sent has its cap learned. A lamp given a position is left at it, which any other change
+ * forgets. Reports the brightest, and every lamp's percentage. Sends nothing, and doesn't wait, when no lamp has a
+ * percentage.
+ */
+async function sendBrightness(
+  operation: string,
+  targets: Map<Device, number>,
+  positions: Map<Device, number>,
+  attempt: (device: Device, fn: () => void) => void,
+  settleMs: number,
+): Promise<
+  Pick<
+    BroadcastResult,
+    "representativeBrightnessPercentage" | "representativeBrightnessLumen" | "brightnessPercentages"
+  >
+> {
+  const sent = new Map<Device, number>();
+  const sentAt = Date.now();
+  if (targets.size > 0) {
+    for (const [device, pct] of targets) {
+      attempt(device, () => {
+        const lumen = withinCap(operation, device, brightnessLumen(device, pct));
+        setBrightnessInLumen(device, lumen);
+        drainAck(device);
+        sent.set(device, lumen);
+      });
+    }
+    await new Promise((resolve) => setTimeout(resolve, settleMs));
+  }
+
+  let representative: number | undefined;
+  let representativeLumen: number | undefined;
+  const percentages: number[] = [];
+  for (const [device, lumen] of sent) {
+    attempt(device, () => {
+      const reached = getBrightnessInLumenSafe(device);
+      const pct = brightnessPercentage(device, reached);
+      logger.info(`${operation}: ${lampLabel(device)} sent ${lumen} lm, reached ${reached} lm (${pct}%)`);
+      if (reached < lumen) {
+        brightnessCaps.set(device.serialNumber, { path: plugPath(device), lumen: reached });
+        capReversalEndsAt = Math.max(capReversalEndsAt, sentAt + CAP_REVERSAL_WINDOW_MS);
+        logger.info(`${operation}: ${lampLabel(device)} capped at ${reached} lm`);
+      }
+      // A lamp kept apart is left at its position, which any other change forgets.
+      const position = positions.get(device);
+      if (position === undefined) {
+        brightnessPositions.delete(device.serialNumber);
+      } else {
+        brightnessPositions.set(device.serialNumber, { position, left: reached });
+      }
+      percentages.push(pct);
+      if (representative === undefined || pct > representative) {
+        representative = pct;
+        representativeLumen = reached;
+      }
+    });
+  }
+
+  return {
+    representativeBrightnessPercentage: representative,
+    representativeBrightnessLumen: representativeLumen,
+    brightnessPercentages: percentages,
+  };
+}
+
+/**
+ * Sets each lamp to its group's part of a scene: a group that's off turns its lamps off, and a group that's on turns
+ * its lamps on, sets their temperature, snapped to one each lamp allows, then their brightness, as
+ * {@link sendBrightness} sends it, caps included. Reports the brightest once they've settled. Like
+ * {@link moveLampsBrightness}, it waits for a lamp that can still go back to its cap, and holds the lamps open until
+ * it has read them back, so it goes through {@link oneBrightnessChangeAtATime}.
+ */
+async function setScene(groups: readonly SceneGroup[], settleMs: number): Promise<BroadcastResult> {
+  const operation = "set scene";
+  await waitForCapReversal(operation);
+
+  const devices = openGroups(operation, groups);
+  if (devices.size === 0) {
+    return { ok: false, deviceCount: 0, failures: 1 };
+  }
+
+  const { failed, attempt } = inStages(operation);
+
+  try {
+    const targets = new Map<Device, number>();
+    for (const [device, group] of devices) {
+      attempt(device, () => {
+        if (!group.on) {
+          turnOff(device);
+          drainAck(device);
+          logger.info(`${operation}: ${lampLabel(device)} turned off`);
+          return;
+        }
+        ensureOn(operation, device);
+        setSnappedTemperature(operation, device, group.kelvin);
+        targets.set(device, Math.max(0, Math.min(100, group.percentage)));
+      });
+    }
+    const brightness = await sendBrightness(operation, targets, new Map(), attempt, settleMs);
+    return { ok: failed.size === 0, deviceCount: devices.size, failures: failed.size, ...brightness };
+  } finally {
+    for (const device of devices.keys()) {
+      closeDevice(device);
+    }
+  }
+}
+
+/**
  * Moves the selected lamps to their target and reports the brightest once they've settled. The target is a percentage,
- * or a step from the brightest selected lamp's percentage or from each lamp's own, which are then read first. A
- * temperature, when given, is set on each lamp before its brightness. Each lamp is sent the target or its cap, whichever is lower, and a lamp that reaches less
- * than it was sent has its cap learned. Right after a lamp's cap is learned, the next change waits until the lamp can
- * no longer go back to its cap (see {@link capReversalEndsAt}). The lamps stay open from the first read to the last,
- * so calls mustn't overlap: they go through {@link oneBrightnessChangeAtATime}.
+ * or a step from the brightest selected lamp's percentage or from each lamp's own, which are then read first. Each
+ * lamp is sent the target as {@link sendBrightness} sends it, caps included. Right after a lamp's cap is learned, the
+ * next change waits until the lamp can no longer go back to its cap. The lamps stay open from the first read to the
+ * last, so calls mustn't overlap: they go through {@link oneBrightnessChangeAtATime}.
  */
 async function moveLampsBrightness(
   operation: string,
   lamps: LampSelection,
   target: BrightnessTarget,
   settleMs: number,
-  kelvin?: number,
 ): Promise<BroadcastResult> {
-  const reversalMs = capReversalEndsAt - Date.now();
-  if (reversalMs > 0) {
-    logger.debug(`${operation}: waiting ${reversalMs} ms, until no lamp can go back to its cap`);
-    await new Promise((resolve) => setTimeout(resolve, reversalMs));
-  }
+  await waitForCapReversal(operation);
 
   const devices = openDevices(operation, lamps);
   if (devices.length === 0) {
@@ -753,9 +898,6 @@ async function moveLampsBrightness(
     for (const device of devices) {
       attempt(device, () => {
         ensureOn(operation, device);
-        if (kelvin !== undefined) {
-          setSnappedTemperature(operation, device, kelvin);
-        }
         if (typeof target !== "number") {
           before.set(device, getBrightnessInLumenSafe(device));
         }
@@ -796,56 +938,8 @@ async function moveLampsBrightness(
       });
     }
 
-    const sent = new Map<Device, number>();
-    const sentAt = Date.now();
-    if (targets.size > 0) {
-      for (const [device, pct] of targets) {
-        attempt(device, () => {
-          const lumen = withinCap(operation, device, brightnessLumen(device, pct));
-          setBrightnessInLumen(device, lumen);
-          drainAck(device);
-          sent.set(device, lumen);
-        });
-      }
-      await new Promise((resolve) => setTimeout(resolve, settleMs));
-    }
-
-    let representative: number | undefined;
-    let representativeLumen: number | undefined;
-    const percentages: number[] = [];
-    for (const [device, lumen] of sent) {
-      attempt(device, () => {
-        const reached = getBrightnessInLumenSafe(device);
-        const pct = brightnessPercentage(device, reached);
-        logger.info(`${operation}: ${lampLabel(device)} sent ${lumen} lm, reached ${reached} lm (${pct}%)`);
-        if (reached < lumen) {
-          brightnessCaps.set(device.serialNumber, { path: plugPath(device), lumen: reached });
-          capReversalEndsAt = Math.max(capReversalEndsAt, sentAt + CAP_REVERSAL_WINDOW_MS);
-          logger.info(`${operation}: ${lampLabel(device)} capped at ${reached} lm`);
-        }
-        // A lamp kept apart is left at its position, which any other change forgets.
-        const position = positions.get(device);
-        if (position === undefined) {
-          brightnessPositions.delete(device.serialNumber);
-        } else {
-          brightnessPositions.set(device.serialNumber, { position, left: reached });
-        }
-        percentages.push(pct);
-        if (representative === undefined || pct > representative) {
-          representative = pct;
-          representativeLumen = reached;
-        }
-      });
-    }
-
-    return {
-      ok: failed.size === 0,
-      deviceCount: devices.length,
-      failures: failed.size,
-      representativeBrightnessPercentage: representative,
-      representativeBrightnessLumen: representativeLumen,
-      brightnessPercentages: percentages,
-    };
+    const brightness = await sendBrightness(operation, targets, positions, attempt, settleMs);
+    return { ok: failed.size === 0, deviceCount: devices.length, failures: failed.size, ...brightness };
   } finally {
     for (const device of devices) {
       closeDevice(device);

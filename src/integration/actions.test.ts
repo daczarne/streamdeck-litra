@@ -311,6 +311,31 @@ describe("the Scene key", () => {
     expect(feedbackOf(brightnessDial)).toMatchObject({ value: "100%" });
     expect(feedbackOf(temperatureDial)).toMatchObject({ value: "6500" });
   });
+
+  it("sets each group's lamps to the group's part, and every Power key follows the whole scene (#174)", async () => {
+    const [left, center, right] = [beam({ on: false }), beam(), beam({ on: false })];
+    plugIn(left, center, right);
+    const powerKey = await deck.key(POWER, { mode: "toggle" });
+    const key = await deck.key(SCENE, {
+      presetPercentage: 100,
+      presetKelvin: 6500,
+      addedGroups: [
+        {
+          power: "off",
+          lamps: [{ id: lampId(center.serialNumber), label: `Beam - ${center.serialNumber.slice(-4)}` }],
+        },
+      ],
+    });
+
+    await deck.press(key);
+
+    expect([left, center, right].map((lamp) => [lamp.on, lamp.brightnessInLumen, lamp.temperatureInKelvin])).toEqual([
+      [true, LUMEN_AT_100, 6500],
+      [false, LUMEN_AT_50, 4000],
+      [true, LUMEN_AT_100, 6500],
+    ]);
+    expect(stateOf(powerKey)).toBe(0);
+  });
 });
 
 describe("the step keys", () => {
