@@ -210,7 +210,7 @@ type Shown = { text: { value: string } & TextStyle; icon?: string };
 
 /**
  * What a cell shows for a lamp, in the lamp screens' text styles (#153), or undefined for a cell that shows nothing.
- * Every text takes the Primary style, but the power's, which takes the style chosen for its state.
+ * Every item takes the style chosen for its cell, but the power, which takes the style chosen for its state.
  */
 function shownIn(
   content: LampScreenCellContent,
@@ -218,20 +218,19 @@ function shownIn(
   lamps: LampStatus[],
   styles: Record<"primary" | "accent", TextStyle>,
 ): Shown | undefined {
-  const primary = styles.primary;
   switch (content.item) {
     case "identification":
-      return { text: { value: identification(content.options, lamp), ...primary } };
+      return { text: { value: identification(content.options, lamp), ...styles[content.options.style] } };
     case "counter":
-      return { text: { value: counter(content.options, lamp, lamps), ...primary } };
+      return { text: { value: counter(content.options, lamp, lamps), ...styles[content.options.style] } };
     case "temperature":
-      return measure(content, `${lamp.temperatureKelvin}`, " K", primary);
+      return measure(content, `${lamp.temperatureKelvin}`, " K", styles[content.options.style]);
     case "power":
       return { text: power(content.options, lamp.on, styles) };
     case "brightnessPercentage":
-      return measure(content, `${lamp.brightnessPercentage}`, "%", primary);
+      return measure(content, `${lamp.brightnessPercentage}`, "%", styles[content.options.style]);
     case "brightnessLumen":
-      return measure(content, `${lamp.brightnessLumen}`, " lm", primary);
+      return measure(content, `${lamp.brightnessLumen}`, " lm", styles[content.options.style]);
     case "none":
       return undefined;
   }

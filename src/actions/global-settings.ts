@@ -91,7 +91,7 @@ export function lampScreenCells(): Record<LampScreenCell, LampScreenCellContent>
   return cells;
 }
 
-/** The lamp screens' text styles (#153): Primary, for every text, and Accent, for the power's "OFF" by default. */
+/** The lamp screens' text styles (#153): by default, Primary for every text, and Accent for the power's "OFF". */
 export function textStyles(): Record<"primary" | "accent", TextStyle> {
   return {
     primary: {

@@ -751,7 +751,7 @@ describe("settings pages", () => {
       expect(await shown(page)).toEqual({
         view: false,
         editor: true,
-        rows: ["Cell", "First part", "Second part", "Trim", ""],
+        rows: ["Cell", "First part", "Second part", "Trim", "Font style", ""],
       });
 
       await clickInPluginSettings(page, "Back");
@@ -850,7 +850,10 @@ describe("settings pages", () => {
         blinkOnLampScreen: true,
         lampScreenOptions: {
           ...others,
-          topLeft: { counter: { format: "slash" }, identification: { first: "model", second: "id", trim: true } },
+          topLeft: {
+            counter: { format: "slash" },
+            identification: { first: "model", second: "id", trim: true, style: "primary" },
+          },
         },
       });
     });
