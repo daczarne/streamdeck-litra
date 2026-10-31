@@ -4,11 +4,14 @@ import { identifyLamp, type LampStatus, onLampsChanged, readLampStatuses } from 
 import { logger as pluginLogger } from "../logging";
 import {
   blinksOnLampScreen,
+  FONT_WEIGHTS,
   identifyBlinkMs,
   type LampScreenCellContent,
   lampName,
   lampScreenCells,
   onGlobalSettingsChanged,
+  type TextStyle,
+  textStyles,
 } from "./global-settings";
 import { LAMP_SCREEN_CELLS, type LampScreenCell, type LampScreenItem, type LampScreenItemOptions } from "./settings";
 
@@ -181,12 +184,6 @@ export class LampScreens {
   }
 }
 
-// Every text on a lamp screen is 18 px, white by default on the strip's own background. By default, "OFF" stands out in
-// dark grey. Bold makes dark text read on a bright background, though the font joins the "ff" of "Off" into one shape
-// (#153), so it's left to the options.
-const FONT_SIZE = 18;
-const PLAIN = { color: "#ffffff", font: { size: FONT_SIZE, weight: 400 } };
-
 // The icons of the items that can show one, wherever they're shown: the lumens share the brightness's sun (#177).
 const ICONS: Partial<Record<LampScreenItem, string>> = {
   temperature: "imgs/actions/temperature/glyph@2x.png",
@@ -209,23 +206,32 @@ async function blink(dial: LampScreenDial, lampId: string): Promise<void> {
 }
 
 /** What a cell shows: its text, with its look, and its icon and the side it's on, if it has one. */
-type Shown = { text: { value: string; color: string; font: { size: number; weight: number } }; icon?: string };
+type Shown = { text: { value: string } & TextStyle; icon?: string };
 
-/** What a cell shows for a lamp, or undefined for a cell that shows nothing. */
-function shownIn(content: LampScreenCellContent, lamp: LampStatus, lamps: LampStatus[]): Shown | undefined {
+/**
+ * What a cell shows for a lamp, in the lamp screens' text styles (#153), or undefined for a cell that shows nothing.
+ * Every text takes the Primary style, but the power's, which takes the style chosen for its state.
+ */
+function shownIn(
+  content: LampScreenCellContent,
+  lamp: LampStatus,
+  lamps: LampStatus[],
+  styles: Record<"primary" | "accent", TextStyle>,
+): Shown | undefined {
+  const primary = styles.primary;
   switch (content.item) {
     case "identification":
-      return { text: { value: identification(content.options, lamp), ...PLAIN } };
+      return { text: { value: identification(content.options, lamp), ...primary } };
     case "counter":
-      return { text: { value: counter(content.options, lamp, lamps), ...PLAIN } };
+      return { text: { value: counter(content.options, lamp, lamps), ...primary } };
     case "temperature":
-      return measure(content, `${lamp.temperatureKelvin}`, " K");
+      return measure(content, `${lamp.temperatureKelvin}`, " K", primary);
     case "power":
-      return { text: power(content.options, lamp.on) };
+      return { text: power(content.options, lamp.on, styles) };
     case "brightnessPercentage":
-      return measure(content, `${lamp.brightnessPercentage}`, "%");
+      return measure(content, `${lamp.brightnessPercentage}`, "%", primary);
     case "brightnessLumen":
-      return measure(content, `${lamp.brightnessLumen}`, " lm");
+      return measure(content, `${lamp.brightnessLumen}`, " lm", primary);
     case "none":
       return undefined;
   }
@@ -274,19 +280,30 @@ function measure(
   content: Extract<LampScreenCellContent, { item: "temperature" | "brightnessPercentage" | "brightnessLumen" }>,
   value: string,
   unit: string,
+  style: TextStyle,
 ): Shown {
   const { icon, unit: withUnit } = content.options;
   const path = ICONS[content.item];
-  const text = { value: withUnit ? `${value}${unit}` : value, ...PLAIN };
+  const text = { value: withUnit ? `${value}${unit}` : value, ...style };
   return icon && path !== undefined ? { text, icon: path } : { text };
 }
 
-/** Whether a lamp is on, with the label, color and weight chosen for its state. */
-function power(options: LampScreenItemOptions["power"], on: boolean): Shown["text"] {
-  const [value, color, weight] = on
-    ? [options.onLabel, options.onColor, options.onWeight]
-    : [options.offLabel, options.offColor, options.offWeight];
-  return { value, color, font: { size: FONT_SIZE, weight: weight === "bold" ? 700 : 400 } };
+/**
+ * Whether a lamp is on, with the label chosen for its state, in the text style chosen for it, or in its own color and
+ * weight, at the Primary style's size.
+ */
+function power(
+  options: LampScreenItemOptions["power"],
+  on: boolean,
+  styles: Record<"primary" | "accent", TextStyle>,
+): Shown["text"] {
+  const [value, style, color, weight] = on
+    ? [options.onLabel, options.onStyle, options.onColor, options.onWeight]
+    : [options.offLabel, options.offStyle, options.offColor, options.offWeight];
+  if (style !== "custom") {
+    return { value, ...styles[style] };
+  }
+  return { value, color, font: { size: styles.primary.font.size, weight: FONT_WEIGHTS[weight] } };
 }
 
 /**
@@ -310,8 +327,9 @@ function cellSlots(cell: LampScreenCell, shown: Shown | undefined) {
 /** Fills the slots of the lamp layout, each cell with what the global settings give it, and how (#177). */
 async function draw(dial: LampScreenDial, lamp: LampStatus, lamps: LampStatus[]): Promise<void> {
   const cells = lampScreenCells();
+  const styles = textStyles();
   await dial.setFeedback(
-    Object.assign({}, ...LAMP_SCREEN_CELLS.map((cell) => cellSlots(cell, shownIn(cells[cell], lamp, lamps)))),
+    Object.assign({}, ...LAMP_SCREEN_CELLS.map((cell) => cellSlots(cell, shownIn(cells[cell], lamp, lamps, styles)))),
   );
 }
 

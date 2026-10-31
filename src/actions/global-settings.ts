@@ -14,6 +14,12 @@ import {
   parseSettings,
 } from "./settings";
 
+/** A text's look on the lamp screens: its color, and its font's size and weight (#153). */
+export type TextStyle = { color: string; font: { size: number; weight: number } };
+
+/** The font weights the settings offer, as a layout's text takes them. */
+export const FONT_WEIGHTS = { normal: 400, bold: 700 };
+
 /** What a cell of the lamp screens shows, and how (#177). */
 export type LampScreenCellContent = {
   [Item in LampScreenItem]: { item: Item; options: LampScreenItemOptions[Item] };
@@ -83,6 +89,20 @@ export function identifyBlinkMs(): number {
 /** What each cell of the lamp screens shows, and how (#177). */
 export function lampScreenCells(): Record<LampScreenCell, LampScreenCellContent> {
   return cells;
+}
+
+/** The lamp screens' text styles (#153): Primary, for every text, and Accent, for the power's "OFF" by default. */
+export function textStyles(): Record<"primary" | "accent", TextStyle> {
+  return {
+    primary: {
+      color: current.lampScreenPrimaryColor,
+      font: { size: current.lampScreenPrimarySize, weight: FONT_WEIGHTS[current.lampScreenPrimaryWeight] },
+    },
+    accent: {
+      color: current.lampScreenAccentColor,
+      font: { size: current.lampScreenAccentSize, weight: FONT_WEIGHTS[current.lampScreenAccentWeight] },
+    },
+  };
 }
 
 /** The name given to a lamp in the plugin settings (#146), or undefined for a lamp with none. */

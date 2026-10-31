@@ -27,7 +27,7 @@ A page and the plugin exchange messages through Stream Deck, which the lamp pick
 
 ## Global settings
 
-Besides each key's and dial's own settings, a plugin has one set of global settings, which every action shares, and Stream Deck keeps across restarts. The lamp screens' blink is one ([#144]): every dial's, and the dials that chose otherwise. Whether the lamps keep their difference when a dial or a step key steps them are two more ([#145]), how long a blink lasts another ([#171]), and what each cell of the lamp screens shows six more, with how each shows it, kept by cell and by item, one more ([#177]). The lamps' names are another ([#146]), which the lamp screens read too ([#177]):
+Besides each key's and dial's own settings, a plugin has one set of global settings, which every action shares, and Stream Deck keeps across restarts. The lamp screens' blink is one ([#144]): every dial's, and the dials that chose otherwise. Whether the lamps keep their difference when a dial or a step key steps them are two more ([#145]), how long a blink lasts another ([#171]), and what each cell of the lamp screens shows six more, with how each shows it, kept by cell and by item, one more ([#177]). The lamp screens' two text styles are six more, a color, a weight and a size each ([#153]). The lamps' names are another ([#146]), which the lamp screens read too ([#177]):
 
 - On a page, a sdpi-components control with the `global` attribute reads and saves a global setting instead of one of the action's. It asks Stream Deck for them (`getGlobalSettings`) when the page loads, and holds every save until the answer arrives. A save sends them whole (`setGlobalSettings`), keeping the ones the page doesn't show.
 - A control with `global` only gets the global settings that arrive once it's on the page: it doesn't ask for them itself. One added later, such as when a view opens, shows its default until another answer arrives. The plugin settings therefore put their checkboxes, lists and slider on the page as it loads, hidden ([#146]).
@@ -79,6 +79,7 @@ Checked while adding the lamp screens' cells ([#177]): lists with `global`, made
 [#144]: https://github.com/daczarne/streamdeck-litra/issues/144
 [#145]: https://github.com/daczarne/streamdeck-litra/issues/145
 [#146]: https://github.com/daczarne/streamdeck-litra/issues/146
+[#153]: https://github.com/daczarne/streamdeck-litra/issues/153
 [#171]: https://github.com/daczarne/streamdeck-litra/issues/171
 [#177]: https://github.com/daczarne/streamdeck-litra/issues/177
 [manual-test]: ../manual_testing/settings_pages.md

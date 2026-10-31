@@ -51,6 +51,12 @@ const DEFAULTS = {
   lampScreenBottomLeft: "brightnessPercentage",
   lampScreenBottomRight: "brightnessLumen",
   lampScreenOptions: {},
+  lampScreenPrimaryColor: "#ffffff",
+  lampScreenPrimaryWeight: "normal",
+  lampScreenPrimarySize: 18,
+  lampScreenAccentColor: "#202020",
+  lampScreenAccentWeight: "normal",
+  lampScreenAccentSize: 18,
   lampNames: {},
 };
 
@@ -256,9 +262,11 @@ describe("how each cell of the lamp screens shows its item (#177)", () => {
         item: "power",
         options: {
           onLabel: "ON",
+          onStyle: "primary",
           onColor: "#ffffff",
           onWeight: "normal",
           offLabel: "OFF",
+          offStyle: "accent",
           offColor: "#202020",
           offWeight: "normal",
         },
@@ -302,6 +310,42 @@ describe("how each cell of the lamp screens shows its item (#177)", () => {
     await follow();
 
     expect(globalSettings.lampScreenCells().topLeft.options).toEqual({ first: "model", second: "id", trim: false });
+  });
+});
+
+describe("the lamp screens' text styles (#153)", () => {
+  it("are white and dark grey, in the normal weight, at 18 px, by default", async () => {
+    await follow();
+
+    expect(globalSettings.textStyles()).toEqual({
+      primary: { color: "#ffffff", font: { size: 18, weight: 400 } },
+      accent: { color: "#202020", font: { size: 18, weight: 400 } },
+    });
+  });
+
+  it("are the ones the plugin settings saved, with the weight as a layout's text takes it", async () => {
+    settings.getGlobalSettings.mockResolvedValue({
+      lampScreenPrimaryColor: "#ffcc00",
+      lampScreenPrimaryWeight: "bold",
+      lampScreenPrimarySize: "22",
+      lampScreenAccentSize: 16,
+    });
+
+    await follow();
+
+    expect(globalSettings.textStyles()).toEqual({
+      primary: { color: "#ffcc00", font: { size: 22, weight: 700 } },
+      accent: { color: "#202020", font: { size: 16, weight: 400 } },
+    });
+  });
+
+  it.each([15, 23, 18.5])("take the default size, with a warning, for a size of %s", async (size) => {
+    settings.getGlobalSettings.mockResolvedValue({ lampScreenPrimarySize: size });
+
+    await follow();
+
+    expect(globalSettings.textStyles().primary.font.size).toBe(18);
+    expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("lampScreenPrimarySize"));
   });
 });
 

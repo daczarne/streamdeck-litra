@@ -98,6 +98,10 @@
       gap: 8px;
     }
 
+    #plugin-settings .fields + .fields {
+      margin-top: 6px;
+    }
+
     #plugin-settings .field {
       display: flex;
       flex: 1;
@@ -105,8 +109,9 @@
       gap: 2px;
     }
 
-    #plugin-settings .field .note {
-      padding: 0;
+    #plugin-settings .caption {
+      color: #969696;
+      margin: 0;
     }
 
     /* A slider with its value on its right, as on the actions' pages. */
@@ -279,6 +284,15 @@
     return box;
   }
 
+  /** A color picker from sdpi-components that reads and saves a global setting itself. */
+  function globalColor(setting, fallback) {
+    const picker = document.createElement("sdpi-color");
+    picker.setAttribute("setting", setting);
+    picker.setAttribute("global", "");
+    picker.setAttribute("default", fallback);
+    return picker;
+  }
+
   /** A list from sdpi-components that reads and saves a global setting itself, with its options as [value, text]. */
   function globalSelect(setting, options, fallback) {
     const select = document.createElement("sdpi-select");
@@ -327,9 +341,11 @@
     temperature: { icon: true, unit: true },
     power: {
       onLabel: "ON",
+      onStyle: "primary",
       onColor: "#ffffff",
       onWeight: "normal",
       offLabel: "OFF",
+      offStyle: "accent",
       offColor: "#202020",
       offWeight: "normal",
     },
@@ -348,6 +364,12 @@
     ["normal", "Normal"],
     ["bold", "Bold"],
   ];
+  const FONT_STYLES = [
+    ["primary", "Primary"],
+    ["accent", "Accent"],
+    ["custom", "Custom"],
+  ];
+  const FONT_SIZES = [16, 17, 18, 19, 20, 21, 22].map((size) => [String(size), `${size} px`]);
   const ON_LABELS = ["On", "ON", "●", "I"].map((label) => [label, label]);
   const OFF_LABELS = ["Off", "OFF", "○", "O"].map((label) => [label, label]);
 
@@ -394,6 +416,18 @@
     cellOptions = { ...cellOptions, [cell]: options === undefined ? others : { ...others, [item]: options } };
     saveCellOptions(cellOptions).catch((error) => console.error("Can't save the lamp screens' options", error));
     renderEditor();
+  }
+
+  /**
+   * One of the lamp screens' text styles (#153), under its name: its color, weight and size, side by side, each saved by
+   * sdpi-components as a global setting named after the style.
+   */
+  function textStyle(name, setting, color) {
+    return fields(name, [
+      ["Color", globalColor(`${setting}Color`, color)],
+      ["Font weight", globalSelect(`${setting}Weight`, WEIGHTS, "normal")],
+      ["Font size", globalSelect(`${setting}Size`, FONT_SIZES, "18")],
+    ]);
   }
 
   /** A list for each cell of the lamp screens, laid out as the cells are, each with a button that shows its options. */
@@ -448,17 +482,25 @@
     const select = (label, key, choices, disabled = false) =>
       item(label, option("sdpi-select", key, { options: choices, disabled }));
     const check = (label, key, text) => item(label, option("sdpi-checkbox", key, { label: text }));
-    // A power state's label, color and weight, side by side under its name.
-    const state = (name, prefix, labels) =>
-      item(
+    // A power state's label and text style, and under them its own color and weight, which only a Custom style takes
+    // (#153).
+    const state = (name, prefix, labels) => {
+      const ownLook = options[`${prefix}Style`] === "custom";
+      return item(
         undefined,
         fields(
           name,
-          ["Label", option("sdpi-select", `${prefix}Label`, { options: labels })],
-          ["Color", option("sdpi-color", `${prefix}Color`)],
-          ["Font weight", option("sdpi-select", `${prefix}Weight`, { options: WEIGHTS })],
+          [
+            ["Label", option("sdpi-select", `${prefix}Label`, { options: labels })],
+            ["Font style", option("sdpi-select", `${prefix}Style`, { options: FONT_STYLES })],
+          ],
+          [
+            ["Color", option("sdpi-color", `${prefix}Color`, { disabled: !ownLook })],
+            ["Font weight", option("sdpi-select", `${prefix}Weight`, { options: WEIGHTS, disabled: !ownLook })],
+          ],
         ),
       );
+    };
     switch (shownItem) {
       case "identification":
         return [
@@ -524,20 +566,26 @@
   }
 
   /** Controls side by side under a title, given as [caption, control], each with its caption above it. */
-  function fields(title, ...captioned) {
+  function fields(title, ...rows) {
     const heading = document.createElement("p");
     heading.className = "fields-title";
     heading.textContent = title;
-    const row = document.createElement("div");
-    row.className = "fields";
-    for (const [caption, content] of captioned) {
-      const field = document.createElement("div");
-      field.className = "field";
-      field.append(note(caption), content);
-      row.append(field);
-    }
     const box = document.createElement("div");
-    box.append(heading, row);
+    box.append(heading);
+    for (const captioned of rows) {
+      const row = document.createElement("div");
+      row.className = "fields";
+      for (const [caption, content] of captioned) {
+        const field = document.createElement("div");
+        field.className = "field";
+        const label = document.createElement("p");
+        label.className = "caption";
+        label.textContent = caption;
+        field.append(label, content);
+        row.append(field);
+      }
+      box.append(row);
+    }
     return box;
   }
 
@@ -726,6 +774,8 @@
     ),
     item("Lamp screens", everyDialBlink),
     item("Layout", lampScreenCells()),
+    item("Text styles", textStyle("Primary", "lampScreenPrimary", "#ffffff")),
+    item(undefined, textStyle("Accent", "lampScreenAccent", "#202020")),
     item(
       "Blink length",
       globalSlider("identifyBlinkMs", { min: 300, max: 1500, step: 50, fallback: 400, suffix: " ms" }),
