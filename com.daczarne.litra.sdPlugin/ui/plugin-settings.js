@@ -51,6 +51,11 @@
       text-align: center;
     }
 
+    /* That no lamp was found, in a soft red that reads on the panel's dark grey. */
+    #plugin-settings .lamp-list .note.alert {
+      color: #ff6b6b;
+    }
+
     #plugin-settings table {
       width: 100%;
       border-collapse: collapse;
@@ -883,7 +888,9 @@
     if (found === undefined) {
       lampList.replaceChildren(item(undefined, note("Looking for lamps…")));
     } else if (found.length === 0) {
-      lampList.replaceChildren(item(undefined, note("No lamps found")));
+      const none = note("No lamps found");
+      none.classList.add("alert");
+      lampList.replaceChildren(item(undefined, none));
     } else {
       lampList.replaceChildren(lampTable(found));
     }
