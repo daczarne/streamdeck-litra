@@ -3,220 +3,160 @@
   "id": "com.daczarne.litra.lamp",
   "items": [
     {
-      "key": "topLeftOuterIcon",
+      "key": "topLeftIcon",
       "type": "pixmap",
       "rect": [0, 8, 22, 22],
       "zOrder": 0
     },
     {
-      "key": "topLeftBesideOuterIcon",
+      "key": "topLeftBesideIcon",
       "type": "text",
       "rect": [28, 6, 160, 26],
       "alignment": "left",
-      "font": { "size": 18 },
+      "font": {
+        "size": 18
+      },
       "zOrder": 1
-    },
-    {
-      "key": "topLeftInnerIcon",
-      "type": "pixmap",
-      "rect": [78, 8, 22, 22],
-      "zOrder": 2
-    },
-    {
-      "key": "topLeftBesideInnerIcon",
-      "type": "text",
-      "rect": [12, 6, 60, 26],
-      "alignment": "right",
-      "font": { "size": 18 },
-      "zOrder": 3
     },
     {
       "key": "topLeft",
       "type": "text",
       "rect": [0, 6, 188, 26],
       "alignment": "left",
-      "font": { "size": 18 },
-      "zOrder": 4
+      "font": {
+        "size": 18
+      },
+      "zOrder": 2
     },
     {
-      "key": "topRightOuterIcon",
+      "key": "topRightIcon",
       "type": "pixmap",
       "rect": [166, 8, 22, 22],
-      "zOrder": 5
+      "zOrder": 3
     },
     {
-      "key": "topRightBesideOuterIcon",
+      "key": "topRightBesideIcon",
       "type": "text",
       "rect": [12, 6, 148, 26],
       "alignment": "right",
-      "font": { "size": 18 },
-      "zOrder": 6
-    },
-    {
-      "key": "topRightInnerIcon",
-      "type": "pixmap",
-      "rect": [100, 8, 22, 22],
-      "zOrder": 7
-    },
-    {
-      "key": "topRightBesideInnerIcon",
-      "type": "text",
-      "rect": [128, 6, 60, 26],
-      "alignment": "left",
-      "font": { "size": 18 },
-      "zOrder": 8
+      "font": {
+        "size": 18
+      },
+      "zOrder": 4
     },
     {
       "key": "topRight",
       "type": "text",
       "rect": [12, 6, 176, 26],
       "alignment": "right",
-      "font": { "size": 18 },
-      "zOrder": 9
+      "font": {
+        "size": 18
+      },
+      "zOrder": 5
     },
     {
-      "key": "middleLeftOuterIcon",
+      "key": "middleLeftIcon",
       "type": "pixmap",
       "rect": [0, 40, 22, 22],
       "zOrder": 0
     },
     {
-      "key": "middleLeftBesideOuterIcon",
+      "key": "middleLeftBesideIcon",
       "type": "text",
       "rect": [28, 38, 160, 26],
       "alignment": "left",
-      "font": { "size": 18 },
+      "font": {
+        "size": 18
+      },
       "zOrder": 1
-    },
-    {
-      "key": "middleLeftInnerIcon",
-      "type": "pixmap",
-      "rect": [78, 40, 22, 22],
-      "zOrder": 2
-    },
-    {
-      "key": "middleLeftBesideInnerIcon",
-      "type": "text",
-      "rect": [12, 38, 60, 26],
-      "alignment": "right",
-      "font": { "size": 18 },
-      "zOrder": 3
     },
     {
       "key": "middleLeft",
       "type": "text",
       "rect": [0, 38, 188, 26],
       "alignment": "left",
-      "font": { "size": 18 },
-      "zOrder": 4
+      "font": {
+        "size": 18
+      },
+      "zOrder": 2
     },
     {
-      "key": "middleRightOuterIcon",
+      "key": "middleRightIcon",
       "type": "pixmap",
       "rect": [166, 40, 22, 22],
-      "zOrder": 5
+      "zOrder": 3
     },
     {
-      "key": "middleRightBesideOuterIcon",
+      "key": "middleRightBesideIcon",
       "type": "text",
       "rect": [12, 38, 148, 26],
       "alignment": "right",
-      "font": { "size": 18 },
-      "zOrder": 6
-    },
-    {
-      "key": "middleRightInnerIcon",
-      "type": "pixmap",
-      "rect": [100, 40, 22, 22],
-      "zOrder": 7
-    },
-    {
-      "key": "middleRightBesideInnerIcon",
-      "type": "text",
-      "rect": [128, 38, 60, 26],
-      "alignment": "left",
-      "font": { "size": 18 },
-      "zOrder": 8
+      "font": {
+        "size": 18
+      },
+      "zOrder": 4
     },
     {
       "key": "middleRight",
       "type": "text",
       "rect": [12, 38, 176, 26],
       "alignment": "right",
-      "font": { "size": 18 },
-      "zOrder": 9
+      "font": {
+        "size": 18
+      },
+      "zOrder": 5
     },
     {
-      "key": "bottomLeftOuterIcon",
+      "key": "bottomLeftIcon",
       "type": "pixmap",
       "rect": [0, 70, 22, 22],
       "zOrder": 0
     },
     {
-      "key": "bottomLeftBesideOuterIcon",
+      "key": "bottomLeftBesideIcon",
       "type": "text",
       "rect": [28, 68, 160, 26],
       "alignment": "left",
-      "font": { "size": 18 },
+      "font": {
+        "size": 18
+      },
       "zOrder": 1
-    },
-    {
-      "key": "bottomLeftInnerIcon",
-      "type": "pixmap",
-      "rect": [78, 70, 22, 22],
-      "zOrder": 2
-    },
-    {
-      "key": "bottomLeftBesideInnerIcon",
-      "type": "text",
-      "rect": [12, 68, 60, 26],
-      "alignment": "right",
-      "font": { "size": 18 },
-      "zOrder": 3
     },
     {
       "key": "bottomLeft",
       "type": "text",
       "rect": [0, 68, 188, 26],
       "alignment": "left",
-      "font": { "size": 18 },
-      "zOrder": 4
+      "font": {
+        "size": 18
+      },
+      "zOrder": 2
     },
     {
-      "key": "bottomRightOuterIcon",
+      "key": "bottomRightIcon",
       "type": "pixmap",
       "rect": [166, 70, 22, 22],
-      "zOrder": 5
+      "zOrder": 3
     },
     {
-      "key": "bottomRightBesideOuterIcon",
+      "key": "bottomRightBesideIcon",
       "type": "text",
       "rect": [12, 68, 148, 26],
       "alignment": "right",
-      "font": { "size": 18 },
-      "zOrder": 6
-    },
-    {
-      "key": "bottomRightInnerIcon",
-      "type": "pixmap",
-      "rect": [100, 70, 22, 22],
-      "zOrder": 7
-    },
-    {
-      "key": "bottomRightBesideInnerIcon",
-      "type": "text",
-      "rect": [128, 68, 60, 26],
-      "alignment": "left",
-      "font": { "size": 18 },
-      "zOrder": 8
+      "font": {
+        "size": 18
+      },
+      "zOrder": 4
     },
     {
       "key": "bottomRight",
       "type": "text",
       "rect": [12, 68, 176, 26],
       "alignment": "right",
-      "font": { "size": 18 },
-      "zOrder": 9
+      "font": {
+        "size": 18
+      },
+      "zOrder": 5
     }
   ]
 }

@@ -209,8 +209,7 @@ async function blink(dial: LampScreenDial, lampId: string): Promise<void> {
 }
 
 /** What a cell shows: its text, with its look, and its icon and the side it's on, if it has one. */
-type Shown = { text: { value: string; color: string; font: { size: number; weight: number } }; icon?: Icon };
-type Icon = { path: string; side: "outer" | "inner" };
+type Shown = { text: { value: string; color: string; font: { size: number; weight: number } }; icon?: string };
 
 /** What a cell shows for a lamp, or undefined for a cell that shows nothing. */
 function shownIn(content: LampScreenCellContent, lamp: LampStatus, lamps: LampStatus[]): Shown | undefined {
@@ -270,16 +269,16 @@ function counter(options: LampScreenItemOptions["counter"], lamp: LampStatus, la
   return options.count === "count" ? `${place}` : `${place}${COUNTER_SEPARATORS[options.format]}${among.length}`;
 }
 
-/** A measure with its unit, if it shows one, and its icon on the side chosen, if it shows one. */
+/** A measure with its unit, if it shows one, and its icon, if it shows one. */
 function measure(
   content: Extract<LampScreenCellContent, { item: "temperature" | "brightnessPercentage" | "brightnessLumen" }>,
   value: string,
   unit: string,
 ): Shown {
-  const { icon, unit: withUnit, iconSide } = content.options;
+  const { icon, unit: withUnit } = content.options;
   const path = ICONS[content.item];
   const text = { value: withUnit ? `${value}${unit}` : value, ...PLAIN };
-  return icon && path !== undefined ? { text, icon: { path, side: iconSide } } : { text };
+  return icon && path !== undefined ? { text, icon: path } : { text };
 }
 
 /** Whether a lamp is on, with the label, color and weight chosen for its state. */
@@ -291,23 +290,20 @@ function power(options: LampScreenItemOptions["power"], on: boolean): Shown["tex
 }
 
 /**
- * The slots of one cell of the lamp layout, each spanning its row or placed at a fixed point, since a slot can't move
- * (#177): an icon on the cell's outer edge, with a text beside it, an icon on its inner edge, at the middle of the row,
- * with a text beside it, and a text with no icon, aligned to the cell's side. The cell shows the slots its item needs,
- * and hides the others. Every slot is given its whole look each time, since a slot keeps what it was given.
+ * The slots of one cell of the lamp layout, placed at fixed points, since a slot can't move (#177): an icon on the
+ * cell's outer edge, with a text beside it, and a text with no icon. Both texts are aligned to the cell's side, left
+ * for a left cell and right for a right one, so a cell reads icon, value and unit on the left, and value, unit and icon
+ * on the right. The cell shows the slots its item needs, and hides the others. Every slot is given its whole look each
+ * time, since a slot keeps what it was given.
  */
 function cellSlots(cell: LampScreenCell, shown: Shown | undefined) {
   const hidden = { value: "", enabled: false };
   const text = shown === undefined ? hidden : { ...shown.text, enabled: true };
-  const side = shown?.icon?.side;
-  const icon = (at: Icon["side"]) =>
-    shown?.icon !== undefined && side === at ? { value: shown.icon.path, enabled: true } : { enabled: false };
+  const icon = shown?.icon;
   return {
-    [`${cell}OuterIcon`]: icon("outer"),
-    [`${cell}BesideOuterIcon`]: side === "outer" ? text : hidden,
-    [`${cell}InnerIcon`]: icon("inner"),
-    [`${cell}BesideInnerIcon`]: side === "inner" ? text : hidden,
-    [cell]: side === undefined ? text : hidden,
+    [`${cell}Icon`]: icon === undefined ? { enabled: false } : { value: icon, enabled: true },
+    [`${cell}BesideIcon`]: icon === undefined ? hidden : text,
+    [cell]: icon === undefined ? text : hidden,
   };
 }
 

@@ -100,16 +100,13 @@ function textOf(dial: Awaited<ReturnType<FakeDeck["dial"]>>): Record<string, unk
 
 /**
  * What each cell of a dial's lamp screen was last told to show (#177): the text of whichever of its text slots is
- * shown, beside an icon on either side or without one, or nothing for a cell that shows none.
+ * shown, beside its icon or without one, or nothing for a cell that shows none.
  */
 function cellsOf(dial: Awaited<ReturnType<FakeDeck["dial"]>>): Record<string, string> {
   const slots = feedbackOf(dial) as Record<string, { value?: string; enabled?: boolean }>;
   const shownIn = (slot: string) => (slots[slot]?.enabled === true ? slots[slot].value : undefined);
   return Object.fromEntries(
-    LAMP_SCREEN_CELLS.map((cell) => [
-      cell,
-      shownIn(`${cell}BesideOuterIcon`) ?? shownIn(`${cell}BesideInnerIcon`) ?? shownIn(cell) ?? "",
-    ]),
+    LAMP_SCREEN_CELLS.map((cell) => [cell, shownIn(`${cell}BesideIcon`) ?? shownIn(cell) ?? ""]),
   );
 }
 

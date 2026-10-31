@@ -324,7 +324,7 @@
   const ITEM_OPTIONS = {
     identification: { first: "model", second: "id", trim: false },
     counter: { count: "countOf", format: "of" },
-    temperature: { icon: true, unit: true, iconSide: "outer" },
+    temperature: { icon: true, unit: true },
     power: {
       onLabel: "ON",
       onColor: "#ffffff",
@@ -333,8 +333,8 @@
       offColor: "#202020",
       offWeight: "normal",
     },
-    brightnessPercentage: { icon: true, unit: true, iconSide: "outer" },
-    brightnessLumen: { icon: false, unit: true, iconSide: "outer" },
+    brightnessPercentage: { icon: true, unit: true },
+    brightnessLumen: { icon: false, unit: true },
     none: {},
   };
 
@@ -343,10 +343,6 @@
     ["id", "ID"],
     ["name", "Name"],
     ["empty", "Empty"],
-  ];
-  const SIDES = [
-    ["outer", "Outer side"],
-    ["inner", "Inner side"],
   ];
   const WEIGHTS = [
     ["normal", "Normal"],
@@ -494,13 +490,7 @@
       case "brightnessPercentage":
       case "brightnessLumen": {
         const unit = { temperature: "K", brightnessPercentage: "%", brightnessLumen: "lm" }[shownItem];
-        const rows = [check("Icon", "icon", "Show the icon")];
-        // The side only matters with the icon shown.
-        if (options.icon) {
-          rows.push(select("Icon side", "iconSide", SIDES));
-        }
-        rows.push(check("Unit", "unit", `Show the unit (${unit})`));
-        return rows;
+        return [check("Icon", "icon", "Show the icon"), check("Unit", "unit", `Show the unit (${unit})`)];
       }
       case "power":
         return [state("On state", "on", ON_LABELS), state("Off state", "off", OFF_LABELS)];

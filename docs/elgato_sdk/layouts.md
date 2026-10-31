@@ -35,6 +35,13 @@ A custom layout is a JSON file in the plugin folder, validated by the schema at 
 
 Items can't overlap unless their `zOrder` differs. Stream Deck refuses a layout with overlapping items and shows the dial's title and icon instead. The reason only appears in Stream Deck's own log, `~/Library/Logs/ElgatoStreamDeck/StreamDeck.log`, as a line starting with "Layout instantiation failed" that names the two items. With different `zOrder`s, overlapping items are accepted and all drawn, which the lamp layout relies on: since an item can't move, each of its cells has a text placed after an icon and one without, both spanning the row, and shows one of them ([#177]). A `pixmap`'s `value` can be set in the layout file, as a path from the plugin folder, so a fixed icon needs no `setFeedback`.
 
+An icon and a text can't be joined into one string: the icon is a `pixmap`, in a slot of its own, fixed in place like every other. Nothing in the SDK measures a text, which Stream Deck draws in a proportional font, so where a text ends is unknown, and an icon can sit beside a text only against the text's aligned edge: before a left-aligned text, or after a right-aligned one. It can't follow a text's other end, or sit between a value and its unit, which would need the value's width. The value and its unit are both text, so their order is free, but an icon's is not ([#177]). Two ways around it were set aside:
+
+- A text character in place of the icon, such as "☀", would make the icon part of the string. Stream Deck draws text in whatever fonts the machine has, though, and a character such as the thermometer, "🌡", is an emoji, which could show in color, differently on macOS and Windows, or not at all.
+- The plugin could draw each cell as one image, its icon, value and unit together, in a single `pixmap`. Its text would have to be drawn as shapes, as the icon packs draw theirs, for the same reason, which would bring a font and a library that lays it out into the plugin.
+
+So the lamp layout fixes each icon's place, on its cell's outer edge, with the cell's text aligned to its side: a left cell reads icon, value and unit from its left edge, and a right cell value, unit and icon up to its right edge. An icon on a cell's inner edge, at the middle of the row, with the text aligned against it, also worked on the Deck, but the slots on the cell's outer edge were left empty, so its value was drawn toward the middle of the row, out of line with the text of the rows above and below it, which starts at the cell's edge. It was dropped for a single fixed design.
+
 ## Updating what a dial shows
 
 - `Encoder.layout` in `manifest.json` sets a dial's layout, by name or by the path to a custom one. `setFeedbackLayout` replaces it at runtime.
@@ -70,7 +77,7 @@ Checked against `@elgato/streamdeck` 3.0.3 and the schemas in `@elgato/schemas`,
 - The item types and the `title` key: `@elgato/streamdeck/dist/api/layout.d.ts` and `@elgato/schemas/streamdeck/plugins/layout.json`.
 - `setFeedback`, `setFeedbackLayout`, `setImage` and `showAlert`: `@elgato/streamdeck/dist/plugin/actions/dial.d.ts`.
 - A dial's alert: seen on the Deck, turning a dial on the lamp screen of a lamp that had been unplugged ([#20]).
-- Overlapping items with different `zOrder`s, `enabled` in `setFeedback`, overlapping texts, and the margin a left-aligned text keeps in its slot: seen on the Deck, choosing what each cell of the lamp screens shows ([#177]).
+- Overlapping items with different `zOrder`s, `enabled` in `setFeedback`, overlapping texts, the margin a left-aligned text keeps in its slot, and where an icon can sit beside a text: seen on the Deck, choosing what each cell of the lamp screens shows, and how ([#177]).
 
 [#8]: https://github.com/daczarne/streamdeck-litra/issues/8
 [#20]: https://github.com/daczarne/streamdeck-litra/issues/20

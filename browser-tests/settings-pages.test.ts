@@ -678,10 +678,7 @@ describe("settings pages", () => {
     it.each(LAMP_SCREEN_ITEMS.filter((item) => item !== "none"))(
       "offers the options of %s that settings.ts takes, at their defaults",
       async (item) => {
-        streamDeck.globalSettings = {
-          lampScreenTopLeft: item,
-          lampScreenOptions: { topLeft: { [item]: { icon: true } } },
-        };
+        streamDeck.globalSettings = { lampScreenTopLeft: item };
         const { page } = await openEditor("topLeft");
         const options = await optionsShown(page);
         await page.close();
@@ -689,9 +686,8 @@ describe("settings pages", () => {
         const schema = lampScreenItemOptions[item] as Record<string, { default: unknown }>;
         expect(Object.keys(options).sort()).toEqual(Object.keys(schema).sort());
         for (const [key, { value, choices }] of Object.entries(options)) {
-          const expected = item !== "power" && key === "icon" ? true : schema[key]?.default;
           expect(readOption(item, key, value as JsonValue), `${item}'s ${key}`).toEqual({
-            value: expected,
+            value: schema[key]?.default,
             valid: true,
           });
           for (const choice of choices) {
@@ -700,18 +696,6 @@ describe("settings pages", () => {
         }
       },
     );
-
-    it("shows the icon's side only with the icon", async () => {
-      streamDeck.globalSettings = { lampScreenTopLeft: "brightnessLumen" };
-      const { page } = await openEditor("topLeft");
-
-      expect(Object.keys(await optionsShown(page))).not.toContain("iconSide");
-
-      await setOption(page, "icon", true);
-
-      await expect.poll(async () => Object.keys(await optionsShown(page))).toContain("iconSide");
-      await page.close();
-    });
 
     it("greys out the counter's format for a lamp's number alone, and brings it back for a count", async () => {
       streamDeck.globalSettings = { lampScreenTopRight: "counter" };

@@ -251,7 +251,7 @@ describe("how each cell of the lamp screens shows its item (#177)", () => {
     expect(globalSettings.lampScreenCells()).toEqual({
       topLeft: { item: "identification", options: { first: "model", second: "id", trim: false } },
       topRight: { item: "counter", options: { count: "countOf", format: "of" } },
-      middleLeft: { item: "temperature", options: { icon: true, unit: true, iconSide: "outer" } },
+      middleLeft: { item: "temperature", options: { icon: true, unit: true } },
       middleRight: {
         item: "power",
         options: {
@@ -263,8 +263,8 @@ describe("how each cell of the lamp screens shows its item (#177)", () => {
           offWeight: "normal",
         },
       },
-      bottomLeft: { item: "brightnessPercentage", options: { icon: true, unit: true, iconSide: "outer" } },
-      bottomRight: { item: "brightnessLumen", options: { icon: false, unit: true, iconSide: "outer" } },
+      bottomLeft: { item: "brightnessPercentage", options: { icon: true, unit: true } },
+      bottomRight: { item: "brightnessLumen", options: { icon: false, unit: true } },
     });
   });
 

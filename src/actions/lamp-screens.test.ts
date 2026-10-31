@@ -69,17 +69,11 @@ function shown(value: string, look: object = PLAIN) {
   return { value, ...look, enabled: true };
 }
 
-/**
- * The slots of a cell: showing `text` beside an icon on the side given, or with no icon, or nothing when there's no
- * text.
- */
-function cell(name: string, text?: object, icon?: { path: string; side: "outer" | "inner" }) {
-  const iconAt = (side: string) => (icon?.side === side ? { value: icon.path, enabled: true } : NO_ICON);
+/** The slots of a cell: showing `text` beside the icon given, or with no icon, or nothing when there's no text. */
+function cell(name: string, text?: object, icon?: string) {
   return {
-    [`${name}OuterIcon`]: iconAt("outer"),
-    [`${name}BesideOuterIcon`]: icon?.side === "outer" ? text : HIDDEN,
-    [`${name}InnerIcon`]: iconAt("inner"),
-    [`${name}BesideInnerIcon`]: icon?.side === "inner" ? text : HIDDEN,
+    [`${name}Icon`]: icon === undefined ? NO_ICON : { value: icon, enabled: true },
+    [`${name}BesideIcon`]: icon === undefined ? HIDDEN : text,
     [name]: icon === undefined && text !== undefined ? text : HIDDEN,
   };
 }
@@ -89,9 +83,9 @@ function lampScreenOf(lamp: LampStatus, position: number, count: number) {
   return {
     ...cell("topLeft", shown(lamp.label)),
     ...cell("topRight", shown(`${position} of ${count}`)),
-    ...cell("middleLeft", shown(`${lamp.temperatureKelvin} K`), { path: THERMOMETER, side: "outer" }),
+    ...cell("middleLeft", shown(`${lamp.temperatureKelvin} K`), THERMOMETER),
     ...cell("middleRight", lamp.on ? shown("ON") : shown("OFF", OFF_POWER)),
-    ...cell("bottomLeft", shown(`${lamp.brightnessPercentage}%`), { path: SUN, side: "outer" }),
+    ...cell("bottomLeft", shown(`${lamp.brightnessPercentage}%`), SUN),
     ...cell("bottomRight", shown(`${lamp.brightnessLumen} lm`)),
   };
 }
@@ -239,9 +233,9 @@ describe("LampScreens", () => {
 
       expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith({
         ...cell("topLeft", shown("ON")),
-        ...cell("topRight", shown(`${A.temperatureKelvin} K`), { path: THERMOMETER, side: "outer" }),
+        ...cell("topRight", shown(`${A.temperatureKelvin} K`), THERMOMETER),
         ...cell("middleLeft"),
-        ...cell("middleRight", shown(`${A.brightnessPercentage}%`), { path: SUN, side: "outer" }),
+        ...cell("middleRight", shown(`${A.brightnessPercentage}%`), SUN),
         ...cell("bottomLeft", shown(`${A.brightnessLumen} lm`)),
         ...cell("bottomRight", shown(A.label)),
       });
@@ -355,28 +349,11 @@ describe("LampScreens", () => {
     });
 
     it.each([
-      [
-        "temperature",
-        { unit: false },
-        cell("topLeft", shown(`${A.temperatureKelvin}`), { path: THERMOMETER, side: "outer" }),
-      ],
+      ["temperature", { unit: false }, cell("topLeft", shown(`${A.temperatureKelvin}`), THERMOMETER)],
       ["temperature", { icon: false }, cell("topLeft", shown(`${A.temperatureKelvin} K`))],
-      [
-        "temperature",
-        { iconSide: "inner" },
-        cell("topLeft", shown(`${A.temperatureKelvin} K`), { path: THERMOMETER, side: "inner" }),
-      ],
-      [
-        "brightnessPercentage",
-        { unit: false, iconSide: "inner" },
-        cell("topLeft", shown(`${A.brightnessPercentage}`), { path: SUN, side: "inner" }),
-      ],
+      ["brightnessPercentage", { unit: false }, cell("topLeft", shown(`${A.brightnessPercentage}`), SUN)],
       ["brightnessLumen", {}, cell("topLeft", shown(`${A.brightnessLumen} lm`))],
-      [
-        "brightnessLumen",
-        { icon: true },
-        cell("topLeft", shown(`${A.brightnessLumen} lm`), { path: SUN, side: "outer" }),
-      ],
+      ["brightnessLumen", { icon: true }, cell("topLeft", shown(`${A.brightnessLumen} lm`), SUN)],
     ])("shows the %s as %o", async (item, options, slots) => {
       const dial = await topLeftOf(item, options);
 
