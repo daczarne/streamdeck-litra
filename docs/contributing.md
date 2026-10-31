@@ -90,7 +90,7 @@ A section's parts with several settings get a heading, such as "Lamp screens". A
 
 ## The lamp screens' text styles are roles
 
-Stream Deck lets each user pick the touch strip's background, which the plugin can't read, so no fixed look reads on every strip. The lamp screens' text takes its look from four styles, set in the plugin settings, which every dial shares ([#153]). Each is named for its role, not its look, so a user who restyles them keeps what each one means, and a text picks its style by what it says:
+Stream Deck lets each user pick the touch strip's background, which the plugin can't read, so no fixed look reads on every strip. The lamp screens' text takes its look from four styles, set in the plugin settings, which every dial shares ([#153]). Each is named for its role, not its look, so a user who restyles them keeps what each one means, and a text picks its style by what it says. An icon takes the color of the text beside it, so a cell reads as one piece in whatever style it picks:
 
 | Style     | Role                                          | Default look            | Used by default for |
 | --------- | --------------------------------------------- | ----------------------- | ------------------- |

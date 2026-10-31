@@ -141,7 +141,7 @@ A pull request that raises the version makes a release once it's merged. CI's la
 
 ## Icons
 
-The plugin's images are drawn by code, from the glyphs of [`streamdeck-icons`][streamdeck-icons], a development dependency pinned to a commit. That repository also holds the palette, and the Litra icon pack, which adds these icons and variants of them to Stream Deck's Icon Library. `scripts/generate-icons.mjs` decides which glyph goes where, and renders each to the PNG sizes Stream Deck needs. The key images are drawn at the icon pack's sizes, leaving room for a title, while the dials' icons on the touch strip fill their canvas.
+The plugin's images are drawn by code, from the glyphs of [`streamdeck-icons`][streamdeck-icons], a dependency pinned to a commit. That repository also holds the palette, and the Litra icon pack, which adds these icons and variants of them to Stream Deck's Icon Library. `scripts/generate-icons.mjs` decides which glyph goes where, and renders each to the PNG sizes Stream Deck needs, while the lamp screens draw the thermometer and the sun at runtime, in their cell's text color. The key images are drawn at the icon pack's sizes, leaving room for a title, while the dials' icons on the touch strip fill their canvas.
 
 To take a change to the glyphs, update the commit the dependency is pinned to, run `npm run icons`, and commit the regenerated images with it. CI regenerates them too, and fails when the committed images aren't what the script draws.
 
