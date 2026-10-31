@@ -9,6 +9,7 @@
 - [Supported lamps](#supported-lamps)
 - [By default, lamps are managed together](#by-default-lamps-are-managed-together)
 - [The plugin settings are laid out by reach](#the-plugin-settings-are-laid-out-by-reach)
+- [The lamp screens' text styles are roles](#the-lamp-screens-text-styles-are-roles)
 - [Working with Claude](#working-with-claude)
 
 This document describes how work on this repository is done: how changes reach `main`, how they are sliced and recorded, what each one has to bring with it, and the design rules that hold across the plugin. How the plugin's parts fit together, and why, is in [the architecture document][architecture]. Style is covered separately, in [the style guide][style-guide].
@@ -86,6 +87,21 @@ The plugin settings, which every settings page shows, hold settings of different
 3. **Keys**, if a setting ever reaches only the keys, after the dials.
 
 A section's parts with several settings get a heading, such as "Lamp screens". A part with a single setting is that setting's row label, such as "Brightness", until it grows a second one. A section or a part with no settings isn't shown: its heading comes with its first setting.
+
+## The lamp screens' text styles are roles
+
+Stream Deck lets each user pick the touch strip's background, which the plugin can't read, so no fixed look reads on every strip. The lamp screens' text takes its look from four styles, set in the plugin settings, which every dial shares ([#153]). Each is named for its role, not its look, so a user who restyles them keeps what each one means, and a text picks its style by what it says:
+
+| Style     | Role                                          | Default look            | Used by default for |
+| --------- | --------------------------------------------- | ----------------------- | ------------------- |
+| Primary   | The text itself                               | White `#ffffff`         | Every text          |
+| Secondary | Text that steps back, such as a state at rest | Dark grey `#202020`     | The power's "OFF"   |
+| Accent    | Text that draws the eye, without a judgment   | Cyan `#4dd0e1`          | Nothing             |
+| Alert     | Something wrong, which needs attention        | Bold soft red `#ff6b6b` | Nothing             |
+
+Every style is 18 px by default, and Normal but for Alert, which is bold so it stands out even when its color is changed. Accent's cyan is far from Alert's red and Secondary's grey, and suggests neither a warning, as amber would, nor that all is well, as green would. Alert's red is the one the plugin settings show "No lamps found" in, so red means the same thing on the strip and in the panel. The defaults draw the lamp screens as they were before the styles: only Primary and Secondary are used until the user picks the others for a cell or a power state.
+
+A text that the plugin itself would show in another style, such as a brightness held below what was asked, picks the style of its role, and comes as its own change: the styles don't change what the lamp screens show by default.
 
 ## Working with Claude
 

@@ -20,7 +20,7 @@ The plugin isn't on Elgato's Marketplace. A merge that raises the manifest's ver
 
 ## Read before changing things
 
-- `docs/contributing.md`: how work is done here. Changes go through pull requests, features come with their tests, dependencies are pinned, unused code is removed, and a new setting goes in the plugin settings' section of what it reaches. This file only adds what is specific to Claude.
+- `docs/contributing.md`: how work is done here. Changes go through pull requests, features come with their tests, dependencies are pinned, unused code is removed, a new setting goes in the plugin settings' section of what it reaches, and a text on the lamp screens takes the text style of its role. This file only adds what is specific to Claude.
 - `docs/style_guide.md`: the conventions the linters don't enforce (see [Style](#style)).
 - `docs/elgato_sdk/`: what the Stream Deck SDK offers and what it doesn't (how actions are registered, the interactions a dial receives, its layouts, how Stream Deck loads the settings pages, its logger, what a key shows), checked against the installed version. Read it before designing how an action behaves on the Deck, and add to it when a change finds out something new about the SDK.
 - `docs/logging.md`: what the plugin logs, at which level and with what in each message, where the logs are written and how the files are rotated. A change that logs something new adds it to the contract there.

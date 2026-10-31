@@ -11,6 +11,7 @@ import {
   lampScreenCells,
   onGlobalSettingsChanged,
   type TextStyle,
+  type TextStyles,
   textStyles,
 } from "./global-settings";
 import { LAMP_SCREEN_CELLS, type LampScreenCell, type LampScreenItem, type LampScreenItemOptions } from "./settings";
@@ -216,7 +217,7 @@ function shownIn(
   content: LampScreenCellContent,
   lamp: LampStatus,
   lamps: LampStatus[],
-  styles: Record<"primary" | "accent", TextStyle>,
+  styles: TextStyles,
 ): Shown | undefined {
   switch (content.item) {
     case "identification":
@@ -291,11 +292,7 @@ function measure(
  * Whether a lamp is on, with the label chosen for its state, in the text style chosen for it, or in its own color and
  * weight, at the Primary style's size.
  */
-function power(
-  options: LampScreenItemOptions["power"],
-  on: boolean,
-  styles: Record<"primary" | "accent", TextStyle>,
-): Shown["text"] {
+function power(options: LampScreenItemOptions["power"], on: boolean, styles: TextStyles): Shown["text"] {
   const [value, style, color, weight] = on
     ? [options.onLabel, options.onStyle, options.onColor, options.onWeight]
     : [options.offLabel, options.offStyle, options.offColor, options.offWeight];

@@ -388,7 +388,7 @@
       onColor: "#ffffff",
       onWeight: "normal",
       offLabel: "OFF",
-      offStyle: "accent",
+      offStyle: "secondary",
       offColor: "#202020",
       offWeight: "normal",
     },
@@ -410,7 +410,9 @@
   // The lamp screens' text styles, which a cell takes, and a look of its own, which only a power state takes (#153).
   const TEXT_STYLES = [
     ["primary", "Primary"],
+    ["secondary", "Secondary"],
     ["accent", "Accent"],
+    ["alert", "Alert"],
   ];
   const FONT_STYLES = [...TEXT_STYLES, ["custom", "Custom"]];
   const FONT_SIZES = [16, 17, 18, 19, 20, 21, 22].map((size) => [String(size), `${size} px`]);
@@ -467,10 +469,10 @@
    * sdpi-components as a global setting named after the style, and a Reset button under them, which sets each back to
    * its default. A control saves the value a script gives it, as it does the user's.
    */
-  function textStyle(name, setting, color) {
+  function textStyle(name, setting, color, weight = "normal") {
     const controls = [
       globalColor(`${setting}Color`, color),
-      globalSelect(`${setting}Weight`, WEIGHTS, "normal"),
+      globalSelect(`${setting}Weight`, WEIGHTS, weight),
       globalSelect(`${setting}Size`, FONT_SIZES, "18"),
     ];
     const [colorPicker, weightList, sizeList] = controls;
@@ -871,7 +873,9 @@
     item("Blink", everyDialBlink),
     item("Layout", lampScreenCells()),
     item("Text styles", textStyle("Primary", "lampScreenPrimary", "#ffffff")),
-    item(undefined, textStyle("Accent", "lampScreenAccent", "#202020")),
+    item(undefined, textStyle("Secondary", "lampScreenSecondary", "#202020")),
+    item(undefined, textStyle("Accent", "lampScreenAccent", "#4dd0e1")),
+    item(undefined, textStyle("Alert", "lampScreenAlert", "#ff6b6b", "bold")),
   );
   container.append(item(undefined, toggleButton), view, editor);
   readCellOptions()

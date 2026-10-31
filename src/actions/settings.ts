@@ -241,7 +241,9 @@ const IDENTIFICATION_PARTS = ["model", "id", "name", "empty"] as const;
 const WEIGHTS = ["normal", "bold"] as const;
 const COUNTS = ["count", "countOf", "countByModel"] as const;
 const COUNTER_FORMATS = ["of", "slash", "dash", "space"] as const;
-const TEXT_STYLES = ["primary", "accent"] as const;
+const TEXT_STYLES = ["primary", "secondary", "accent", "alert"] as const;
+
+export type TextStyleName = (typeof TEXT_STYLES)[number];
 const FONT_STYLES = [...TEXT_STYLES, "custom"] as const;
 const ON_LABELS = ["On", "ON", "●", "I"] as const;
 const OFF_LABELS = ["Off", "OFF", "○", "O"] as const;
@@ -265,7 +267,7 @@ export const lampScreenItemOptions = {
     onColor: hexColor("#ffffff"),
     onWeight: oneOf(WEIGHTS, "normal"),
     offLabel: oneOf(OFF_LABELS, "OFF"),
-    offStyle: oneOf(FONT_STYLES, "accent"),
+    offStyle: oneOf(FONT_STYLES, "secondary"),
     offColor: hexColor("#202020"),
     offWeight: oneOf(WEIGHTS, "normal"),
   },
@@ -293,11 +295,11 @@ export type LampScreenItemOptions = {
 // needs a longer one. The longest is twice the fade. What each cell of the lamp screens shows is the same on every dial,
 // and the defaults are what the lamp screens showed before it could be chosen (#177). How each cell shows its item is
 // kept by cell and by item, read against lampScreenItemOptions. The lamps' names, which the plugin settings save by lamp
-// id (#146), are read too, for the cells that show them. The lamp screens' text takes two styles, the same on every dial:
-// by default, Primary for every text, and Accent for the power's "OFF" (#153). Each has a color, a weight and a size,
-// which a layout's text takes, and nothing else: no font family. The sizes stop at 16 px, below which text is hard to
-// read on the strip (#8), and at 22 px, which still fits the 26 px rows of layouts/lamp.json. The defaults draw what the
-// lamp screens showed before: white and dark grey, in the normal weight, at 18 px.
+// id (#146), are read too, for the cells that show them. The lamp screens' text takes four styles, the same on every
+// dial, each named for its role rather than its look (see docs/contributing.md, #153): Primary, Secondary, Accent and
+// Alert. Each has a color, a weight and a size, which a layout's text takes, and nothing else: no font family. The sizes
+// stop at 16 px, below which text is hard to read on the strip (#8), and at 22 px, which still fits the 26 px rows of
+// layouts/lamp.json. Only Primary and Secondary are used by default, which draws what the lamp screens showed before.
 export const globalSettings = {
   blinkOnLampScreen: flag(false),
   blinkOnLampScreenExceptions: textList(),
@@ -314,9 +316,15 @@ export const globalSettings = {
   lampScreenPrimaryColor: hexColor("#ffffff"),
   lampScreenPrimaryWeight: oneOf(WEIGHTS, "normal"),
   lampScreenPrimarySize: wholeNumberFrom(16, 22, 18),
-  lampScreenAccentColor: hexColor("#202020"),
+  lampScreenSecondaryColor: hexColor("#202020"),
+  lampScreenSecondaryWeight: oneOf(WEIGHTS, "normal"),
+  lampScreenSecondarySize: wholeNumberFrom(16, 22, 18),
+  lampScreenAccentColor: hexColor("#4dd0e1"),
   lampScreenAccentWeight: oneOf(WEIGHTS, "normal"),
   lampScreenAccentSize: wholeNumberFrom(16, 22, 18),
+  lampScreenAlertColor: hexColor("#ff6b6b"),
+  lampScreenAlertWeight: oneOf(WEIGHTS, "bold"),
+  lampScreenAlertSize: wholeNumberFrom(16, 22, 18),
   lampNames: textByKey(),
 };
 
