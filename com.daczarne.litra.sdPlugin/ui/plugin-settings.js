@@ -42,6 +42,15 @@
       padding: 4px 0;
     }
 
+    /* What stands in for the lamps' table, such as "No lamps found", centered under Find lamps, and as noticeable. */
+    #plugin-settings .lamp-list .note {
+      color: #d8d8d8;
+      font-size: 10pt;
+      font-weight: 600;
+      padding: 8px 0;
+      text-align: center;
+    }
+
     #plugin-settings table {
       width: 100%;
       border-collapse: collapse;
@@ -817,6 +826,7 @@
   // global settings that arrive once it's on the page. Only the lamps are drawn again.
   const toggleButton = button("Plugin settings", () => toggle().catch(showError));
   const lampList = document.createElement("div");
+  lampList.className = "lamp-list";
   const view = document.createElement("div");
   view.hidden = true;
   const editor = document.createElement("div");
@@ -871,9 +881,9 @@
       return;
     }
     if (found === undefined) {
-      lampList.replaceChildren(note("Looking for lamps…"));
+      lampList.replaceChildren(item(undefined, note("Looking for lamps…")));
     } else if (found.length === 0) {
-      lampList.replaceChildren(note("No lamps found"));
+      lampList.replaceChildren(item(undefined, note("No lamps found")));
     } else {
       lampList.replaceChildren(lampTable(found));
     }

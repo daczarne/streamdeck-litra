@@ -35,6 +35,7 @@ In VS Code, the `Build and restart` task runs both.
 9. **The names survive a restart.** Name both lamps, restart the plugin, then quit and reopen Stream Deck: the plugin settings and the keys' Lamps items still show the names.
 10. **The log tells each request.** `logs/litra.log` has a `Lamp picker` line each time the plugin settings open or Find lamps is pressed, and one for each Identify.
 11. **The blink's length is the plugin's.** With both lamps at 100%, press Identify: at 400 ms, the lamp only dims part of the way. Drag Blink length to 600 ms, and press Identify: the lamp fades almost to dark, clearly enough to tell even with the other one on. Drag it to 1500 ms: the value next to it follows the slider. Press Identify: the lamp stays dark for a moment before it comes back. Select the Brightness dial, tap its strip to the first lamp's screen, and hold the strip: the lamp blinks just as long. Restart the plugin and press Identify again: still as long, and the slider still shows "1500 ms". Drag it back to 400 ms, to leave the default.
+12. **No lamps found stands out.** Unplug both lamps, open the plugin settings, and press Find lamps: "No lamps found" shows centered under Find lamps, in bold, larger than the labels around it, and in the panel's font. Plug the lamps back in and press Find lamps: the table comes back in its place.
 
 [#146]: https://github.com/daczarne/streamdeck-litra/issues/146
 [#171]: https://github.com/daczarne/streamdeck-litra/issues/171
