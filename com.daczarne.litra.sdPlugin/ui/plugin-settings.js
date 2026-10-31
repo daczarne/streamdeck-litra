@@ -102,6 +102,11 @@
       margin-top: 6px;
     }
 
+    #plugin-settings .fields-reset {
+      display: block;
+      margin-top: 6px;
+    }
+
     #plugin-settings .field {
       display: flex;
       flex: 1;
@@ -420,14 +425,30 @@
 
   /**
    * One of the lamp screens' text styles (#153), under its name: its color, weight and size, side by side, each saved by
-   * sdpi-components as a global setting named after the style.
+   * sdpi-components as a global setting named after the style, and a Reset button under them, which sets each back to
+   * its default. A control saves the value a script gives it, as it does the user's.
    */
   function textStyle(name, setting, color) {
-    return fields(name, [
-      ["Color", globalColor(`${setting}Color`, color)],
-      ["Font weight", globalSelect(`${setting}Weight`, WEIGHTS, "normal")],
-      ["Font size", globalSelect(`${setting}Size`, FONT_SIZES, "18")],
+    const controls = [
+      globalColor(`${setting}Color`, color),
+      globalSelect(`${setting}Weight`, WEIGHTS, "normal"),
+      globalSelect(`${setting}Size`, FONT_SIZES, "18"),
+    ];
+    const [colorPicker, weightList, sizeList] = controls;
+    const box = fields(name, [
+      ["Color", colorPicker],
+      ["Font weight", weightList],
+      ["Font size", sizeList],
     ]);
+    const reset = button("Reset", () => {
+      for (const control of controls) {
+        control.value = control.getAttribute("default");
+      }
+    });
+    reset.className = "fields-reset";
+    reset.dataset.style = setting;
+    box.append(reset);
+    return box;
   }
 
   /** A list for each cell of the lamp screens, laid out as the cells are, each with a button that shows its options. */

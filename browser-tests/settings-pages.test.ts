@@ -644,6 +644,35 @@ describe("settings pages", () => {
     });
   });
 
+  it.each([
+    ["lampScreenPrimary", "lampScreenAccent", "#ffffff"],
+    ["lampScreenAccent", "lampScreenPrimary", "#202020"],
+  ])("a text style's Reset saves %s's defaults, and keeps the other style (#153)", async (style, other, color) => {
+    const saved = (name: string) => ({
+      [`${name}Color`]: "#ff8800",
+      [`${name}Weight`]: "bold",
+      [`${name}Size`]: "22",
+    });
+    streamDeck.globalSettings = { ...saved(style), ...saved(other) };
+    const { page } = await openPanel(at(PANELS, 0));
+    await page.evaluate(`SDPIComponents.useGlobalSettings("${style}Color")[0]()`);
+    await clickInPluginSettings(page, "Plugin settings");
+    await page.evaluate(`(async () => {
+      const host = document.querySelector('sdpi-button[data-style="${style}"]');
+      await host.updateComplete;
+      host.shadowRoot.querySelector("button").click();
+    })()`);
+    await expect
+      .poll(() => streamDeck.globalSettings)
+      .toEqual({ ...saved(other), [`${style}Color`]: color, [`${style}Weight`]: "normal", [`${style}Size`]: "18" });
+    await page.close();
+    streamDeck.globalSettings = {};
+
+    for (const [setting, value] of Object.entries({ Color: color, Weight: "normal", Size: "18" })) {
+      expect(read(`${style}${setting}`, value)).toEqual({ value: defaultOf(`${style}${setting}`), valid: true });
+    }
+  });
+
   // The editor of each cell's options, which Configure shows in place of the plugin settings (#177).
   describe("the lamp screens' cell editor in the plugin settings on ui/power.html", () => {
     const panel = at(PANELS, 0);
@@ -1298,7 +1327,8 @@ describe("settings pages", () => {
         open: true,
         actionShown: false,
         // A Configure button under each of the lamp screens' cells (#177).
-        buttons: ["Back", "Find lamps", "Identify", ...LAMP_SCREEN_LISTS.map(() => "Configure")],
+        // and a Reset button under each text style (#153).
+        buttons: ["Back", "Find lamps", "Identify", ...LAMP_SCREEN_LISTS.map(() => "Configure"), "Reset", "Reset"],
       });
       expect(await shownGlobalSettings(page)).toEqual(PLUGIN_SETTINGS_GLOBALS);
 
@@ -1565,7 +1595,9 @@ function clickInPluginSettings(page: Page, text: string, row?: string): Promise<
   return page.evaluate(`(async () => {
     const container = document.getElementById("plugin-settings");
     const scope = ${row === undefined ? "container" : `[...container.querySelectorAll("tr.lamp")].find((r) => r.firstElementChild.textContent === ${JSON.stringify(row)})`};
-    const host = [...scope.querySelectorAll("sdpi-button")].find((element) => element.textContent === ${JSON.stringify(text)});
+    const host = [...scope.querySelectorAll("sdpi-button")].find(
+      (element) => element.textContent === ${JSON.stringify(text)} && element.checkVisibility(),
+    );
     await host.updateComplete;
     host.shadowRoot.querySelector("button").click();
   })()`);
