@@ -101,8 +101,9 @@ const PANELS: Panel[] = [
 ];
 
 // The global checkboxes of sdpi-components the plugin settings show, on every page, which every dial and key shares
-// (#145, #146), the lists of the lamp screens' cells, in the order the cells are read (#177), and every global setting
-// they show through sdpi-components, in their order, the blink's length last (#171).
+// (#145, #146), the lists of the lamp screens' cells, in the order the cells are read (#177), the controls of their text
+// styles (#153), and every global setting they show through sdpi-components, in their order, the blink's length last
+// (#171).
 const PLUGIN_SETTINGS_CHECKBOXES = ["keepBrightnessDifference", "keepTemperatureDifference"];
 const LAMP_SCREEN_LISTS = [
   "lampScreenTopLeft",
@@ -112,7 +113,15 @@ const LAMP_SCREEN_LISTS = [
   "lampScreenBottomLeft",
   "lampScreenBottomRight",
 ];
-const PLUGIN_SETTINGS_GLOBALS = [...PLUGIN_SETTINGS_CHECKBOXES, ...LAMP_SCREEN_LISTS, "identifyBlinkMs"];
+const TEXT_STYLE_CONTROLS = ["Primary", "Accent"].flatMap((style) =>
+  ["Color", "Weight", "Size"].map((part) => `lampScreen${style}${part}`),
+);
+const PLUGIN_SETTINGS_GLOBALS = [
+  ...PLUGIN_SETTINGS_CHECKBOXES,
+  ...LAMP_SCREEN_LISTS,
+  ...TEXT_STYLE_CONTROLS,
+  "identifyBlinkMs",
+];
 
 // What the plugin accepts for each setting, by its name, and the default it takes: settings.ts says these are what
 // each page offers, and the pages' own defaults.
@@ -588,6 +597,82 @@ describe("settings pages", () => {
     },
   );
 
+  // The lamp screens' text styles in the plugin settings, each style's color, weight and size (#153), with a value each
+  // control can save other than its default.
+  describe.each([
+    { setting: "lampScreenPrimaryColor", value: "#ff8800" },
+    { setting: "lampScreenPrimaryWeight", value: "bold" },
+    { setting: "lampScreenPrimarySize", value: "22" },
+    { setting: "lampScreenAccentColor", value: "#00aaff" },
+    { setting: "lampScreenAccentWeight", value: "bold" },
+    { setting: "lampScreenAccentSize", value: "16" },
+  ])("the global $setting in the plugin settings on ui/power.html", ({ setting, value }) => {
+    const panel = at(PANELS, 0);
+
+    afterEach(() => {
+      streamDeck.globalSettings = {};
+    });
+
+    it("defaults to its default in settings.ts, and offers only choices it accepts", async () => {
+      const { page } = await openPanel(panel);
+      const control = await controlOf(page, setting);
+      await page.close();
+
+      expect(read(setting, control.default ?? "")).toEqual({ value: defaultOf(setting), valid: true });
+      for (const choice of control.options) {
+        expect(read(setting, choice), `${setting} set to ${choice}`).toMatchObject({ valid: true });
+      }
+    });
+
+    it("saves to the global settings, as settings.ts takes it, keeping the others", async () => {
+      streamDeck.globalSettings = { blinkOnLampScreen: true };
+      const { page, uuid } = await openPanel(panel);
+      await page.evaluate(`SDPIComponents.useGlobalSettings("${setting}")[0]()`);
+      await clickInPluginSettings(page, "Plugin settings");
+      await page.evaluate(`(async () => {
+        const host = document.querySelector('[setting="${setting}"]');
+        await host.updateComplete;
+        const control = host.shadowRoot.querySelector("select, input");
+        control.value = ${JSON.stringify(value)};
+        control.dispatchEvent(new Event("change", { bubbles: true, composed: true }));
+      })()`);
+      const message = await streamDeck.waitFor((m) => m.event === "setGlobalSettings" && m.context === uuid);
+      await page.close();
+
+      expect(message.payload).toEqual({ blinkOnLampScreen: true, [setting]: value });
+      expect(read(setting, value)).toMatchObject({ valid: true });
+    });
+  });
+
+  it.each([
+    ["lampScreenPrimary", "lampScreenAccent", "#ffffff"],
+    ["lampScreenAccent", "lampScreenPrimary", "#202020"],
+  ])("a text style's Reset saves %s's defaults, and keeps the other style (#153)", async (style, other, color) => {
+    const saved = (name: string) => ({
+      [`${name}Color`]: "#ff8800",
+      [`${name}Weight`]: "bold",
+      [`${name}Size`]: "22",
+    });
+    streamDeck.globalSettings = { ...saved(style), ...saved(other) };
+    const { page } = await openPanel(at(PANELS, 0));
+    await page.evaluate(`SDPIComponents.useGlobalSettings("${style}Color")[0]()`);
+    await clickInPluginSettings(page, "Plugin settings");
+    await page.evaluate(`(async () => {
+      const host = document.querySelector('sdpi-button[data-style="${style}"]');
+      await host.updateComplete;
+      host.shadowRoot.querySelector("button").click();
+    })()`);
+    await expect
+      .poll(() => streamDeck.globalSettings)
+      .toEqual({ ...saved(other), [`${style}Color`]: color, [`${style}Weight`]: "normal", [`${style}Size`]: "18" });
+    await page.close();
+    streamDeck.globalSettings = {};
+
+    for (const [setting, value] of Object.entries({ Color: color, Weight: "normal", Size: "18" })) {
+      expect(read(`${style}${setting}`, value)).toEqual({ value: defaultOf(`${style}${setting}`), valid: true });
+    }
+  });
+
   // The editor of each cell's options, which Configure shows in place of the plugin settings (#177).
   describe("the lamp screens' cell editor in the plugin settings on ui/power.html", () => {
     const panel = at(PANELS, 0);
@@ -712,6 +797,34 @@ describe("settings pages", () => {
       await setOption(page, "count", "countByModel");
 
       await expect.poll(formatDisabled).toBe(false);
+      await page.close();
+    });
+
+    it("greys out a power state's color and weight unless its font style is Custom (#153)", async () => {
+      streamDeck.globalSettings = { lampScreenTopLeft: "power" };
+      const { page } = await openEditor("topLeft");
+      const disabled = () =>
+        page.evaluate<Record<string, boolean>>(`Object.fromEntries(
+          [...document.querySelectorAll(".cell-editor [data-option]")].map((control) => [
+            control.dataset.option,
+            control.disabled,
+          ]),
+        )`);
+
+      expect(await disabled()).toEqual({
+        onLabel: false,
+        onStyle: false,
+        onColor: true,
+        onWeight: true,
+        offLabel: false,
+        offStyle: false,
+        offColor: true,
+        offWeight: true,
+      });
+
+      await setOption(page, "offStyle", "custom");
+
+      await expect.poll(disabled).toMatchObject({ onColor: true, onWeight: true, offColor: false, offWeight: false });
       await page.close();
     });
 
@@ -1214,7 +1327,8 @@ describe("settings pages", () => {
         open: true,
         actionShown: false,
         // A Configure button under each of the lamp screens' cells (#177).
-        buttons: ["Back", "Find lamps", "Identify", ...LAMP_SCREEN_LISTS.map(() => "Configure")],
+        // and a Reset button under each text style (#153).
+        buttons: ["Back", "Find lamps", "Identify", ...LAMP_SCREEN_LISTS.map(() => "Configure"), "Reset", "Reset"],
       });
       expect(await shownGlobalSettings(page)).toEqual(PLUGIN_SETTINGS_GLOBALS);
 
@@ -1481,7 +1595,9 @@ function clickInPluginSettings(page: Page, text: string, row?: string): Promise<
   return page.evaluate(`(async () => {
     const container = document.getElementById("plugin-settings");
     const scope = ${row === undefined ? "container" : `[...container.querySelectorAll("tr.lamp")].find((r) => r.firstElementChild.textContent === ${JSON.stringify(row)})`};
-    const host = [...scope.querySelectorAll("sdpi-button")].find((element) => element.textContent === ${JSON.stringify(text)});
+    const host = [...scope.querySelectorAll("sdpi-button")].find(
+      (element) => element.textContent === ${JSON.stringify(text)} && element.checkVisibility(),
+    );
     await host.updateComplete;
     host.shadowRoot.querySelector("button").click();
   })()`);

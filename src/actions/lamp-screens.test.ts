@@ -62,6 +62,18 @@ const OFF_POWER = { color: "#202020", font: { size: 18, weight: 400 } };
 const HIDDEN = { value: "", enabled: false };
 const NO_ICON = { enabled: false };
 const THERMOMETER = "imgs/actions/temperature/glyph@2x.png";
+
+// Text styles other than the defaults, as the plugin settings save them, and how the lamp screens draw them (#153).
+const STYLES = {
+  lampScreenPrimaryColor: "#FFCC00",
+  lampScreenPrimaryWeight: "bold",
+  lampScreenPrimarySize: "20",
+  lampScreenAccentColor: "#336699",
+  lampScreenAccentWeight: "normal",
+  lampScreenAccentSize: "16",
+};
+const PRIMARY = { color: "#ffcc00", font: { size: 20, weight: 700 } };
+const ACCENT = { color: "#336699", font: { size: 16, weight: 400 } };
 const SUN = "imgs/actions/brightness/glyph@2x.png";
 
 /** A text shown in a slot, with its look. */
@@ -360,12 +372,14 @@ describe("LampScreens", () => {
       expect(topLeft(dial)).toEqual(slots);
     });
 
-    it("shows the power with the label, color and weight chosen for each state", async () => {
+    it("shows the power with the label, and the color and weight of its own, chosen for each state", async () => {
       const options = {
         onLabel: "●",
+        onStyle: "custom",
         onColor: "#FF8800",
         onWeight: "bold",
         offLabel: "O",
+        offStyle: "custom",
         offColor: "#00aaff",
         offWeight: "normal",
       };
@@ -376,6 +390,43 @@ describe("LampScreens", () => {
       await screens.tap(dial, owner);
 
       expect(topLeft(dial)).toEqual(cell("topLeft", shown("O", { color: "#00aaff", font: { size: 18, weight: 400 } })));
+    });
+
+    it("draws every text in the Primary style, and the power's OFF in the Accent style (#153)", async () => {
+      const dial = createFakeDial();
+      changeGlobalSettings(STYLES);
+      await screens.tap(dial, owner);
+
+      expect(dial.setFeedback).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          topLeft: shown(A.label, PRIMARY),
+          middleLeftBesideIcon: shown(`${A.temperatureKelvin} K`, PRIMARY),
+          middleRight: shown("ON", PRIMARY),
+          bottomRight: shown(`${A.brightnessLumen} lm`, PRIMARY),
+        }),
+      );
+
+      await screens.tap(dial, owner);
+
+      expect(dial.setFeedback).toHaveBeenLastCalledWith(expect.objectContaining({ middleRight: shown("OFF", ACCENT) }));
+    });
+
+    it("shows each of the power's states in the text style chosen for it (#153)", async () => {
+      const dial = await topLeftOf("power", { onStyle: "accent", offStyle: "primary" }, STYLES);
+
+      expect(topLeft(dial)).toEqual(cell("topLeft", shown("ON", ACCENT)));
+
+      await screens.tap(dial, owner);
+
+      expect(topLeft(dial)).toEqual(cell("topLeft", shown("OFF", PRIMARY)));
+    });
+
+    it("shows a power state in its own color and weight at the Primary style's size (#153)", async () => {
+      const dial = await topLeftOf("power", { onStyle: "custom", onColor: "#ff8800", onWeight: "bold" }, STYLES);
+
+      expect(topLeft(dial)).toEqual(
+        cell("topLeft", shown("ON", { color: "#ff8800", font: { size: 20, weight: 700 } })),
+      );
     });
 
     it("keeps each item's options apart, so a cell's options for another item don't change how it shows this one", async () => {

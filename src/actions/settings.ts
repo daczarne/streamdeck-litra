@@ -234,11 +234,14 @@ export type LampScreenCell = (typeof LAMP_SCREEN_CELLS)[number];
 // power, which reads "ON" and "OFF", both in the normal weight. An identification is made of two parts, joined by " - "
 // when both have text: a lamp with no name shows "Model - ID" for its name, and a lamp that reports no serial number,
 // such as the Beam LX (#170), has no ID. Trimmed, it keeps to half a row. A counter counts every lamp, or the lamps of
-// the shown one's model. A measure's icon, when it shows one, always sits on the cell's outer edge.
+// the shown one's model. A measure's icon, when it shows one, always sits on the cell's outer edge. Each of the power's
+// states takes one of the lamp screens' text styles, or a color and a weight of its own, at the Primary style's size
+// (#153).
 const IDENTIFICATION_PARTS = ["model", "id", "name", "empty"] as const;
 const WEIGHTS = ["normal", "bold"] as const;
 const COUNTS = ["count", "countOf", "countByModel"] as const;
 const COUNTER_FORMATS = ["of", "slash", "dash", "space"] as const;
+const FONT_STYLES = ["primary", "accent", "custom"] as const;
 const ON_LABELS = ["On", "ON", "●", "I"] as const;
 const OFF_LABELS = ["Off", "OFF", "○", "O"] as const;
 
@@ -255,9 +258,11 @@ export const lampScreenItemOptions = {
   temperature: { icon: flag(true), unit: flag(true) },
   power: {
     onLabel: oneOf(ON_LABELS, "ON"),
+    onStyle: oneOf(FONT_STYLES, "primary"),
     onColor: hexColor("#ffffff"),
     onWeight: oneOf(WEIGHTS, "normal"),
     offLabel: oneOf(OFF_LABELS, "OFF"),
+    offStyle: oneOf(FONT_STYLES, "accent"),
     offColor: hexColor("#202020"),
     offWeight: oneOf(WEIGHTS, "normal"),
   },
@@ -285,7 +290,11 @@ export type LampScreenItemOptions = {
 // needs a longer one. The longest is twice the fade. What each cell of the lamp screens shows is the same on every dial,
 // and the defaults are what the lamp screens showed before it could be chosen (#177). How each cell shows its item is
 // kept by cell and by item, read against lampScreenItemOptions. The lamps' names, which the plugin settings save by lamp
-// id (#146), are read too, for the cells that show them.
+// id (#146), are read too, for the cells that show them. The lamp screens' text takes two styles, the same on every dial:
+// Primary, for every text, and Accent, for the power's "OFF" by default (#153). Each has a color, a weight and a size,
+// which a layout's text takes, and nothing else: no font family. The sizes stop at 16 px, below which text is hard to
+// read on the strip (#8), and at 22 px, which still fits the 26 px rows of layouts/lamp.json. The defaults draw what the
+// lamp screens showed before: white and dark grey, in the normal weight, at 18 px.
 export const globalSettings = {
   blinkOnLampScreen: flag(false),
   blinkOnLampScreenExceptions: textList(),
@@ -299,6 +308,12 @@ export const globalSettings = {
   lampScreenBottomLeft: oneOf(LAMP_SCREEN_ITEMS, "brightnessPercentage"),
   lampScreenBottomRight: oneOf(LAMP_SCREEN_ITEMS, "brightnessLumen"),
   lampScreenOptions: anObject(),
+  lampScreenPrimaryColor: hexColor("#ffffff"),
+  lampScreenPrimaryWeight: oneOf(WEIGHTS, "normal"),
+  lampScreenPrimarySize: wholeNumberFrom(16, 22, 18),
+  lampScreenAccentColor: hexColor("#202020"),
+  lampScreenAccentWeight: oneOf(WEIGHTS, "normal"),
+  lampScreenAccentSize: wholeNumberFrom(16, 22, 18),
   lampNames: textByKey(),
 };
 
