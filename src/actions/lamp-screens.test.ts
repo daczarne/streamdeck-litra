@@ -1,3 +1,4 @@
+import type { JsonObject } from "@elgato/utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { identifyLamp, type LampStatus, onLampsChanged, readLampStatuses } from "../litra-manager";
@@ -56,39 +57,36 @@ function connect(...lamps: LampStatus[]): void {
 }
 
 // The looks every text on a lamp screen is given, and how a slot left out of its cell is hidden (#177).
-const PLAIN = { color: "white", font: { size: 18, weight: 400 } };
-const OFF_POWER = { color: "#202020", font: { size: 18, weight: 700 } };
+const PLAIN = { color: "#ffffff", font: { size: 18, weight: 400 } };
+const OFF_POWER = { color: "#202020", font: { size: 18, weight: 400 } };
 const HIDDEN = { value: "", enabled: false };
 const NO_ICON = { enabled: false };
-const TEMPERATURE_ICON = { value: "imgs/actions/temperature/glyph@2x.png", enabled: true };
-const BRIGHTNESS_ICON = { value: "imgs/actions/brightness/glyph@2x.png", enabled: true };
+const THERMOMETER = "imgs/actions/temperature/glyph@2x.png";
+const SUN = "imgs/actions/brightness/glyph@2x.png";
 
 /** A text shown in a slot, with its look. */
 function shown(value: string, look: object = PLAIN) {
   return { value, ...look, enabled: true };
 }
 
+/** The slots of a cell: showing `text` beside the icon given, or with no icon, or nothing when there's no text. */
+function cell(name: string, text?: object, icon?: string) {
+  return {
+    [`${name}Icon`]: icon === undefined ? NO_ICON : { value: icon, enabled: true },
+    [`${name}BesideIcon`]: icon === undefined ? HIDDEN : text,
+    [name]: icon === undefined && text !== undefined ? text : HIDDEN,
+  };
+}
+
 /** What a dial's lamp screen shows for a lamp, the `position`-th of `count`, with every cell at its default. */
 function lampScreenOf(lamp: LampStatus, position: number, count: number) {
   return {
-    topLeftIcon: NO_ICON,
-    topLeftAfterIcon: HIDDEN,
-    topLeft: shown(lamp.label),
-    topRightIcon: NO_ICON,
-    topRightAfterIcon: HIDDEN,
-    topRight: shown(`${position} of ${count}`),
-    middleLeftIcon: TEMPERATURE_ICON,
-    middleLeftAfterIcon: shown(`${lamp.temperatureKelvin} K`),
-    middleLeft: HIDDEN,
-    middleRightIcon: NO_ICON,
-    middleRightAfterIcon: HIDDEN,
-    middleRight: lamp.on ? shown("On") : shown("Off", OFF_POWER),
-    bottomLeftIcon: BRIGHTNESS_ICON,
-    bottomLeftAfterIcon: shown(`${lamp.brightnessPercentage}%`),
-    bottomLeft: HIDDEN,
-    bottomRightIcon: NO_ICON,
-    bottomRightAfterIcon: HIDDEN,
-    bottomRight: shown(`${lamp.brightnessLumen} lm`),
+    ...cell("topLeft", shown(lamp.label)),
+    ...cell("topRight", shown(`${position} of ${count}`)),
+    ...cell("middleLeft", shown(`${lamp.temperatureKelvin} K`), THERMOMETER),
+    ...cell("middleRight", lamp.on ? shown("ON") : shown("OFF", OFF_POWER)),
+    ...cell("bottomLeft", shown(`${lamp.brightnessPercentage}%`), SUN),
+    ...cell("bottomRight", shown(`${lamp.brightnessLumen} lm`)),
   };
 }
 
@@ -220,7 +218,7 @@ describe("LampScreens", () => {
   });
 
   describe("with the cells chosen in the plugin settings (#177)", () => {
-    it("shows in each cell what it's given, an icon on the outer side of its text, and nothing in a cell given none", async () => {
+    it("shows in each cell what it's given, an icon on the outer side by default, and nothing in a cell given none", async () => {
       const dial = createFakeDial();
       changeGlobalSettings({
         lampScreenTopLeft: "power",
@@ -234,24 +232,12 @@ describe("LampScreens", () => {
       await screens.tap(dial, owner);
 
       expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith({
-        topLeftIcon: NO_ICON,
-        topLeftAfterIcon: HIDDEN,
-        topLeft: shown("On"),
-        topRightIcon: TEMPERATURE_ICON,
-        topRightAfterIcon: shown(`${A.temperatureKelvin} K`),
-        topRight: HIDDEN,
-        middleLeftIcon: NO_ICON,
-        middleLeftAfterIcon: HIDDEN,
-        middleLeft: HIDDEN,
-        middleRightIcon: BRIGHTNESS_ICON,
-        middleRightAfterIcon: shown(`${A.brightnessPercentage}%`),
-        middleRight: HIDDEN,
-        bottomLeftIcon: NO_ICON,
-        bottomLeftAfterIcon: HIDDEN,
-        bottomLeft: shown(`${A.brightnessLumen} lm`),
-        bottomRightIcon: NO_ICON,
-        bottomRightAfterIcon: HIDDEN,
-        bottomRight: shown(A.label),
+        ...cell("topLeft", shown("ON")),
+        ...cell("topRight", shown(`${A.temperatureKelvin} K`), THERMOMETER),
+        ...cell("middleLeft"),
+        ...cell("middleRight", shown(`${A.brightnessPercentage}%`), SUN),
+        ...cell("bottomLeft", shown(`${A.brightnessLumen} lm`)),
+        ...cell("bottomRight", shown(A.label)),
       });
     });
 
@@ -274,7 +260,143 @@ describe("LampScreens", () => {
       const globalSettingsChanged = vi.mocked(onGlobalSettingsChanged).mock.lastCall?.[0];
       await globalSettingsChanged?.();
 
-      expect(dial.setFeedback).toHaveBeenLastCalledWith({ ...lampScreenOf(A, 1, 2), bottomRight: HIDDEN });
+      expect(dial.setFeedback).toHaveBeenLastCalledWith({ ...lampScreenOf(A, 1, 2), ...cell("bottomRight") });
+    });
+  });
+
+  describe("with each cell's options (#177)", () => {
+    /** Taps a new dial to the first lamp's screen, with the top left cell showing `item`, as `options` say. */
+    async function topLeftOf(item: string, options: JsonObject, others: JsonObject = {}) {
+      const dial = createFakeDial();
+      changeGlobalSettings({ lampScreenTopLeft: item, lampScreenOptions: { topLeft: { [item]: options } }, ...others });
+      await screens.tap(dial, owner);
+      return dial;
+    }
+
+    /** What the top left cell of a dial was last told to show. */
+    function topLeft(dial: ReturnType<typeof createFakeDial>) {
+      const slots = at(dial.setFeedback.mock.calls, -1)[0] as Record<string, unknown>;
+      return Object.fromEntries(Object.entries(slots).filter(([slot]) => slot.startsWith("topLeft")));
+    }
+
+    it.each([
+      [{ first: "name", second: "empty" }, "Key light"],
+      [{ first: "name", second: "id" }, "Key light - A1"],
+      [{ first: "id", second: "model" }, "A1 - Beam"],
+      [{ first: "empty", second: "model" }, "Beam"],
+    ])("builds the identification from its parts, %o", async (options, text) => {
+      const dial = await topLeftOf("identification", options, { lampNames: { [A.id]: "Key light" } });
+
+      expect(topLeft(dial)).toEqual(cell("topLeft", shown(text)));
+    });
+
+    it("shows the model and the end of the serial number for the name of a lamp with none", async () => {
+      const dial = await topLeftOf("identification", { first: "name", second: "empty" });
+
+      expect(topLeft(dial)).toEqual(cell("topLeft", shown(A.label)));
+    });
+
+    it("leaves out the ID of a lamp that reports no serial number, and shows its model when nothing else is left", async () => {
+      const lx = beam("", { model: "Beam LX", label: "Beam LX - " });
+      connect(lx, A);
+
+      const withModel = await topLeftOf("identification", { first: "model", second: "id" });
+      const alone = await topLeftOf("identification", { first: "id", second: "empty" });
+
+      expect(topLeft(withModel)).toEqual(cell("topLeft", shown("Beam LX")));
+      expect(topLeft(alone)).toEqual(cell("topLeft", shown("Beam LX")));
+    });
+
+    it("shows nothing for an identification with both parts empty", async () => {
+      const dial = await topLeftOf("identification", { first: "empty", second: "empty" });
+
+      expect(topLeft(dial)).toEqual(cell("topLeft", shown("")));
+    });
+
+    it("trims a long identification to 10 characters, ending in …, and leaves a short one as it is", async () => {
+      const names = { lampNames: { [A.id]: "Studio key light", [B.id]: "Key light" } };
+      const dial = await topLeftOf("identification", { first: "name", second: "empty", trim: true }, names);
+
+      expect(topLeft(dial)).toEqual(cell("topLeft", shown("Studio ke…")));
+
+      await screens.tap(dial, owner);
+
+      expect(topLeft(dial)).toEqual(cell("topLeft", shown("Key light")));
+    });
+
+    it.each([
+      [{ count: "count" }, "1"],
+      [{ count: "countOf", format: "slash" }, "1/2"],
+      [{ count: "countOf", format: "dash" }, "1-2"],
+      [{ count: "countOf", format: "space" }, "1 2"],
+    ])("counts as %o", async (options, text) => {
+      const dial = await topLeftOf("counter", options);
+
+      expect(topLeft(dial)).toEqual(cell("topLeft", shown(text)));
+    });
+
+    it("counts the lamps of the shown one's model alone, when asked to", async () => {
+      const lx = beam("C3", { model: "Beam LX" });
+      connect(A, B, lx);
+      const dial = await topLeftOf("counter", { count: "countByModel" });
+      await screens.tap(dial, owner);
+
+      expect(topLeft(dial)).toEqual(cell("topLeft", shown("2 of 2")));
+
+      await screens.tap(dial, owner);
+
+      expect(topLeft(dial)).toEqual(cell("topLeft", shown("1 of 1")));
+    });
+
+    it.each([
+      ["temperature", { unit: false }, cell("topLeft", shown(`${A.temperatureKelvin}`), THERMOMETER)],
+      ["temperature", { icon: false }, cell("topLeft", shown(`${A.temperatureKelvin} K`))],
+      ["brightnessPercentage", { unit: false }, cell("topLeft", shown(`${A.brightnessPercentage}`), SUN)],
+      ["brightnessLumen", {}, cell("topLeft", shown(`${A.brightnessLumen} lm`))],
+      ["brightnessLumen", { icon: true }, cell("topLeft", shown(`${A.brightnessLumen} lm`), SUN)],
+    ])("shows the %s as %o", async (item, options, slots) => {
+      const dial = await topLeftOf(item, options);
+
+      expect(topLeft(dial)).toEqual(slots);
+    });
+
+    it("shows the power with the label, color and weight chosen for each state", async () => {
+      const options = {
+        onLabel: "●",
+        onColor: "#FF8800",
+        onWeight: "bold",
+        offLabel: "O",
+        offColor: "#00aaff",
+        offWeight: "normal",
+      };
+      const dial = await topLeftOf("power", options);
+
+      expect(topLeft(dial)).toEqual(cell("topLeft", shown("●", { color: "#ff8800", font: { size: 18, weight: 700 } })));
+
+      await screens.tap(dial, owner);
+
+      expect(topLeft(dial)).toEqual(cell("topLeft", shown("O", { color: "#00aaff", font: { size: 18, weight: 400 } })));
+    });
+
+    it("keeps each item's options apart, so a cell's options for another item don't change how it shows this one", async () => {
+      const dial = createFakeDial();
+      changeGlobalSettings({ lampScreenOptions: { topLeft: { counter: { count: "count" } } } });
+      await screens.tap(dial, owner);
+
+      expect(topLeft(dial)).toEqual(cell("topLeft", shown(A.label)));
+    });
+
+    it("keeps each cell's options apart", async () => {
+      const dial = createFakeDial();
+      changeGlobalSettings({
+        lampScreenTopLeft: "counter",
+        lampScreenOptions: { topLeft: { counter: { count: "count" } } },
+      });
+      await screens.tap(dial, owner);
+
+      expect(dial.setFeedback).toHaveBeenLastCalledWith(
+        expect.objectContaining({ topLeft: shown("1"), topRight: shown("1 of 2") }),
+      );
     });
   });
 
@@ -467,7 +589,7 @@ describe("LampScreens", () => {
       expect(dial.setFeedback).toHaveBeenLastCalledWith(lampScreenOf(turnedOffA, 1, 2));
     });
 
-    it("shows the power of a lamp turned off in bold dark grey, and in white again once it's on", async () => {
+    it("shows the power of a lamp turned off in dark grey, and in white again once it's on", async () => {
       const dial = createFakeDial();
       await screens.tap(dial, owner);
 
@@ -475,13 +597,13 @@ describe("LampScreens", () => {
       await screens.refresh();
 
       expect(dial.setFeedback).toHaveBeenLastCalledWith(
-        expect.objectContaining({ topLeft: shown(A.label), middleRight: shown("Off", OFF_POWER) }),
+        expect.objectContaining({ topLeft: shown(A.label), middleRight: shown("OFF", OFF_POWER) }),
       );
 
       connect(A, B);
       await screens.refresh();
 
-      expect(dial.setFeedback).toHaveBeenLastCalledWith(expect.objectContaining({ middleRight: shown("On") }));
+      expect(dial.setFeedback).toHaveBeenLastCalledWith(expect.objectContaining({ middleRight: shown("ON") }));
     });
 
     it("doesn't read the lamps when no dial shows a lamp screen", async () => {

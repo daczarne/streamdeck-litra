@@ -2,8 +2,15 @@ import type { TouchTapEvent } from "@elgato/streamdeck";
 
 import { identifyLamp, type LampStatus, onLampsChanged, readLampStatuses } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
-import { blinksOnLampScreen, identifyBlinkMs, lampScreenCells, onGlobalSettingsChanged } from "./global-settings";
-import { LAMP_SCREEN_CELLS, type LampScreenCell, type LampScreenItem } from "./settings";
+import {
+  blinksOnLampScreen,
+  identifyBlinkMs,
+  type LampScreenCellContent,
+  lampName,
+  lampScreenCells,
+  onGlobalSettingsChanged,
+} from "./global-settings";
+import { LAMP_SCREEN_CELLS, type LampScreenCell, type LampScreenItem, type LampScreenItemOptions } from "./settings";
 
 /** What the lamp screens use of a dial, whichever action it belongs to. */
 export type LampScreenDial = Pick<
@@ -174,16 +181,24 @@ export class LampScreens {
   }
 }
 
-// "Off" stands out from the lamp screen's other text, which stays white on the strip's own background: dark, and bold,
-// so its thin strokes don't blur into the background at 18 px. The font still joins its "ff" into one shape (#153).
-const PLAIN = { color: "white", font: { size: 18, weight: 400 } };
-const OFF_POWER = { color: "#202020", font: { size: 18, weight: 700 } };
+// Every text on a lamp screen is 18 px, white by default on the strip's own background. By default, "OFF" stands out in
+// dark grey. Bold makes dark text read on a bright background, though the font joins the "ff" of "Off" into one shape
+// (#153), so it's left to the options.
+const FONT_SIZE = 18;
+const PLAIN = { color: "#ffffff", font: { size: FONT_SIZE, weight: 400 } };
 
-// The icons that lead the temperature and the brightness in %, wherever they're shown.
+// The icons of the items that can show one, wherever they're shown: the lumens share the brightness's sun (#177).
 const ICONS: Partial<Record<LampScreenItem, string>> = {
   temperature: "imgs/actions/temperature/glyph@2x.png",
   brightnessPercentage: "imgs/actions/brightness/glyph@2x.png",
+  brightnessLumen: "imgs/actions/brightness/glyph@2x.png",
 };
+
+// What a counter puts between the lamp's place and the count, by format.
+const COUNTER_SEPARATORS = { of: " of ", slash: "/", dash: "-", space: " " };
+
+// The characters a trimmed identification keeps, its "…" included: about as many as fit in half a row at 18 px.
+const TRIMMED_LENGTH = 10;
 
 /** Blinks a lamp, by its id, and shows an alert on the dial when it can't. */
 async function blink(dial: LampScreenDial, lampId: string): Promise<void> {
@@ -193,48 +208,110 @@ async function blink(dial: LampScreenDial, lampId: string): Promise<void> {
   }
 }
 
-/** What an item shows for a lamp, with its look, or undefined for none. */
-function textOf(item: LampScreenItem, lamp: LampStatus, lamps: LampStatus[]) {
-  switch (item) {
+/** What a cell shows: its text, with its look, and its icon and the side it's on, if it has one. */
+type Shown = { text: { value: string; color: string; font: { size: number; weight: number } }; icon?: string };
+
+/** What a cell shows for a lamp, or undefined for a cell that shows nothing. */
+function shownIn(content: LampScreenCellContent, lamp: LampStatus, lamps: LampStatus[]): Shown | undefined {
+  switch (content.item) {
     case "identification":
-      // Named as the keys' settings pages name a lamp with no name, so a lamp found here matches the picker (#20).
-      return { value: lamp.label, ...PLAIN };
+      return { text: { value: identification(content.options, lamp), ...PLAIN } };
     case "counter":
-      return { value: `${lamps.indexOf(lamp) + 1} of ${lamps.length}`, ...PLAIN };
+      return { text: { value: counter(content.options, lamp, lamps), ...PLAIN } };
     case "temperature":
-      return { value: `${lamp.temperatureKelvin} K`, ...PLAIN };
+      return measure(content, `${lamp.temperatureKelvin}`, " K");
     case "power":
-      return lamp.on ? { value: "On", ...PLAIN } : { value: "Off", ...OFF_POWER };
+      return { text: power(content.options, lamp.on) };
     case "brightnessPercentage":
-      return { value: `${lamp.brightnessPercentage}%`, ...PLAIN };
+      return measure(content, `${lamp.brightnessPercentage}`, "%");
     case "brightnessLumen":
-      return { value: `${lamp.brightnessLumen} lm`, ...PLAIN };
+      return measure(content, `${lamp.brightnessLumen}`, " lm");
     case "none":
       return undefined;
   }
 }
 
 /**
- * The slots of one cell of the lamp layout: its icon, a text placed after the icon, and one without, each spanning the
- * row and aligned to the cell's side, since a slot can't move (#177). The cell shows the slots its item needs, and
- * hides the others. Every slot is given its whole look each time, since a slot keeps what it was given.
+ * A lamp's identification, made of up to two parts joined by " - ": its model, the end of its serial number, or its
+ * name, which falls back to its model and the end of its serial number, as the keys' settings pages show a lamp with no
+ * name (#20). A part with no text, such as the serial of a Beam LX, which reports none (#170), is left out. When
+ * neither chosen part has text, the lamp shows its model.
  */
-function cellSlots(cell: LampScreenCell, item: LampScreenItem, lamp: LampStatus, lamps: LampStatus[]) {
-  const text = textOf(item, lamp, lamps);
-  const icon = ICONS[item];
+function identification(options: LampScreenItemOptions["identification"], lamp: LampStatus): string {
+  const partOf = (part: typeof options.first): string => {
+    switch (part) {
+      case "model":
+        return lamp.model;
+      case "id":
+        return lamp.serialNumber.slice(-4);
+      case "name":
+        return lampName(lamp.id) ?? lamp.label;
+      case "empty":
+        return "";
+    }
+  };
+  const parts = [partOf(options.first), partOf(options.second)].filter((part) => part !== "");
+  const chosen = options.first !== "empty" || options.second !== "empty";
+  const text = parts.length > 0 ? parts.join(" - ") : chosen ? lamp.model : "";
+  return options.trim ? trimmed(text) : text;
+}
+
+/** A text cut to TRIMMED_LENGTH characters, ending in "…", or as it is when it's short enough. */
+function trimmed(text: string): string {
+  const characters = Array.from(text);
+  return characters.length > TRIMMED_LENGTH ? `${characters.slice(0, TRIMMED_LENGTH - 1).join("")}…` : text;
+}
+
+/** A lamp's place among the lamps, or among the lamps of its model, alone or with their count. */
+function counter(options: LampScreenItemOptions["counter"], lamp: LampStatus, lamps: LampStatus[]): string {
+  const among = options.count === "countByModel" ? lamps.filter((other) => other.model === lamp.model) : lamps;
+  const place = among.indexOf(lamp) + 1;
+  return options.count === "count" ? `${place}` : `${place}${COUNTER_SEPARATORS[options.format]}${among.length}`;
+}
+
+/** A measure with its unit, if it shows one, and its icon, if it shows one. */
+function measure(
+  content: Extract<LampScreenCellContent, { item: "temperature" | "brightnessPercentage" | "brightnessLumen" }>,
+  value: string,
+  unit: string,
+): Shown {
+  const { icon, unit: withUnit } = content.options;
+  const path = ICONS[content.item];
+  const text = { value: withUnit ? `${value}${unit}` : value, ...PLAIN };
+  return icon && path !== undefined ? { text, icon: path } : { text };
+}
+
+/** Whether a lamp is on, with the label, color and weight chosen for its state. */
+function power(options: LampScreenItemOptions["power"], on: boolean): Shown["text"] {
+  const [value, color, weight] = on
+    ? [options.onLabel, options.onColor, options.onWeight]
+    : [options.offLabel, options.offColor, options.offWeight];
+  return { value, color, font: { size: FONT_SIZE, weight: weight === "bold" ? 700 : 400 } };
+}
+
+/**
+ * The slots of one cell of the lamp layout, placed at fixed points, since a slot can't move (#177): an icon on the
+ * cell's outer edge, with a text beside it, and a text with no icon. Both texts are aligned to the cell's side, left
+ * for a left cell and right for a right one, so a cell reads icon, value and unit on the left, and value, unit and icon
+ * on the right. The cell shows the slots its item needs, and hides the others. Every slot is given its whole look each
+ * time, since a slot keeps what it was given.
+ */
+function cellSlots(cell: LampScreenCell, shown: Shown | undefined) {
   const hidden = { value: "", enabled: false };
+  const text = shown === undefined ? hidden : { ...shown.text, enabled: true };
+  const icon = shown?.icon;
   return {
     [`${cell}Icon`]: icon === undefined ? { enabled: false } : { value: icon, enabled: true },
-    [`${cell}AfterIcon`]: text === undefined || icon === undefined ? hidden : { ...text, enabled: true },
-    [cell]: text === undefined || icon !== undefined ? hidden : { ...text, enabled: true },
+    [`${cell}BesideIcon`]: icon === undefined ? hidden : text,
+    [cell]: icon === undefined ? text : hidden,
   };
 }
 
-/** Fills the slots of the lamp layout, each cell with what the global settings give it (#177). */
+/** Fills the slots of the lamp layout, each cell with what the global settings give it, and how (#177). */
 async function draw(dial: LampScreenDial, lamp: LampStatus, lamps: LampStatus[]): Promise<void> {
   const cells = lampScreenCells();
   await dial.setFeedback(
-    Object.assign({}, ...LAMP_SCREEN_CELLS.map((cell) => cellSlots(cell, cells[cell], lamp, lamps))),
+    Object.assign({}, ...LAMP_SCREEN_CELLS.map((cell) => cellSlots(cell, shownIn(cells[cell], lamp, lamps)))),
   );
 }
 

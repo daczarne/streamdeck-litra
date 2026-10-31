@@ -82,6 +82,38 @@ function flag(fallback: boolean): Setting<boolean> {
   };
 }
 
+/** A setting that takes a color as `#rrggbb`, as a color picker saves it, kept in lower case. */
+function hexColor(fallback: string): Setting<string> {
+  return {
+    default: fallback,
+    expected: "a color as #rrggbb",
+    parse: (value) => (typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value) ? value.toLowerCase() : undefined),
+  };
+}
+
+/** A setting that takes text by key, such as the lamps' names by lamp id. Entries that aren't text are left out. */
+function textByKey(): Setting<Readonly<Record<string, string>>> {
+  return {
+    default: {},
+    expected: "text by key",
+    parse: (value) =>
+      typeof value === "object" && value !== null && !Array.isArray(value)
+        ? Object.fromEntries(
+            Object.entries(value).filter((entry): entry is [string, string] => typeof entry[1] === "string"),
+          )
+        : undefined,
+  };
+}
+
+/** A setting that takes any object, which whoever uses it reads further against a schema of its own. */
+function anObject(): Setting<JsonObject> {
+  return {
+    default: {},
+    expected: "an object",
+    parse: (value) => (typeof value === "object" && value !== null && !Array.isArray(value) ? value : undefined),
+  };
+}
+
 /** A setting that takes a list of text, such as the ids of some dials. */
 function textList(): Setting<readonly string[]> {
   return {
@@ -197,6 +229,47 @@ export const LAMP_SCREEN_CELLS = [
 
 export type LampScreenCell = (typeof LAMP_SCREEN_CELLS)[number];
 
+// How each item shows in a cell, chosen for each cell apart, and kept for each item, so a cell switched to another item
+// and back gets its options back (#177). The defaults draw what the lamp screens showed before the options, but for the
+// power, which reads "ON" and "OFF", both in the normal weight. An identification is made of two parts, joined by " - "
+// when both have text: a lamp with no name shows "Model - ID" for its name, and a lamp that reports no serial number,
+// such as the Beam LX (#170), has no ID. Trimmed, it keeps to half a row. A counter counts every lamp, or the lamps of
+// the shown one's model. A measure's icon, when it shows one, always sits on the cell's outer edge.
+const IDENTIFICATION_PARTS = ["model", "id", "name", "empty"] as const;
+const WEIGHTS = ["normal", "bold"] as const;
+const COUNTS = ["count", "countOf", "countByModel"] as const;
+const COUNTER_FORMATS = ["of", "slash", "dash", "space"] as const;
+const ON_LABELS = ["On", "ON", "●", "I"] as const;
+const OFF_LABELS = ["Off", "OFF", "○", "O"] as const;
+
+export const lampScreenItemOptions = {
+  identification: {
+    first: oneOf(IDENTIFICATION_PARTS, "model"),
+    second: oneOf(IDENTIFICATION_PARTS, "id"),
+    trim: flag(false),
+  },
+  counter: {
+    count: oneOf(COUNTS, "countOf"),
+    format: oneOf(COUNTER_FORMATS, "of"),
+  },
+  temperature: { icon: flag(true), unit: flag(true) },
+  power: {
+    onLabel: oneOf(ON_LABELS, "ON"),
+    onColor: hexColor("#ffffff"),
+    onWeight: oneOf(WEIGHTS, "normal"),
+    offLabel: oneOf(OFF_LABELS, "OFF"),
+    offColor: hexColor("#202020"),
+    offWeight: oneOf(WEIGHTS, "normal"),
+  },
+  brightnessPercentage: { icon: flag(true), unit: flag(true) },
+  brightnessLumen: { icon: flag(false), unit: flag(true) },
+  none: {},
+} satisfies Record<LampScreenItem, Schema>;
+
+export type LampScreenItemOptions = {
+  [Item in LampScreenItem]: Parsed<(typeof lampScreenItemOptions)[Item]>;
+};
+
 // The plugin's own settings, which every dial and key shares rather than each saving its own. With the blink on, tapping
 // a dial through its lamp screens blinks each lamp as its screen appears (#144). It's off by default, since every lamp
 // then blinks in turn, which shows on camera. A dial can choose otherwise on its own page: the dials that do are kept
@@ -210,7 +283,9 @@ export type LampScreenCell = (typeof LAMP_SCREEN_CELLS)[number];
 // before it has dimmed enough to notice among lamps that stay on, while one as long as the whole fade makes each tap
 // through the lamp screens wait longer than it needs to. The default suits dim lamps, and a bright lamp among others
 // needs a longer one. The longest is twice the fade. What each cell of the lamp screens shows is the same on every dial,
-// and the defaults are what the lamp screens showed before it could be chosen (#177).
+// and the defaults are what the lamp screens showed before it could be chosen (#177). How each cell shows its item is
+// kept by cell and by item, read against lampScreenItemOptions. The lamps' names, which the plugin settings save by lamp
+// id (#146), are read too, for the cells that show them.
 export const globalSettings = {
   blinkOnLampScreen: flag(false),
   blinkOnLampScreenExceptions: textList(),
@@ -223,6 +298,8 @@ export const globalSettings = {
   lampScreenMiddleRight: oneOf(LAMP_SCREEN_ITEMS, "power"),
   lampScreenBottomLeft: oneOf(LAMP_SCREEN_ITEMS, "brightnessPercentage"),
   lampScreenBottomRight: oneOf(LAMP_SCREEN_ITEMS, "brightnessLumen"),
+  lampScreenOptions: anObject(),
+  lampNames: textByKey(),
 };
 
 export type GlobalSettings = Parsed<typeof globalSettings>;

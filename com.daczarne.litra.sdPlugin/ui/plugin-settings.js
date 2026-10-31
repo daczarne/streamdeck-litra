@@ -4,9 +4,9 @@
 // `lampNames`, by lamp id, and the keys' lamp pickers show them (lamp-picker.js, which this tells of every name changed
 // and every lamp found, through events on the document). Under the lamps come the global settings that every dial and
 // key shares, such as whether each lamp steps from its own value (#145), the lamp screens' blink (#144), which a dial's
-// own page can turn on or off for that dial alone, what each cell of the lamp screens shows (#177), and how long a blink
-// lasts (#171). A file rather than an inline script, so the pages'
-// Content-Security-Policy doesn't have to allow inline scripts.
+// own page can turn on or off for that dial alone, what each cell of the lamp screens shows, with a Configure button
+// that shows the cell's options in place of the plugin settings (#177), and how long a blink lasts (#171). A file rather
+// than an inline script, so the pages' Content-Security-Policy doesn't have to allow inline scripts.
 (() => {
   const container = document.getElementById("plugin-settings");
   if (container === null) {
@@ -15,8 +15,9 @@
   const client = SDPIComponents.streamDeckClient;
   const MAX_NAME_LENGTH = 24;
 
-  // Whether the plugin settings are shown, in place of the action's.
+  // Whether the plugin settings are shown, in place of the action's, and the cell whose options are, in their place.
   let open = false;
+  let editing;
   // The lamps' names, by id.
   let names = {};
   // The lamps the plugin found, or undefined while it's asked.
@@ -70,6 +71,42 @@
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 4px;
+    }
+
+    /* The editors' plain values, centered on their label as a checkbox's text is. */
+    #plugin-settings .cell-editor .note {
+      padding: 7px 0;
+    }
+
+    #plugin-settings .cell {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    /* Options that go together, such as a power state's, side by side under their title, each with its caption above
+      it. */
+    #plugin-settings .fields-title {
+      color: var(--input-font-color);
+      margin: 0;
+      padding: 4px 0;
+      text-align: center;
+    }
+
+    #plugin-settings .fields {
+      display: flex;
+      gap: 8px;
+    }
+
+    #plugin-settings .field {
+      display: flex;
+      flex: 1;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    #plugin-settings .field .note {
+      padding: 0;
     }
 
     /* A slider with its value on its right, as on the actions' pages. */
@@ -167,8 +204,16 @@
     render();
   }
 
-  /** Shows the plugin settings, with the names saved and the lamps connected now, or the action's settings again. */
+  /**
+   * Shows the plugin settings, with the names saved and the lamps connected now, or the action's settings again, or the
+   * plugin settings again from a cell's options.
+   */
   async function toggle() {
+    if (editing !== undefined) {
+      editing = undefined;
+      render();
+      return;
+    }
     open = !open;
     document.body.classList.toggle("plugin-settings-open", open);
     render();
@@ -260,19 +305,240 @@
     ["none", "None"],
   ];
 
-  /** A list for each cell of the lamp screens, laid out as the cells are, each with what the cell shows by default. */
+  //* The lamp screens' cells (#177): what each shows, a list from sdpi-components that saves it itself, and how, which a
+  // cell's editor shows in place of the plugin settings. A cell's options are kept in the global settings as
+  // `lampScreenOptions`, by cell and by item, so a cell switched to another item and back gets its options back. Only
+  // what differs from the defaults needs saving: the plugin reads every option against src/actions/settings.ts.
+
+  // The cells, by the setting that holds what each shows, with their names, and what each shows by default.
+  const CELLS = [
+    ["topLeft", "lampScreenTopLeft", "Top left", "identification"],
+    ["topRight", "lampScreenTopRight", "Top right", "counter"],
+    ["middleLeft", "lampScreenMiddleLeft", "Middle left", "temperature"],
+    ["middleRight", "lampScreenMiddleRight", "Middle right", "power"],
+    ["bottomLeft", "lampScreenBottomLeft", "Bottom left", "brightnessPercentage"],
+    ["bottomRight", "lampScreenBottomRight", "Bottom right", "brightnessLumen"],
+  ];
+
+  // Each item's options and their defaults, as src/actions/settings.ts has them.
+  const ITEM_OPTIONS = {
+    identification: { first: "model", second: "id", trim: false },
+    counter: { count: "countOf", format: "of" },
+    temperature: { icon: true, unit: true },
+    power: {
+      onLabel: "ON",
+      onColor: "#ffffff",
+      onWeight: "normal",
+      offLabel: "OFF",
+      offColor: "#202020",
+      offWeight: "normal",
+    },
+    brightnessPercentage: { icon: true, unit: true },
+    brightnessLumen: { icon: false, unit: true },
+    none: {},
+  };
+
+  const PARTS = [
+    ["model", "Model"],
+    ["id", "ID"],
+    ["name", "Name"],
+    ["empty", "Empty"],
+  ];
+  const WEIGHTS = [
+    ["normal", "Normal"],
+    ["bold", "Bold"],
+  ];
+  const ON_LABELS = ["On", "ON", "●", "I"].map((label) => [label, label]);
+  const OFF_LABELS = ["Off", "OFF", "○", "O"].map((label) => [label, label]);
+
+  // The lists of what each cell shows, by cell, and every cell's options as saved.
+  const cellLists = {};
+  let cellOptions = {};
+
+  // Saved at once, without sdpi-components' wait for more changes, so a page closed right after a change keeps it.
+  const [readCellOptions, saveCellOptions] = SDPIComponents.useGlobalSettings(
+    "lampScreenOptions",
+    (value) => {
+      cellOptions = validObject(value);
+      renderEditor();
+    },
+    0,
+  );
+
+  /** An object from the global settings, or an empty one when it isn't an object. */
+  function validObject(value) {
+    return typeof value === "object" && value !== null && !Array.isArray(value) ? value : {};
+  }
+
+  /** What a cell shows: its list's value, or its default before the global settings arrive. */
+  function itemOf(cell) {
+    const [, , , fallback] = CELLS.find(([name]) => name === cell);
+    return cellLists[cell].value || fallback;
+  }
+
+  /** A cell's options for an item: the saved ones of the right type, and the defaults for the rest. */
+  function optionsOf(cell, item) {
+    const saved = validObject(validObject(cellOptions[cell])[item]);
+    const defaults = ITEM_OPTIONS[item];
+    return Object.fromEntries(
+      Object.entries(defaults).map(([key, fallback]) => [
+        key,
+        typeof saved[key] === typeof fallback ? saved[key] : fallback,
+      ]),
+    );
+  }
+
+  /** Saves a cell's options for an item, or takes them away, to bring back the defaults, when `options` is undefined. */
+  function storeOptions(cell, item, options) {
+    const { [item]: _, ...others } = validObject(cellOptions[cell]);
+    cellOptions = { ...cellOptions, [cell]: options === undefined ? others : { ...others, [item]: options } };
+    saveCellOptions(cellOptions).catch((error) => console.error("Can't save the lamp screens' options", error));
+    renderEditor();
+  }
+
+  /** A list for each cell of the lamp screens, laid out as the cells are, each with a button that shows its options. */
   function lampScreenCells() {
     const cells = document.createElement("div");
     cells.className = "cells";
-    cells.append(
-      globalSelect("lampScreenTopLeft", LAMP_SCREEN_ITEMS, "identification"),
-      globalSelect("lampScreenTopRight", LAMP_SCREEN_ITEMS, "counter"),
-      globalSelect("lampScreenMiddleLeft", LAMP_SCREEN_ITEMS, "temperature"),
-      globalSelect("lampScreenMiddleRight", LAMP_SCREEN_ITEMS, "power"),
-      globalSelect("lampScreenBottomLeft", LAMP_SCREEN_ITEMS, "brightnessPercentage"),
-      globalSelect("lampScreenBottomRight", LAMP_SCREEN_ITEMS, "brightnessLumen"),
-    );
+    for (const [cell, setting, , fallback] of CELLS) {
+      const box = document.createElement("div");
+      box.className = "cell";
+      cellLists[cell] = globalSelect(setting, LAMP_SCREEN_ITEMS, fallback);
+      const configure = button("Configure", () => {
+        editing = cell;
+        render();
+      });
+      configure.dataset.cell = cell;
+      box.append(cellLists[cell], configure);
+      cells.append(box);
+    }
     return cells;
+  }
+
+  /**
+   * A control from sdpi-components that saves nothing itself, showing the value of an option, marked with its key,
+   * which calls `onChange` with a new value, greyed out when it's `disabled`. It also reports the values this script
+   * gives it, which are left out, so only the user's changes reach `onChange`.
+   */
+  function control(tag, key, value, onChange, { label, options, disabled = false } = {}) {
+    const element = document.createElement(tag);
+    element.dataset.option = key;
+    element.disabled = disabled;
+    if (label !== undefined) {
+      element.setAttribute("label", label);
+    }
+    for (const [optionValue, text] of options ?? []) {
+      const option = document.createElement("option");
+      option.value = optionValue;
+      option.textContent = text;
+      element.append(option);
+    }
+    element.value = value;
+    element.addEventListener("valuechange", () => {
+      if (element.value !== value) {
+        onChange(element.value);
+      }
+    });
+    return element;
+  }
+
+  /** The rows of an editor for an item's options, each control showing its option and saving its change. */
+  function optionRows(shownItem, options, change) {
+    const option = (tag, key, settings) => control(tag, key, options[key], (value) => change(key, value), settings);
+    const select = (label, key, choices, disabled = false) =>
+      item(label, option("sdpi-select", key, { options: choices, disabled }));
+    const check = (label, key, text) => item(label, option("sdpi-checkbox", key, { label: text }));
+    // A power state's label, color and weight, side by side under its name.
+    const state = (name, prefix, labels) =>
+      item(
+        undefined,
+        fields(
+          name,
+          ["Label", option("sdpi-select", `${prefix}Label`, { options: labels })],
+          ["Color", option("sdpi-color", `${prefix}Color`)],
+          ["Font weight", option("sdpi-select", `${prefix}Weight`, { options: WEIGHTS })],
+        ),
+      );
+    switch (shownItem) {
+      case "identification":
+        return [
+          select("First part", "first", PARTS),
+          select("Second part", "second", PARTS),
+          check("Trim", "trim", "Trim to half a row"),
+        ];
+      case "counter":
+        return [
+          select("Count", "count", [
+            ["count", "Lamp number"],
+            ["countOf", "Count of total lamps"],
+            ["countByModel", "Count by model"],
+          ]),
+          // A lamp's number alone shows no count to format.
+          select(
+            "Format",
+            "format",
+            [
+              ["of", "1 of 2"],
+              ["slash", "1/2"],
+              ["dash", "1-2"],
+              ["space", "1 2"],
+            ],
+            options.count === "count",
+          ),
+        ];
+      case "temperature":
+      case "brightnessPercentage":
+      case "brightnessLumen": {
+        const unit = { temperature: "K", brightnessPercentage: "%", brightnessLumen: "lm" }[shownItem];
+        return [check("Icon", "icon", "Show the icon"), check("Unit", "unit", `Show the unit (${unit})`)];
+      }
+      case "power":
+        return [state("On state", "on", ON_LABELS), state("Off state", "off", OFF_LABELS)];
+      default:
+        return [item(undefined, note("Nothing to configure: the cell shows nothing."))];
+    }
+  }
+
+  /**
+   * Shows the options of the cell being edited, for the item it shows, with a Reset button that brings back their
+   * defaults. Drawn again whenever they change, here or on another page.
+   */
+  function renderEditor() {
+    if (editing === undefined) {
+      editor.replaceChildren();
+      return;
+    }
+    const cell = editing;
+    const shownItem = itemOf(cell);
+    const [, , cellName] = CELLS.find(([name]) => name === cell);
+    const [, itemName] = LAMP_SCREEN_ITEMS.find(([value]) => value === shownItem);
+    const options = optionsOf(cell, shownItem);
+    const change = (key, value) => storeOptions(cell, shownItem, { ...options, [key]: value });
+    const reset = button("Reset", () => storeOptions(cell, shownItem, undefined));
+    reset.dataset.action = "reset";
+    editor.replaceChildren(
+      item("Cell", note(`${cellName}: ${itemName}`)),
+      ...optionRows(shownItem, options, change),
+      ...(shownItem === "none" ? [] : [item(undefined, reset)]),
+    );
+  }
+
+  /** Controls side by side under a title, given as [caption, control], each with its caption above it. */
+  function fields(title, ...captioned) {
+    const heading = document.createElement("p");
+    heading.className = "fields-title";
+    heading.textContent = title;
+    const row = document.createElement("div");
+    row.className = "fields";
+    for (const [caption, content] of captioned) {
+      const field = document.createElement("div");
+      field.className = "field";
+      field.append(note(caption), content);
+      row.append(field);
+    }
+    const box = document.createElement("div");
+    box.append(heading, row);
+    return box;
   }
 
   /** A line of grey text. */
@@ -444,6 +710,9 @@
   const lampList = document.createElement("div");
   const view = document.createElement("div");
   view.hidden = true;
+  const editor = document.createElement("div");
+  editor.className = "cell-editor";
+  editor.hidden = true;
   view.append(
     item(
       undefined,
@@ -462,7 +731,12 @@
       globalSlider("identifyBlinkMs", { min: 300, max: 1500, step: 50, fallback: 400, suffix: " ms" }),
     ),
   );
-  container.append(item(undefined, toggleButton), view);
+  container.append(item(undefined, toggleButton), view, editor);
+  readCellOptions()
+    .then((value) => {
+      cellOptions = validObject(value);
+    })
+    .catch((error) => console.error("Can't read the lamp screens' options", error));
 
   /**
    * Shows the button's text, and the plugin settings when they're open, with the lamps found. A name field being typed
@@ -470,7 +744,9 @@
    */
   function render() {
     toggleButton.textContent = open ? "Back" : "Plugin settings";
-    view.hidden = !open;
+    view.hidden = !open || editing !== undefined;
+    editor.hidden = editing === undefined;
+    renderEditor();
     if (!open || document.activeElement?.closest("#plugin-settings sdpi-textfield")) {
       return;
     }

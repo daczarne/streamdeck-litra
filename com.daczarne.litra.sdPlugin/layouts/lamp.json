@@ -5,134 +5,158 @@
     {
       "key": "topLeftIcon",
       "type": "pixmap",
-      "rect": [12, 8, 22, 22],
+      "rect": [0, 8, 22, 22],
       "zOrder": 0
     },
     {
-      "key": "topLeftAfterIcon",
+      "key": "topLeftBesideIcon",
       "type": "text",
-      "rect": [40, 6, 148, 26],
+      "rect": [28, 6, 160, 26],
       "alignment": "left",
-      "font": { "size": 18 },
+      "font": {
+        "size": 18
+      },
       "zOrder": 1
     },
     {
       "key": "topLeft",
       "type": "text",
-      "rect": [12, 6, 176, 26],
+      "rect": [0, 6, 188, 26],
       "alignment": "left",
-      "font": { "size": 18 },
+      "font": {
+        "size": 18
+      },
       "zOrder": 2
     },
     {
       "key": "topRightIcon",
       "type": "pixmap",
       "rect": [166, 8, 22, 22],
-      "zOrder": 0
+      "zOrder": 3
     },
     {
-      "key": "topRightAfterIcon",
+      "key": "topRightBesideIcon",
       "type": "text",
       "rect": [12, 6, 148, 26],
       "alignment": "right",
-      "font": { "size": 18 },
-      "zOrder": 3
+      "font": {
+        "size": 18
+      },
+      "zOrder": 4
     },
     {
       "key": "topRight",
       "type": "text",
       "rect": [12, 6, 176, 26],
       "alignment": "right",
-      "font": { "size": 18 },
-      "zOrder": 4
+      "font": {
+        "size": 18
+      },
+      "zOrder": 5
     },
     {
       "key": "middleLeftIcon",
       "type": "pixmap",
-      "rect": [12, 40, 22, 22],
+      "rect": [0, 40, 22, 22],
       "zOrder": 0
     },
     {
-      "key": "middleLeftAfterIcon",
+      "key": "middleLeftBesideIcon",
       "type": "text",
-      "rect": [40, 38, 148, 26],
+      "rect": [28, 38, 160, 26],
       "alignment": "left",
-      "font": { "size": 18 },
+      "font": {
+        "size": 18
+      },
       "zOrder": 1
     },
     {
       "key": "middleLeft",
       "type": "text",
-      "rect": [12, 38, 176, 26],
+      "rect": [0, 38, 188, 26],
       "alignment": "left",
-      "font": { "size": 18 },
+      "font": {
+        "size": 18
+      },
       "zOrder": 2
     },
     {
       "key": "middleRightIcon",
       "type": "pixmap",
       "rect": [166, 40, 22, 22],
-      "zOrder": 0
+      "zOrder": 3
     },
     {
-      "key": "middleRightAfterIcon",
+      "key": "middleRightBesideIcon",
       "type": "text",
       "rect": [12, 38, 148, 26],
       "alignment": "right",
-      "font": { "size": 18 },
-      "zOrder": 3
+      "font": {
+        "size": 18
+      },
+      "zOrder": 4
     },
     {
       "key": "middleRight",
       "type": "text",
       "rect": [12, 38, 176, 26],
       "alignment": "right",
-      "font": { "size": 18 },
-      "zOrder": 4
+      "font": {
+        "size": 18
+      },
+      "zOrder": 5
     },
     {
       "key": "bottomLeftIcon",
       "type": "pixmap",
-      "rect": [12, 70, 22, 22],
+      "rect": [0, 70, 22, 22],
       "zOrder": 0
     },
     {
-      "key": "bottomLeftAfterIcon",
+      "key": "bottomLeftBesideIcon",
       "type": "text",
-      "rect": [40, 68, 148, 26],
+      "rect": [28, 68, 160, 26],
       "alignment": "left",
-      "font": { "size": 18 },
+      "font": {
+        "size": 18
+      },
       "zOrder": 1
     },
     {
       "key": "bottomLeft",
       "type": "text",
-      "rect": [12, 68, 176, 26],
+      "rect": [0, 68, 188, 26],
       "alignment": "left",
-      "font": { "size": 18 },
+      "font": {
+        "size": 18
+      },
       "zOrder": 2
     },
     {
       "key": "bottomRightIcon",
       "type": "pixmap",
       "rect": [166, 70, 22, 22],
-      "zOrder": 0
+      "zOrder": 3
     },
     {
-      "key": "bottomRightAfterIcon",
+      "key": "bottomRightBesideIcon",
       "type": "text",
       "rect": [12, 68, 148, 26],
       "alignment": "right",
-      "font": { "size": 18 },
-      "zOrder": 3
+      "font": {
+        "size": 18
+      },
+      "zOrder": 4
     },
     {
       "key": "bottomRight",
       "type": "text",
       "rect": [12, 68, 176, 26],
       "alignment": "right",
-      "font": { "size": 18 },
-      "zOrder": 4
+      "font": {
+        "size": 18
+      },
+      "zOrder": 5
     }
   ]
 }

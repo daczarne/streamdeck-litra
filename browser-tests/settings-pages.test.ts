@@ -9,6 +9,7 @@ import {
   brightnessSettings,
   globalSettings,
   LAMP_SCREEN_ITEMS,
+  lampScreenItemOptions,
   lampSettings,
   parseSettings,
   powerSettings,
@@ -587,6 +588,181 @@ describe("settings pages", () => {
     },
   );
 
+  // The editor of each cell's options, which Configure shows in place of the plugin settings (#177).
+  describe("the lamp screens' cell editor in the plugin settings on ui/power.html", () => {
+    const panel = at(PANELS, 0);
+
+    afterEach(() => {
+      streamDeck.globalSettings = {};
+    });
+
+    /** Opens the plugin settings, once the global settings have arrived, and the editor of a cell. */
+    async function openEditor(cell: string): Promise<OpenedPanel> {
+      const opened = await openPanel(panel);
+      await opened.page.evaluate(`SDPIComponents.useGlobalSettings("lampScreenOptions")[0]()`);
+      await clickInPluginSettings(opened.page, "Plugin settings");
+      await opened.page.evaluate(`(async () => {
+        const host = document.querySelector('sdpi-button[data-cell="${cell}"]');
+        await host.updateComplete;
+        host.shadowRoot.querySelector("button").click();
+      })()`);
+      return opened;
+    }
+
+    /** What the page shows: the plugin settings' view, the editor, or neither, and the editor's rows by label. */
+    function shown(page: Page): Promise<{ view: boolean; editor: boolean; rows: string[] }> {
+      return page.evaluate(`(() => {
+        const container = document.getElementById("plugin-settings");
+        const [, view, editor] = container.children;
+        return {
+          view: !view.hidden,
+          editor: !editor.hidden,
+          rows: [...editor.querySelectorAll("sdpi-item")].map((row) => row.getAttribute("label") ?? ""),
+        };
+      })()`);
+    }
+
+    /** Each option the editor shows, by key, with its value and, for a list, its choices. */
+    function optionsShown(page: Page): Promise<Record<string, { value: unknown; choices: string[] }>> {
+      return page.evaluate(`(async () => {
+        const controls = [...document.querySelectorAll(".cell-editor [data-option]")];
+        await Promise.all(controls.map((control) => control.updateComplete));
+        return Object.fromEntries(controls.map((control) => [
+          control.dataset.option,
+          { value: control.value, choices: [...control.querySelectorAll("option")].map((option) => option.value) },
+        ]));
+      })()`);
+    }
+
+    /** Sets an option's control to `value`, as the user would. */
+    async function setOption(page: Page, key: string, value: string | boolean): Promise<void> {
+      await page.evaluate(`(async () => {
+        const host = document.querySelector('.cell-editor [data-option="${key}"]');
+        await host.updateComplete;
+        const control = host.shadowRoot.querySelector("select, input");
+        if (control.type === "checkbox") {
+          control.click();
+        } else {
+          control.value = ${JSON.stringify(value)};
+          control.dispatchEvent(new Event("change", { bubbles: true, composed: true }));
+        }
+      })()`);
+    }
+
+    /** Reads an item's option as the plugin reads it, and whether it was valid. */
+    function readOption(item: keyof typeof lampScreenItemOptions, key: string, value: JsonValue) {
+      const schema = lampScreenItemOptions[item] as Record<string, unknown>;
+      const warn = vi.fn();
+      const parsed = parseSettings({ [key]: value }, { [key]: schema[key] } as never, { warn }) as Record<
+        string,
+        unknown
+      >;
+      return { value: parsed[key], valid: warn.mock.calls.length === 0 };
+    }
+
+    it("shows in place of the plugin settings, and gives way to them again on Back", async () => {
+      const { page } = await openEditor("topLeft");
+
+      expect(await shown(page)).toEqual({
+        view: false,
+        editor: true,
+        rows: ["Cell", "First part", "Second part", "Trim", ""],
+      });
+
+      await clickInPluginSettings(page, "Back");
+
+      expect(await shown(page)).toMatchObject({ view: true, editor: false });
+      await page.close();
+    });
+
+    it.each(LAMP_SCREEN_ITEMS.filter((item) => item !== "none"))(
+      "offers the options of %s that settings.ts takes, at their defaults",
+      async (item) => {
+        streamDeck.globalSettings = { lampScreenTopLeft: item };
+        const { page } = await openEditor("topLeft");
+        const options = await optionsShown(page);
+        await page.close();
+
+        const schema = lampScreenItemOptions[item] as Record<string, { default: unknown }>;
+        expect(Object.keys(options).sort()).toEqual(Object.keys(schema).sort());
+        for (const [key, { value, choices }] of Object.entries(options)) {
+          expect(readOption(item, key, value as JsonValue), `${item}'s ${key}`).toEqual({
+            value: schema[key]?.default,
+            valid: true,
+          });
+          for (const choice of choices) {
+            expect(readOption(item, key, choice), `${item}'s ${key} set to ${choice}`).toMatchObject({ valid: true });
+          }
+        }
+      },
+    );
+
+    it("greys out the counter's format for a lamp's number alone, and brings it back for a count", async () => {
+      streamDeck.globalSettings = { lampScreenTopRight: "counter" };
+      const { page } = await openEditor("topRight");
+      const formatDisabled = () =>
+        page.evaluate<boolean>(`document.querySelector('.cell-editor [data-option="format"]').disabled`);
+
+      expect(await formatDisabled()).toBe(false);
+
+      await setOption(page, "count", "count");
+
+      await expect.poll(formatDisabled).toBe(true);
+
+      await setOption(page, "count", "countByModel");
+
+      await expect.poll(formatDisabled).toBe(false);
+      await page.close();
+    });
+
+    it("shows that a cell set to None has nothing to configure, and no Reset", async () => {
+      streamDeck.globalSettings = { lampScreenMiddleLeft: "none" };
+      const { page } = await openEditor("middleLeft");
+
+      expect((await shown(page)).rows).toEqual(["Cell", ""]);
+      expect(await optionsShown(page)).toEqual({});
+      await page.close();
+    });
+
+    it("saves a change to the cell's options for its item, keeping the other cells' and items' options", async () => {
+      const others = { topRight: { counter: { count: "count" } }, topLeft: { counter: { format: "slash" } } };
+      streamDeck.globalSettings = { blinkOnLampScreen: true, lampScreenOptions: others };
+      const { page, uuid } = await openEditor("topLeft");
+
+      await setOption(page, "trim", true);
+      const message = await streamDeck.waitFor((m) => m.event === "setGlobalSettings" && m.context === uuid);
+      await page.close();
+
+      expect(message.payload).toEqual({
+        blinkOnLampScreen: true,
+        lampScreenOptions: {
+          ...others,
+          topLeft: { counter: { format: "slash" }, identification: { first: "model", second: "id", trim: true } },
+        },
+      });
+    });
+
+    it("shows the options saved, and Reset takes them away, keeping the other items' options", async () => {
+      streamDeck.globalSettings = {
+        lampScreenTopLeft: "power",
+        lampScreenOptions: { topLeft: { power: { onLabel: "●", onColor: "#ff8800" }, counter: { count: "count" } } },
+      };
+      const { page, uuid } = await openEditor("topLeft");
+
+      expect(await optionsShown(page)).toMatchObject({ onLabel: { value: "●" }, onColor: { value: "#ff8800" } });
+
+      await clickInPluginSettings(page, "Reset");
+      const message = await streamDeck.waitFor((m) => m.event === "setGlobalSettings" && m.context === uuid);
+
+      expect(message.payload).toEqual({
+        lampScreenTopLeft: "power",
+        lampScreenOptions: { topLeft: { counter: { count: "count" } } },
+      });
+      await expect.poll(async () => (await optionsShown(page)).onLabel?.value).toBe("ON");
+      await page.close();
+    });
+  });
+
   // How long a blink lasts, a slider in the plugin settings, on a page without sliders of its own and on one with them,
   // whose values a script shows (#171).
   describe.each([at(PANELS, 0), at(PANELS, 2)])(
@@ -1037,7 +1213,8 @@ describe("settings pages", () => {
       expect(await pluginSettingsOf(page)).toMatchObject({
         open: true,
         actionShown: false,
-        buttons: ["Back", "Find lamps", "Identify"],
+        // A Configure button under each of the lamp screens' cells (#177).
+        buttons: ["Back", "Find lamps", "Identify", ...LAMP_SCREEN_LISTS.map(() => "Configure")],
       });
       expect(await shownGlobalSettings(page)).toEqual(PLUGIN_SETTINGS_GLOBALS);
 
