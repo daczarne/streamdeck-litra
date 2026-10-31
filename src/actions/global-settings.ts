@@ -12,6 +12,7 @@ import {
   type LampScreenItemOptions,
   lampScreenItemOptions,
   parseSettings,
+  type TextStyleName,
 } from "./settings";
 
 /** A text's look on the lamp screens: its color, and its font's size and weight (#153). */
@@ -91,17 +92,27 @@ export function lampScreenCells(): Record<LampScreenCell, LampScreenCellContent>
   return cells;
 }
 
-/** The lamp screens' text styles (#153): by default, Primary for every text, and Accent for the power's "OFF". */
-export function textStyles(): Record<"primary" | "accent", TextStyle> {
+/** The lamp screens' text styles, by name (#153). */
+export type TextStyles = Record<TextStyleName, TextStyle>;
+
+/**
+ * The lamp screens' text styles (#153): Primary, for every text by default, Secondary, for the power's "OFF" by
+ * default, Accent and Alert.
+ */
+export function textStyles(): TextStyles {
+  const style = (color: string, weight: keyof typeof FONT_WEIGHTS, size: number): TextStyle => ({
+    color,
+    font: { size, weight: FONT_WEIGHTS[weight] },
+  });
   return {
-    primary: {
-      color: current.lampScreenPrimaryColor,
-      font: { size: current.lampScreenPrimarySize, weight: FONT_WEIGHTS[current.lampScreenPrimaryWeight] },
-    },
-    accent: {
-      color: current.lampScreenAccentColor,
-      font: { size: current.lampScreenAccentSize, weight: FONT_WEIGHTS[current.lampScreenAccentWeight] },
-    },
+    primary: style(current.lampScreenPrimaryColor, current.lampScreenPrimaryWeight, current.lampScreenPrimarySize),
+    secondary: style(
+      current.lampScreenSecondaryColor,
+      current.lampScreenSecondaryWeight,
+      current.lampScreenSecondarySize,
+    ),
+    accent: style(current.lampScreenAccentColor, current.lampScreenAccentWeight, current.lampScreenAccentSize),
+    alert: style(current.lampScreenAlertColor, current.lampScreenAlertWeight, current.lampScreenAlertSize),
   };
 }
 

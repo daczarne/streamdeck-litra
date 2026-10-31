@@ -113,8 +113,15 @@ const LAMP_SCREEN_LISTS = [
   "lampScreenBottomLeft",
   "lampScreenBottomRight",
 ];
-const TEXT_STYLE_CONTROLS = ["Primary", "Accent"].flatMap((style) =>
-  ["Color", "Weight", "Size"].map((part) => `lampScreen${style}${part}`),
+// The text styles, by the start of their settings' names, with their default colors and weights.
+const TEXT_STYLES = {
+  lampScreenPrimary: { color: "#ffffff", weight: "normal" },
+  lampScreenSecondary: { color: "#202020", weight: "normal" },
+  lampScreenAccent: { color: "#4dd0e1", weight: "normal" },
+  lampScreenAlert: { color: "#ff6b6b", weight: "bold" },
+};
+const TEXT_STYLE_CONTROLS = Object.keys(TEXT_STYLES).flatMap((style) =>
+  ["Color", "Weight", "Size"].map((part) => `${style}${part}`),
 );
 const PLUGIN_SETTINGS_GLOBALS = [
   ...PLUGIN_SETTINGS_CHECKBOXES,
@@ -599,14 +606,13 @@ describe("settings pages", () => {
 
   // The lamp screens' text styles in the plugin settings, each style's color, weight and size (#153), with a value each
   // control can save other than its default.
-  describe.each([
-    { setting: "lampScreenPrimaryColor", value: "#ff8800" },
-    { setting: "lampScreenPrimaryWeight", value: "bold" },
-    { setting: "lampScreenPrimarySize", value: "22" },
-    { setting: "lampScreenAccentColor", value: "#00aaff" },
-    { setting: "lampScreenAccentWeight", value: "bold" },
-    { setting: "lampScreenAccentSize", value: "16" },
-  ])("the global $setting in the plugin settings on ui/power.html", ({ setting, value }) => {
+  describe.each(
+    Object.keys(TEXT_STYLES).flatMap((style) => [
+      { setting: `${style}Color`, value: "#00aaff" },
+      { setting: `${style}Weight`, value: "bold" },
+      { setting: `${style}Size`, value: "22" },
+    ]),
+  )("the global $setting in the plugin settings on ui/power.html", ({ setting, value }) => {
     const panel = at(PANELS, 0);
 
     afterEach(() => {
@@ -644,34 +650,41 @@ describe("settings pages", () => {
     });
   });
 
-  it.each([
-    ["lampScreenPrimary", "lampScreenAccent", "#ffffff"],
-    ["lampScreenAccent", "lampScreenPrimary", "#202020"],
-  ])("a text style's Reset saves %s's defaults, and keeps the other style (#153)", async (style, other, color) => {
-    const saved = (name: string) => ({
-      [`${name}Color`]: "#ff8800",
-      [`${name}Weight`]: "bold",
-      [`${name}Size`]: "22",
-    });
-    streamDeck.globalSettings = { ...saved(style), ...saved(other) };
-    const { page } = await openPanel(at(PANELS, 0));
-    await page.evaluate(`SDPIComponents.useGlobalSettings("${style}Color")[0]()`);
-    await clickInPluginSettings(page, "Plugin settings");
-    await page.evaluate(`(async () => {
+  it.each(
+    Object.entries(TEXT_STYLES).map(([style, { color, weight }]) => ({
+      style,
+      other: style === "lampScreenPrimary" ? "lampScreenSecondary" : "lampScreenPrimary",
+      color,
+      weight,
+    })),
+  )(
+    "a text style's Reset saves $style's defaults, and keeps another style (#153)",
+    async ({ style, other, color, weight }) => {
+      const saved = (name: string) => ({
+        [`${name}Color`]: "#ff8800",
+        [`${name}Weight`]: "bold",
+        [`${name}Size`]: "22",
+      });
+      streamDeck.globalSettings = { ...saved(style), ...saved(other) };
+      const { page } = await openPanel(at(PANELS, 0));
+      await page.evaluate(`SDPIComponents.useGlobalSettings("${style}Color")[0]()`);
+      await clickInPluginSettings(page, "Plugin settings");
+      await page.evaluate(`(async () => {
       const host = document.querySelector('sdpi-button[data-style="${style}"]');
       await host.updateComplete;
       host.shadowRoot.querySelector("button").click();
     })()`);
-    await expect
-      .poll(() => streamDeck.globalSettings)
-      .toEqual({ ...saved(other), [`${style}Color`]: color, [`${style}Weight`]: "normal", [`${style}Size`]: "18" });
-    await page.close();
-    streamDeck.globalSettings = {};
+      await expect
+        .poll(() => streamDeck.globalSettings)
+        .toEqual({ ...saved(other), [`${style}Color`]: color, [`${style}Weight`]: weight, [`${style}Size`]: "18" });
+      await page.close();
+      streamDeck.globalSettings = {};
 
-    for (const [setting, value] of Object.entries({ Color: color, Weight: "normal", Size: "18" })) {
-      expect(read(`${style}${setting}`, value)).toEqual({ value: defaultOf(`${style}${setting}`), valid: true });
-    }
-  });
+      for (const [setting, value] of Object.entries({ Color: color, Weight: weight, Size: "18" })) {
+        expect(read(`${style}${setting}`, value)).toEqual({ value: defaultOf(`${style}${setting}`), valid: true });
+      }
+    },
+  );
 
   // The editor of each cell's options, which Configure shows in place of the plugin settings (#177).
   describe("the lamp screens' cell editor in the plugin settings on ui/power.html", () => {
@@ -1331,7 +1344,13 @@ describe("settings pages", () => {
         actionShown: false,
         // A Configure button under each of the lamp screens' cells (#177), and a Reset button under each text style
         // (#153).
-        buttons: ["Back", "Find lamps", "Identify", ...LAMP_SCREEN_LISTS.map(() => "Configure"), "Reset", "Reset"],
+        buttons: [
+          "Back",
+          "Find lamps",
+          "Identify",
+          ...LAMP_SCREEN_LISTS.map(() => "Configure"),
+          ...Object.keys(TEXT_STYLES).map(() => "Reset"),
+        ],
       });
       expect(await shownGlobalSettings(page)).toEqual(PLUGIN_SETTINGS_GLOBALS);
 

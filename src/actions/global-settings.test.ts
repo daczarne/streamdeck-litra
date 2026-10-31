@@ -54,9 +54,15 @@ const DEFAULTS = {
   lampScreenPrimaryColor: "#ffffff",
   lampScreenPrimaryWeight: "normal",
   lampScreenPrimarySize: 18,
-  lampScreenAccentColor: "#202020",
+  lampScreenSecondaryColor: "#202020",
+  lampScreenSecondaryWeight: "normal",
+  lampScreenSecondarySize: 18,
+  lampScreenAccentColor: "#4dd0e1",
   lampScreenAccentWeight: "normal",
   lampScreenAccentSize: 18,
+  lampScreenAlertColor: "#ff6b6b",
+  lampScreenAlertWeight: "bold",
+  lampScreenAlertSize: 18,
   lampNames: {},
 };
 
@@ -266,7 +272,7 @@ describe("how each cell of the lamp screens shows its item (#177)", () => {
           onColor: "#ffffff",
           onWeight: "normal",
           offLabel: "OFF",
-          offStyle: "accent",
+          offStyle: "secondary",
           offColor: "#202020",
           offWeight: "normal",
         },
@@ -319,12 +325,14 @@ describe("how each cell of the lamp screens shows its item (#177)", () => {
 });
 
 describe("the lamp screens' text styles (#153)", () => {
-  it("are white and dark grey, in the normal weight, at 18 px, by default", async () => {
+  it("are white, dark grey, cyan and a bold soft red, at 18 px, by default", async () => {
     await follow();
 
     expect(globalSettings.textStyles()).toEqual({
       primary: { color: "#ffffff", font: { size: 18, weight: 400 } },
-      accent: { color: "#202020", font: { size: 18, weight: 400 } },
+      secondary: { color: "#202020", font: { size: 18, weight: 400 } },
+      accent: { color: "#4dd0e1", font: { size: 18, weight: 400 } },
+      alert: { color: "#ff6b6b", font: { size: 18, weight: 700 } },
     });
   });
 
@@ -333,14 +341,18 @@ describe("the lamp screens' text styles (#153)", () => {
       lampScreenPrimaryColor: "#ffcc00",
       lampScreenPrimaryWeight: "bold",
       lampScreenPrimarySize: "22",
-      lampScreenAccentSize: 16,
+      lampScreenSecondarySize: 16,
+      lampScreenAccentWeight: "bold",
+      lampScreenAlertColor: "#FF0000",
     });
 
     await follow();
 
     expect(globalSettings.textStyles()).toEqual({
       primary: { color: "#ffcc00", font: { size: 22, weight: 700 } },
-      accent: { color: "#202020", font: { size: 16, weight: 400 } },
+      secondary: { color: "#202020", font: { size: 16, weight: 400 } },
+      accent: { color: "#4dd0e1", font: { size: 18, weight: 700 } },
+      alert: { color: "#ff0000", font: { size: 18, weight: 700 } },
     });
   });
 

@@ -68,12 +68,12 @@ const STYLES = {
   lampScreenPrimaryColor: "#FFCC00",
   lampScreenPrimaryWeight: "bold",
   lampScreenPrimarySize: "20",
-  lampScreenAccentColor: "#336699",
-  lampScreenAccentWeight: "normal",
-  lampScreenAccentSize: "16",
+  lampScreenSecondaryColor: "#336699",
+  lampScreenSecondaryWeight: "normal",
+  lampScreenSecondarySize: "16",
 };
 const PRIMARY = { color: "#ffcc00", font: { size: 20, weight: 700 } };
-const ACCENT = { color: "#336699", font: { size: 16, weight: 400 } };
+const SECONDARY = { color: "#336699", font: { size: 16, weight: 400 } };
 const SUN = "imgs/actions/brightness/glyph@2x.png";
 
 /** A text shown in a slot, with its look. */
@@ -392,7 +392,7 @@ describe("LampScreens", () => {
       expect(topLeft(dial)).toEqual(cell("topLeft", shown("O", { color: "#00aaff", font: { size: 18, weight: 400 } })));
     });
 
-    it("draws every text in the Primary style, and the power's OFF in the Accent style (#153)", async () => {
+    it("draws every text in the Primary style, and the power's OFF in the Secondary style (#153)", async () => {
       const dial = createFakeDial();
       changeGlobalSettings(STYLES);
       await screens.tap(dial, owner);
@@ -408,25 +408,27 @@ describe("LampScreens", () => {
 
       await screens.tap(dial, owner);
 
-      expect(dial.setFeedback).toHaveBeenLastCalledWith(expect.objectContaining({ middleRight: shown("OFF", ACCENT) }));
+      expect(dial.setFeedback).toHaveBeenLastCalledWith(
+        expect.objectContaining({ middleRight: shown("OFF", SECONDARY) }),
+      );
     });
 
     it.each([
-      ["identification", {}, cell("topLeft", shown(A.label, ACCENT))],
-      ["counter", {}, cell("topLeft", shown("1 of 2", ACCENT))],
-      ["temperature", {}, cell("topLeft", shown(`${A.temperatureKelvin} K`, ACCENT), THERMOMETER)],
-      ["brightnessPercentage", {}, cell("topLeft", shown(`${A.brightnessPercentage}%`, ACCENT), SUN)],
-      ["brightnessLumen", {}, cell("topLeft", shown(`${A.brightnessLumen} lm`, ACCENT))],
+      ["identification", {}, cell("topLeft", shown(A.label, SECONDARY))],
+      ["counter", {}, cell("topLeft", shown("1 of 2", SECONDARY))],
+      ["temperature", {}, cell("topLeft", shown(`${A.temperatureKelvin} K`, SECONDARY), THERMOMETER)],
+      ["brightnessPercentage", {}, cell("topLeft", shown(`${A.brightnessPercentage}%`, SECONDARY), SUN)],
+      ["brightnessLumen", {}, cell("topLeft", shown(`${A.brightnessLumen} lm`, SECONDARY))],
     ])("shows the %s in the text style chosen for its cell (#153)", async (item, options, slots) => {
-      const dial = await topLeftOf(item, { ...options, style: "accent" }, STYLES);
+      const dial = await topLeftOf(item, { ...options, style: "secondary" }, STYLES);
 
       expect(topLeft(dial)).toEqual(slots);
     });
 
     it("shows each of the power's states in the text style chosen for it (#153)", async () => {
-      const dial = await topLeftOf("power", { onStyle: "accent", offStyle: "primary" }, STYLES);
+      const dial = await topLeftOf("power", { onStyle: "secondary", offStyle: "primary" }, STYLES);
 
-      expect(topLeft(dial)).toEqual(cell("topLeft", shown("ON", ACCENT)));
+      expect(topLeft(dial)).toEqual(cell("topLeft", shown("ON", SECONDARY)));
 
       await screens.tap(dial, owner);
 
