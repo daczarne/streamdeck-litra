@@ -181,9 +181,9 @@ export class LampScreens {
   }
 }
 
-// Every text on a lamp screen is 18 px, white by default on the strip's own background. By default, "Off" stands out:
-// dark, and bold, so its thin strokes don't blur into the background at 18 px. The font still joins its "ff" into one
-// shape (#153).
+// Every text on a lamp screen is 18 px, white by default on the strip's own background. By default, "OFF" stands out in
+// dark grey. Bold makes dark text read on a bright background, though the font joins the "ff" of "Off" into one shape
+// (#153), so it's left to the options.
 const FONT_SIZE = 18;
 const PLAIN = { color: "#ffffff", font: { size: FONT_SIZE, weight: 400 } };
 
@@ -196,9 +196,6 @@ const ICONS: Partial<Record<LampScreenItem, string>> = {
 
 // What a counter puts between the lamp's place and the count, by format.
 const COUNTER_SEPARATORS = { of: " of ", slash: "/", dash: "-", space: " " };
-
-// The labels of the power, as [on, off], by choice.
-const POWER_LABELS = { onOff: ["On", "Off"], upper: ["ON", "OFF"], dots: ["●", "○"], io: ["I", "O"] };
 
 // The characters a trimmed identification keeps, its "…" included: about as many as fit in half a row at 18 px.
 const TRIMMED_LENGTH = 10;
@@ -287,11 +284,10 @@ function measure(
 
 /** Whether a lamp is on, with the label, color and weight chosen for its state. */
 function power(options: LampScreenItemOptions["power"], on: boolean): Shown["text"] {
-  const [onLabel, offLabel] = POWER_LABELS[options.labels];
   const [value, color, weight] = on
-    ? [onLabel, options.onColor, options.onWeight]
-    : [offLabel, options.offColor, options.offWeight];
-  return { value: value ?? "", color, font: { size: FONT_SIZE, weight: weight === "bold" ? 700 : 400 } };
+    ? [options.onLabel, options.onColor, options.onWeight]
+    : [options.offLabel, options.offColor, options.offWeight];
+  return { value, color, font: { size: FONT_SIZE, weight: weight === "bold" ? 700 : 400 } };
 }
 
 /**

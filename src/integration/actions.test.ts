@@ -433,13 +433,13 @@ describe("the lamp screens", () => {
     const { dial } = await onFirstLampScreen();
 
     expect(dial.setFeedbackLayout).toHaveBeenLastCalledWith("layouts/lamp.json");
-    // The first lamp is off, which its power shows in bold dark grey.
-    expect(feedbackOf(dial)).toMatchObject({ middleRight: { value: "Off", color: "#202020", font: { weight: 700 } } });
+    // The first lamp is off, which its power shows in dark grey.
+    expect(feedbackOf(dial)).toMatchObject({ middleRight: { value: "OFF", color: "#202020", font: { weight: 400 } } });
     expect(cellsOf(dial)).toEqual({
       topLeft: "Beam - AL-A",
       topRight: "1 of 2",
       middleLeft: "6500 K",
-      middleRight: "Off",
+      middleRight: "OFF",
       bottomLeft: "100%",
       bottomRight: "400 lm",
     });
@@ -482,7 +482,7 @@ describe("the lamp screens", () => {
     await deck.push(dial);
 
     expect([first.on, second.on]).toEqual([false, true]);
-    expect(cellsOf(dial)).toMatchObject({ middleRight: "Off" });
+    expect(cellsOf(dial)).toMatchObject({ middleRight: "OFF" });
 
     const mainDial = await deck.dial(BRIGHTNESS, { stepPercentage: 10 });
     await deck.turn(mainDial, 1);
@@ -505,7 +505,7 @@ describe("the lamp screens", () => {
 
     for (const shown of [dial, temperatureDial]) {
       expect(cellsOf(shown)).toEqual({
-        topLeft: "Off",
+        topLeft: "OFF",
         topRight: "1 of 2",
         middleLeft: "6500 K",
         middleRight: "",

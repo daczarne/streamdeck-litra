@@ -230,8 +230,8 @@ export const LAMP_SCREEN_CELLS = [
 export type LampScreenCell = (typeof LAMP_SCREEN_CELLS)[number];
 
 // How each item shows in a cell, chosen for each cell apart, and kept for each item, so a cell switched to another item
-// and back gets its options back (#177). The defaults draw what the lamp screens showed before the options. An
-// identification is made of two parts, joined by " - " when both have text: a lamp with no name shows "Model - ID" for
+// and back gets its options back (#177). The defaults draw what the lamp screens showed before the options, but for the
+// power, which reads "ON" and "OFF", both in the normal weight. An identification is made of two parts, joined by " - " when both have text: a lamp with no name shows "Model - ID" for
 // its name, and a lamp that reports no serial number, such as the Beam LX (#170), has no ID. Trimmed, it keeps to half a
 // row. A counter counts every lamp, or the lamps of the shown one's model. An icon sits on the cell's outer edge, where
 // its value stays aligned to the cell's side, or on its inner edge, at the middle of the row, where its value moves
@@ -241,7 +241,8 @@ const ICON_SIDES = ["outer", "inner"] as const;
 const WEIGHTS = ["normal", "bold"] as const;
 const COUNTS = ["count", "countOf", "countByModel"] as const;
 const COUNTER_FORMATS = ["of", "slash", "dash", "space"] as const;
-const POWER_LABELS = ["onOff", "upper", "dots", "io"] as const;
+const ON_LABELS = ["On", "ON", "●", "I"] as const;
+const OFF_LABELS = ["Off", "OFF", "○", "O"] as const;
 
 export const lampScreenItemOptions = {
   identification: {
@@ -255,11 +256,12 @@ export const lampScreenItemOptions = {
   },
   temperature: { icon: flag(true), unit: flag(true), iconSide: oneOf(ICON_SIDES, "outer") },
   power: {
-    labels: oneOf(POWER_LABELS, "onOff"),
+    onLabel: oneOf(ON_LABELS, "ON"),
     onColor: hexColor("#ffffff"),
     onWeight: oneOf(WEIGHTS, "normal"),
+    offLabel: oneOf(OFF_LABELS, "OFF"),
     offColor: hexColor("#202020"),
-    offWeight: oneOf(WEIGHTS, "bold"),
+    offWeight: oneOf(WEIGHTS, "normal"),
   },
   brightnessPercentage: { icon: flag(true), unit: flag(true), iconSide: oneOf(ICON_SIDES, "outer") },
   brightnessLumen: { icon: flag(false), unit: flag(true), iconSide: oneOf(ICON_SIDES, "outer") },

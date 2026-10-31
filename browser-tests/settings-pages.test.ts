@@ -761,11 +761,11 @@ describe("settings pages", () => {
     it("shows the options saved, and Reset takes them away, keeping the other items' options", async () => {
       streamDeck.globalSettings = {
         lampScreenTopLeft: "power",
-        lampScreenOptions: { topLeft: { power: { labels: "dots", onColor: "#ff8800" }, counter: { count: "count" } } },
+        lampScreenOptions: { topLeft: { power: { onLabel: "●", onColor: "#ff8800" }, counter: { count: "count" } } },
       };
       const { page, uuid } = await openEditor("topLeft");
 
-      expect(await optionsShown(page)).toMatchObject({ labels: { value: "dots" }, onColor: { value: "#ff8800" } });
+      expect(await optionsShown(page)).toMatchObject({ onLabel: { value: "●" }, onColor: { value: "#ff8800" } });
 
       await clickInPluginSettings(page, "Reset");
       const message = await streamDeck.waitFor((m) => m.event === "setGlobalSettings" && m.context === uuid);
@@ -774,7 +774,7 @@ describe("settings pages", () => {
         lampScreenTopLeft: "power",
         lampScreenOptions: { topLeft: { counter: { count: "count" } } },
       });
-      await expect.poll(async () => (await optionsShown(page)).labels?.value).toBe("onOff");
+      await expect.poll(async () => (await optionsShown(page)).onLabel?.value).toBe("ON");
       await page.close();
     });
   });

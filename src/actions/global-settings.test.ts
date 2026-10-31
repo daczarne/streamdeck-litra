@@ -245,7 +245,7 @@ describe("what the lamp screens show (#177)", () => {
 });
 
 describe("how each cell of the lamp screens shows its item (#177)", () => {
-  it("takes the defaults that draw what the lamp screens showed before", async () => {
+  it("takes the defaults, which draw what the lamp screens showed before but for the power", async () => {
     await follow();
 
     expect(globalSettings.lampScreenCells()).toEqual({
@@ -254,7 +254,14 @@ describe("how each cell of the lamp screens shows its item (#177)", () => {
       middleLeft: { item: "temperature", options: { icon: true, unit: true, iconSide: "outer" } },
       middleRight: {
         item: "power",
-        options: { labels: "onOff", onColor: "#ffffff", onWeight: "normal", offColor: "#202020", offWeight: "bold" },
+        options: {
+          onLabel: "ON",
+          onColor: "#ffffff",
+          onWeight: "normal",
+          offLabel: "OFF",
+          offColor: "#202020",
+          offWeight: "normal",
+        },
       },
       bottomLeft: { item: "brightnessPercentage", options: { icon: true, unit: true, iconSide: "outer" } },
       bottomRight: { item: "brightnessLumen", options: { icon: false, unit: true, iconSide: "outer" } },
@@ -277,12 +284,12 @@ describe("how each cell of the lamp screens shows its item (#177)", () => {
 
   it("takes an option's default, with a warning that names the cell, when what is saved isn't valid", async () => {
     settings.getGlobalSettings.mockResolvedValue({
-      lampScreenOptions: { middleRight: { power: { onColor: "orange", labels: "upper" } } },
+      lampScreenOptions: { middleRight: { power: { onColor: "orange", onLabel: "ON" } } },
     });
 
     await follow();
 
-    expect(globalSettings.lampScreenCells().middleRight.options).toMatchObject({ onColor: "#ffffff", labels: "upper" });
+    expect(globalSettings.lampScreenCells().middleRight.options).toMatchObject({ onColor: "#ffffff", onLabel: "ON" });
     expect(logger.warn).toHaveBeenCalledExactlyOnceWith(
       expect.stringContaining("middleRight"),
       expect.stringContaining("onColor"),

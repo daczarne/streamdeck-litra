@@ -58,7 +58,7 @@ function connect(...lamps: LampStatus[]): void {
 
 // The looks every text on a lamp screen is given, and how a slot left out of its cell is hidden (#177).
 const PLAIN = { color: "#ffffff", font: { size: 18, weight: 400 } };
-const OFF_POWER = { color: "#202020", font: { size: 18, weight: 700 } };
+const OFF_POWER = { color: "#202020", font: { size: 18, weight: 400 } };
 const HIDDEN = { value: "", enabled: false };
 const NO_ICON = { enabled: false };
 const THERMOMETER = "imgs/actions/temperature/glyph@2x.png";
@@ -90,7 +90,7 @@ function lampScreenOf(lamp: LampStatus, position: number, count: number) {
     ...cell("topLeft", shown(lamp.label)),
     ...cell("topRight", shown(`${position} of ${count}`)),
     ...cell("middleLeft", shown(`${lamp.temperatureKelvin} K`), { path: THERMOMETER, side: "outer" }),
-    ...cell("middleRight", lamp.on ? shown("On") : shown("Off", OFF_POWER)),
+    ...cell("middleRight", lamp.on ? shown("ON") : shown("OFF", OFF_POWER)),
     ...cell("bottomLeft", shown(`${lamp.brightnessPercentage}%`), { path: SUN, side: "outer" }),
     ...cell("bottomRight", shown(`${lamp.brightnessLumen} lm`)),
   };
@@ -238,7 +238,7 @@ describe("LampScreens", () => {
       await screens.tap(dial, owner);
 
       expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith({
-        ...cell("topLeft", shown("On")),
+        ...cell("topLeft", shown("ON")),
         ...cell("topRight", shown(`${A.temperatureKelvin} K`), { path: THERMOMETER, side: "outer" }),
         ...cell("middleLeft"),
         ...cell("middleRight", shown(`${A.brightnessPercentage}%`), { path: SUN, side: "outer" }),
@@ -383,11 +383,12 @@ describe("LampScreens", () => {
       expect(topLeft(dial)).toEqual(slots);
     });
 
-    it("shows the power with the labels, color and weight chosen for each state", async () => {
+    it("shows the power with the label, color and weight chosen for each state", async () => {
       const options = {
-        labels: "dots",
+        onLabel: "●",
         onColor: "#FF8800",
         onWeight: "bold",
+        offLabel: "O",
         offColor: "#00aaff",
         offWeight: "normal",
       };
@@ -397,7 +398,7 @@ describe("LampScreens", () => {
 
       await screens.tap(dial, owner);
 
-      expect(topLeft(dial)).toEqual(cell("topLeft", shown("○", { color: "#00aaff", font: { size: 18, weight: 400 } })));
+      expect(topLeft(dial)).toEqual(cell("topLeft", shown("O", { color: "#00aaff", font: { size: 18, weight: 400 } })));
     });
 
     it("keeps each item's options apart, so a cell's options for another item don't change how it shows this one", async () => {
@@ -611,7 +612,7 @@ describe("LampScreens", () => {
       expect(dial.setFeedback).toHaveBeenLastCalledWith(lampScreenOf(turnedOffA, 1, 2));
     });
 
-    it("shows the power of a lamp turned off in bold dark grey, and in white again once it's on", async () => {
+    it("shows the power of a lamp turned off in dark grey, and in white again once it's on", async () => {
       const dial = createFakeDial();
       await screens.tap(dial, owner);
 
@@ -619,13 +620,13 @@ describe("LampScreens", () => {
       await screens.refresh();
 
       expect(dial.setFeedback).toHaveBeenLastCalledWith(
-        expect.objectContaining({ topLeft: shown(A.label), middleRight: shown("Off", OFF_POWER) }),
+        expect.objectContaining({ topLeft: shown(A.label), middleRight: shown("OFF", OFF_POWER) }),
       );
 
       connect(A, B);
       await screens.refresh();
 
-      expect(dial.setFeedback).toHaveBeenLastCalledWith(expect.objectContaining({ middleRight: shown("On") }));
+      expect(dial.setFeedback).toHaveBeenLastCalledWith(expect.objectContaining({ middleRight: shown("ON") }));
     });
 
     it("doesn't read the lamps when no dial shows a lamp screen", async () => {

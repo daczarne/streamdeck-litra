@@ -84,6 +84,31 @@
       gap: 2px;
     }
 
+    /* Options that go together, such as a power state's, side by side under their title, each with its caption above
+      it. */
+    #plugin-settings .fields-title {
+      color: var(--input-font-color);
+      margin: 0;
+      padding: 4px 0;
+      text-align: center;
+    }
+
+    #plugin-settings .fields {
+      display: flex;
+      gap: 8px;
+    }
+
+    #plugin-settings .field {
+      display: flex;
+      flex: 1;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    #plugin-settings .field .note {
+      padding: 0;
+    }
+
     /* A slider with its value on its right, as on the actions' pages. */
     #plugin-settings .range {
       display: flex;
@@ -295,12 +320,19 @@
     ["bottomRight", "lampScreenBottomRight", "Bottom right", "brightnessLumen"],
   ];
 
-  // Each item's options and their defaults, which draw what the lamp screens showed before the options.
+  // Each item's options and their defaults, as src/actions/settings.ts has them.
   const ITEM_OPTIONS = {
     identification: { first: "model", second: "id", trim: false },
     counter: { count: "countOf", format: "of" },
     temperature: { icon: true, unit: true, iconSide: "outer" },
-    power: { labels: "onOff", onColor: "#ffffff", onWeight: "normal", offColor: "#202020", offWeight: "bold" },
+    power: {
+      onLabel: "ON",
+      onColor: "#ffffff",
+      onWeight: "normal",
+      offLabel: "OFF",
+      offColor: "#202020",
+      offWeight: "normal",
+    },
     brightnessPercentage: { icon: true, unit: true, iconSide: "outer" },
     brightnessLumen: { icon: false, unit: true, iconSide: "outer" },
     none: {},
@@ -320,6 +352,8 @@
     ["normal", "Normal"],
     ["bold", "Bold"],
   ];
+  const ON_LABELS = ["On", "ON", "●", "I"].map((label) => [label, label]);
+  const OFF_LABELS = ["Off", "OFF", "○", "O"].map((label) => [label, label]);
 
   // The lists of what each cell shows, by cell, and every cell's options as saved.
   const cellLists = {};
@@ -414,20 +448,20 @@
 
   /** The rows of an editor for an item's options, each control showing its option and saving its change. */
   function optionRows(shownItem, options, change) {
+    const option = (tag, key, settings) => control(tag, key, options[key], (value) => change(key, value), settings);
     const select = (label, key, choices, disabled = false) =>
+      item(label, option("sdpi-select", key, { options: choices, disabled }));
+    const check = (label, key, text) => item(label, option("sdpi-checkbox", key, { label: text }));
+    // A power state's label, color and weight, side by side under its name.
+    const state = (name, prefix, labels) =>
       item(
-        label,
-        control("sdpi-select", key, options[key], (value) => change(key, value), { options: choices, disabled }),
-      );
-    const check = (label, key, text) =>
-      item(
-        label,
-        control("sdpi-checkbox", key, options[key], (value) => change(key, value), { label: text }),
-      );
-    const color = (label, key) =>
-      item(
-        label,
-        control("sdpi-color", key, options[key], (value) => change(key, value)),
+        undefined,
+        fields(
+          name,
+          ["Label", option("sdpi-select", `${prefix}Label`, { options: labels })],
+          ["Color", option("sdpi-color", `${prefix}Color`)],
+          ["Font weight", option("sdpi-select", `${prefix}Weight`, { options: WEIGHTS })],
+        ),
       );
     switch (shownItem) {
       case "identification":
@@ -469,18 +503,7 @@
         return rows;
       }
       case "power":
-        return [
-          select("Labels", "labels", [
-            ["onOff", "On / Off"],
-            ["upper", "ON / OFF"],
-            ["dots", "● / ○"],
-            ["io", "I / O"],
-          ]),
-          color("On color", "onColor"),
-          select("On weight", "onWeight", WEIGHTS),
-          color("Off color", "offColor"),
-          select("Off weight", "offWeight", WEIGHTS),
-        ];
+        return [state("On state", "on", ON_LABELS), state("Off state", "off", OFF_LABELS)];
       default:
         return [item(undefined, note("Nothing to configure: the cell shows nothing."))];
     }
@@ -508,6 +531,24 @@
       ...optionRows(shownItem, options, change),
       ...(shownItem === "none" ? [] : [item(undefined, reset)]),
     );
+  }
+
+  /** Controls side by side under a title, given as [caption, control], each with its caption above it. */
+  function fields(title, ...captioned) {
+    const heading = document.createElement("p");
+    heading.className = "fields-title";
+    heading.textContent = title;
+    const row = document.createElement("div");
+    row.className = "fields";
+    for (const [caption, content] of captioned) {
+      const field = document.createElement("div");
+      field.className = "field";
+      field.append(note(caption), content);
+      row.append(field);
+    }
+    const box = document.createElement("div");
+    box.append(heading, row);
+    return box;
   }
 
   /** A line of grey text. */
