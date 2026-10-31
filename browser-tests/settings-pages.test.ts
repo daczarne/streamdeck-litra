@@ -713,6 +713,24 @@ describe("settings pages", () => {
       await page.close();
     });
 
+    it("greys out the counter's format for a lamp's number alone, and brings it back for a count", async () => {
+      streamDeck.globalSettings = { lampScreenTopRight: "counter" };
+      const { page } = await openEditor("topRight");
+      const formatDisabled = () =>
+        page.evaluate<boolean>(`document.querySelector('.cell-editor [data-option="format"]').disabled`);
+
+      expect(await formatDisabled()).toBe(false);
+
+      await setOption(page, "count", "count");
+
+      await expect.poll(formatDisabled).toBe(true);
+
+      await setOption(page, "count", "countByModel");
+
+      await expect.poll(formatDisabled).toBe(false);
+      await page.close();
+    });
+
     it("shows that a cell set to None has nothing to configure, and no Reset", async () => {
       streamDeck.globalSettings = { lampScreenMiddleLeft: "none" };
       const { page } = await openEditor("middleLeft");

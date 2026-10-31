@@ -387,12 +387,13 @@
 
   /**
    * A control from sdpi-components that saves nothing itself, showing the value of an option, marked with its key,
-   * which calls `onChange` with a new value. It also reports the values this script gives it, which are left out, so
-   * only the user's changes reach `onChange`.
+   * which calls `onChange` with a new value, greyed out when it's `disabled`. It also reports the values this script
+   * gives it, which are left out, so only the user's changes reach `onChange`.
    */
-  function control(tag, key, value, onChange, { label, options } = {}) {
+  function control(tag, key, value, onChange, { label, options, disabled = false } = {}) {
     const element = document.createElement(tag);
     element.dataset.option = key;
+    element.disabled = disabled;
     if (label !== undefined) {
       element.setAttribute("label", label);
     }
@@ -413,10 +414,10 @@
 
   /** The rows of an editor for an item's options, each control showing its option and saving its change. */
   function optionRows(shownItem, options, change) {
-    const select = (label, key, choices) =>
+    const select = (label, key, choices, disabled = false) =>
       item(
         label,
-        control("sdpi-select", key, options[key], (value) => change(key, value), { options: choices }),
+        control("sdpi-select", key, options[key], (value) => change(key, value), { options: choices, disabled }),
       );
     const check = (label, key, text) =>
       item(
@@ -438,16 +439,22 @@
       case "counter":
         return [
           select("Count", "count", [
-            ["count", "Count"],
-            ["countOf", "Count of"],
+            ["count", "Lamp number"],
+            ["countOf", "Count of total lamps"],
             ["countByModel", "Count by model"],
           ]),
-          select("Format", "format", [
-            ["of", "1 of 2"],
-            ["slash", "1/2"],
-            ["dash", "1-2"],
-            ["space", "1 2"],
-          ]),
+          // A lamp's number alone shows no count to format.
+          select(
+            "Format",
+            "format",
+            [
+              ["of", "1 of 2"],
+              ["slash", "1/2"],
+              ["dash", "1-2"],
+              ["space", "1 2"],
+            ],
+            options.count === "count",
+          ),
         ];
       case "temperature":
       case "brightnessPercentage":
