@@ -1,3 +1,4 @@
+import { brightnessGlyph, svgDoc, temperatureGlyph } from "@daczarne/streamdeck-icons";
 import type { TouchTapEvent } from "@elgato/streamdeck";
 
 import { identifyLamp, type LampStatus, onLampsChanged, readLampStatuses } from "../litra-manager";
@@ -185,12 +186,16 @@ export class LampScreens {
   }
 }
 
-// The icons of the items that can show one, wherever they're shown: the lumens share the brightness's sun (#177).
-const ICONS: Partial<Record<LampScreenItem, string>> = {
-  temperature: "imgs/actions/temperature/glyph@2x.png",
-  brightnessPercentage: "imgs/actions/brightness/glyph@2x.png",
-  brightnessLumen: "imgs/actions/brightness/glyph@2x.png",
+// The icons of the items that can show one, wherever they're shown: the lumens share the brightness's sun (#177). Each is
+// drawn in its text's color (#153), as an SVG a layout's pixmap takes as a data URL, at the size of the glyph@2x.png the
+// dials' main screens show, and kept once drawn, by item and color.
+const ICONS: Partial<Record<LampScreenItem, (size: number, options: { color: string }) => string>> = {
+  temperature: temperatureGlyph,
+  brightnessPercentage: brightnessGlyph,
+  brightnessLumen: brightnessGlyph,
 };
+const ICON_SIZE = 144;
+const drawnIcons = new Map<string, string>();
 
 // What a counter puts between the lamp's place and the count, by format.
 const COUNTER_SEPARATORS = { of: " of ", slash: "/", dash: "-", space: " " };
@@ -283,9 +288,21 @@ function measure(
   style: TextStyle,
 ): Shown {
   const { icon, unit: withUnit } = content.options;
-  const path = ICONS[content.item];
+  const glyph = ICONS[content.item];
   const text = { value: withUnit ? `${value}${unit}` : value, ...style };
-  return icon && path !== undefined ? { text, icon: path } : { text };
+  return icon && glyph !== undefined ? { text, icon: iconOf(content.item, glyph, style.color) } : { text };
+}
+
+/** An item's icon in a color, as a data URL, drawn the first time it's asked for. */
+function iconOf(item: LampScreenItem, glyph: NonNullable<(typeof ICONS)[LampScreenItem]>, color: string): string {
+  const key = `${item} ${color}`;
+  let icon = drawnIcons.get(key);
+  if (icon === undefined) {
+    const svg = svgDoc(ICON_SIZE, glyph(ICON_SIZE, { color }));
+    icon = `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
+    drawnIcons.set(key, icon);
+  }
+  return icon;
 }
 
 /**
