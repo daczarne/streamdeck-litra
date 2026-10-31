@@ -411,6 +411,18 @@ describe("LampScreens", () => {
       expect(dial.setFeedback).toHaveBeenLastCalledWith(expect.objectContaining({ middleRight: shown("OFF", ACCENT) }));
     });
 
+    it.each([
+      ["identification", {}, cell("topLeft", shown(A.label, ACCENT))],
+      ["counter", {}, cell("topLeft", shown("1 of 2", ACCENT))],
+      ["temperature", {}, cell("topLeft", shown(`${A.temperatureKelvin} K`, ACCENT), THERMOMETER)],
+      ["brightnessPercentage", {}, cell("topLeft", shown(`${A.brightnessPercentage}%`, ACCENT), SUN)],
+      ["brightnessLumen", {}, cell("topLeft", shown(`${A.brightnessLumen} lm`, ACCENT))],
+    ])("shows the %s in the text style chosen for its cell (#153)", async (item, options, slots) => {
+      const dial = await topLeftOf(item, { ...options, style: "accent" }, STYLES);
+
+      expect(topLeft(dial)).toEqual(slots);
+    });
+
     it("shows each of the power's states in the text style chosen for it (#153)", async () => {
       const dial = await topLeftOf("power", { onStyle: "accent", offStyle: "primary" }, STYLES);
 

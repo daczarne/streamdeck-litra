@@ -379,9 +379,9 @@
 
   // Each item's options and their defaults, as src/actions/settings.ts has them.
   const ITEM_OPTIONS = {
-    identification: { first: "model", second: "id", trim: false },
-    counter: { count: "countOf", format: "of" },
-    temperature: { icon: true, unit: true },
+    identification: { first: "model", second: "id", trim: false, style: "primary" },
+    counter: { count: "countOf", format: "of", style: "primary" },
+    temperature: { icon: true, unit: true, style: "primary" },
     power: {
       onLabel: "ON",
       onStyle: "primary",
@@ -392,8 +392,8 @@
       offColor: "#202020",
       offWeight: "normal",
     },
-    brightnessPercentage: { icon: true, unit: true },
-    brightnessLumen: { icon: false, unit: true },
+    brightnessPercentage: { icon: true, unit: true, style: "primary" },
+    brightnessLumen: { icon: false, unit: true, style: "primary" },
     none: {},
   };
 
@@ -407,11 +407,12 @@
     ["normal", "Normal"],
     ["bold", "Bold"],
   ];
-  const FONT_STYLES = [
+  // The lamp screens' text styles, which a cell takes, and a look of its own, which only a power state takes (#153).
+  const TEXT_STYLES = [
     ["primary", "Primary"],
     ["accent", "Accent"],
-    ["custom", "Custom"],
   ];
+  const FONT_STYLES = [...TEXT_STYLES, ["custom", "Custom"]];
   const FONT_SIZES = [16, 17, 18, 19, 20, 21, 22].map((size) => [String(size), `${size} px`]);
   const ON_LABELS = ["On", "ON", "●", "I"].map((label) => [label, label]);
   const OFF_LABELS = ["Off", "OFF", "○", "O"].map((label) => [label, label]);
@@ -566,6 +567,7 @@
           select("First part", "first", PARTS),
           select("Second part", "second", PARTS),
           check("Trim", "trim", "Trim to half a row"),
+          select("Font style", "style", TEXT_STYLES),
         ];
       case "counter":
         return [
@@ -586,12 +588,17 @@
             ],
             options.count === "count",
           ),
+          select("Font style", "style", TEXT_STYLES),
         ];
       case "temperature":
       case "brightnessPercentage":
       case "brightnessLumen": {
         const unit = { temperature: "K", brightnessPercentage: "%", brightnessLumen: "lm" }[shownItem];
-        return [check("Icon", "icon", "Show the icon"), check("Unit", "unit", `Show the unit (${unit})`)];
+        return [
+          check("Icon", "icon", "Show the icon"),
+          check("Unit", "unit", `Show the unit (${unit})`),
+          select("Font style", "style", TEXT_STYLES),
+        ];
       }
       case "power":
         return [state("On state", "on", ON_LABELS), state("Off state", "off", OFF_LABELS)];

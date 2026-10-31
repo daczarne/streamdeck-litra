@@ -255,9 +255,9 @@ describe("how each cell of the lamp screens shows its item (#177)", () => {
     await follow();
 
     expect(globalSettings.lampScreenCells()).toEqual({
-      topLeft: { item: "identification", options: { first: "model", second: "id", trim: false } },
-      topRight: { item: "counter", options: { count: "countOf", format: "of" } },
-      middleLeft: { item: "temperature", options: { icon: true, unit: true } },
+      topLeft: { item: "identification", options: { first: "model", second: "id", trim: false, style: "primary" } },
+      topRight: { item: "counter", options: { count: "countOf", format: "of", style: "primary" } },
+      middleLeft: { item: "temperature", options: { icon: true, unit: true, style: "primary" } },
       middleRight: {
         item: "power",
         options: {
@@ -271,8 +271,8 @@ describe("how each cell of the lamp screens shows its item (#177)", () => {
           offWeight: "normal",
         },
       },
-      bottomLeft: { item: "brightnessPercentage", options: { icon: true, unit: true } },
-      bottomRight: { item: "brightnessLumen", options: { icon: false, unit: true } },
+      bottomLeft: { item: "brightnessPercentage", options: { icon: true, unit: true, style: "primary" } },
+      bottomRight: { item: "brightnessLumen", options: { icon: false, unit: true, style: "primary" } },
     });
   });
 
@@ -286,7 +286,7 @@ describe("how each cell of the lamp screens shows its item (#177)", () => {
 
     expect(globalSettings.lampScreenCells().topLeft).toEqual({
       item: "counter",
-      options: { count: "countOf", format: "slash" },
+      options: { count: "countOf", format: "slash", style: "primary" },
     });
   });
 
@@ -309,7 +309,12 @@ describe("how each cell of the lamp screens shows its item (#177)", () => {
 
     await follow();
 
-    expect(globalSettings.lampScreenCells().topLeft.options).toEqual({ first: "model", second: "id", trim: false });
+    expect(globalSettings.lampScreenCells().topLeft.options).toEqual({
+      first: "model",
+      second: "id",
+      trim: false,
+      style: "primary",
+    });
   });
 });
 
