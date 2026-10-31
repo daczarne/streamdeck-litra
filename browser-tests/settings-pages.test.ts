@@ -102,8 +102,8 @@ const PANELS: Panel[] = [
 
 // The global checkboxes of sdpi-components the plugin settings show, on every page, which every dial and key shares
 // (#145, #146), the lists of the lamp screens' cells, in the order the cells are read (#177), the controls of their text
-// styles (#153), and every global setting they show through sdpi-components, in their order, the blink's length last
-// (#171).
+// styles (#153), and every global setting they show through sdpi-components, in their order: the lamps' first, the
+// blink's length (#171) last among them, then the lamp screens'.
 const PLUGIN_SETTINGS_CHECKBOXES = ["keepBrightnessDifference", "keepTemperatureDifference"];
 const LAMP_SCREEN_LISTS = [
   "lampScreenTopLeft",
@@ -118,9 +118,9 @@ const TEXT_STYLE_CONTROLS = ["Primary", "Accent"].flatMap((style) =>
 );
 const PLUGIN_SETTINGS_GLOBALS = [
   ...PLUGIN_SETTINGS_CHECKBOXES,
+  "identifyBlinkMs",
   ...LAMP_SCREEN_LISTS,
   ...TEXT_STYLE_CONTROLS,
-  "identifyBlinkMs",
 ];
 
 // What the plugin accepts for each setting, by its name, and the default it takes: settings.ts says these are what
@@ -1326,8 +1326,8 @@ describe("settings pages", () => {
       expect(await pluginSettingsOf(page)).toMatchObject({
         open: true,
         actionShown: false,
-        // A Configure button under each of the lamp screens' cells (#177).
-        // and a Reset button under each text style (#153).
+        // A Configure button under each of the lamp screens' cells (#177), and a Reset button under each text style
+        // (#153).
         buttons: ["Back", "Find lamps", "Identify", ...LAMP_SCREEN_LISTS.map(() => "Configure"), "Reset", "Reset"],
       });
       expect(await shownGlobalSettings(page)).toEqual(PLUGIN_SETTINGS_GLOBALS);
