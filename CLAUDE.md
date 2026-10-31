@@ -16,7 +16,7 @@ A Stream Deck plugin that controls Logitech Litra lights (Glow, Beam, Beam LX fr
 
 The plugin is made and checked on macOS, with a Stream Deck + XL running Stream Deck 7.6 and two Litra Beams. The manifest also lists Windows 10, where the plugin isn't checked, so a change shouldn't assume macOS without saying why. The Beam is the plugin's target: tests, fakes and defaults use its real values. Other models come one at a time, the Beam LX next, and no work goes into the Glow (see "Supported lamps" in `docs/contributing.md`). The plugin needs neither Logi Options+ nor G HUB, and is checked without them installed.
 
-The plugin isn't on Elgato's Marketplace. A merge that raises the manifest's version makes CI draft a release, with the package `npm run pack` writes, which is then published by hand (see the Packaging section of `README.md`). Releases aren't checked as an installed plugin: their users report what doesn't work ([#21]). Development runs linked from the repo, never installed, so the Deck runs whatever is built from the checked-out branch. That is intended: a change takes effect on the next build and restart.
+The plugin isn't on Elgato's Marketplace: `docs/releases.md` describes how a release is made. Releases aren't checked as an installed plugin: their users report what doesn't work ([#21]). Development runs linked from the repo, never installed, so the Deck runs whatever is built from the checked-out branch. That is intended: a change takes effect on the next build and restart.
 
 ## Read before changing things
 
@@ -25,6 +25,7 @@ The plugin isn't on Elgato's Marketplace. A merge that raises the manifest's ver
 - `docs/elgato_sdk/`: what the Stream Deck SDK offers and what it doesn't (how actions are registered, the interactions a dial receives, its layouts, how Stream Deck loads the settings pages, its logger, what a key shows), checked against the installed version. Read it before designing how an action behaves on the Deck, and add to it when a change finds out something new about the SDK.
 - `docs/logging.md`: what the plugin logs, at which level and with what in each message, where the logs are written and how the files are rotated. A change that logs something new adds it to the contract there.
 - `docs/manual_testing/`: the checks that only the Deck can prove, one document per area. Before asking for a test on the Deck, point to the matching document. When a feature needs new manual checks, add them there.
+- `docs/releases.md`: how a release is made, from the branch that raises the version to the published release, and where the version is written.
 - `docs/architecture.md`: how the plugin's parts fit together, and why they're built that way, such as using `litra` rather than `litra-rs`, finding the lamps afresh on every operation, and what `litra-manager` remembers.
 
 ## Layout
@@ -94,7 +95,7 @@ Supply-chain risk is a hard requirement here:
 
 - Create branches with `git switch -c`.
 - Commit messages explain the why and end with the `Co-Authored-By` trailer for Claude. Commit only when asked.
-- `.github/workflows/main.yaml` runs the type check, Biome, the doc comments check, a regeneration of the icons that must change nothing, the unit and integration tests, the browser tests, `npm run validate`, Markdown lint and CSpell on every pull request and on `main`. The browser tests run in a job of their own, beside the others, since they're the slowest and need no build. On `main`, once every check has passed, its last job drafts a release when the manifest's version has none yet, drafts included. The job packs the plugin, attests the package's provenance, and fills the notes in from `.github/release-notes.md`. Locally, the same checks run in two parts, both as Claude commands and as VS Code tasks: `/lint` and the `Lint` task run the linters (everything but the tests), `/test` and the `Test` task run the unit and integration tests and then the browser tests, and `/ci` and the `CI` task run both. `Test` is VS Code's default test task, so **Tasks: Run Test Task** starts it.
+- `.github/workflows/main.yaml` runs the type check, Biome, the doc comments check, a regeneration of the icons that must change nothing, the unit and integration tests, the browser tests, `npm run validate`, Markdown lint and CSpell on every pull request and on `main`. The browser tests run in a job of their own, beside the others, since they're the slowest and need no build. On `main`, once every check has passed, its last job drafts a release when the version is new (see `docs/releases.md`). Locally, the same checks run in two parts, both as Claude commands and as VS Code tasks: `/lint` and the `Lint` task run the linters (everything but the tests), `/test` and the `Test` task run the unit and integration tests and then the browser tests, and `/ci` and the `CI` task run both. `Test` is VS Code's default test task, so **Tasks: Run Test Task** starts it.
 - Write the pull request title and description with the `pr-description` skill.
 - Draft issues with the `github-issues` skill, and post them only when asked.
 

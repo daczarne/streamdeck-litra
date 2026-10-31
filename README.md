@@ -135,9 +135,7 @@ npm run pack
 
 It runs `check:ui`, builds, and writes `release/com.daczarne.litra.streamDeckPlugin`, which holds the plugin folder, without what `com.daczarne.litra.sdPlugin/.sdignore` leaves out. The build puts in it only the files of `node-hid` that run on macOS and Windows (`scripts/package-files.mjs` lists them), the plugin's license, and the licenses of the code it ships, in `bin/THIRD_PARTY_LICENSES.txt`, since the minified bundle drops them. An installed plugin can't fall back on the repository's `node_modules` the way a linked one does, so a dependency missing from the package only shows once it's installed ([#21]).
 
-The version is the `Version` in `manifest.json`, the only place it's written. Elgato's format has four numbers, `{major}.{minor}.{patch}.{build}`, and the last one stays 0. Releases follow [semantic versioning][semver], where a breaking change is one that breaks keys already set up, such as a renamed action or a setting whose meaning changes.
-
-A pull request that raises the version makes a release once it's merged. CI's last job runs on every push to `main`, after every check has passed. When the manifest's version has no release yet, drafts included, it packs the plugin, records the package's provenance in an attestation, and drafts a release tagged `v{major}.{minor}.{patch}`. The draft holds the package and notes from `.github/release-notes.md`, with the package's SHA-256, followed by the pull requests merged since the last release. Publishing it, once its notes are read, is manual.
+How a release is made, from the version to publishing it, is in [`docs/releases.md`][releases].
 
 ## Icons
 
@@ -217,6 +215,7 @@ The plugin is MIT licensed: see [`LICENSE`][license].
 [keys]: docs/elgato_sdk/keys.md
 [latest-release]: https://github.com/daczarne/streamdeck-litra/releases/latest
 [license]: LICENSE
+[releases]: docs/releases.md
 [streamdeck-icons]: https://github.com/daczarne/streamdeck-icons
 [litra]: https://github.com/timrogers/litra
 [logging]: docs/logging.md
@@ -227,7 +226,6 @@ The plugin is MIT licensed: see [`LICENSE`][license].
 [sdk]: https://docs.elgato.com/streamdeck
 [sdpi]: https://github.com/GeekyEggo/sdpi-components
 [sdpi-source]: https://github.com/GeekyEggo/sdpi-components/blob/v4.0.1/dist/sdpi-components.js
-[semver]: https://semver.org
 [stream-deck]: https://www.elgato.com/streamdeck
 [temp]: com.daczarne.litra.sdPlugin/imgs/actions/temperature/icon@2x.png
 [temp-down]: com.daczarne.litra.sdPlugin/imgs/actions/temperature-down/icon@2x.png
