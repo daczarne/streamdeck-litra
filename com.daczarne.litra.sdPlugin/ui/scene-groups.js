@@ -1,15 +1,16 @@
 // The groups of a scene (#174), each of which turns its lamps off, or on at its own brightness and temperature. The
 // first group is the page's own controls, which save the key's settings as a scene with a single group saves them, and
 // whose presets this hides while its power is off. The groups added after it are drawn here, under a heading each, and
-// saved as `addedGroups`: each with its power, its presets, and the lamps checked for it, with their ids and labels, so
-// a lamp that isn't connected keeps its place. No two groups hold the same lamp: a lamp another group holds, the first
-// included, is greyed out, and says which group holds it, here and in the first group's lamp picker (lamp-picker.js),
-// which tells this of the lamps the first group holds, as this tells it of the ones the others do, through events on
-// the document. A lamp that a group added after the first checks leaves the first, as the plugin takes it. The
-// lamps found and their names come as the lamp picker gets them. Only adding or removing a group, or groups that
-// arrive changed, draw the groups again: a change to a group saves it in place, and a lamp checked or unchecked draws
-// the lamp lists alone, since a page drawn again scrolls while its new controls are drawn. A file rather than an
-// inline script, so the pages' Content-Security-Policy doesn't have to allow inline scripts.
+// saved as `addedGroups`: each with its power, its presets, and the ids of the lamps checked for it, among the lamps
+// the plugin knows (#194), keeping the ones it no longer knows, such as one forgotten. No two groups hold the same
+// lamp: a lamp another group holds, the first included, is greyed out, and says which group holds it, here and in the
+// first group's lamp picker (lamp-picker.js), which tells this of the lamps the first group holds, as this tells it of
+// the ones the others do, through events on the document. A lamp that a group added after the first checks leaves the
+// first, as the plugin takes it. The lamps, with their names, come from the plugin's global settings, where the plugin
+// saves them. Only adding or removing a group, or groups that arrive changed, draw the groups again: a change to a
+// group saves it in place, and a lamp checked or unchecked draws the lamp lists alone, since a page drawn again scrolls
+// while its new controls are drawn. A file rather than an inline script, so the pages' Content-Security-Policy doesn't
+// have to allow inline scripts.
 (() => {
   const container = document.getElementById("added-groups");
   if (container === null) {
@@ -21,10 +22,8 @@
 
   // The groups added after the first, as saved.
   let groups = [];
-  // The lamps the plugin found, or undefined while it's asked.
-  let found;
-  // The lamps' names, by id, from the plugin's global settings.
-  let names = {};
+  // The lamps the plugin knows, by id, from its global settings, or undefined until they're read.
+  let known;
   // Each group's list of lamps, as last drawn, by the group's place.
   let lampLists = [];
   // The ids of the lamps the first group holds, as its lamp picker shows them.
@@ -54,9 +53,9 @@
     0,
   );
 
-  // The names arrive with the lamps the plugin knows, in the global settings, each time the plugin saves them.
-  const [readNames] = SDPIComponents.useGlobalSettings("lamps", (value) => {
-    names = validNames(value);
+  // The lamps arrive with the global settings, each time the plugin saves them.
+  const [readKnown] = SDPIComponents.useGlobalSettings("lamps", (value) => {
+    known = validKnown(value);
     renderLamps();
   });
 
@@ -73,17 +72,33 @@
         power: group.power === "off" ? "off" : "on",
         presetPercentage: number(group.presetPercentage, 0, 100, NEW_GROUP.presetPercentage),
         presetKelvin: number(group.presetKelvin, 2700, 6500, NEW_GROUP.presetKelvin),
-        lamps: Array.isArray(group.lamps) ? group.lamps.filter((lamp) => typeof lamp?.id === "string") : [],
+        lamps: Array.isArray(group.lamps) ? group.lamps.filter((id) => typeof id === "string") : [],
       }));
   }
 
-  /** The names of the lamps the plugin knows, by id, from the global settings, or none when they aren't lamps by id. */
-  function validNames(value) {
+  /**
+   * The lamps the plugin knows, by id, or none when they aren't lamps by id: each with a model and serial end, and a
+   * name only when it's text.
+   */
+  function validKnown(value) {
     if (typeof value !== "object" || value === null || Array.isArray(value)) {
       return {};
     }
     return Object.fromEntries(
-      Object.entries(value).flatMap(([id, lamp]) => (typeof lamp?.name === "string" ? [[id, lamp.name]] : [])),
+      Object.entries(value).flatMap(([id, lamp]) =>
+        typeof lamp?.model === "string" && typeof lamp?.serialEnd === "string"
+          ? [
+              [
+                id,
+                {
+                  model: lamp.model,
+                  serialEnd: lamp.serialEnd,
+                  ...(typeof lamp.name === "string" ? { name: lamp.name } : {}),
+                },
+              ],
+            ]
+          : [],
+      ),
     );
   }
 
@@ -95,20 +110,20 @@
   function holders() {
     const held = {};
     groups.forEach((group, index) => {
-      for (const { id } of group.lamps) {
+      for (const id of group.lamps) {
         held[id] ??= index + 2;
       }
     });
     return held;
   }
 
-  /** Groups as the key saves them: every setting written out, and each lamp with its id and label alone. */
+  /** Groups as the key saves them: every setting written out, and the ids of their lamps. */
   function asSaved(list) {
     return list.map(({ power: groupPower, presetPercentage, presetKelvin, lamps }) => ({
       power: groupPower,
       presetPercentage,
       presetKelvin,
-      lamps: lamps.map(({ id, label }) => ({ id, label })),
+      lamps: [...lamps],
     }));
   }
 
@@ -184,23 +199,19 @@
   }
 
   /**
-   * The lamps a group lists: the ones found, then the ones it checked that weren't, marked as missing, each with the
-   * group that holds it.
+   * The lamps a group lists: the ones the plugin knows, in the order of the ends of their serial numbers, as the lamp
+   * picker lists them, each with its name, or else its label, and the group that holds it.
    */
-  function listedIn(group) {
+  function listed() {
     const held = { ...Object.fromEntries(firstGroupLamps.map((id) => [id, 1])), ...holders() };
-    const lamps = (found ?? []).map(({ id, label }) => ({ id, label, missing: false }));
-    for (const { id, label } of group.lamps) {
-      if (!lamps.some((lamp) => lamp.id === id)) {
-        lamps.push({ id, label, missing: true });
-      }
-    }
-    return lamps.map((lamp) => ({ ...lamp, heldBy: held[lamp.id] }));
+    return Object.entries(known ?? {})
+      .sort(([, a], [, b]) => (a.serialEnd < b.serialEnd ? -1 : 1))
+      .map(([id, lamp]) => ({ id, label: lamp.name ?? `${lamp.model} - ${lamp.serialEnd}`, heldBy: held[id] }));
   }
 
   /**
    * A lamp's row in a group: its checkbox, by its name or else its label, checked when the group holds it, and greyed
-   * out, with the group that does, when another one holds it, or a note when it isn't connected.
+   * out, with the group that does, when another one holds it.
    */
   function lampRow(group, number, lamp) {
     const elsewhere = lamp.heldBy !== undefined && lamp.heldBy !== number;
@@ -211,29 +222,25 @@
         "sdpi-checkbox",
         lamp.heldBy === number,
         (checked) => {
-          group.lamps = checked
-            ? [...group.lamps, { id: lamp.id, label: lamp.label }]
-            : group.lamps.filter(({ id }) => id !== lamp.id);
+          group.lamps = checked ? [...group.lamps, lamp.id] : group.lamps.filter((id) => id !== lamp.id);
           save();
           renderLamps();
         },
-        { label: names[lamp.id] ?? lamp.label, disabled: elsewhere },
+        { label: lamp.label, disabled: elsewhere },
       ),
     );
     if (elsewhere) {
       row.append(note(`in group ${lamp.heldBy}`));
-    } else if (lamp.missing) {
-      row.append(note("not found"));
     }
     return row;
   }
 
-  /** A group's lamps: a row for each, or what stands in for them. */
+  /** A group's lamps: a row for each, or what stands in for them until they're read, or when the plugin knows none. */
   function lampRows(group, number) {
-    if (found === undefined) {
-      return [note("Looking for lamps…")];
+    if (known === undefined) {
+      return [];
     }
-    const lamps = listedIn(group);
+    const lamps = listed();
     return lamps.length === 0 ? [note("No lamps found")] : lamps.map((lamp) => lampRow(group, number, lamp));
   }
 
@@ -332,11 +339,6 @@
   }
 
   (async () => {
-    // The lamp picker and the plugin settings tell of the lamps they find.
-    document.addEventListener("litra:lamps", (event) => {
-      found = event.detail;
-      renderLamps();
-    });
     // Told each time the picker draws its lamps, so the same ones draw nothing again.
     document.addEventListener("litra:first-group-lamps", (event) => {
       if (JSON.stringify(event.detail) !== JSON.stringify(firstGroupLamps)) {
@@ -345,7 +347,7 @@
       }
     });
     render();
-    [groups, names] = await Promise.all([readGroups().then(validGroups), readNames().then(validNames)]);
+    [groups, known] = await Promise.all([readGroups().then(validGroups), readKnown().then(validKnown)]);
     render();
   })().catch((error) => console.error("Can't show the groups", error));
 })();

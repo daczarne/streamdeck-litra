@@ -170,27 +170,11 @@ function textList(): Setting<readonly string[]> {
 export type CheckedLamps = "all" | readonly string[];
 
 /**
- * Lamps a key's settings page saved, with their ids and the labels the page showed them with, so a lamp that isn't
- * connected keeps its name there. The plugin only takes the ids.
+ * The ids of the lamps a key's settings page saved (#20), which the lamps the plugin knows name and label (#194), and
+ * which may include lamps it no longer knows, which the plugin leaves alone.
  */
 function lampList(): Setting<readonly string[]> {
-  return {
-    default: [],
-    expected: "a list of lamps with their ids",
-    parse: (value) => {
-      if (!Array.isArray(value)) {
-        return undefined;
-      }
-      const ids: string[] = [];
-      for (const lamp of value) {
-        if (typeof lamp !== "object" || lamp === null || Array.isArray(lamp) || typeof lamp.id !== "string") {
-          return undefined;
-        }
-        ids.push(lamp.id);
-      }
-      return ids;
-    },
-  };
+  return { ...textList(), expected: "a list of lamp ids" };
 }
 
 /**
@@ -201,7 +185,7 @@ function checkedLamps(): Setting<CheckedLamps> {
   const list = lampList();
   return {
     default: "all",
-    expected: '"all", or a list of lamps with their ids',
+    expected: '"all", or a list of lamp ids',
     parse: (value) => (value === "all" ? "all" : list.parse(value)),
   };
 }

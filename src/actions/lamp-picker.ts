@@ -8,10 +8,11 @@ import { addLamps, forgetLamp, identifyBlinkMs, renameLamp } from "./global-sett
 const logger = pluginLogger.createScope("Lamp picker");
 
 /**
- * Answers the lamp picker on the keys' settings pages (#20, `ui/lamp-picker.js`) and the plugin settings on every page
- * (#146, `ui/plugin-settings.js`), whichever action's page they're on: the connected lamps when a page asks for them,
- * which the plugin adds to the ones it knows (#194), a blink of one when its Identify button is pressed, and a lamp
- * renamed (#146) or forgotten (#194) in the plugin settings, which only the plugin saves.
+ * Answers the plugin settings on every page (#146, `ui/plugin-settings.js`), whichever action's page they're on: the
+ * connected lamps when Find lamps asks for them, which the plugin adds to the ones it knows (#194), a blink of one when
+ * its Identify button is pressed, and a lamp renamed (#146) or forgotten (#194), which only the plugin saves. The keys'
+ * lamp pickers (#20, `ui/lamp-picker.js`) ask for nothing: they list the lamps the plugin knows, from its global
+ * settings.
  */
 export function answerLampPickers(): void {
   streamDeck.ui.onSendToPlugin((ev) => {

@@ -81,16 +81,15 @@ describe("parseSettings", () => {
       ["mode", powerSettings, "On"],
       ["mode", powerSettings, ""],
       ["mode", powerSettings, 1],
-      // A list of lamps holds each lamp's id and label, as the settings page saves them (#20).
+      // A list of lamps holds their ids, as the settings page saves them (#194).
       ["lamps", powerSettings, "every"],
       ["lamps", powerSettings, 1],
-      ["lamps", powerSettings, { id: "0123456789abcdef" }],
-      ["lamps", powerSettings, ["0123456789abcdef"]],
-      ["lamps", powerSettings, [{ label: "Beam - 1234" }]],
-      ["lamps", powerSettings, [{ id: 1, label: "Beam - 1234" }]],
+      ["lamps", powerSettings, "0123456789abcdef"],
+      ["lamps", powerSettings, [{ id: "0123456789abcdef", label: "Beam - 1234" }]],
+      ["lamps", powerSettings, ["0123456789abcdef", 1]],
       // The lamps a key's page left out are a list too, never every lamp (#147).
       ["leftOutLamps", powerSettings, "all"],
-      ["leftOutLamps", powerSettings, ["0123456789abcdef"]],
+      ["leftOutLamps", powerSettings, [{ id: "0123456789abcdef" }]],
     ];
 
     it.each(invalid)("%s set to %j", (name, schema, value) => {
@@ -116,15 +115,10 @@ describe("parseSettings", () => {
   });
 
   describe("lamps (#20)", () => {
-    it("takes the ids of the lamps the settings page saved, leaving their labels", () => {
-      const lamps = [
-        { id: "0123456789abcdef", label: "Beam - 1234" },
-        { id: "fedcba9876543210", label: "Beam - 5678" },
-      ];
+    it("takes the ids of the lamps the settings page saved (#194)", () => {
+      const lamps = ["0123456789abcdef", "fedcba9876543210"];
 
-      expect(parseSettings({ lamps }, powerSettings, logger)).toMatchObject({
-        lamps: ["0123456789abcdef", "fedcba9876543210"],
-      });
+      expect(parseSettings({ lamps }, powerSettings, logger)).toMatchObject({ lamps });
       expect(logger.warn).not.toHaveBeenCalled();
     });
 
@@ -136,12 +130,10 @@ describe("parseSettings", () => {
       expect(logger.warn).not.toHaveBeenCalled();
     });
 
-    it("takes the ids of the lamps the settings page left out, leaving their labels (#147)", () => {
-      const leftOutLamps = [{ id: "fedcba9876543210", label: "Beam - 5678" }];
+    it("takes the ids of the lamps the settings page left out (#147)", () => {
+      const leftOutLamps = ["fedcba9876543210"];
 
-      expect(parseSettings({ leftOutLamps }, powerSettings, logger)).toMatchObject({
-        leftOutLamps: ["fedcba9876543210"],
-      });
+      expect(parseSettings({ leftOutLamps }, powerSettings, logger)).toMatchObject({ leftOutLamps });
       expect(logger.warn).not.toHaveBeenCalled();
     });
   });

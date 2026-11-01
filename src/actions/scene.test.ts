@@ -84,7 +84,7 @@ describe("SceneAction", () => {
     it("sets the key's lamps alone, picked on the settings page (#20)", async () => {
       // A key that adds no new lamps acts on the lamps checked alone (#147).
       changeGlobalSettings({ addNewLamps: false });
-      const lamps = [{ id: "lamp-1", label: "Beam - 1111" }];
+      const lamps = ["lamp-1"];
       const key = await deck.key(SCENE, { presetPercentage: 100, presetKelvin: 6500, lamps });
       vi.mocked(setLampsScene).mockResolvedValue(SET);
 
@@ -105,8 +105,8 @@ describe("SceneAction", () => {
   });
 
   describe("with groups added after the first (#174)", () => {
-    const LAMP_2 = { id: "lamp-2", label: "Beam - 2222" };
-    const LAMP_3 = { id: "lamp-3", label: "Beam - 3333" };
+    const LAMP_2 = "lamp-2";
+    const LAMP_3 = "lamp-3";
 
     it("sets each group's lamps to its own power, brightness and temperature, and leaves them out of the first", async () => {
       const key = await deck.key(SCENE, {
@@ -133,7 +133,7 @@ describe("SceneAction", () => {
       const key = await deck.key(SCENE, {
         presetPercentage: 50,
         presetKelvin: 5000,
-        lamps: [{ id: "lamp-1", label: "Beam - 1111" }, LAMP_2],
+        lamps: ["lamp-1", LAMP_2],
         addedGroups: [{ presetPercentage: 30, presetKelvin: 3000, lamps: [LAMP_2] }],
       });
       vi.mocked(setLampsScene).mockResolvedValue(SET);
@@ -147,7 +147,7 @@ describe("SceneAction", () => {
       const key = await deck.key(SCENE, {
         presetPercentage: 50,
         presetKelvin: 5000,
-        lamps: [{ id: "lamp-1", label: "Beam - 1111" }],
+        lamps: ["lamp-1"],
         leftOutLamps: [LAMP_2],
         addedGroups: [{ presetPercentage: 30, presetKelvin: 3000, lamps: [LAMP_3] }],
       });
@@ -196,7 +196,7 @@ describe("SceneAction", () => {
     });
 
     it("uses the default of a group's setting that isn't valid, keeps the group's others, and warns (#174)", async () => {
-      const lamps = [{ id: "lamp-2", label: "Beam - 2222" }];
+      const lamps = ["lamp-2"];
       const key = await deck.key(SCENE, { addedGroups: [{ presetPercentage: 150, presetKelvin: 3000, lamps }] });
       vi.mocked(setLampsScene).mockResolvedValue(SET);
 
@@ -239,7 +239,7 @@ describe("SceneAction", () => {
       const key = await deck.key(SCENE, {
         presetPercentage: 40,
         presetKelvin: 5000,
-        addedGroups: [{ power: "off", lamps: [{ id: "lamp-2", label: "Beam - 2222" }] }],
+        addedGroups: [{ power: "off", lamps: ["lamp-2"] }],
       });
       vi.mocked(setLampsScene).mockResolvedValue(SET);
 
