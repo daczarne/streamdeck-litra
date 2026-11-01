@@ -63,6 +63,8 @@ npm run coverage          # the same tests, with a coverage report in the termin
 npm run test:browser      # run the browser tests, which need Chrome
 ```
 
+When asked for a command, Claude replies with the command and doesn't run it. Steps that change what the Deck runs or shows, like restarting the plugin, are the user's to run, while looking at the hardware.
+
 ## Runtime and toolchain
 
 - The plugin runs on Node 24, set by `Nodejs.Version` in `manifest.json`. Stream Deck downloads that runtime into `~/Library/Application Support/com.elgato.StreamDeck/NodeJS/`, whose `manifest.json` lists the exact version (24.22.1 when this was written). A plugin keeps the runtime it started with, so a new one reaches it only on its next restart. `tsconfig.json` extends `@tsconfig/node24`, and `@types/node` is the newest version whose minor doesn't go past that runtime's (24.19 for 24.22), since its minor versions don't follow Node's one for one, and it follows the runtime, not the Node used to build.
