@@ -50,7 +50,7 @@ A lamp that fails is logged, and the operation goes on with the others. Finding 
 
 Besides the lamps the plugin knows, four things outlive an operation. The first three are there because a lamp on a low-power supply needs them ([#55]):
 
-- The brightness each lamp can reach, its cap, learned the first time it falls short of what it was sent, and kept by its serial number with the path it was plugged in at. A lamp only moves to another power supply by being plugged in again, which on macOS gives it a new path, so a cap is forgotten once its lamp has another one. Whether Windows gives it a new path too isn't checked: if it kept the old one, a cap would outlive a move until the plugin restarts.
+- The brightness each lamp can reach, its cap, learned each time it falls short of what it was sent, and kept by its serial number with the path it was plugged in at. A cap moves by a few lumens over time ([#164], [probes]): one that drops is learned again on the next change that reaches it, while one that rises stays as learned, a lumen or two below what the lamp could reach, since the lamp is never sent more. A lamp only moves to another power supply by being plugged in again, which on macOS gives it a new path, so a cap is forgotten once its lamp has another one. Whether Windows gives it a new path too isn't checked: if it kept the old one, a cap would outlive a move until the plugin restarts.
 - When a capped lamp may still go back to its cap after being asked for more, which can undo a lower brightness written in between: the next brightness change waits until then.
 - The queue of brightness changes, so that one starts only once the one before has been read back.
 - Where each lamp kept apart would be if an end of its range or its cap hadn't stopped it, with the brightness or temperature it was left at ([#145]). Its next step goes on from there, so a lamp held at its cap or at 0% while the others went on comes back with them, and they keep the difference they had. A step counts only while a lamp still moves, so turning on once every lamp is at its end piles nothing up. A turn planned before a lamp's cap is learned can still take it past its end, so before each turn, lamps that are all past their ends come back together by the steps they all have past them, and the next step the other way moves one of them. A position is forgotten once its lamp is set any other way, and ignored once the lamp is no longer where it was left, such as after a change with its own buttons. A restart forgets them all, as it does the caps.
@@ -85,6 +85,7 @@ A dial sends a tick at a time, and a quick turn sends many. The dial gathers tic
 [#145]: https://github.com/daczarne/streamdeck-litra/issues/145
 [#147]: https://github.com/daczarne/streamdeck-litra/issues/147
 [#153]: https://github.com/daczarne/streamdeck-litra/issues/153
+[#164]: https://github.com/daczarne/streamdeck-litra/issues/164
 [#174]: https://github.com/daczarne/streamdeck-litra/issues/174
 [#177]: https://github.com/daczarne/streamdeck-litra/issues/177
 [#194]: https://github.com/daczarne/streamdeck-litra/issues/194
