@@ -47,7 +47,7 @@ Every new feature or enhancement comes with automated tests for it. [#27] was a 
 
 ## Features update the user guide
 
-[The user guide][user-guide] is where users learn how the plugin works, action by action. A feature that changes what the Deck shows or does, or adds a setting, updates it in the same pull request. The README stays an overview: what the plugin is, its actions, what it runs on and how to install it.
+[The user guide][user-guide] is where users learn how the plugin works, action by action. A feature that changes what the Deck shows or does, or adds a setting, updates it in the same pull request. The README stays an overview: what the plugin is, its actions, what it runs on and how to install it, then how to build it and work on it.
 
 ## Dependencies
 
