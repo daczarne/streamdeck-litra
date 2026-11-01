@@ -24,7 +24,8 @@ A page and the plugin exchange messages through Stream Deck, which the lamp pick
 
 - A page sends `sendToPlugin` over its WebSocket, with a payload of its own. The plugin receives it through `streamDeck.ui.onSendToPlugin`, whichever action the page belongs to, so one listener can answer every page. `streamDeck.ui.sendToPropertyInspector` answers, and only reaches the page that's shown.
 - sdpi-components' `SDPIComponents.streamDeckClient.get(…)` sends a message and waits for the reply that matches it. Its `datasource` attribute fills a select or a checkbox list the same way, but a checkbox list's items are only a checkbox and a label, so they can't hold a button.
-- `SDPIComponents.useSettings(key)` reads and saves one setting while keeping the others, for a page script that draws its own controls. sdpi-components' checkbox and button work there as plain elements: without a `setting`, a checkbox saves nothing itself. Two settings saved one after the other, such as a key's checked lamps and the ones it left out, reach the plugin as two messages, the second holding both ([#147]).
+- `SDPIComponents.useSettings(key)` reads and saves one setting while keeping the others, for a page script that draws its own controls. sdpi-components' checkbox, list, slider and button work there as plain elements: without a `setting`, they save nothing themselves, and a list or a slider reports the user's change with `valuechange`, a slider once it's released. Two settings saved one after the other, such as a key's checked lamps and the ones it left out, reach the plugin as two messages, the second holding both ([#147]).
+- A script that draws its controls again, such as with `replaceChildren`, makes the panel scroll: the new controls take a moment to draw, and the page is shorter until they do, so the panel scrolls up and a slider just released moves out of view. The Scene key's groups save a change in place, and draw again only what changed ([#174]).
 
 ## Global settings
 
@@ -74,6 +75,8 @@ Checked while adding the plugin settings ([#146]): the manifest schema and the a
 
 Checked while adding the blink's length ([#171]): a slider with `global`, which saves a number to the global settings, in the browser tests and on the Deck, kept across a restart of the plugin.
 
+Checked while adding the Scene key's groups ([#174]): controls without a `setting`, and a page drawn again, in the browser tests and on the Deck.
+
 Checked while adding the lamp screens' cells ([#177]): lists with `global`, made by a script with their options added before they're on the page, in the browser tests and on the Deck.
 
 [#9]: https://github.com/daczarne/streamdeck-litra/issues/9
@@ -84,5 +87,6 @@ Checked while adding the lamp screens' cells ([#177]): lists with `global`, made
 [#147]: https://github.com/daczarne/streamdeck-litra/issues/147
 [#153]: https://github.com/daczarne/streamdeck-litra/issues/153
 [#171]: https://github.com/daczarne/streamdeck-litra/issues/171
+[#174]: https://github.com/daczarne/streamdeck-litra/issues/174
 [#177]: https://github.com/daczarne/streamdeck-litra/issues/177
 [manual-test]: ../manual_testing/settings_pages.md
