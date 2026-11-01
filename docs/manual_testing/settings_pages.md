@@ -5,7 +5,7 @@
 - [Checks](#checks)
 - [Afterwards](#afterwards)
 
-The browser tests (`npm run test:browser`) check every settings page on every pull request: the controls it shows on a key and on a dial, that each control's default and values are the ones the plugin takes (`src/actions/settings.ts`), the settings it sends, its own and the plugin's global ones, what each number field shows, what its − and + buttons and a typed value save, and that it saves once the clicks stop, the lamp picker and the plugin settings, and that its Content-Security-Policy refuses anything remote or inline. They run the pages in a headless Chrome, with a fake standing in for Stream Deck, so they take for granted what Stream Deck itself does:
+The browser tests (`npm run test:browser`) check every settings page on every pull request: the controls it shows on a key and on a dial, that each control's default and values are the ones the plugin takes (`src/actions/settings.ts`), the settings it sends, its own and the plugin's global ones, what each number field shows, what its − and + buttons, the arrow keys, Enter or the space bar on a button, and a value typed in save, on Enter or once the field is left, that it saves once the clicks stop, and that it keeps a change not saved yet when the saved value arrives, the lamp picker and the plugin settings, and that its Content-Security-Policy refuses anything remote or inline. They run the pages in a headless Chrome, with a fake standing in for Stream Deck, so they take for granted what Stream Deck itself does:
 
 - It enforces the policy, in its own Chromium, which is older than the Chrome the tests use.
 - It tells each page whether its action sits on a key or a dial.

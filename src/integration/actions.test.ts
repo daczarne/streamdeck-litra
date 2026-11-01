@@ -303,6 +303,23 @@ describe("the Temperature action", () => {
     expect(pair.map((lamp) => lamp.temperatureInKelvin)).toEqual([3300, 3300]);
     expect(feedbackOf(dial)).toMatchObject({ value: "3300" });
   });
+
+  it("moves the lamps once for a quick turn, with the step the dial has by then", async () => {
+    const pair = [beam({ temperatureInKelvin: 3100 }), beam({ temperatureInKelvin: 3100 })];
+    plugIn(...pair);
+    const dial = await deck.dial(TEMPERATURE, { stepKelvin: 100 });
+
+    await deck.quickly(() => {
+      void deck.turn(dial, 1);
+      void deck.turn(dial, 1);
+      void deck.changeSettings(dial, { stepKelvin: 200 });
+      void deck.turn(dial, 1);
+    });
+
+    // Three ticks of 200 K from 3100 K.
+    expect(pair.map((lamp) => lamp.writes("temperature"))).toEqual([[3700], [3700]]);
+    expect(feedbackOf(dial)).toMatchObject({ value: "3700" });
+  });
 });
 
 describe("the Scene key", () => {

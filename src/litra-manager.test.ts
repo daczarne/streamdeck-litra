@@ -444,6 +444,39 @@ describe("forEachDevice", () => {
     return operation.mock.calls.map(([device]) => (device as Device).serialNumber);
   }
 
+  it("goes through the lamps in the order of their serial numbers, whatever order they're found in", () => {
+    const [later, earlier] = [beam({ serialNumber: "2325FE02BBBB" }), beam({ serialNumber: "2325FE01AAAA" })];
+    connect(later, earlier);
+    const operation = vi.fn();
+
+    manager.forEachDevice("test", operation, "all");
+
+    expect(ranOn(operation)).toEqual([earlier.serialNumber, later.serialNumber]);
+  });
+
+  it("orders the lamps by the last 4 characters of their serial numbers first, as the settings pages list them", () => {
+    const [startsEarlier, endsEarlier] = [
+      beam({ serialNumber: "2325FE01ZZZZ" }),
+      beam({ serialNumber: "2325FE02AAAA" }),
+    ];
+    connect(startsEarlier, endsEarlier);
+    const operation = vi.fn();
+
+    manager.forEachDevice("test", operation, "all");
+
+    expect(ranOn(operation)).toEqual([endsEarlier.serialNumber, startsEarlier.serialNumber]);
+  });
+
+  it("orders lamps whose serial numbers end alike by the whole serial number", () => {
+    const [later, earlier] = [beam({ serialNumber: "2325FE02AAAA" }), beam({ serialNumber: "2325FE01AAAA" })];
+    connect(later, earlier);
+    const operation = vi.fn();
+
+    manager.forEachDevice("test", operation, "all");
+
+    expect(ranOn(operation)).toEqual([earlier.serialNumber, later.serialNumber]);
+  });
+
   it("fails without running the operation when no lamp is connected", () => {
     const operation = vi.fn();
 
@@ -614,6 +647,20 @@ describe("the lamps the plugin knows (#194)", () => {
 
     expect([known.on, unknown.on]).toEqual([false, true]);
     expect(logger.warn).toHaveBeenCalledExactlyOnceWith(`turn off: lamp ${unknownId} isn't one of the plugin's lamps`);
+  });
+
+  it("make an operation on every lamp but some fail, and log it, when every lamp connected is left out (#147)", () => {
+    const [first, second] = [beam({ on: true }), beam({ on: true })];
+    connectKnowing([first, second], first, second);
+
+    const result = manager.turnLampsOff({
+      except: [manager.lampId(first.serialNumber), manager.lampId(second.serialNumber)],
+    });
+
+    expect(result).toEqual({ ok: false, deviceCount: 0, failures: 1 });
+    expect([first.on, second.on]).toEqual([true, true]);
+    expect([closes(first), closes(second)]).toEqual([1, 1]);
+    expect(logger.warn).toHaveBeenCalledExactlyOnceWith("turn off: every lamp connected is left out");
   });
 
   it("are the only ones a scene sets (#174)", async () => {
@@ -924,6 +971,22 @@ describe("onLampsChanged", () => {
     expect(listener).toHaveBeenCalledOnce();
   });
 
+  it("removes a listener once, however many times it's removed, and keeps the others", async () => {
+    connect(beam());
+    const others = [vi.fn(), vi.fn()];
+    const remove = manager.onLampsChanged(vi.fn());
+    for (const other of others) {
+      manager.onLampsChanged(other);
+    }
+
+    remove();
+    remove();
+    manager.turnLampsOn("all");
+    await announced();
+
+    expect(others.map((other) => other.mock.calls.length)).toEqual([1, 1]);
+  });
+
   it("stops calling a listener once it's removed", async () => {
     connect(beam());
     const listener = vi.fn();
@@ -1229,6 +1292,16 @@ describe("adjustLampsBrightness", () => {
     expect(lamp.queries("brightness")).toBe(2);
   });
 
+  it("fails without writing when no lamp can be read", async () => {
+    const [first, second] = [beam({ brightnessInLumen: lumenAt(50) }), beam({ brightnessInLumen: lumenAt(50) })];
+    first.fail("readSync");
+    second.fail("readSync");
+    connect(first, second);
+
+    expect(await adjust(1, 10)).toMatchObject({ ok: false, failures: 2 });
+    expect([first.writes("brightness"), second.writes("brightness")]).toEqual([[], []]);
+  });
+
   it("turns a lamp that is off on before changing its brightness", async () => {
     const lamp = beam({ on: false, brightnessInLumen: lumenAt(50) });
     connect(lamp);
@@ -1409,6 +1482,10 @@ describe("adjustLampsBrightness, each lamp from its own (#145)", () => {
 
     expect(await adjust(1, 10)).toMatchObject({ ok: false, failures: 1, brightnessPercentages: [60] });
     expect([first.writes("brightness"), second.writes("brightness")]).toEqual([[], [lumenAt(60)]]);
+  });
+
+  it("fails without writing when no lamp is connected", async () => {
+    expect(await adjust(1, 5)).toEqual({ ok: false, deviceCount: 0, failures: 1 });
   });
 });
 
@@ -1644,6 +1721,10 @@ describe("setLampsTemperature", () => {
 
     expect(drained(lamp)).toEqual(["temperature"]);
   });
+
+  it("fails without writing when no lamp is connected", () => {
+    expect(manager.setLampsTemperature("all", 3000)).toEqual({ ok: false, deviceCount: 0, failures: 1 });
+  });
 });
 
 describe("adjustLampsTemperature", () => {
@@ -1661,6 +1742,16 @@ describe("adjustLampsTemperature", () => {
     });
     expect([first.writes("temperature"), second.writes("temperature")]).toEqual([[3500], [3500]]);
     expect([first.queries("temperature"), second.queries("temperature")]).toEqual([1, 0]);
+  });
+
+  it("steps from the lamp with the lowest serial number, whatever order the lamps are found in", () => {
+    const later = beam({ serialNumber: "2325FE02BBBB", temperatureInKelvin: 5000 });
+    const earlier = beam({ serialNumber: "2325FE01AAAA", temperatureInKelvin: 3100 });
+    connect(later, earlier);
+
+    manager.adjustLampsTemperature("all", 1, 200);
+
+    expect([earlier.temperatureInKelvin, later.temperatureInKelvin]).toEqual([3300, 3300]);
   });
 
   it("steps along the grid counted from the lowest allowed value (#16)", () => {
@@ -1711,6 +1802,14 @@ describe("adjustLampsTemperature", () => {
 
     expect(result.representativeTemperatureKelvin).toBe(BEAM_MAX_KELVIN);
     expect(result.representativeTemperaturePercentage).toBe(100);
+  });
+
+  it("fails without writing when no lamp is connected", () => {
+    expect(manager.adjustLampsTemperature("all", 1, BEAM_KELVIN_STEP)).toEqual({
+      ok: false,
+      deviceCount: 0,
+      failures: 1,
+    });
   });
 });
 
@@ -1776,6 +1875,10 @@ describe("adjustLampsTemperature, each lamp from its own (#145)", () => {
     manager.adjustLampsTemperature("all", 1, 200, "each");
 
     expect([offGrid.writes("temperature"), onGrid.writes("temperature")]).toEqual([[4100], [3300]]);
+  });
+
+  it("fails without writing when no lamp is connected", () => {
+    expect(manager.adjustLampsTemperature("all", 1, 200, "each")).toEqual({ ok: false, deviceCount: 0, failures: 1 });
   });
 });
 
@@ -1985,6 +2088,14 @@ describe("readLampsTemperature", () => {
     });
     expect([first.queries("temperature"), second.queries("temperature")]).toEqual([1, 0]);
     expect([closes(first), closes(second)]).toEqual([1, 1]);
+  });
+
+  it("reads the lamp with the lowest serial number, whatever order the lamps are found in", async () => {
+    const later = beam({ serialNumber: "2325FE02BBBB", temperatureInKelvin: 5000 });
+    const earlier = beam({ serialNumber: "2325FE01AAAA", temperatureInKelvin: 3500 });
+    connect(later, earlier);
+
+    expect(await manager.readLampsTemperature("all")).toMatchObject({ representativeTemperatureKelvin: 3500 });
   });
 
   it("waits for the brightness change in progress", async () => {

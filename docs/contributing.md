@@ -4,6 +4,7 @@
 - [Small pull requests](#small-pull-requests)
 - [Commit messages and pull request text](#commit-messages-and-pull-request-text)
 - [Features ship with tests](#features-ship-with-tests)
+- [Features update the user guide](#features-update-the-user-guide)
 - [Dependencies](#dependencies)
 - [Unused code](#unused-code)
 - [Before 1.0, settings change without a migration](#before-10-settings-change-without-a-migration)
@@ -12,7 +13,6 @@
 - [The plugin settings are laid out by reach](#the-plugin-settings-are-laid-out-by-reach)
 - [The lamp screens' text styles are roles](#the-lamp-screens-text-styles-are-roles)
 - [Numbers are set with a number field](#numbers-are-set-with-a-number-field)
-- [Working with Claude](#working-with-claude)
 
 This document describes how work on this repository is done: how changes reach `main`, how they are sliced and recorded, what each one has to bring with it, and the design rules that hold across the plugin. How the plugin's parts fit together, and why, is in [the architecture document][architecture]. Style is covered separately, in [the style guide][style-guide].
 
@@ -44,6 +44,10 @@ Every new feature or enhancement comes with automated tests for it. [#27] was a 
 - A unit test covers one module, with the modules it builds on faked, or the lamps emulated for the code that talks to them: its logic and its edge cases, such as invalid settings, logs and each kind of failure. An integration test covers what crosses modules: that what one module reports or sends reaches the next as that one expects, and sequences whose steps depend on each other. An integration test that crosses nothing the unit tests don't already cross goes. One that checks the same behavior from the user's side, across modules, stays, since the design that makes the two equivalent today can change.
 - What can't be automated, such as Stream Deck's own behavior or what the lamps do, is checked by hand on the Deck. Those checks are written down in [`docs/manual_testing/`][manual-testing], one document per area, with when to run them and what each one should show, so that anyone can repeat them without remembering how. A feature that needs new manual checks adds them there, in the same pull request.
 - A bug the tests find, which the branch doesn't fix, gets an `it.fails` test stating the intended behavior, linked to its own issue. When the bug is fixed, the test starts passing, which Vitest reports as a failure, and it becomes a normal test.
+
+## Features update the user guide
+
+[The user guide][user-guide] is where users learn how the plugin works, action by action. A feature that changes what the Deck shows or does, or adds a setting, updates it in the same pull request. The README stays an overview: what the plugin is, its actions, what it runs on and how to install it, then how to build it and work on it.
 
 ## Dependencies
 
@@ -113,10 +117,6 @@ A text that the plugin itself would show in another style, such as a brightness 
 
 A setting that takes a number within a range, on a step, such as a brightness, a temperature, a step or a length of time, is set on its page with the plugin's number field (`litra-number`, in `ui/number-field.js`), not a slider: it sets an exact value by clicks or by typing, and takes no more room than it needs ([#195]). Its `min`, `max`, `step` and `default` are the setting's in `src/actions/settings.ts`, which the browser tests check, and its unit goes in `unit`. A choice among a few values that aren't steps of one range, such as the lamp screens' text sizes, stays a list.
 
-## Working with Claude
-
-- When asked for a command, Claude replies with the command and doesn't run it. Steps that change what the Deck runs or shows, like restarting the plugin, are the user's to run, while looking at the hardware.
-
 [#9]: https://github.com/daczarne/streamdeck-litra/issues/9
 [#13]: https://github.com/daczarne/streamdeck-litra/issues/13
 [#19]: https://github.com/daczarne/streamdeck-litra/issues/19
@@ -139,3 +139,4 @@ A setting that takes a number within a range, on a step, such as a brightness, a
 [architecture]: architecture.md
 [manual-testing]: manual_testing/
 [style-guide]: style_guide.md
+[user-guide]: user_guide.md

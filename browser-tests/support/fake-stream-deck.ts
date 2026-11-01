@@ -88,6 +88,11 @@ export class FakeStreamDeck {
     });
   }
 
+  /** Sends an action's settings to every page, as Stream Deck does when they're saved elsewhere, such as by the plugin. */
+  sendSettings(settings: Record<string, unknown>): void {
+    for (const socket of this.sockets) this.send(socket, { event: "didReceiveSettings", payload: { settings } });
+  }
+
   /** Drops every page's connection and stops listening. */
   async close(): Promise<void> {
     for (const socket of this.sockets) socket.destroy();

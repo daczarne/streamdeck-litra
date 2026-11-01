@@ -12,7 +12,6 @@ Not an official Logitech or Elgato product.
 - [Working on the plugin](#working-on-the-plugin)
 - [Packaging](#packaging)
 - [Icons](#icons)
-- [Usage tips](#usage-tips)
 - [Settings pages](#settings-pages)
 - [Third-party code](#third-party-code)
 - [Credits](#credits)
@@ -30,7 +29,7 @@ Not an official Logitech or Elgato product.
 |    ![Temperature Up][temp-up]   | **Temperature Up**   | Step up, cooler, by the key's Kelvin       | None                                                                      |
 |  ![Temperature Down][temp-down] | **Temperature Down** | Step down, warmer, by the key's Kelvin     | None                                                                      |
 
-- Each key acts on the lamps picked on its settings page: every lamp the plugin knows, unless others are picked. A dial's main screen acts on every lamp, and its lamp screens on one lamp at a time (see [Usage tips](#usage-tips)).
+- Each key acts on the lamps picked on its settings page: every lamp the plugin knows, unless others are picked. A dial's main screen acts on every lamp, and its lamp screens on one lamp at a time. [The user guide][user-guide] describes each action, and the settings they share.
 - The plugin talks to the lamps in-process over USB HID, through the [`litra`][litra] Node library, with no CLI subprocess. [The architecture document][architecture] explains why, and how the plugin's parts fit together.
 - The brightness is read from two bytes. The stock `litra` library only reads the low one, which truncates values above 255 lumens, where a Beam goes.
 
@@ -62,12 +61,7 @@ Lamps connect over USB only: the underlying HID stack doesn't support Bluetooth.
 
 A newer release installs the same way, over the one installed. To remove the plugin, uninstall it from the **Plugins** tab of Stream Deck's preferences.
 
-The plugin is developed and checked linked from the repository (see [Setting up on a new computer](#setting-up-on-a-new-computer)), not installed from a release. If an installed plugin doesn't work, [an issue][issues] with its log helps. The logs are in the plugin's folder, newest in `litra.log`:
-
-- On macOS: `~/Library/Application Support/com.elgato.StreamDeck/Plugins/com.daczarne.litra.sdPlugin/logs/`
-- On Windows: `%APPDATA%\Elgato\StreamDeck\Plugins\com.daczarne.litra.sdPlugin\logs\`
-
-They hold your lamps' serial numbers, so remove those before posting.
+The plugin is developed and checked linked from the repository (see [Setting up on a new computer](#setting-up-on-a-new-computer)), not installed from a release. If an installed plugin doesn't work, an issue with its log helps: [the user guide][troubleshooting] says where the logs are.
 
 ## Setting up on a new computer
 
@@ -143,25 +137,6 @@ The plugin's images are drawn by code, from the glyphs of [`streamdeck-icons`][s
 
 To take a change to the glyphs, update the commit the dependency is pinned to, run `npm run icons`, and commit the regenerated images with it. CI regenerates them too, and fails when the committed images aren't what the script draws.
 
-## Usage tips
-
-- A Power key shows on only when every one of its lamps is on. Every Power key, dial and lamp screen follows changes made by any key or dial. Changes made with a lamp's own buttons show at the next change made through the plugin.
-- Brightness and temperature keys show their preset value, as a bare number at the bottom of the key, set by the plugin. A title typed in the key's settings replaces it, and the **Show Title** box under the **T** menu hides it.
-- A Scene key sets its lamps in one press, so one key goes to a setup and another comes back: it turns them on, then sets their temperature and brightness, or turns them off, as its Power switch says. A group's power, temperature and brightness sit on one row. **Add a group**, on its settings page, adds a group of lamps with its own power, brightness and temperature, such as a key light brighter than a fill light, and **Remove group** takes it away. A lamp is in one group at most: the other groups show it greyed out, with the group that holds it, and it moves once it's unchecked there. The first group picks its lamps as every key does, lamps added later included (see below), and a lamp no group holds is left as it is. A Scene key shows only its image: a title typed in its settings shows at the bottom.
-- Brightness and Temperature Up and Down keys step their lamps by the step in their settings, as one tick of a dial, for decks without dials. They show what their lamps are at, as the dials do: the brightest lamp's %, or the temperature in Kelvin, and a dash when no lamp answers. A title typed in the key's settings replaces it.
-- Every settings page, on a key or a dial, starts with a **Plugin settings** button, which shows the plugin's own settings in place of the action's, and **Back** returns to them. They come in sections, by what the settings reach. "Lamps" lists the lamps the plugin knows, in the order of the last 4 characters of their serial numbers, each by those 4 characters and its model, with a field for its name, up to 24 characters, an Identify button that blinks it, and a trash can that forgets it. When the plugin first starts, it finds the lamps connected, and controls those alone: a lamp plugged in later is left alone until **Find lamps** finds it. Find lamps also greys out the lamps it didn't find, with "Not found" in place of Identify. Unplugging a lamp doesn't make the plugin forget it: only its trash can does, which takes its name too, until Find lamps finds it again. A name is the lamp's, not a key's: every key shows it. Emptying the field takes it away. Under the lamps come how each lamp steps, for its brightness and its temperature (see below), and "Blink length", how long a blink lasts, for Identify and on the lamp screens, from 300 ms to 1.5 s. Its default, 400 ms, suits dim lamps: a lamp fades as it goes off, so a bright lamp among others that stay on needs a longer blink to show. "Keys" holds whether every key takes in lamps added later (see below). "Dials" holds the lamp screens' blink for every dial, what they show and their text styles (see below). Every dial and key shares these settings.
-- A key's settings page lists the lamps the plugin knows by their names, or else as their model and the last 4 characters of their serial number, such as "Beam - 7K98". The key acts on the lamps checked there, and All checks every lamp listed. A lamp that isn't plugged in stays listed, so it can be checked or unchecked, and a lamp the plugin forgets leaves the list, and comes back as the key left it once Find lamps finds it again. By default, a key also takes in lamps added later: it acts on every lamp but the ones left unchecked, so a lamp Find lamps adds shows checked. With "Add new lamps automatically, on this key" unchecked, under its lamps, a key acts on the lamps checked alone, and a lamp Find lamps adds shows unchecked. "Add new lamps automatically, on every key", under "Keys" in the plugin settings, makes that choice for every key at once, and shows a bar when the keys differ.
-- Dials look like Stream Deck's own volume dials: the value, with a bar under it. The keys, and the dials' pictures in the Stream Deck app, show the same line icon as the strip, smaller, at the size of the Icon Library's Litra icons. The temperature bar runs from the lamp's warmest setting (empty) to its coolest (full). The brightness bar is white up to the dimmest lamp's level, and a lighter grey from there to the brightest lamp's, the part only some lamps reach. Their title says what they control ("Brightness", "Temperature"), and can be replaced or hidden like a key's. Rotating adjusts, pressing toggles the front light.
-- Tapping a dial's part of the strip shows one screen per lamp: its label, the model and the last 4 characters of its serial number, as a key's settings page lists a lamp without a name, with its place among the lamps ("1 of 2"), then its temperature and whether it's on, and its brightness in % and lumens. "OFF" shows in dark grey. That's what a lamp screen shows by default: its six cells, three rows of two, can each show any of these, or nothing, chosen under "Layout" in the plugin settings, the same on every dial. Two long values chosen for one row can run into each other. Each tap shows the next lamp, in the order of their serial numbers, and the dial's own screen after the last. The dial stays on a lamp screen until it's tapped past the last lamp. On a lamp screen, the dial controls that lamp alone: turning it changes the lamp's brightness or temperature, and pressing it turns the lamp on or off. Holding the strip blinks the lamp once, to show which one it is. With "Blink each lamp as it's shown, on this dial" checked on a Brightness or Temperature dial's settings page, each tap that shows a lamp blinks it too, and the next tap waits for the blink to end. The plugin settings turn it on or off for every dial at once, and their checkbox shows a bar when the dials differ. It's off by default, since every lamp then blinks in turn, which shows on camera. A turn on the dial's own screen sets every lamp to the same value again, unless the lamps keep their difference (see below). Each cell's **Configure** button shows how it shows its item, in place of the plugin settings, and **Reset** there brings back the defaults:
-  - The identification is made of two parts, each the model, the ID, the name given in the plugin settings, or empty, joined by " - " when both have text. A lamp with no name shows its model and ID for its name, and a part with no text is left out. Trimmed, it keeps to about half a row, ending in "…".
-  - The counter shows the lamp's place, alone, among every lamp, or among the lamps of its model, as "1 of 2", "1/2", "1-2" or "1 2".
-  - The temperature and the brightness, in % or in lumens, can each show their unit and their icon. A left cell reads icon, value and unit from its left edge, and a right cell value, unit and icon up to its right edge. The lumens show the brightness's sun, and no icon by default.
-  - The power shows a label for each state, "On", "ON", "●" or "I" when the lamp is on, and "Off", "OFF", "○" or "O" when it's off, in a text style, or in a color and a weight of its own.
-  - Under "Text styles", the plugin settings set the lamp screens' four styles: Primary, for every text by default, Secondary, toned down, for "OFF" by default, Accent, to draw the eye, and Alert, for something wrong. Each cell's **Font style**, in its editor, picks the one it shows in, and each of the power's states picks its own. Each takes a color, a weight, Normal or Bold, and a size from 16 to 22 px, and its **Reset** button brings back its defaults. The temperature's and the brightness's icons take their cell's color.
-- By default, a turn on a dial's own screen, and a press of an Up or Down key, set every lamp to the same value, stepped from the one the dial or key shows. With "Each lamp steps from its own brightness" checked under "Lamps" in the plugin settings, each lamp steps from its own brightness instead, so lamps set apart on their lamp screens stay apart. A lamp that reaches 0%, 100% or its cap stays there, while the others keep going, and the plugin remembers how far the lamp would have gone, so it comes back with them and the lamps keep their difference. Once every lamp is at its end, turning further does nothing. Setting a lamp any other way, or restarting the plugin, forgets how far it would have gone. Every Brightness dial and key shares that setting, and the Temperature dials and keys share one of their own, so the lamps can keep their brightness apart while their temperature stays matched.
-- A dial turns, and an Up or Down key steps, by the step in its settings, and stops on the multiples of that step counted from the bottom of the range (0% or 2700 K), the same values going up as going down. From a value between two of them, such as a lamp's cap or a key's preset, the first step goes to the next one in the direction of the turn. Lamps that keep their difference each step along those multiples, so their difference can change by up to a step on the first turn. When the step doesn't divide the range, the last step to 100% or 6500 K is shorter.
-- With no lamp connected, actions show Stream Deck's alert indicator. A Power key shows it once it has redrawn its state, which would cover the alert otherwise (see [Stream Deck keys][keys]).
-
 ## Settings pages
 
 The settings pages (Property Inspector), in `com.daczarne.litra.sdPlugin/ui/`, load nothing remote, and two layers keep it that way:
@@ -212,7 +187,6 @@ The plugin is MIT licensed: see [`LICENSE`][license].
 [check-ui]: scripts/check-ui.mjs
 [contributing]: docs/contributing.md
 [issues]: https://github.com/daczarne/streamdeck-litra/issues
-[keys]: docs/elgato_sdk/keys.md
 [latest-release]: https://github.com/daczarne/streamdeck-litra/releases/latest
 [license]: LICENSE
 [releases]: docs/releases.md
@@ -230,3 +204,5 @@ The plugin is MIT licensed: see [`LICENSE`][license].
 [temp]: com.daczarne.litra.sdPlugin/imgs/actions/temperature/icon@2x.png
 [temp-down]: com.daczarne.litra.sdPlugin/imgs/actions/temperature-down/icon@2x.png
 [temp-up]: com.daczarne.litra.sdPlugin/imgs/actions/temperature-up/icon@2x.png
+[troubleshooting]: docs/user_guide.md#when-something-doesnt-work
+[user-guide]: docs/user_guide.md
