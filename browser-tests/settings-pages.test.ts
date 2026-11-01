@@ -1062,8 +1062,8 @@ describe("settings pages", () => {
 
       expect(await pickerOf(page)).toEqual({
         lamps: [
-          { label: FIRST.label, checked: true, missing: false },
-          { label: SECOND.label, checked: true, missing: false },
+          { label: FIRST.label, checked: true },
+          { label: SECOND.label, checked: true },
         ],
         all: true,
         notes: [],
@@ -2061,7 +2061,7 @@ function isLampsRequest(message: { event: string; context?: string; payload?: Re
   return message.event === "sendToPlugin" && message.context === uuid && message.payload?.event === "lamps";
 }
 
-type PickerLamp = { label: string | null; checked: boolean; missing: boolean };
+type PickerLamp = { label: string | null; checked: boolean };
 
 /** What the lamp picker shows: each lamp's row, the All checkbox, if shown yet, its notes and its buttons. */
 function pickerOf(
@@ -2072,7 +2072,6 @@ function pickerOf(
     const lamps = [...picker.querySelectorAll(".lamp")].map((row) => ({
       label: row.querySelector("sdpi-checkbox").getAttribute("label"),
       checked: row.querySelector("sdpi-checkbox").value === true,
-      missing: row.querySelector(".note")?.textContent === "not found",
     }));
     const all = [...picker.children].find((child) => child.localName === "sdpi-checkbox");
     return {

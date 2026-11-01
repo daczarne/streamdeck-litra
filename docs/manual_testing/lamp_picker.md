@@ -8,7 +8,7 @@ Every key's settings page has a Lamps item, where the key's lamps are picked ([#
 
 ## When to run these checks
 
-- After a change to the lamp picker (`ui/lamp-picker.js` or `src/actions/lamp-picker.ts`), to how it shows the lamps' names, to how a key reads its lamps, to how the plugin finds the lamps, or to the lamps it knows ([#194]).
+- After a change to the lamp picker (`ui/lamp-picker.js`), to how it shows the lamps' names, to how a key reads its lamps, or to the lamps the plugin knows ([#194]).
 - After a Stream Deck update, or an update of the vendored sdpi-components.
 
 ## Setup

@@ -20,7 +20,7 @@ An action's settings page is its Property Inspector: an HTML page from the plugi
 
 ## Talking to the plugin
 
-A page and the plugin exchange messages through Stream Deck, which the lamp picker on the keys' pages ([#20]) and the plugin settings on every page ([#146]) rely on:
+A page and the plugin exchange messages through Stream Deck, which the plugin settings on every page rely on ([#146]), while a key's lamp picker sends none since the lamps the plugin knows ([#194]):
 
 - A page sends `sendToPlugin` over its WebSocket, with a payload of its own. The plugin receives it through `streamDeck.ui.onSendToPlugin`, whichever action the page belongs to, so one listener can answer every page. `streamDeck.ui.sendToPropertyInspector` answers, and only reaches the page that's shown.
 - sdpi-components' `SDPIComponents.streamDeckClient.get(…)` sends a message and waits for the reply that matches it. Its `datasource` attribute fills a select or a checkbox list the same way, but a checkbox list's items are only a checkbox and a label, so they can't hold a button.
