@@ -4,6 +4,9 @@
 // `leftOutLamps`, each with its id and its label, so a lamp that isn't connected keeps its place here. A key that adds
 // new lamps acts on every lamp but the left out ones, so a lamp it hasn't listed yet shows checked, and one that doesn't
 // acts on the checked ones alone (#147). Whether it adds them comes from plugin-settings.js, which shows that choice.
+// On a Scene key's page, a lamp a group added after the first holds is greyed out, and says which group holds it
+// (scene-groups.js, #174), while the key keeps what it saved for it, which applies again once no group holds it. The
+// lamps found are told to the page's other scripts, through an event on the document.
 // `lamps` is "all" for a key saved before lamps could be picked, or never saved, which acts on every lamp. A file rather
 // than an inline script, so the pages' Content-Security-Policy doesn't have to allow inline scripts.
 (() => {
@@ -22,6 +25,8 @@
   let found;
   // The lamps' names, by id, from the plugin's global settings.
   let names = {};
+  // The number of the scene group that holds each lamp, by lamp id, on a Scene key's page.
+  let held = {};
 
   const style = document.createElement("style");
   style.textContent = `
@@ -88,6 +93,7 @@
     );
     found = reply.payload.lamps;
     render();
+    document.dispatchEvent(new CustomEvent("litra:lamps", { detail: found }));
   }
 
   /**
@@ -132,9 +138,10 @@
   }
 
   /** A checkbox from sdpi-components, which saves nothing itself, since it has no `setting`. */
-  function checkbox(label, checked, onChange) {
+  function checkbox(label, checked, onChange, disabled = false) {
     const box = document.createElement("sdpi-checkbox");
     box.setAttribute("label", label);
+    box.disabled = disabled;
     box.value = checked;
     // Added after the value is set, so only the user's clicks reach it.
     box.addEventListener("valuechange", () => onChange(box.value === true));
@@ -149,12 +156,25 @@
     return element;
   }
 
-  /** A lamp's row: its checkbox, by its name or else its label, and a note when it isn't connected. */
+  /**
+   * A lamp's row: its checkbox, by its name or else its label, and a note when it isn't connected. A lamp a scene group
+   * holds shows unchecked and greyed out, with the group that holds it.
+   */
   function lampRow(lamp) {
+    const holder = held[lamp.id];
     const row = document.createElement("div");
     row.className = "lamp";
-    row.append(checkbox(names[lamp.id] ?? lamp.label, isChecked(lamp), (value) => toggleLamp(lamp, value)));
-    if (lamp.missing) {
+    row.append(
+      checkbox(
+        names[lamp.id] ?? lamp.label,
+        holder === undefined && isChecked(lamp),
+        (value) => toggleLamp(lamp, value),
+        holder !== undefined,
+      ),
+    );
+    if (holder !== undefined) {
+      row.append(note(`in group ${holder}`));
+    } else if (lamp.missing) {
       row.append(note("not found"));
     }
     return row;
@@ -171,10 +191,24 @@
         rows.push(note("No lamps found"));
       }
       rows.push(...lamps.map(lampRow));
-      rows.push(checkbox("All", lamps.every(isChecked), (value) => store(() => value)));
+      // All covers the lamps no scene group holds, and keeps what the key saved for the others.
+      const free = (lamp) => held[lamp.id] === undefined;
+      rows.push(
+        checkbox("All", lamps.filter(free).every(isChecked), (value) =>
+          store((lamp) => (free(lamp) ? value : isChecked(lamp))),
+        ),
+      );
     }
     picker.replaceChildren(...rows);
   }
+
+  // Listened for from the start, since scene-groups.js may tell it before this page knows it's a key's.
+  document.addEventListener("litra:held-lamps", (event) => {
+    held = event.detail;
+    if (found !== undefined) {
+      render();
+    }
+  });
 
   // Listened for from the start, since plugin-settings.js may tell it before this page knows it's a key's.
   document.addEventListener("litra:adds-new-lamps", (event) => {
