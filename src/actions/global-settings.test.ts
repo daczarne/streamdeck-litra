@@ -72,7 +72,6 @@ const DEFAULTS = {
   lampScreenAlertColor: "#ff6b6b",
   lampScreenAlertWeight: "bold",
   lampScreenAlertSize: 18,
-  lampNames: {},
   lamps: {},
 };
 
@@ -416,14 +415,75 @@ describe("the lamps a key acts on (#147)", () => {
 });
 
 describe("the lamps' names (#146)", () => {
-  it("are the ones the plugin settings saved, by lamp id, and none for a lamp without one", async () => {
-    settings.getGlobalSettings.mockResolvedValue({ lampNames: { "lamp-1": "Key light", "lamp-2": 7 } });
+  const KNOWN = {
+    "lamp-1": { model: "Beam", serialEnd: "1111", name: "Key light" },
+    "lamp-2": { model: "Beam LX", serialEnd: "2222" },
+  };
+
+  it("are the ones the lamps the plugin knows were given, and none for a lamp without one, or one it doesn't know", async () => {
+    settings.getGlobalSettings.mockResolvedValue({
+      lamps: { ...KNOWN, "lamp-3": { model: "Beam", serialEnd: "3333", name: 7 } },
+    });
 
     await follow();
 
     expect(globalSettings.lampName("lamp-1")).toBe("Key light");
     expect(globalSettings.lampName("lamp-2")).toBeUndefined();
-    expect(globalSettings.lampName("lamp-3")).toBeUndefined();
+    expect(globalSettings.currentGlobalSettings().lamps["lamp-3"]).toEqual({ model: "Beam", serialEnd: "3333" });
+    expect(globalSettings.lampName("lamp-4")).toBeUndefined();
+  });
+
+  it("are given by the plugin, trimmed, which saves them, keeping the other lamps and settings", async () => {
+    settings.getGlobalSettings.mockResolvedValue({ lamps: KNOWN, identifyBlinkMs: 600 });
+    await follow();
+
+    await globalSettings.renameLamp("lamp-2", "  Fill light ");
+
+    expect(settings.setGlobalSettings).toHaveBeenCalledExactlyOnceWith({
+      lamps: { ...KNOWN, "lamp-2": { model: "Beam LX", serialEnd: "2222", name: "Fill light" } },
+      identifyBlinkMs: 600,
+    });
+    expect(globalSettings.lampName("lamp-2")).toBe("Fill light");
+    expect(logger.debug).toHaveBeenCalledExactlyOnceWith('Lamp Beam LX - 2222 named "Fill light"');
+  });
+
+  it("are cut to 24 characters", async () => {
+    settings.getGlobalSettings.mockResolvedValue({ lamps: KNOWN });
+    await follow();
+
+    await globalSettings.renameLamp("lamp-1", "A name much longer than twenty-four");
+
+    expect(globalSettings.lampName("lamp-1")).toBe("A name much longer than ");
+  });
+
+  it("are taken away by a blank name", async () => {
+    settings.getGlobalSettings.mockResolvedValue({ lamps: KNOWN });
+    await follow();
+
+    await globalSettings.renameLamp("lamp-1", "  ");
+
+    expect(globalSettings.currentGlobalSettings().lamps["lamp-1"]).toEqual({ model: "Beam", serialEnd: "1111" });
+    expect(logger.debug).toHaveBeenCalledExactlyOnceWith("Lamp Beam - 1111's name taken away");
+  });
+
+  it("save nothing when the name is the one the lamp has", async () => {
+    settings.getGlobalSettings.mockResolvedValue({ lamps: KNOWN });
+    await follow();
+
+    await globalSettings.renameLamp("lamp-1", "Key light");
+    await globalSettings.renameLamp("lamp-2", "");
+
+    expect(settings.setGlobalSettings).not.toHaveBeenCalled();
+  });
+
+  it("save nothing for a lamp the plugin doesn't know, with a warning", async () => {
+    settings.getGlobalSettings.mockResolvedValue({ lamps: KNOWN });
+    await follow();
+
+    await globalSettings.renameLamp("lamp-3", "Key light");
+
+    expect(settings.setGlobalSettings).not.toHaveBeenCalled();
+    expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("lamp-3"));
   });
 });
 
@@ -518,6 +578,47 @@ describe("the lamps the plugin knows (#194)", () => {
 
     expect(setKnownLamps).toHaveBeenLastCalledWith(["lamp-1"]);
     expect(logger.error).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("Saving the lamps"), error);
+  });
+
+  it("forget a lamp, with its name, and save the others, keeping the other settings", async () => {
+    const lamps = {
+      "lamp-1": { model: "Beam", serialEnd: "1111", name: "Key light" },
+      "lamp-2": { model: "Beam LX", serialEnd: "2222" },
+    };
+    settings.getGlobalSettings.mockResolvedValue({ lamps, identifyBlinkMs: 600 });
+    await follow();
+
+    await globalSettings.forgetLamp("lamp-1");
+
+    expect(settings.setGlobalSettings).toHaveBeenCalledExactlyOnceWith({
+      lamps: { "lamp-2": { model: "Beam LX", serialEnd: "2222" } },
+      identifyBlinkMs: 600,
+    });
+    expect(setKnownLamps).toHaveBeenLastCalledWith(["lamp-2"]);
+    expect(globalSettings.lampName("lamp-1")).toBeUndefined();
+    expect(logger.info).toHaveBeenCalledExactlyOnceWith("Lamp forgotten: Beam - 1111");
+  });
+
+  it("take a forgotten lamp in again when it's found, without its name", async () => {
+    settings.getGlobalSettings.mockResolvedValue({
+      lamps: { "lamp-1": { model: "Beam", serialEnd: "1111", name: "Key light" } },
+    });
+    await follow();
+
+    await globalSettings.forgetLamp("lamp-1");
+    await globalSettings.addLamps([BEAM]);
+
+    expect(globalSettings.currentGlobalSettings().lamps).toEqual({ "lamp-1": { model: "Beam", serialEnd: "1111" } });
+  });
+
+  it("save nothing when the lamp to forget isn't known, with a warning", async () => {
+    settings.getGlobalSettings.mockResolvedValue({ lamps: { "lamp-1": { model: "Beam", serialEnd: "1111" } } });
+    await follow();
+
+    await globalSettings.forgetLamp("lamp-2");
+
+    expect(settings.setGlobalSettings).not.toHaveBeenCalled();
+    expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("lamp-2"));
   });
 
   it("save nothing when every lamp found is known", async () => {

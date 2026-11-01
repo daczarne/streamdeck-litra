@@ -1,8 +1,10 @@
 // The plugin's own settings (#146), the same on every action's page: a button at the top of the page shows them in
-// place of the action's, and back. They list the lamps the plugin finds, each by the end of its serial number and its
-// model, with a field for its name and a button that blinks it. The names are kept in the plugin's global settings, as
-// `lampNames`, by lamp id, and the keys' lamp pickers show them (lamp-picker.js, which this tells of every name changed
-// and every lamp found, through events on the document). Under the lamps come the global settings that every dial and
+// place of the action's, and back. They list the lamps the plugin knows (#194), which it keeps in its global settings as
+// `lamps`, each by the end of its serial number and its model, with a field for its name, a button that blinks it, and
+// one that forgets it. The plugin alone saves the lamps: this asks it to find them, and to rename or forget one, and
+// shows them as Stream Deck passes on what the plugin saved. Find lamps is the only time they're looked for, and marks
+// the ones it didn't find. The keys' lamp pickers show the names too (lamp-picker.js, which this tells of every lamp
+// found, through an event on the document). Under the lamps come the global settings that every dial and
 // key shares, such as whether each lamp steps from its own value (#145), how long a blink lasts (#171), whether keys
 // take in lamps added later (#147), which a key's own page can choose for that key alone, and tells its lamp
 // picker, the lamp screens' blink (#144), which a dial's own page can turn on or off for that dial alone, and what each
@@ -20,9 +22,9 @@
   // Whether the plugin settings are shown, in place of the action's, and the cell whose options are, in their place.
   let open = false;
   let editing;
-  // The lamps' names, by id.
-  let names = {};
-  // The lamps the plugin found, or undefined while it's asked.
+  // The lamps the plugin knows, by id, each with its model, the end of its serial number, and its name, if any.
+  let lamps = {};
+  // The ids of the lamps the last Find lamps found, or undefined before one, when none is marked as not found.
   let found;
 
   const style = document.createElement("style");
@@ -85,6 +87,46 @@
 
     #plugin-settings td.name {
       width: 100%;
+    }
+
+    /* A lamp the last Find lamps didn't find, greyed out as a lamp picker's lamp held by another group is. */
+    #plugin-settings tr.missing td:not(.name) {
+      opacity: 0.6;
+    }
+
+    #plugin-settings tr.missing .note {
+      padding: 0 4px;
+    }
+
+    /* The trash can's button, a plain one rather than sdpi-components', whose hover can't be restyled from outside: it
+      looks like an sdpi-components button at rest, written out from its styles, and turns red on hover, since it
+      forgets the lamp. The red is the Alert one of "No lamps found", on a darker red the white can reads on. */
+    #plugin-settings button.forget {
+      background-color: #2d2d2d;
+      border: 1px solid #969696;
+      border-radius: 3px;
+      color: #d8d8d8;
+      font-family: inherit;
+      font-size: 9pt;
+      padding: 6px;
+    }
+
+    #plugin-settings button.forget:hover {
+      background-color: #8f2f2f;
+      border-color: #ff6b6b;
+      color: #ffffff;
+      cursor: pointer;
+    }
+
+    #plugin-settings button.forget:active {
+      background-color: #2d2d2d;
+      border-color: #646464;
+      color: #ff6b6b;
+    }
+
+    /* On the line of the button's text, so the button is as tall as Identify. */
+    #plugin-settings button.forget svg {
+      vertical-align: -2px;
     }
 
     /* A key's own choice of new lamps, under its lamps, set apart from them so it doesn't read as one more (#147). */
@@ -222,47 +264,53 @@
   `;
   document.head.append(style);
 
-  // Names saved by other pages arrive with the global settings.
-  const [readNames, saveNames] = SDPIComponents.useGlobalSettings("lampNames", (value) => {
-    names = validNames(value);
+  // The lamps arrive with the global settings, each time the plugin saves them.
+  const [readLamps] = SDPIComponents.useGlobalSettings("lamps", (value) => {
+    lamps = validLamps(value);
     render();
   });
 
-  /** The names in the global settings, or none when they aren't a set of names by id. */
-  function validNames(value) {
+  /** The lamps in the global settings, or none when they aren't a set of lamps by id, each with a model and serial end. */
+  function validLamps(value) {
     if (typeof value !== "object" || value === null || Array.isArray(value)) {
       return {};
     }
-    return Object.fromEntries(Object.entries(value).filter(([, name]) => typeof name === "string"));
+    return Object.fromEntries(
+      Object.entries(value).filter(
+        ([, lamp]) => typeof lamp?.model === "string" && typeof lamp?.serialEnd === "string",
+      ),
+    );
   }
 
-  /** Names a lamp, or takes its name away when `name` is blank, and tells the lamp picker. */
+  /** Asks the plugin to name a lamp, or to take its name away when `name` is blank. The plugin saves it. */
   function rename(id, name) {
-    const trimmed = name.trim();
-    const others = Object.entries(names).filter(([other]) => other !== id);
-    names = Object.fromEntries(trimmed === "" ? others : [...others, [id, trimmed]]);
-    document.dispatchEvent(new CustomEvent("litra:lamp-names", { detail: names }));
-    saveNames(names).catch((error) => console.error("Can't save the lamps' names", error));
+    client.send("sendToPlugin", { event: "rename", id, name }).catch(showError);
   }
 
-  /** Asks the plugin for the lamps connected now, shows them, and tells the lamp picker. */
+  /** Asks the plugin to forget a lamp. The plugin saves the lamps left, which then arrive without it. */
+  function forget(id) {
+    client.send("sendToPlugin", { event: "forget", id }).catch(showError);
+  }
+
+  /**
+   * Asks the plugin for the lamps connected now, which it adds to the ones it knows, marks the ones it knows that it
+   * didn't find, and tells the lamp picker.
+   */
   async function findLamps() {
-    found = undefined;
-    render();
     const reply = await client.get(
       "sendToPlugin",
       "sendToPropertyInspector",
       (message) => message.payload?.event === "lamps",
       { event: "lamps" },
     );
-    found = reply.payload.lamps;
-    document.dispatchEvent(new CustomEvent("litra:lamps", { detail: found }));
+    found = reply.payload.lamps.map(({ id }) => id);
+    document.dispatchEvent(new CustomEvent("litra:lamps", { detail: reply.payload.lamps }));
     render();
   }
 
   /**
-   * Shows the plugin settings, with the names saved and the lamps connected now, or the action's settings again, or the
-   * plugin settings again from a cell's options.
+   * Shows the plugin settings, with the lamps the plugin knows, or the action's settings again, or the plugin settings
+   * again from a cell's options. Opening them looks for no lamps.
    */
   async function toggle() {
     if (editing !== undefined) {
@@ -274,8 +322,8 @@
     document.body.classList.toggle("plugin-settings-open", open);
     render();
     if (open) {
-      names = validNames(await readNames());
-      await findLamps();
+      lamps = validLamps(await readLamps());
+      render();
     }
   }
 
@@ -696,31 +744,67 @@
     return element;
   }
 
-  /** A lamp's row: the end of its serial number, its model, its name, and a button that blinks it. */
-  function lampRow(lamp) {
+  /** A trash can, drawn in its button's text color, for the button that forgets a lamp (#194). */
+  function trashCan() {
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("viewBox", "0 0 12 14");
+    svg.setAttribute("width", "12");
+    svg.setAttribute("height", "14");
+    svg.setAttribute("aria-hidden", "true");
+    // The lid with its handle, then the can, with two grooves.
+    for (const d of ["M1 3h10", "M4.5 3V1.5h3V3", "M2.5 3l.75 9.5h5.5L9.5 3", "M5 5.5v5", "M7 5.5v5"]) {
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      path.setAttribute("d", d);
+      path.setAttribute("fill", "none");
+      path.setAttribute("stroke", "currentColor");
+      path.setAttribute("stroke-width", "1.2");
+      path.setAttribute("stroke-linecap", "round");
+      path.setAttribute("stroke-linejoin", "round");
+      svg.append(path);
+    }
+    return svg;
+  }
+
+  /**
+   * A lamp's row: the end of its serial number, its model, its name, a button that blinks it, and one that forgets it.
+   * A lamp the last Find lamps didn't find is greyed out, with "not found" in place of its Identify button.
+   */
+  function lampRow([id, lamp]) {
+    const label = `${lamp.model} - ${lamp.serialEnd}`;
     const name = document.createElement("sdpi-textfield");
     name.setAttribute("maxlength", String(MAX_NAME_LENGTH));
-    name.setAttribute("placeholder", lamp.label);
-    name.value = names[lamp.id] ?? "";
+    name.setAttribute("placeholder", label);
+    name.value = lamp.name ?? "";
     // Added after the value is set, so only the user's typing reaches it.
-    name.addEventListener("valuechange", () => rename(lamp.id, name.value ?? ""));
+    name.addEventListener("valuechange", () => rename(id, name.value ?? ""));
 
+    const missing = found !== undefined && !found.includes(id);
     const row = document.createElement("tr");
-    row.className = "lamp";
+    row.className = missing ? "lamp missing" : "lamp";
     const nameCell = cell("td", name);
     nameCell.className = "name";
-    const identify = button("Identify", () => client.send("sendToPlugin", { event: "identify", id: lamp.id }));
-    row.append(cell("td", lamp.serialEnd), cell("td", lamp.model), nameCell, cell("td", identify));
+    const identify = missing
+      ? note("not found")
+      : button("Identify", () => client.send("sendToPlugin", { event: "identify", id }));
+    const trash = document.createElement("button");
+    trash.type = "button";
+    trash.className = "forget";
+    trash.title = `Forget ${lamp.name ?? label}`;
+    trash.setAttribute("aria-label", trash.title);
+    trash.append(trashCan());
+    trash.addEventListener("click", () => forget(id));
+    row.append(cell("td", lamp.serialEnd), cell("td", lamp.model), nameCell, cell("td", identify), cell("td", trash));
     return row;
   }
 
-  /** The table of the lamps found. */
-  function lampTable(lamps) {
+  /** The table of the lamps the plugin knows, in the order of their serial numbers' ends. */
+  function lampTable() {
     const table = document.createElement("table");
     const model = cell("th", "Model");
     model.className = "model";
-    const head = cell("tr", cell("th", "ID"), model, cell("th", "Name"), cell("th"));
-    table.append(cell("thead", head), cell("tbody", ...lamps.map(lampRow)));
+    const head = cell("tr", cell("th", "ID"), model, cell("th", "Name"), cell("th"), cell("th"));
+    const rows = Object.entries(lamps).sort(([, a], [, b]) => (a.serialEnd < b.serialEnd ? -1 : 1));
+    table.append(cell("thead", head), cell("tbody", ...rows.map(lampRow)));
     return table;
   }
 
@@ -922,8 +1006,9 @@
     .catch((error) => console.error("Can't read the lamp screens' options", error));
 
   /**
-   * Shows the button's text, and the plugin settings when they're open, with the lamps found. A name field being typed
-   * in isn't redrawn, so the names that arrive from Stream Deck don't move its cursor.
+   * Shows the button's text, and the plugin settings when they're open, with the lamps the plugin knows. A name field
+   * being typed in isn't redrawn, so the names that arrive from Stream Deck as the plugin saves them don't move its
+   * cursor.
    */
   function render() {
     toggleButton.textContent = open ? "Back" : "Plugin settings";
@@ -933,14 +1018,12 @@
     if (!open || document.activeElement?.closest("#plugin-settings sdpi-textfield")) {
       return;
     }
-    if (found === undefined) {
-      lampList.replaceChildren(item(undefined, note("Looking for lamps…")));
-    } else if (found.length === 0) {
+    if (Object.keys(lamps).length === 0) {
       const none = note("No lamps found");
       none.classList.add("alert");
       lampList.replaceChildren(item(undefined, none));
     } else {
-      lampList.replaceChildren(lampTable(found));
+      lampList.replaceChildren(lampTable());
     }
   }
 })();

@@ -91,26 +91,18 @@ function hexColor(fallback: string): Setting<string> {
   };
 }
 
-/** A setting that takes text by key, such as the lamps' names by lamp id. Entries that aren't text are left out. */
-function textByKey(): Setting<Readonly<Record<string, string>>> {
-  return {
-    default: {},
-    expected: "text by key",
-    parse: (value) =>
-      typeof value === "object" && value !== null && !Array.isArray(value)
-        ? Object.fromEntries(
-            Object.entries(value).filter((entry): entry is [string, string] => typeof entry[1] === "string"),
-          )
-        : undefined,
-  };
-}
+/**
+ * A lamp the plugin knows (#194): its model, such as "Beam", the last 4 characters of its serial number, and the name
+ * given to it in the plugin settings, if any (#146).
+ */
+export type KnownLamp = { readonly model: string; readonly serialEnd: string; readonly name?: string };
 
-/** A lamp the plugin knows (#194): its model, such as "Beam", and the last 4 characters of its serial number. */
-export type KnownLamp = { readonly model: string; readonly serialEnd: string };
+/** The longest name a lamp can be given (#146), which the plugin settings' name field also stops at. */
+export const MAX_LAMP_NAME_LENGTH = 24;
 
 /**
  * The lamps the plugin knows, by id (#194). Entries without a model and a serial end, as text, are left out, so one that
- * was edited doesn't take the others with it.
+ * was edited doesn't take the others with it, and so is a name that isn't text.
  */
 function lampsById(): Setting<Readonly<Record<string, KnownLamp>>> {
   return {
@@ -125,7 +117,16 @@ function lampsById(): Setting<Readonly<Record<string, KnownLamp>>> {
               !Array.isArray(lamp) &&
               typeof lamp.model === "string" &&
               typeof lamp.serialEnd === "string"
-                ? [[id, { model: lamp.model, serialEnd: lamp.serialEnd }]]
+                ? [
+                    [
+                      id,
+                      {
+                        model: lamp.model,
+                        serialEnd: lamp.serialEnd,
+                        ...(typeof lamp.name === "string" ? { name: lamp.name } : {}),
+                      },
+                    ],
+                  ]
                 : [],
             ),
           )
@@ -381,14 +382,14 @@ export type LampScreenItemOptions = {
 // through the lamp screens wait longer than it needs to. The default suits dim lamps, and a bright lamp among others
 // needs a longer one. The longest is twice the fade. What each cell of the lamp screens shows is the same on every dial,
 // and the defaults are what the lamp screens showed before it could be chosen (#177). How each cell shows its item is
-// kept by cell and by item, read against lampScreenItemOptions. The lamps' names, which the plugin settings save by lamp
-// id (#146), are read too, for the cells that show them. The lamp screens' text takes four styles, the same on every
+// kept by cell and by item, read against lampScreenItemOptions. The lamp screens' text takes four styles, the same on every
 // dial, each named for its role rather than its look (see docs/contributing.md, #153): Primary, Secondary, Accent and
 // Alert. Each has a color, a weight and a size, which a layout's text takes, and nothing else: no font family. The sizes
 // stop at 16 px, below which text is hard to read on the strip (#8), and at 22 px, which still fits the 26 px rows of
 // layouts/lamp.json. Only Primary and Secondary are used by default, which draws what the lamp screens showed before.
-// The lamps the plugin knows are the only ones it acts on (#194). Unlike the others, the plugin writes them, and no page
-// does: a page asks it to find lamps.
+// The lamps the plugin knows are the only ones it acts on (#194), each with the name the plugin settings gave it (#146),
+// which the lamp screens' cells show. Unlike the others, the plugin writes them, and no page does: a page asks it to
+// find the lamps, and to rename or forget one.
 export const globalSettings = {
   addNewLamps: flag(true),
   addNewLampsExceptions: textList(),
@@ -416,7 +417,6 @@ export const globalSettings = {
   lampScreenAlertColor: hexColor("#ff6b6b"),
   lampScreenAlertWeight: oneOf(WEIGHTS, "bold"),
   lampScreenAlertSize: wholeNumberFrom(16, 22, 18),
-  lampNames: textByKey(),
   lamps: lampsById(),
 };
 

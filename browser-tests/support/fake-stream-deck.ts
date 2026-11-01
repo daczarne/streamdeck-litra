@@ -15,11 +15,16 @@ export type StreamDeckMessage = { event: string; context?: string; payload?: Rec
 /** A lamp as the plugin lists it for a settings page (#20, #146). */
 export type ListedLamp = { id: string; label: string; model: string; serialEnd: string };
 
+/** A lamp as the plugin knows it, in the global settings' `lamps` (#194), with the name it was given, if any. */
+export type KnownLamp = { model: string; serialEnd: string; name?: string };
+
 /**
  * Stands in for the WebSocket that Stream Deck opens for a settings page: it accepts the page's connection and
  * records the messages the page sends. It keeps the plugin's global settings, which it answers a page that asks for
  * them with, as Stream Deck does. It also stands in for the plugin behind it, answering a page that asks for the lamps
- * with {@link lamps}, as the plugin does. Node has a WebSocket client but no server, so this decodes the frames
+ * with {@link lamps}, which it adds to the lamps the plugin knows, and renaming and forgetting a lamp, as the plugin
+ * does: it saves them in the global settings, and passes them on to the page, as Stream Deck passes on the plugin's
+ * save (#194). Node has a WebSocket client but no server, so this decodes the frames
  * itself, as far as the pages need: text frames from the client, and its close frame, and sends text frames back.
  */
 export class FakeStreamDeck {
@@ -89,9 +94,21 @@ export class FakeStreamDeck {
     await new Promise((resolve) => this.server.close(resolve));
   }
 
+  /** The lamps the plugin knows, from the global settings. */
+  private get known(): Record<string, KnownLamp> {
+    return (this.globalSettings.lamps as Record<string, KnownLamp> | undefined) ?? {};
+  }
+
+  /** Saves the lamps the plugin knows, as the plugin does, and passes them on to the page, as Stream Deck does. */
+  private saveLamps(socket: Socket, lamps: Record<string, KnownLamp>): void {
+    this.globalSettings = { ...this.globalSettings, lamps };
+    this.send(socket, { event: "didReceiveGlobalSettings", payload: { settings: this.globalSettings } });
+  }
+
   /**
    * Answers a page that asks for the global settings, a moment later, and keeps the ones it saves, as Stream Deck
-   * does, and a page that asks the plugin for the lamps, as `src/actions/lamp-picker.ts` does.
+   * does, and a page that asks the plugin for the lamps, or to rename or forget one, as `src/actions/lamp-picker.ts`
+   * does.
    */
   private answer(message: StreamDeckMessage, socket: Socket): void {
     if (message.event === "getGlobalSettings") {
@@ -103,11 +120,30 @@ export class FakeStreamDeck {
     } else if (message.event === "setGlobalSettings") {
       this.globalSettings = message.payload ?? {};
     } else if (message.event === "sendToPlugin" && message.payload?.event === "lamps") {
+      const added = this.lamps.filter(({ id }) => this.known[id] === undefined);
+      if (added.length > 0) {
+        const lamps = { ...this.known };
+        for (const { id, model, serialEnd } of added) {
+          lamps[id] = { model, serialEnd };
+        }
+        this.saveLamps(socket, lamps);
+      }
       this.send(socket, {
         event: "sendToPropertyInspector",
         ...(message.context === undefined ? {} : { context: message.context }),
         payload: { event: "lamps", lamps: this.lamps },
       });
+    } else if (message.event === "sendToPlugin" && message.payload?.event === "rename") {
+      const { id, name } = message.payload as { id: string; name: string };
+      const lamp = this.known[id];
+      if (lamp !== undefined) {
+        const { name: _old, ...unnamed } = lamp;
+        const trimmed = name.trim().slice(0, 24);
+        this.saveLamps(socket, { ...this.known, [id]: trimmed === "" ? unnamed : { ...unnamed, name: trimmed } });
+      }
+    } else if (message.event === "sendToPlugin" && message.payload?.event === "forget") {
+      const { id } = message.payload as { id: string };
+      this.saveLamps(socket, Object.fromEntries(Object.entries(this.known).filter(([other]) => other !== id)));
     }
   }
 

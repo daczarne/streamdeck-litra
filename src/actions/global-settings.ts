@@ -13,6 +13,7 @@ import {
   type LampScreenItem,
   type LampScreenItemOptions,
   lampScreenItemOptions,
+  MAX_LAMP_NAME_LENGTH,
   parseSettings,
   type TextStyleName,
 } from "./settings";
@@ -90,8 +91,7 @@ export function followGlobalSettings(): void {
 /**
  * Adds the lamps found that the plugin doesn't know to the ones it knows (#194), and saves them. The plugin is the only
  * one that writes them, so a page can't overwrite a change made here, nor this one a page's: the global settings are
- * written whole, from the latest ones Stream Deck sent. Saves nothing when every lamp found is known already. The
- * plugin takes the lamps added even when saving them fails, until it restarts.
+ * written whole, from the latest ones Stream Deck sent. Saves nothing when every lamp found is known already.
  */
 export async function addLamps(found: readonly FoundLamp[]): Promise<void> {
   const added = found.filter(({ id }) => current.lamps[id] === undefined);
@@ -103,8 +103,56 @@ export async function addLamps(found: readonly FoundLamp[]): Promise<void> {
     lamps[id] = { model, serialEnd };
   }
   logger.info(`Lamps added: ${added.map(({ label }) => label).join(", ")}`);
+  await saveLamps(lamps);
+}
+
+/**
+ * Names a lamp the plugin knows (#146), or takes its name away when `name` is blank. The name is trimmed, and cut to
+ * {@link MAX_LAMP_NAME_LENGTH} characters. Saves nothing for a lamp it doesn't know, or a name it already has.
+ */
+export async function renameLamp(id: string, name: string): Promise<void> {
+  const lamp = current.lamps[id];
+  if (lamp === undefined) {
+    logger.warn(`Rename: lamp ${id} isn't one of the plugin's lamps`);
+    return;
+  }
+  const trimmed = name.trim().slice(0, MAX_LAMP_NAME_LENGTH);
+  if ((lamp.name ?? "") === trimmed) {
+    return;
+  }
+  const { name: _old, ...unnamed } = lamp;
+  // The name field sends every key typed, so a line for each would bury the others.
+  logger.debug(trimmed === "" ? `Lamp ${labelOf(lamp)}'s name taken away` : `Lamp ${labelOf(lamp)} named "${trimmed}"`);
+  await saveLamps({ ...current.lamps, [id]: trimmed === "" ? unnamed : { ...unnamed, name: trimmed } });
+}
+
+/**
+ * Forgets a lamp (#194): the plugin no longer acts on it, and its name is gone, until a find adds it again. The keys keep
+ * what they saved for it. Saves nothing for a lamp it doesn't know.
+ */
+export async function forgetLamp(id: string): Promise<void> {
+  const lamp = current.lamps[id];
+  if (lamp === undefined) {
+    logger.warn(`Forget: lamp ${id} isn't one of the plugin's lamps`);
+    return;
+  }
+  const lamps = Object.fromEntries(Object.entries(current.lamps).filter(([other]) => other !== id));
+  logger.info(`Lamp forgotten: ${labelOf(lamp)}`);
+  await saveLamps(lamps);
+}
+
+/** A lamp as the pages show it when it has no name, such as "Beam - 7K98". */
+function labelOf(lamp: KnownLamp): string {
+  return `${lamp.model} - ${lamp.serialEnd}`;
+}
+
+/**
+ * Saves the lamps the plugin knows, in the global settings as Stream Deck last sent them, and takes them at once, so an
+ * operation that follows acts on them, and another change starts from them. They're taken even when saving them fails,
+ * which is logged, until the plugin restarts.
+ */
+async function saveLamps(lamps: Readonly<Record<string, KnownLamp>>): Promise<void> {
   const settings = { ...sent, lamps };
-  // Taken at once, so an operation that follows acts on the lamps added, and another find adds to them.
   apply(settings);
   try {
     await streamDeck.settings.setGlobalSettings(settings);
@@ -179,9 +227,9 @@ export function textStyles(): TextStyles {
   };
 }
 
-/** The name given to a lamp in the plugin settings (#146), or undefined for a lamp with none. */
+/** The name given to a lamp in the plugin settings (#146), or undefined for a lamp with none, or one it doesn't know. */
 export function lampName(lampId: string): string | undefined {
-  return current.lampNames[lampId];
+  return current.lamps[lampId]?.name;
 }
 
 /**

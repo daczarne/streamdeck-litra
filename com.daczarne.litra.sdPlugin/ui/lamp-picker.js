@@ -1,5 +1,6 @@
 // The lamps a key acts on (#20): a checkbox for each lamp the plugin finds, and one for every lamp. Each lamp shows
-// with the name given to it in the plugin settings (plugin-settings.js, #146), or else its label, such as
+// with the name given to it in the plugin settings (plugin-settings.js, #146), kept with the lamps the plugin knows
+// (#194), or else its label, such as
 // "Beam - 7K98". The key saves the lamps checked, as `lamps`, and the ones listed and left unchecked, as
 // `leftOutLamps`, each with its id and its label, so a lamp that isn't connected keeps its place here. A key that adds
 // new lamps acts on every lamp but the left out ones, so a lamp it hasn't listed yet shows checked, and one that doesn't
@@ -70,18 +71,20 @@
     return Array.isArray(value) ? value.filter((lamp) => typeof lamp?.id === "string") : [];
   }
 
-  // Names saved by other pages arrive with the global settings.
-  const [readNames] = SDPIComponents.useGlobalSettings("lampNames", (value) => {
+  // The names arrive with the lamps the plugin knows, in the global settings, each time the plugin saves them.
+  const [readNames] = SDPIComponents.useGlobalSettings("lamps", (value) => {
     names = validNames(value);
     render();
   });
 
-  /** The names in the global settings, or none when they aren't a set of names by id. */
+  /** The names of the lamps the plugin knows, by id, from the global settings, or none when they aren't lamps by id. */
   function validNames(value) {
     if (typeof value !== "object" || value === null || Array.isArray(value)) {
       return {};
     }
-    return Object.fromEntries(Object.entries(value).filter(([, name]) => typeof name === "string"));
+    return Object.fromEntries(
+      Object.entries(value).flatMap(([id, lamp]) => (typeof lamp?.name === "string" ? [[id, lamp.name]] : [])),
+    );
   }
 
   /** Asks the plugin for the lamps connected now, and shows them. */
@@ -231,11 +234,7 @@
     if (info?.actionInfo?.payload?.controller === "Encoder") {
       return;
     }
-    // The plugin settings tell of the names they change and the lamps they find.
-    document.addEventListener("litra:lamp-names", (event) => {
-      names = event.detail;
-      render();
-    });
+    // The plugin settings tell of the lamps they find.
     document.addEventListener("litra:lamps", (event) => {
       found = event.detail;
       render();
