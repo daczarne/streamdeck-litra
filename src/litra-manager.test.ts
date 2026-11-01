@@ -454,6 +454,29 @@ describe("forEachDevice", () => {
     expect(ranOn(operation)).toEqual([earlier.serialNumber, later.serialNumber]);
   });
 
+  it("orders the lamps by the last 4 characters of their serial numbers first, as the settings pages list them", () => {
+    const [startsEarlier, endsEarlier] = [
+      beam({ serialNumber: "2325FE01ZZZZ" }),
+      beam({ serialNumber: "2325FE02AAAA" }),
+    ];
+    connect(startsEarlier, endsEarlier);
+    const operation = vi.fn();
+
+    manager.forEachDevice("test", operation, "all");
+
+    expect(ranOn(operation)).toEqual([endsEarlier.serialNumber, startsEarlier.serialNumber]);
+  });
+
+  it("orders lamps whose serial numbers end alike by the whole serial number", () => {
+    const [later, earlier] = [beam({ serialNumber: "2325FE02AAAA" }), beam({ serialNumber: "2325FE01AAAA" })];
+    connect(later, earlier);
+    const operation = vi.fn();
+
+    manager.forEachDevice("test", operation, "all");
+
+    expect(ranOn(operation)).toEqual([earlier.serialNumber, later.serialNumber]);
+  });
+
   it("fails without running the operation when no lamp is connected", () => {
     const operation = vi.fn();
 

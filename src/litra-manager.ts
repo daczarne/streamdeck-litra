@@ -487,8 +487,8 @@ function openGroups<G extends { readonly lamps: LampSelection }>(
   let devices: Device[];
   try {
     // In the order of their serial numbers, since litra finds them in an order that changes from one call to the next.
-    // So every operation goes through the lamps in the same order, as the lamp screens list them, and the first lamp,
-    // whose temperature the dials show and step from, is always the same one.
+    // So every operation goes through the lamps in the same order, as the lamp screens and the settings pages list
+    // them, and the first lamp, whose temperature the dials show and step from, is always the same one.
     devices = findDevices().sort((a, b) => bySerialNumber(a.serialNumber, b.serialNumber));
   } catch (error) {
     logger.error(`${operation}: finding the lamps failed: ${String(error)}`);
@@ -1069,8 +1069,16 @@ export function findLamps(): FoundLamp[] {
   }
 }
 
-/** Orders two serial numbers, as every operation goes through the lamps. */
+/**
+ * Orders two serial numbers, as every operation goes through the lamps: by their last 4 characters, as the settings
+ * pages list the lamps, since that's all the global settings keep of them, then by the whole serial number when two
+ * lamps share them.
+ */
 function bySerialNumber(a: string, b: string): number {
+  const [endA, endB] = [a.slice(-4), b.slice(-4)];
+  if (endA !== endB) {
+    return endA < endB ? -1 : 1;
+  }
   return a < b ? -1 : a > b ? 1 : 0;
 }
 
