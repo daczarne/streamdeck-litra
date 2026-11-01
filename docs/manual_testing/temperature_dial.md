@@ -4,11 +4,11 @@
 - [Setup](#setup)
 - [Checks](#checks)
 
-The unit tests check how the Temperature dial steps, against emulated lamps, and that every temperature dial follows each change to the lamps, against a fake Stream Deck. The checks below cover what they take for granted: that Stream Deck lists every dial of the action and passes on each dial's step, and that the touch strip shows what the plugin sends it. From its main screen, every connected lamp is managed as one group (see "By default, lamps are managed together" in [the contributing guide][contributing]). Lamps kept apart by the global setting are checked in [`lamps_apart.md`][lamps-apart].
+The unit tests check how the Temperature dial steps, against emulated lamps, from the first lamp's temperature in the order of their serial numbers, and that every temperature dial follows each change to the lamps, against a fake Stream Deck. The integration tests check that a quick turn moves the lamps once, with the step the dial has by then. The checks below cover what they take for granted: that Stream Deck lists every dial of the action and passes on each dial's step, and that the touch strip shows what the plugin sends it. From its main screen, every connected lamp is managed as one group (see "By default, lamps are managed together" in [the contributing guide][contributing]). Lamps kept apart by the global setting are checked in [`lamps_apart.md`][lamps-apart].
 
 ## When to run these checks
 
-- After a change to how the plugin sets temperature, to how the dial steps, to what the dials show, or to the action's images.
+- After a change to how the plugin sets temperature, to how the dial steps, to what the dials show, to the order the plugin goes through the lamps in, or to the action's images.
 - After a Stream Deck update.
 
 ## Setup
@@ -30,6 +30,7 @@ In VS Code, the `Build and restart` task runs both.
 4. **Going down retraces going up.** Set one dial's step to 500 in its settings. Press the 3000 K key, then turn that dial up one step at a time: the strips show 3200, 3700, and so on up to 6200, then 6500. Turn it down one step at a time: 6200, 5700, and so on down to 3200, then 2700, the same temperatures as on the way up ([#16]). Set the step back to 100.
 5. **The dial says what it does.** Both strips show "Temperature" at the top, above the icon and the value. If a strip shows none, check **Show Title** under the **T** menu of the dial's settings, which Stream Deck keeps for each dial. A title typed in the title field replaces it.
 6. **The keys and the app's dial pictures show the strip's icon.** In the Stream Deck app, the round picture of each Temperature dial shows the white line thermometer from its touch strip ([#51]). So does a Temperature key or dial newly dragged onto the Deck. A key or dial given a custom image keeps it.
+7. **The dials show the first lamp's temperature.** On one dial's lamp screens, set the first lamp to 3300 K and the second to 4500 K, and tap back to its main screen: both strips show 3300, the temperature of the lamp the first tap shows. Switch to another page of the Deck and back a few times: the strips still show 3300 each time they appear. Turn a dial one step up: both lamps go to 3400, stepped from the first lamp.
 
 [#16]: https://github.com/daczarne/streamdeck-litra/issues/16
 [#51]: https://github.com/daczarne/streamdeck-litra/issues/51

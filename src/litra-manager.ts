@@ -486,7 +486,10 @@ function openGroups<G extends { readonly lamps: LampSelection }>(
   }
   let devices: Device[];
   try {
-    devices = findDevices();
+    // In the order of their serial numbers, since litra finds them in an order that changes from one call to the next.
+    // So every operation goes through the lamps in the same order, as the lamp screens list them, and the first lamp,
+    // whose temperature the dials show and step from, is always the same one.
+    devices = findDevices().sort((a, b) => bySerialNumber(a.serialNumber, b.serialNumber));
   } catch (error) {
     logger.error(`${operation}: finding the lamps failed: ${String(error)}`);
     return opened;
@@ -1009,8 +1012,8 @@ export async function readLampsBrightness(lamps: LampSelection): Promise<Broadca
 }
 
 /**
- * Reads every lamp the plugin knows for the lamp screens, sorted by serial number, since findDevices lists them in no fixed order. A
- * lamp that can't be read is left out. Waits for the brightness change in progress, if any, which holds the lamps open
+ * Reads every lamp the plugin knows for the lamp screens, in the order of their serial numbers, as every operation goes
+ * through them. A lamp that can't be read is left out. Waits for the brightness change in progress, if any, which holds the lamps open
  * until it has read them back.
  */
 export async function readLampStatuses(): Promise<{ ok: boolean; lamps: LampStatus[] }> {
@@ -1041,27 +1044,24 @@ export async function readLampStatuses(): Promise<{ ok: boolean; lamps: LampStat
     },
     "all",
   );
-  lamps.sort((a, b) => bySerialNumber(a.serialNumber, b.serialNumber));
   return { ok: result.ok, lamps };
 }
 
 /**
  * Lists the connected lamps, the ones the plugin doesn't know included, which it adds to the ones it knows (#194),
- * sorted by serial number as the lamp screens are (#20), with what the keys' lamp pickers and the plugin settings show
+ * in the order of their serial numbers, as the lamp screens list them (#20), with what the keys' lamp pickers and the plugin settings show
  * of each (#146). Finding a lamp tells its model and serial, so none is read, and none of the brightness changes has to
  * be waited for. Lists none when finding them fails.
  */
 export function findLamps(): FoundLamp[] {
   const devices = openEveryDevice("find lamps");
   try {
-    return [...devices]
-      .sort((a, b) => bySerialNumber(a.serialNumber, b.serialNumber))
-      .map((device) => ({
-        id: lampId(device.serialNumber),
-        label: displayLabel(device),
-        model: MODEL_BY_DEVICE_TYPE[device.type],
-        serialEnd: device.serialNumber.slice(-4),
-      }));
+    return devices.map((device) => ({
+      id: lampId(device.serialNumber),
+      label: displayLabel(device),
+      model: MODEL_BY_DEVICE_TYPE[device.type],
+      serialEnd: device.serialNumber.slice(-4),
+    }));
   } finally {
     for (const device of devices) {
       closeDevice(device);
@@ -1069,7 +1069,7 @@ export function findLamps(): FoundLamp[] {
   }
 }
 
-/** Orders two serial numbers, as the lamp screens and the settings pages list the lamps. */
+/** Orders two serial numbers, as every operation goes through the lamps. */
 function bySerialNumber(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0;
 }

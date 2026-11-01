@@ -331,6 +331,20 @@ describe("how each cell of the lamp screens shows its item (#177)", () => {
       style: "primary",
     });
   });
+
+  it("takes every cell's default options, with a warning, when the options of every cell aren't an object", async () => {
+    settings.getGlobalSettings.mockResolvedValue({ lampScreenOptions: "trim" });
+
+    await follow();
+
+    expect(globalSettings.lampScreenCells().topLeft.options).toEqual({
+      first: "model",
+      second: "id",
+      trim: false,
+      style: "primary",
+    });
+    expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("lampScreenOptions"));
+  });
 });
 
 describe("the lamp screens' text styles (#153)", () => {
@@ -508,6 +522,19 @@ describe("the lamps the plugin knows (#194)", () => {
     await follow();
 
     expect(globalSettings.currentGlobalSettings().lamps).toEqual({ "lamp-1": { model: "Beam", serialEnd: "1111" } });
+  });
+
+  it("are none, with a warning, when they aren't lamps by id, and are found as when the plugin starts with none", async () => {
+    settings.getGlobalSettings.mockResolvedValue({ lamps: ["lamp-1"] });
+    vi.mocked(findLamps).mockReturnValue([BEAM]);
+
+    await follow();
+    await vi.waitFor(() => expect(settings.setGlobalSettings).toHaveBeenCalledOnce());
+
+    expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("lamps"));
+    expect(settings.setGlobalSettings).toHaveBeenCalledWith({
+      lamps: { "lamp-1": { model: "Beam", serialEnd: "1111" } },
+    });
   });
 
   it("are found and saved when the plugin starts with none, keeping the other settings", async () => {

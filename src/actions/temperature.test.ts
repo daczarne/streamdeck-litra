@@ -449,6 +449,22 @@ describe("TemperatureAction", () => {
       expect(onLamp.setFeedback).not.toHaveBeenCalled();
       expect(onMain.setFeedback).toHaveBeenCalledExactlyOnceWith(TEMPERATURE_SNAPPED);
     });
+
+    it("keeps a lamp screen drawn when the dial's settings change on it, and turns its lamp by the new step", async () => {
+      const dial = await deck.dial(TEMPERATURE, { stepKelvin: 100 });
+      await deck.tap(dial);
+      clearCalls();
+      vi.mocked(adjustLampsTemperature).mockReturnValue(SNAPPED);
+
+      await deck.changeSettings(dial, { stepKelvin: 200 });
+
+      expect(dial.setFeedbackLayout).not.toHaveBeenCalled();
+      expect(dial.setFeedback).not.toHaveBeenCalled();
+
+      await deck.turn(dial, 1);
+
+      expect(adjustLampsTemperature).toHaveBeenCalledExactlyOnceWith([BEAM.id], 1, 200, "together");
+    });
   });
 
   describe("logs", () => {

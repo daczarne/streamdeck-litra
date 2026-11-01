@@ -454,6 +454,22 @@ describe("BrightnessAction", () => {
       expect(onMain.setFeedback).toHaveBeenCalledExactlyOnceWith(AT_THE_CAPS);
     });
 
+    it("keeps a lamp screen drawn when the dial's settings change on it, and turns its lamp by the new step", async () => {
+      const dial = await deck.dial(BRIGHTNESS, { stepPercentage: 5 });
+      await deck.tap(dial);
+      clearCalls();
+      vi.mocked(adjustLampsBrightness).mockResolvedValue(REACHED_AT_CAP);
+
+      await deck.changeSettings(dial, { stepPercentage: 10 });
+
+      expect(dial.setFeedbackLayout).not.toHaveBeenCalled();
+      expect(dial.setFeedback).not.toHaveBeenCalled();
+
+      await deck.turn(dial, 1);
+
+      expect(adjustLampsBrightness).toHaveBeenCalledExactlyOnceWith([BEAM.id], 1, 10, "together");
+    });
+
     it("starts a dial that appears on the main screen", async () => {
       const dial = await deck.dial(BRIGHTNESS);
 

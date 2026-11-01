@@ -571,6 +571,90 @@ describe("settings pages", () => {
     });
   });
 
+  describe("a number field from the keyboard (#195)", () => {
+    const BRIGHTNESS = at(PANELS, 1);
+    const FIELD = `document.querySelector('[setting="presetPercentage"]')`;
+
+    /** The presets the page saved after the `after`th message. */
+    function savesOf(uuid: string, after: number) {
+      return streamDeck.messages
+        .slice(after)
+        .filter((m) => m.event === "setSettings" && m.context === uuid)
+        .map((m) => m.payload?.presetPercentage);
+    }
+
+    /** Sends a key to the field's input, or to its − or + button, focused first, as the keyboard does. */
+    function pressKey(page: Page, key: string, target: "input" | "Lower" | "Raise" = "input"): Promise<void> {
+      const selector = target === "input" ? "input" : `button[aria-label="${target}"]`;
+      return page.evaluate(`(() => {
+        const element = ${FIELD}.querySelector('${selector}');
+        element.focus();
+        element.dispatchEvent(new KeyboardEvent("keydown", { key: ${JSON.stringify(key)}, bubbles: true }));
+      })()`);
+    }
+
+    it("steps by its step on the arrow keys, and saves once they stop", async () => {
+      const { page, uuid } = await openPanel(BRIGHTNESS, { presetPercentage: 10 });
+      await expect.poll(() => shownValue(page, "presetPercentage")).toBe("10 %");
+
+      const after = streamDeck.messages.length;
+      for (const key of ["ArrowUp", "ArrowUp", "ArrowUp", "ArrowDown"]) {
+        await pressKey(page, key);
+      }
+
+      await expect.poll(() => savesOf(uuid, after)).toEqual([12]);
+      expect(await shownValue(page, "presetPercentage")).toBe("12 %");
+      await page.close();
+    });
+
+    it("takes a typed value once the field is left", async () => {
+      const { page, uuid } = await openPanel(BRIGHTNESS, { presetPercentage: 10 });
+      await expect.poll(() => shownValue(page, "presetPercentage")).toBe("10 %");
+
+      const after = streamDeck.messages.length;
+      await page.evaluate(`(() => {
+        const input = ${FIELD}.querySelector("input");
+        input.focus();
+        input.value = "37";
+        input.blur();
+      })()`);
+
+      await expect.poll(() => savesOf(uuid, after)).toEqual([37]);
+      expect(await shownValue(page, "presetPercentage")).toBe("37 %");
+      await page.close();
+    });
+
+    it("steps once, and saves, on Enter or the space bar on a focused − or +", async () => {
+      const { page, uuid } = await openPanel(BRIGHTNESS, { presetPercentage: 10 });
+      await expect.poll(() => shownValue(page, "presetPercentage")).toBe("10 %");
+
+      const after = streamDeck.messages.length;
+      await pressKey(page, "Enter", "Raise");
+      await pressKey(page, " ", "Raise");
+      await pressKey(page, "Enter", "Lower");
+
+      await expect.poll(() => savesOf(uuid, after)).toEqual([11, 12, 11]);
+      expect(await shownValue(page, "presetPercentage")).toBe("11 %");
+      await page.close();
+    });
+
+    it("keeps a change not saved yet when the saved value arrives, and takes the saved value once nothing is pending", async () => {
+      const { page, uuid } = await openPanel(BRIGHTNESS, { presetPercentage: 10 });
+      await expect.poll(() => shownValue(page, "presetPercentage")).toBe("10 %");
+
+      const after = streamDeck.messages.length;
+      await pressNumberButton(page, FIELD, "Raise");
+      streamDeck.sendSettings({ presetPercentage: 50 });
+
+      await expect.poll(() => savesOf(uuid, after)).toEqual([11]);
+      expect(await shownValue(page, "presetPercentage")).toBe("11 %");
+
+      streamDeck.sendSettings({ presetPercentage: 50 });
+      await expect.poll(() => shownValue(page, "presetPercentage")).toBe("50 %");
+      await page.close();
+    });
+  });
+
   // Every checkbox of sdpi-components that saves a global setting itself, in the plugin settings, on a key's page and a
   // dial's (#145, #146).
   const globalCheckboxes = [at(PANELS, 0), at(PANELS, 2)].flatMap((panel) =>
@@ -1996,6 +2080,30 @@ describe("settings pages", () => {
       await expect
         .poll(async () => (await pickerOf(page)).lamps.map((lamp) => lamp.label))
         .toEqual(["Left", "Key light"]);
+      await page.close();
+    });
+
+    it("keep the name being typed, and its field focused, as the plugin's saves of it arrive", async () => {
+      const { page, uuid } = await openPluginSettings({ [FIRST.id]: known(FIRST) }, [FIRST]);
+      const field = `[...document.querySelectorAll("#plugin-settings tr.lamp sdpi-textfield")][0]`;
+      await page.evaluate(`${field}.dataset.typedIn = "yes"`);
+
+      const after = streamDeck.messages.length;
+      await typeName(page, FIRST.serialEnd, "  Left ");
+      await expect.poll(() => sentToPlugin(uuid, "rename", after).length).toBe(1);
+      // Long enough for the plugin's save, trimmed to "Left", to reach the page.
+      await new Promise((resolve) => setTimeout(resolve, 300));
+
+      expect(
+        await page.evaluate(`(() => {
+          const host = ${field};
+          return {
+            same: host.dataset.typedIn === "yes",
+            focused: document.activeElement === host,
+            typed: host.shadowRoot.querySelector("input").value,
+          };
+        })()`),
+      ).toEqual({ same: true, focused: true, typed: "  Left " });
       await page.close();
     });
 
