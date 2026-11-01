@@ -98,10 +98,35 @@
       padding: 0 4px;
     }
 
-    /* The trash can, centered in a button no wider than it needs. */
-    #plugin-settings sdpi-button.forget svg {
-      display: block;
-      margin: 0 auto;
+    /* The trash can's button, a plain one rather than sdpi-components', whose hover can't be restyled from outside: it
+      looks like an sdpi-components button at rest, written out from its styles, and turns red on hover, since it
+      forgets the lamp. The red is the Alert one of "No lamps found", on a darker red the white can reads on. */
+    #plugin-settings button.forget {
+      background-color: #2d2d2d;
+      border: 1px solid #969696;
+      border-radius: 3px;
+      color: #d8d8d8;
+      font-family: inherit;
+      font-size: 9pt;
+      padding: 6px;
+    }
+
+    #plugin-settings button.forget:hover {
+      background-color: #8f2f2f;
+      border-color: #ff6b6b;
+      color: #ffffff;
+      cursor: pointer;
+    }
+
+    #plugin-settings button.forget:active {
+      background-color: #2d2d2d;
+      border-color: #646464;
+      color: #ff6b6b;
+    }
+
+    /* On the line of the button's text, so the button is as tall as Identify. */
+    #plugin-settings button.forget svg {
+      vertical-align: -2px;
     }
 
     /* A key's own choice of new lamps, under its lamps, set apart from them so it doesn't read as one more (#147). */
@@ -761,11 +786,13 @@
     const identify = missing
       ? note("not found")
       : button("Identify", () => client.send("sendToPlugin", { event: "identify", id }));
-    const trash = button("", () => forget(id));
+    const trash = document.createElement("button");
+    trash.type = "button";
     trash.className = "forget";
     trash.title = `Forget ${lamp.name ?? label}`;
     trash.setAttribute("aria-label", trash.title);
     trash.append(trashCan());
+    trash.addEventListener("click", () => forget(id));
     row.append(cell("td", lamp.serialEnd), cell("td", lamp.model), nameCell, cell("td", identify), cell("td", trash));
     return row;
   }

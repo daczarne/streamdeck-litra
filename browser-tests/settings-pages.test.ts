@@ -2220,7 +2220,7 @@ function pluginSettingsOf(page: Page): Promise<PluginSettings> {
       actionShown: [...document.body.children].some(
         (child) => child !== container && child.localName !== "script" && child.checkVisibility(),
       ),
-      buttons: [...container.querySelectorAll("sdpi-button")]
+      buttons: [...container.querySelectorAll("sdpi-button, button.forget")]
         .filter((button) => button.checkVisibility())
         .map((button) => button.textContent || button.getAttribute("aria-label")),
       ...(headers.length === 0 ? {} : { headers }),
@@ -2234,7 +2234,7 @@ function pluginSettingsOf(page: Page): Promise<PluginSettings> {
           placeholder: name.getAttribute("placeholder"),
           maxLength: name.getAttribute("maxlength"),
           identify: [...row.querySelectorAll("sdpi-button")].some((button) => button.textContent === "Identify"),
-          forget: row.querySelector("sdpi-button.forget")?.getAttribute("aria-label") ?? null,
+          forget: row.querySelector("button.forget")?.getAttribute("aria-label") ?? null,
           missing: row.classList.contains("missing"),
         };
       }),
@@ -2244,17 +2244,22 @@ function pluginSettingsOf(page: Page): Promise<PluginSettings> {
 }
 
 /**
- * Clicks a button of the plugin settings by its text, or its label for one with no text, such as a trash can, in the row
- * of the lamp whose serial ends in `row` when given, as the user would: on the button inside the component.
+ * Clicks a button of the plugin settings by its text, or its label for the trash can, a plain button with no text, in
+ * the row of the lamp whose serial ends in `row` when given, as the user would: on the button inside the component.
  */
 function clickInPluginSettings(page: Page, text: string, row?: string): Promise<void> {
   return page.evaluate(`(async () => {
     const container = document.getElementById("plugin-settings");
     const scope = ${row === undefined ? "container" : `[...container.querySelectorAll("tr.lamp")].find((r) => r.firstElementChild.textContent === ${JSON.stringify(row)})`};
+    const trash = [...scope.querySelectorAll("button.forget")].find(
+      (element) => element.getAttribute("aria-label") === ${JSON.stringify(text)},
+    );
+    if (trash !== undefined) {
+      trash.click();
+      return;
+    }
     const host = [...scope.querySelectorAll("sdpi-button")].find(
-      (element) =>
-        (element.textContent === ${JSON.stringify(text)} || element.getAttribute("aria-label") === ${JSON.stringify(text)}) &&
-        element.checkVisibility(),
+      (element) => element.textContent === ${JSON.stringify(text)} && element.checkVisibility(),
     );
     await host.updateComplete;
     host.shadowRoot.querySelector("button").click();
