@@ -27,7 +27,7 @@ n auto
 node scripts/probes/brightness-ceiling.mjs
 ```
 
-Every probe takes the lamps one at a time, in the order `findDevices` returns them, with the others closed, so no other lamp's reports mix with its own (`forEachLamp` in `lamps.mjs`). It reads the lamp's power, brightness and temperature, and turns it on if it was off. Once the probe's steps are done, or one of them fails, it puts the lamp back as it was, and reads it to check: a line ending in `FAILED` means the lamp was left elsewhere.
+Every probe takes the lamps one at a time, in the order `findDevices` returns them, with the others closed, so no other lamp's reports mix with its own (`forEachLamp` in `lamps.mjs`). It reads the lamp's power, brightness and temperature, and turns it on if it was off. Once the probe's steps are done, or one of them fails, it puts the lamp back as it was, and reads it to check: a line ending in `FAILED` means the lamp was left elsewhere. A new probe goes through it too, so it gets the same handling and checks, and keeps only its own steps.
 
 The results go to a file in `out/`, named after the time the run started (`YYYYMMDD_HHMMSS.txt`), and the terminal only shows its path. Each line is written as soon as it's known, so a run that fails partway keeps what it found. The files hold the lamps' serial numbers, so git ignores them. Nothing in a file says how the lamps were plugged in, so add a note at its top after the run.
 
