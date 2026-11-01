@@ -12,10 +12,8 @@
  *   4. On a capped lamp, does the same after writes that don't go above the cap: halfway to the cap, the cap itself,
  *      and the target % followed by the cap.
  * With more than one lamp, it then sets every lamp to the target at once and reads them all, so lamps that share a
- * power supply draw from it together. After each step it restores the lamp's brightness and power, and checks it.
- *
- * The results go to out/YYYYMMDD_HHMMSS.txt next to this script, named after the time the run started, so runs can be
- * compared later. The terminal only shows where the file is.
+ * power supply draw from it together. After each step it restores the lamp, and checks it, and in the end puts it back
+ * as it was found, as every probe's is (see lamps.mjs). The results go to the run's file.
  *
  * Usage: node scripts/probes/brightness-readback.mjs [targetPercentage]   (default 90)
  */
@@ -25,31 +23,30 @@ import litra from "litra";
 
 import {
   describe,
+  describeState,
   drainAll,
   elapsed,
   featureIndex,
+  forEachLamp,
   listen,
   log,
   lumenAndPercentage,
-  outFile,
   printDrained,
+  REVERT_WINDOW_MS,
   readBrightness,
+  readState,
+  restore,
   SETTLE_MS,
-  startedAt,
-} from "./reports.mjs";
+  watch,
+} from "./lamps.mjs";
 
-/** @import { Lamp } from "./reports.mjs" */
+/** @import { Lamp, State } from "./lamps.mjs" */
 
 const TARGET_PERCENTAGE = Number(process.argv[2] ?? 90);
 const DELAYS_MS = [0, 100, 250, 500, 1000];
 const LOWER_AFTER_MS = [50, 150, 300, 1000];
 const WITHIN_CAP_LOWER_AFTER_MS = [150, 300];
 const CAP_AFTER_MS = 250;
-const WATCH_MS = 3000;
-const WATCH_INTERVAL_MS = 250;
-
-// A capped lamp goes back to its cap up to 1.25 s after a request above it, so a write meant to stay waits longer.
-const REVERT_WINDOW_MS = 2000;
 
 //* HID
 
@@ -96,55 +93,21 @@ function writeThenLower(device, writes, lowerAfter) {
   listen(device, start, lowerAfter);
   litra.setBrightnessInLumen(device, minimum);
   log(`     ${elapsed(start)} set ${lumenAndPercentage(device, minimum)}`);
-  for (let tick = lowerAfter + WATCH_INTERVAL_MS; tick <= lowerAfter + WATCH_MS; tick += WATCH_INTERVAL_MS) {
-    listen(device, start, tick);
-    const lumen = readBrightness(device, (bytes) => log(`     ${elapsed(start)} ${describe(device, bytes)}`));
-    log(`     ${elapsed(start)} reads ${lumenAndPercentage(device, lumen)}`);
-  }
-  listen(device, start, lowerAfter + WATCH_MS + SETTLE_MS);
-}
-
-/**
- * Puts the lamp back to its brightness and power, then reads it to check.
- *
- * @param {Lamp} device
- * @param {number} lumen
- * @param {boolean} wasOn
- * @returns {void}
- */
-function restore(device, lumen, wasOn) {
-  litra.setBrightnessInLumen(device, lumen);
-  printDrained(device, "after restore:", drainAll(device, SETTLE_MS));
-  if (!wasOn) {
-    litra.turnOff(device);
-    drainAll(device, SETTLE_MS);
-  }
-  const reached = readBrightness(device);
-  const check = reached === lumen ? "ok" : `FAILED, the lamp is at ${lumenAndPercentage(device, reached)}`;
-  log(`  restored to ${lumenAndPercentage(device, lumen)}, ${wasOn ? "on" : "off"}: ${check}`);
+  watch(device, start, lowerAfter);
+  listen(device, start, performance.now() - start + SETTLE_MS);
 }
 
 //* Probes
 
 /**
- * Steps 1 to 4 on one lamp, which it leaves at the brightness and power it had.
+ * Steps 1 to 4 on one lamp, which is on, each but the last followed by putting the lamp back as it was, but on.
  *
  * @param {Lamp} device
- * @param {number} index the lamp's place in the list, from 0
+ * @param {State} before what the lamp was at
  * @returns {Promise<void>}
  */
-async function probe(device, index) {
-  log(`\nLamp ${index + 1}: ${litra.getNameForDevice(device)}, serial ${device.serialNumber}`);
-
-  drainAll(device, SETTLE_MS);
-  const wasOn = litra.isOn(device);
-  const beforeLumen = readBrightness(device);
-  log(`  power: ${wasOn ? "on" : "off"}`);
-  log(`  before: ${lumenAndPercentage(device, beforeLumen)}`);
-  if (!wasOn) {
-    litra.turnOn(device);
-    drainAll(device, SETTLE_MS);
-  }
+async function probe(device, before) {
+  const on = { ...before, on: true };
 
   log(`  1. set ${TARGET_PERCENTAGE}%, drain 50 ms like the plugin, then read`);
   const start = performance.now();
@@ -155,13 +118,13 @@ async function probe(device, index) {
     log(`     ${elapsed(start)} ${describe(device, query(device))}`);
   }
   printDrained(device, "then:      ", drainAll(device, SETTLE_MS));
-  restore(device, beforeLumen, true);
+  restore(device, on);
 
   log(`  2. set ${TARGET_PERCENTAGE}%, read without draining`);
   litra.setBrightnessPercentage(device, TARGET_PERCENTAGE);
   log(`     first read: ${describe(device, query(device))}`);
   printDrained(device, "then:      ", drainAll(device, SETTLE_MS));
-  restore(device, beforeLumen, true);
+  restore(device, on);
 
   log(`  3. set ${TARGET_PERCENTAGE}%, lower to the minimum after a delay, then read every 250 ms for 3 s`);
   for (const lowerAfter of LOWER_AFTER_MS) {
@@ -170,7 +133,6 @@ async function probe(device, index) {
   }
 
   probeWithinCap(device);
-  restore(device, beforeLumen, wasOn);
 }
 
 /**
@@ -230,16 +192,14 @@ function probeWithinCap(device) {
 async function probeTogether(devices) {
   log(`\nAll lamps at once: set ${TARGET_PERCENTAGE}% on every lamp, then read each 1 s later`);
   const saved = devices.map((device, index) => {
-    drainAll(device, SETTLE_MS);
-    const wasOn = litra.isOn(device);
-    const beforeLumen = readBrightness(device);
     // Read again after reopening the lamp, so a lamp that moved after its last restore shows up here.
-    log(`  lamp ${index + 1} (${device.serialNumber}) before: ${lumenAndPercentage(device, beforeLumen)}`);
-    if (!wasOn) {
+    const before = readState(device);
+    log(`  lamp ${index + 1} (${device.serialNumber}) before: ${describeState(device, before)}`);
+    if (!before.on) {
       litra.turnOn(device);
       drainAll(device, SETTLE_MS);
     }
-    return { device, wasOn, beforeLumen };
+    return { device, before };
   });
 
   for (const device of devices) {
@@ -252,31 +212,15 @@ async function probeTogether(devices) {
     log(`  lamp ${index + 1} (${device.serialNumber}): ${reached}`);
   }
 
-  for (const { device, beforeLumen, wasOn } of saved) {
-    restore(device, beforeLumen, wasOn);
+  for (const { device, before } of saved) {
+    restore(device, before);
   }
 }
 
 //* Main
 
-console.log(`Probing, writing to ${outFile}`);
-log(`brightness-readback, ${startedAt.toISOString()}, target ${TARGET_PERCENTAGE}%`);
-
-const devices = /** @type {Lamp[]} */ (litra.findDevices());
-if (devices.length === 0) {
-  log("No Litra found.");
-}
-for (const [index, device] of devices.entries()) {
-  try {
-    await probe(device, index);
-  } catch (error) {
-    log(`  failed: ${String(error)}`);
-  } finally {
-    device.hid.close();
-  }
-}
-
-if (devices.length > 1) {
+const count = await forEachLamp(`brightness-readback, target ${TARGET_PERCENTAGE}%`, probe);
+if (count > 1) {
   const together = /** @type {Lamp[]} */ (litra.findDevices());
   try {
     await probeTogether(together);

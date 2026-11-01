@@ -11,28 +11,15 @@
  *   3. Sets the minimum brightness, then the brightness it had, which a capped lamp reached and so keeps.
  *   4. Makes each of those writes, closes the handle straight away without reading, opens the lamp again, and listens on
  *      the new handle.
- * Then it restores the lamp's power, brightness and temperature, and checks them.
- *
- * The results go to out/YYYYMMDD_HHMMSS.txt next to this script, named after the time the run started, so runs can be
- * compared later. The terminal only shows where the file is.
+ * The lamp is then put back as it was found, as every probe's is (see lamps.mjs), and the results go to the run's file.
  *
  * Usage: node scripts/probes/write-reports.mjs
  */
 import litra from "litra";
 
-import {
-  drainAll,
-  elapsed,
-  listen,
-  log,
-  lumenAndPercentage,
-  outFile,
-  readBrightness,
-  SETTLE_MS,
-  startedAt,
-} from "./reports.mjs";
+import { drainAll, elapsed, forEachLamp, listen, log, lumenAndPercentage, reopen, SETTLE_MS } from "./lamps.mjs";
 
-/** @import { Lamp } from "./reports.mjs" */
+/** @import { Lamp, State } from "./lamps.mjs" */
 
 // How long each write is listened to: longer than the change notice a capped lamp sends about 100 ms after a write.
 const LISTEN_MS = 1000;
@@ -43,38 +30,7 @@ const LISTEN_MS = 1000;
  * @typedef {{ label: string, write: (device: Lamp) => void }} Write
  */
 
-/**
- * What a lamp was at before the probe, which it's put back to.
- *
- * @typedef {{ on: boolean, lumen: number, kelvin: number }} Saved
- */
-
 //* HID
-
-/**
- * Reads the lamp's power, brightness and temperature, after draining what it sent before.
- *
- * @param {Lamp} device
- * @returns {Saved}
- */
-function readState(device) {
-  drainAll(device, SETTLE_MS);
-  const on = litra.isOn(device);
-  const kelvin = litra.getTemperatureInKelvin(device);
-  const lumen = readBrightness(device);
-  return { on, lumen, kelvin };
-}
-
-/**
- * Describes a state the way the log writes it.
- *
- * @param {Lamp} device
- * @param {Saved} state
- * @returns {string}
- */
-function describeState(device, { on, lumen, kelvin }) {
-  return `${on ? "on" : "off"}, ${lumenAndPercentage(device, lumen)}, ${kelvin} K`;
-}
 
 /**
  * Makes a write and logs every report the lamp sends in the next second, or that it sent none.
@@ -91,27 +47,6 @@ function writeAndListen(device, { label, write }) {
   if (listen(device, start, LISTEN_MS) === 0) {
     log(`     ${elapsed(start)} (nothing within ${LISTEN_MS} ms)`);
   }
-}
-
-/**
- * Opens the lamp with this serial number again, closing the other lamps that open with it.
- *
- * @param {string} serialNumber
- * @returns {Lamp}
- */
-function reopen(serialNumber) {
-  let found;
-  for (const device of /** @type {Lamp[]} */ (litra.findDevices())) {
-    if (device.serialNumber === serialNumber && found === undefined) {
-      found = device;
-    } else {
-      device.hid.close();
-    }
-  }
-  if (found === undefined) {
-    throw new Error(`lamp ${serialNumber} not found when reopening it`);
-  }
-  return found;
 }
 
 /**
@@ -142,7 +77,7 @@ function writeAndReopen(device, { label, write }) {
  * The writes the probe makes, in order, from a lamp that's on at its saved brightness and temperature.
  *
  * @param {Lamp} device
- * @param {Saved} saved
+ * @param {State} saved
  * @returns {{ power: Write[], temperature: Write[], brightness: Write[] }}
  */
 function writesFor(device, saved) {
@@ -182,20 +117,14 @@ function writesFor(device, saved) {
 }
 
 /**
- * Steps 1 to 4 on one lamp, which it leaves at the power, brightness and temperature it had.
+ * Steps 1 to 4 on one lamp, which is on.
  *
  * @param {Lamp} device
- * @param {number} index the lamp's place in the list, from 0
+ * @param {State} before what the lamp was at
  * @returns {Lamp} the handle it ends with, which step 4 replaces
  */
-function probe(device, index) {
-  log(`\nLamp ${index + 1}: ${litra.getNameForDevice(device)}, serial ${device.serialNumber}`);
-  const saved = readState(device);
-  log(`  before: ${describeState(device, saved)}`);
-  if (!saved.on) {
-    litra.turnOn(device);
-  }
-  const writes = writesFor(device, saved);
+function probe(device, before) {
+  const writes = writesFor(device, before);
 
   log("  1. power");
   for (const write of writes.power) {
@@ -225,54 +154,10 @@ function probe(device, index) {
     }
   }
 
-  restore(handle, saved);
   return handle;
-}
-
-/**
- * Puts the lamp back to what it was at, then reads it to check.
- *
- * @param {Lamp} device
- * @param {Saved} saved
- * @returns {void}
- */
-function restore(device, saved) {
-  litra.turnOn(device);
-  litra.setTemperatureInKelvin(device, saved.kelvin);
-  litra.setBrightnessInLumen(device, saved.lumen);
-  if (!saved.on) {
-    litra.turnOff(device);
-  }
-  const reached = readState(device);
-  const same = reached.on === saved.on && reached.lumen === saved.lumen && reached.kelvin === saved.kelvin;
-  const check = same ? "ok" : `FAILED, the lamp is ${describeState(device, reached)}`;
-  log(`  restored to ${describeState(device, saved)}: ${check}`);
 }
 
 //* Main
 
-console.log(`Probing, writing to ${outFile}`);
-log(`write-reports, ${startedAt.toISOString()}`);
-
-const devices = /** @type {Lamp[]} */ (litra.findDevices());
-if (devices.length === 0) {
-  log("No Litra found.");
-}
-// Each lamp in turn, with the others closed, so a reopen opens only the lamp it's for and the others are left as found.
-const serialNumbers = devices.map((device) => device.serialNumber);
-for (const device of devices) {
-  device.hid.close();
-}
-for (const [index, serialNumber] of serialNumbers.entries()) {
-  let handle;
-  try {
-    handle = reopen(serialNumber);
-    handle = probe(handle, index);
-  } catch (error) {
-    log(`  failed: ${String(error)}`);
-  } finally {
-    handle?.hid.close();
-  }
-}
-
+await forEachLamp("write-reports", probe);
 console.log("Done.");

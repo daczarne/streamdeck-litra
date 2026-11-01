@@ -1,6 +1,7 @@
 /**
- * What the probes share: the file a run writes its results to, and reading, naming and logging the HID reports the
- * lamps send. Importing it starts the run's file, named after the time the run started.
+ * What the probes share: the file a run writes its results to, reading, naming and logging the HID reports the lamps
+ * send, and the run itself, which takes each lamp in turn and puts it back as it was found. Importing it starts the
+ * run's file, named after the time the run started.
  */
 import { appendFileSync, mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -16,6 +17,19 @@ import litra from "litra";
 // The lamp sends a change notice about 100 ms after a write, so a drain that should leave the buffer empty waits
 // longer than that for silence.
 export const SETTLE_MS = 300;
+
+// A capped lamp goes back to its cap up to 1.25 s after a request above it, so a write meant to stay waits longer.
+export const REVERT_WINDOW_MS = 2000;
+
+// How long a watch reads a lamp after a write, and how often.
+const WATCH_MS = 3000;
+const WATCH_INTERVAL_MS = 250;
+
+/**
+ * What a lamp is at: its power, brightness and temperature.
+ *
+ * @typedef {{ on: boolean, lumen: number, kelvin: number }} State
+ */
 
 //* Output
 
@@ -237,4 +251,143 @@ export function printDrained(device, label, reports) {
   for (const bytes of reports) {
     log(`     ${label} ${describe(device, bytes)}`);
   }
+}
+
+/**
+ * Reads the lamp every 250 ms for 3 s from `fromMs`, logging every report with the time it arrived, counted from
+ * `start`.
+ *
+ * @param {Lamp} device
+ * @param {number} start a time from `performance.now()`
+ * @param {number} fromMs
+ * @returns {number[]} every brightness read, in lumens
+ */
+export function watch(device, start, fromMs) {
+  const reads = [];
+  for (let tick = fromMs + WATCH_INTERVAL_MS; tick <= fromMs + WATCH_MS; tick += WATCH_INTERVAL_MS) {
+    listen(device, start, tick);
+    const lumen = readBrightness(device, (bytes) => log(`     ${elapsed(start)} ${describe(device, bytes)}`));
+    log(`     ${elapsed(start)} reads ${lumenAndPercentage(device, lumen)}`);
+    reads.push(lumen);
+  }
+  return reads;
+}
+
+//* State
+
+/**
+ * Reads the lamp's power, brightness and temperature, after draining what it sent before.
+ *
+ * @param {Lamp} device
+ * @returns {State}
+ */
+export function readState(device) {
+  drainAll(device, SETTLE_MS);
+  const on = litra.isOn(device);
+  const kelvin = litra.getTemperatureInKelvin(device);
+  const lumen = readBrightness(device);
+  return { on, lumen, kelvin };
+}
+
+/**
+ * Describes a state the way the log writes it.
+ *
+ * @param {Lamp} device
+ * @param {State} state
+ * @returns {string}
+ */
+export function describeState(device, { on, lumen, kelvin }) {
+  return `${on ? "on" : "off"}, ${lumenAndPercentage(device, lumen)}, ${kelvin} K`;
+}
+
+/**
+ * Puts the lamp back to a state, then reads it to check.
+ *
+ * @param {Lamp} device
+ * @param {State} state
+ * @returns {void}
+ */
+export function restore(device, state) {
+  litra.turnOn(device);
+  litra.setTemperatureInKelvin(device, state.kelvin);
+  litra.setBrightnessInLumen(device, state.lumen);
+  if (!state.on) {
+    litra.turnOff(device);
+  }
+  const reached = readState(device);
+  const same = reached.on === state.on && reached.lumen === state.lumen && reached.kelvin === state.kelvin;
+  const check = same ? "ok" : `FAILED, the lamp is ${describeState(device, reached)}`;
+  log(`  restored to ${describeState(device, state)}: ${check}`);
+}
+
+//* Run
+
+/**
+ * Opens the lamp with this serial number again, closing the other lamps that open with it.
+ *
+ * @param {string} serialNumber
+ * @returns {Lamp}
+ */
+export function reopen(serialNumber) {
+  let found;
+  for (const device of /** @type {Lamp[]} */ (litra.findDevices())) {
+    if (device.serialNumber === serialNumber && found === undefined) {
+      found = device;
+    } else {
+      device.hid.close();
+    }
+  }
+  if (found === undefined) {
+    throw new Error(`lamp ${serialNumber} not found when reopening it`);
+  }
+  return found;
+}
+
+/**
+ * Starts the run, then probes each lamp in turn, in the order findDevices returns them, with the others closed, so no
+ * other lamp's reports mix with its own. Each lamp is turned on before its probe, and put back afterwards to the
+ * state it was found in, even when its probe fails.
+ *
+ * @param {string} name the probe's name, and anything else that heads the run's file, before the time it started
+ * @param {(device: Lamp, before: State) => Lamp | void | Promise<Lamp | void>} probe given the lamp's handle and the
+ *   state it was found in, and returns the handle it ends with, when it opened the lamp again
+ * @returns {Promise<number>} how many lamps were found
+ */
+export async function forEachLamp(name, probe) {
+  console.log(`Probing, writing to ${outFile}`);
+  log(`${name}, ${startedAt.toISOString()}`);
+
+  const devices = /** @type {Lamp[]} */ (litra.findDevices());
+  if (devices.length === 0) {
+    log("No Litra found.");
+  }
+  const serialNumbers = devices.map((device) => device.serialNumber);
+  for (const device of devices) {
+    device.hid.close();
+  }
+
+  for (const [index, serialNumber] of serialNumbers.entries()) {
+    let handle;
+    try {
+      handle = reopen(serialNumber);
+      log(`\nLamp ${index + 1}: ${litra.getNameForDevice(handle)}, serial ${serialNumber}`);
+      const before = readState(handle);
+      log(`  before: ${describeState(handle, before)}`);
+      if (!before.on) {
+        litra.turnOn(handle);
+        drainAll(handle, SETTLE_MS);
+      }
+      try {
+        handle = (await probe(handle, before)) ?? handle;
+      } catch (error) {
+        log(`  failed: ${String(error)}`);
+      }
+      restore(handle, before);
+    } catch (error) {
+      log(`  failed: ${String(error)}`);
+    } finally {
+      handle?.hid.close();
+    }
+  }
+  return devices.length;
 }
