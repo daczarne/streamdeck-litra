@@ -7,6 +7,9 @@
 - [write-reports.mjs](#write-reportsmjs)
   - [Running it](#running-it-1)
   - [Example](#example-1)
+- [brightness-ceiling.mjs](#brightness-ceilingmjs)
+  - [Running it](#running-it-2)
+  - [Example](#example-2)
 
 These scripts talk to the lamps directly, to answer questions about how they behave that the tests can't: the emulated lamps the tests run on only do what we assume a real one does. The emulated lamp, in `src/test-support/emulated-litra.ts`, follows what these scripts measured, so a run that finds a lamp behaving otherwise updates it too. The scripts aren't part of the plugin or the build, and are run by hand with the lamps connected. CI checks their code, as it checks the other scripts': types, lint and doc comments.
 
@@ -210,5 +213,75 @@ Reading it:
 
 So the plugin's drain after a write (`drainAck`) returns within a few ms, and only matters for a read on the same handle afterwards. The emulated lamp sends an ACK after every write and nothing to a new handle, as measured.
 
+## brightness-ceiling.mjs
+
+For each connected Litra on a low-power supply, compares the cap it stops at when sent more than it can reach, as the plugin learns it, with the most it holds when stepped up to it 1 lm at a time. It was written for [#164], where a Beam reached 326 lm, then stopped at 324 lm on the next step up, so the plugin learned a cap below a brightness the lamp had just held.
+
+Run it again when a lamp seems to stop below a brightness it reached before, or when changing how the plugin learns a cap.
+
+### Running it
+
+> [!WARNING]
+> The script changes the lamps' brightness while it runs, and puts it back at the end. Don't use the Deck while it runs: the plugin opens the same lamps, and the reports it triggers would mix with the probe's.
+
+From the repo root:
+
+```shell
+n auto
+node scripts/probes/brightness-ceiling.mjs
+```
+
+For every lamp, in the order `findDevices` returns them, the script:
+
+1. From the lamp's minimum, sends its maximum, and reads where it stops after 300 ms of silence, as the plugin learns a cap, then again once the lamp can no longer go back to its cap. A lamp that reaches its maximum isn't capped, and skips the other steps.
+2. From 20 lm below that cap, steps up 1 lm at a time, reading each step, until the lamp reaches less than it was sent, then reads it again once it can no longer go back to its cap. It climbs twice, to see whether the lamp stops at the same place.
+3. Sends its maximum, waits until the lamp can no longer go back to its cap, then sends the most it held in step 2, and reads it every 250 ms for 3 s, to see whether it holds it after being capped.
+4. From the start of the climb, sends the most it held in step 2, and reads it every 250 ms for 3 s, to see whether it holds it when it wasn't just capped.
+
+It then puts the lamp back to its brightness and power, and reads it to check, as `brightness-readback.mjs` does. A run takes about 30 seconds per capped lamp, and a few seconds per lamp that isn't capped. The results go to a file in `out/`, as with `brightness-readback.mjs`. Add a note at its top saying how the lamps were plugged in.
+
+### Example
+
+From a run on 2026-11-01, with two Beams on a Stream Deck + XL's USB hub, one on the USB-C port of a monitor's KVM, and a Beam LX plugged into the computer. It shows one lamp, abridged, with its serial number masked:
+
+```text
+Lamp 1: Logitech Litra Beam, serial SERIAL-A
+  power: on
+  before: 30 lm (0%)
+  1. from the minimum, send the maximum, 400 lm (100%)
+     stopped at 320 lm (78%)
+     after the window: 320 lm (78%)
+  2. climb 1 of 2, 1 lm at a time
+     from 300 lm (73%)
+     sent 301 lm, reached 301 lm (73%)
+     ...
+     sent 320 lm, reached 320 lm (78%)
+     sent 321 lm, reached 320 lm (78%)
+     stopped: held 320 lm (78%), then stopped at 320 lm (78%)
+     after the window: 320 lm (78%)
+  ...
+  3. send the maximum, wait out the window, then send the most it held, 320 lm (78%)
+     the maximum stopped at 320 lm (78%)
+     after the window: 320 lm (78%)
+     +   1 ms: set 320 lm (78%)
+     +   2 ms: 11 ff 04 4c 00 00 00 00  set-brightness ACK
+     + 253 ms: reads 320 lm (78%)
+     ...
+     +3003 ms: reads 320 lm (78%)
+     held it
+  4. from 300 lm (73%), send the most it held, 320 lm (78%)
+     ...
+     held it
+     after restore: 11 ff 04 4c 00 00 00 00  set-brightness ACK
+  restored to 30 lm (0%), on: ok
+```
+
+Reading it:
+
+- On each of the three capped Beams, the most a lamp held when stepped up to it was the cap it stopped at when sent its maximum: 320, 244 and 340 lm. One lumen more stopped at that same cap, never below it, on both climbs. The Beam LX, plugged into the computer, reached its maximum.
+- After being capped, each lamp held its cap, and kept it once it could no longer go back to it.
+- The Beams on the hub had stopped at 324 lm in October, where the highest one now stopped at 320 lm. A cap moves by a few lumens over time, maybe as the lamp warms up or as the supply varies, which most likely explains [#164]: the step up didn't lower the lamp, it found a cap that had dropped since the step before. The plugin learns a cap each time a lamp falls short of what it was sent, so a cap that drops is learned again. The emulated lamp's cap is fixed, as the tests need.
+
 [#13]: https://github.com/daczarne/streamdeck-litra/issues/13
 [#96]: https://github.com/daczarne/streamdeck-litra/issues/96
+[#164]: https://github.com/daczarne/streamdeck-litra/issues/164
