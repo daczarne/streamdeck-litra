@@ -54,17 +54,19 @@
       color: #969696;
     }
 
-    litra-number button:disabled {
+    litra-number button:disabled,
+    litra-number[disabled] .field {
       opacity: 0.5;
     }
 
-    /* The field: the value and its unit, centered together, on the background of sdpi-components' fields. */
+    /* The field: the value and its unit, centered together, on the background of sdpi-components' fields. A page that
+      needs it narrower, such as to fit several on a row, sets --number-field-width. */
     litra-number .field {
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 2px;
-      width: 72px;
+      width: var(--number-field-width, 72px);
       background-color: #3d3d3d;
       color: #d8d8d8;
       cursor: text;
