@@ -17,6 +17,7 @@
       "
     />
     <script src="vendor/sdpi-components.js"></script>
+    <script src="number-field.js"></script>
   </head>
 
   <body>
@@ -25,12 +26,7 @@
     <div id="plugin-settings"></div>
     <!-- How far a press of a Temperature Up or Down key moves the lamps: the same steps as a Temperature dial's. -->
     <sdpi-item label="Step K">
-      <sdpi-select setting="stepKelvin" default="300">
-        <option value="100">100</option>
-        <option value="200">200</option>
-        <option value="300">300</option>
-        <option value="500">500</option>
-      </sdpi-select>
+      <litra-number setting="stepKelvin" min="100" max="500" step="100" default="300" unit="K"></litra-number>
     </sdpi-item>
     <!-- The lamps the key acts on, which lamp-picker.js lists and saves (#20), and whether lamps added later
       join them, which plugin-settings.js shows and saves (#147). -->

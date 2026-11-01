@@ -17,24 +17,7 @@
       "
     />
     <script src="vendor/sdpi-components.js"></script>
-    <style>
-      /* A slider with its value on its right, shown by range-value.js. */
-      .range {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-      }
-
-      .range sdpi-range {
-        flex: 1;
-      }
-
-      .range output {
-        min-width: 6ch;
-        text-align: right;
-        font-variant-numeric: tabular-nums;
-      }
-    </style>
+    <script src="number-field.js"></script>
   </head>
 
   <body>
@@ -44,17 +27,7 @@
     <!-- Key tiles: snap to a fixed brightness. Dial tiles: step size and the lamp screens' blink. -->
     <div id="key-settings" hidden>
       <sdpi-item label="Brightness">
-        <div class="range">
-          <sdpi-range
-            id="preset-percentage"
-            setting="presetPercentage"
-            min="0"
-            max="100"
-            step="1"
-            default="0"
-          ></sdpi-range>
-          <output for="preset-percentage" data-suffix="%"></output>
-        </div>
+        <litra-number setting="presetPercentage" min="0" max="100" step="1" default="0" unit="%"></litra-number>
       </sdpi-item>
       <!-- The lamps the key acts on, which lamp-picker.js lists and saves (#20), and whether lamps added later
         join them, which plugin-settings.js shows and saves (#147). -->
@@ -65,17 +38,7 @@
     </div>
     <div id="dial-settings" hidden>
       <sdpi-item label="Step">
-        <div class="range">
-          <sdpi-range
-            id="step-percentage"
-            setting="stepPercentage"
-            min="1"
-            max="25"
-            step="1"
-            default="10"
-          ></sdpi-range>
-          <output for="step-percentage" data-suffix="%"></output>
-        </div>
+        <litra-number setting="stepPercentage" min="1" max="25" step="1" default="10" unit="%"></litra-number>
       </sdpi-item>
       <!-- The dial's own blink of each lamp as its lamp screen shows it, which plugin-settings.js shows and saves to the
         plugin's global settings, beside every dial's (#144). -->
@@ -84,7 +47,6 @@
       </sdpi-item>
     </div>
     <script src="controller-toggle.js"></script>
-    <script src="range-value.js"></script>
     <script src="lamp-picker.js"></script>
     <script src="plugin-settings.js"></script>
   </body>

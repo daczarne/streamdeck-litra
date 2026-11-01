@@ -25,7 +25,7 @@ In VS Code, the `Build and restart` task runs both. After a change to `manifest.
 ## Checks
 
 1. **The action is offered.** Under Litra, the actions list offers "Scene" with its icon, a thermometer and half a sun. A Scene key shows the thermometer and the half sun, without a title.
-2. **The settings page.** Selecting a Scene key shows a Power list set to On, a Brightness slider from 0% to 100% and a Temperature slider from 2700 K to 6500 K, each with its value next to it, then the Lamps item (see [`lamp_picker.md`][lamp-picker]), and an "Add a group" button. No group heading shows.
+2. **The settings page.** Selecting a Scene key shows a Power list set to On, a Brightness field from 0% to 100% and a Temperature field from 2700 K to 6500 K, each with − and + on either side, then the Lamps item (see [`lamp_picker.md`][lamp-picker]), and an "Add a group" button. No group heading shows.
 3. **A press sets the scene.** Turn the lamps off, then press the 100% and 6500 K key. Both lamps turn on, go to their caps and turn cool. The Power key shows on, the Brightness dial shows the brighter lamp's cap, and the Temperature dial shows 6500.
 4. **Another scene brings them back.** Press the 0% and 2700 K key: about a second later, since the caps were just learned, both lamps dim to their lowest and turn warm. The dials show 0% and 2700.
 5. **The log tells the press and each lamp.** `logs/litra.log` has a `Scene: Key pressed: scene 100% at 6500 K on every lamp` line, then, for each lamp, the lines of `set scene`: turned on, set to 6500 K, the lumens sent and reached, and the cap the first time it's learned.

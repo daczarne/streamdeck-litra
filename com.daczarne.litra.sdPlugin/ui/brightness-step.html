@@ -17,24 +17,7 @@
       "
     />
     <script src="vendor/sdpi-components.js"></script>
-    <style>
-      /* A slider with its value on its right, shown by range-value.js. */
-      .range {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-      }
-
-      .range sdpi-range {
-        flex: 1;
-      }
-
-      .range output {
-        min-width: 6ch;
-        text-align: right;
-        font-variant-numeric: tabular-nums;
-      }
-    </style>
+    <script src="number-field.js"></script>
   </head>
 
   <body>
@@ -43,17 +26,7 @@
     <div id="plugin-settings"></div>
     <!-- How far a press of a Brightness Up or Down key moves the lamps: the same steps as a Brightness dial's. -->
     <sdpi-item label="Step">
-      <div class="range">
-        <sdpi-range
-          id="step-percentage"
-          setting="stepPercentage"
-          min="1"
-          max="25"
-          step="1"
-          default="10"
-        ></sdpi-range>
-        <output for="step-percentage" data-suffix="%"></output>
-      </div>
+      <litra-number setting="stepPercentage" min="1" max="25" step="1" default="10" unit="%"></litra-number>
     </sdpi-item>
     <!-- The lamps the key acts on, which lamp-picker.js lists and saves (#20), and whether lamps added later
       join them, which plugin-settings.js shows and saves (#147). -->
@@ -61,7 +34,6 @@
       <div id="lamp-picker"></div>
       <div id="key-new-lamps"></div>
     </sdpi-item>
-    <script src="range-value.js"></script>
     <script src="lamp-picker.js"></script>
     <script src="plugin-settings.js"></script>
   </body>

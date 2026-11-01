@@ -171,23 +171,18 @@
     return element;
   }
 
-  /** A slider with its value on its right, followed while it's dragged, as range-value.js shows the first group's. */
-  function slider(value, { min, max, step, suffix }, onChange) {
-    const range = control("sdpi-range", value, (changed) => onChange(Number(changed)));
-    range.setAttribute("min", String(min));
-    range.setAttribute("max", String(max));
-    range.setAttribute("step", String(step));
-    const output = document.createElement("output");
-    const show = (shown) => {
-      output.value = `${shown}${suffix}`;
-    };
-    // sdpi-range only takes the slider's value on release, so a drag is followed on the slider itself.
-    range.addEventListener("input", (event) => show(event.composedPath()[0].value));
-    show(value);
-    const box = document.createElement("div");
-    box.className = "range";
-    box.append(range, output);
-    return box;
+  /**
+   * A number field with − and + (number-field.js, #195), as the first group's, which saves nothing itself, and calls
+   * `onChange` with the user's new value.
+   */
+  function numberField(value, { min, max, step, unit }, onChange) {
+    const field = document.createElement("litra-number");
+    for (const [name, setting] of Object.entries({ min, max, step, unit })) {
+      field.setAttribute(name, String(setting));
+    }
+    field.value = value;
+    field.addEventListener("valuechange", () => onChange(field.value));
+    return field;
   }
 
   /** A line of grey text. */
@@ -268,11 +263,11 @@
     const presets = [
       item(
         "Brightness",
-        slider(group.presetPercentage, { min: 0, max: 100, step: 1, suffix: "%" }, change("presetPercentage")),
+        numberField(group.presetPercentage, { min: 0, max: 100, step: 1, unit: "%" }, change("presetPercentage")),
       ),
       item(
         "Temperature",
-        slider(group.presetKelvin, { min: 2700, max: 6500, step: 100, suffix: " K" }, change("presetKelvin")),
+        numberField(group.presetKelvin, { min: 2700, max: 6500, step: 100, unit: "K" }, change("presetKelvin")),
       ),
     ];
     const showPresets = () => {

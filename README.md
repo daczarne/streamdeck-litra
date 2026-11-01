@@ -169,7 +169,7 @@ The settings pages (Property Inspector), in `com.daczarne.litra.sdPlugin/ui/`, l
 - **When building.** `npm run check:ui` (also run by `validate` and `pack`) fails if any `ui/*.html` loads a remote resource, lacks the Content-Security-Policy below or declares a different one, or has an inline script. It also fails if the vendored sdpi-components doesn't match its pinned hash (see [Third-party code](#third-party-code)).
 - **When Stream Deck shows them.** Each page declares a Content-Security-Policy in a `<meta>`, so Stream Deck refuses whatever the policy doesn't allow, even if it slipped past the check.
 
-The browser tests (`npm run test:browser`, also run in CI) check that the policy works. They load each page in a headless Chrome, as Stream Deck would, and confirm that it refuses remote scripts, styles, images and connections, and inline scripts. They also check the controls each page shows, the settings it sends, the value shown next to each slider, and the lamp picker, against a fake that answers for the plugin. They run in Chrome rather than in Stream Deck itself, so [`docs/manual_testing/settings_pages.md`][manual-test] lists the checks that only the Deck can prove.
+The browser tests (`npm run test:browser`, also run in CI) check that the policy works. They load each page in a headless Chrome, as Stream Deck would, and confirm that it refuses remote scripts, styles, images and connections, and inline scripts. They also check the controls each page shows, the settings it sends, what each number field shows and saves, and the lamp picker, against a fake that answers for the plugin. They run in Chrome rather than in Stream Deck itself, so [`docs/manual_testing/settings_pages.md`][manual-test] lists the checks that only the Deck can prove.
 
 The policy allows only what the pages need:
 
@@ -183,7 +183,7 @@ The policy allows only what the pages need:
 | `base-uri 'none'`              | No `<base>` element, which would change where relative paths point.                 |
 | `form-action 'none'`           | No form submissions.                                                                |
 
-Since inline scripts are blocked, the pages' scripts live in `ui/`: `controller-toggle.js` shows the key or the dial settings on the Brightness and Temperature pages, `range-value.js` shows the value of each of the actions' sliders, `lamp-picker.js` lists the lamps on the keys' pages and saves the ones checked, `scene-groups.js` draws and saves a Scene key's groups, and `plugin-settings.js` shows the plugin settings on every page, with the value of its slider, and saves the lamps' names. The policy is repeated in each page and in [`scripts/check-ui.mjs`][check-ui], so a change to it updates all of them and the table above.
+Since inline scripts are blocked, the pages' scripts live in `ui/`: `controller-toggle.js` shows the key or the dial settings on the Brightness and Temperature pages, `number-field.js` draws the number fields, with − and + on either side, that set a brightness, a temperature, a step or the blink's length, `lamp-picker.js` lists the lamps on the keys' pages and saves the ones checked, `scene-groups.js` draws and saves a Scene key's groups, and `plugin-settings.js` shows the plugin settings on every page. The policy is repeated in each page and in [`scripts/check-ui.mjs`][check-ui], so a change to it updates all of them and the table above.
 
 ## Third-party code
 

@@ -32,9 +32,17 @@ describe("parseSettings", () => {
     ["presetPercentage", brightnessSettings, [0, 100]],
     ["stepPercentage", brightnessSettings, [1, 25]],
     ["presetKelvin", temperatureSettings, [2700, 6500]],
+    ["stepKelvin", temperatureSettings, [100, 500]],
   ])("keeps %s at either end of its range", (name, schema, ends) => {
     for (const end of ends) {
       expect(parseSettings({ [name]: end }, schema, logger)).toMatchObject({ [name]: end });
+    }
+    expect(logger.warn).not.toHaveBeenCalled();
+  });
+
+  it("keeps every step of the temperature's step, 400 included, as its number field offers them (#195)", () => {
+    for (const step of [100, 200, 300, 400, 500]) {
+      expect(parseSettings({ stepKelvin: step }, temperatureSettings, logger)).toMatchObject({ stepKelvin: step });
     }
     expect(logger.warn).not.toHaveBeenCalled();
   });
@@ -75,7 +83,8 @@ describe("parseSettings", () => {
       ["presetKelvin", temperatureSettings, 6600],
       ["stepKelvin", temperatureSettings, 0],
       ["stepKelvin", temperatureSettings, -100],
-      ["stepKelvin", temperatureSettings, 400],
+      ["stepKelvin", temperatureSettings, 600],
+      ["stepKelvin", temperatureSettings, 150],
       ["stepKelvin", temperatureSettings, "250"],
       ["mode", powerSettings, "blink"],
       ["mode", powerSettings, "On"],

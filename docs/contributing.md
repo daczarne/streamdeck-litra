@@ -11,6 +11,7 @@
 - [By default, lamps are managed together](#by-default-lamps-are-managed-together)
 - [The plugin settings are laid out by reach](#the-plugin-settings-are-laid-out-by-reach)
 - [The lamp screens' text styles are roles](#the-lamp-screens-text-styles-are-roles)
+- [Numbers are set with a number field](#numbers-are-set-with-a-number-field)
 - [Working with Claude](#working-with-claude)
 
 This document describes how work on this repository is done: how changes reach `main`, how they are sliced and recorded, what each one has to bring with it, and the design rules that hold across the plugin. How the plugin's parts fit together, and why, is in [the architecture document][architecture]. Style is covered separately, in [the style guide][style-guide].
@@ -108,6 +109,10 @@ Every style is 18 px by default, and Normal but for Alert, which is bold so it s
 
 A text that the plugin itself would show in another style, such as a brightness held below what was asked, picks the style of its role, and comes as its own change: the styles don't change what the lamp screens show by default.
 
+## Numbers are set with a number field
+
+A setting that takes a number within a range, on a step, such as a brightness, a temperature, a step or a length of time, is set on its page with the plugin's number field (`litra-number`, in `ui/number-field.js`), not a slider: it sets an exact value by clicks or by typing, and takes no more room than it needs ([#195]). Its `min`, `max`, `step` and `default` are the setting's in `src/actions/settings.ts`, which the browser tests check, and its unit goes in `unit`. A choice among a few values that aren't steps of one range, such as the lamp screens' text sizes, stays a list.
+
 ## Working with Claude
 
 - When asked for a command, Claude replies with the command and doesn't run it. Steps that change what the Deck runs or shows, like restarting the plugin, are the user's to run, while looking at the hardware.
@@ -130,6 +135,7 @@ A text that the plugin itself would show in another style, such as a brightness 
 [#174]: https://github.com/daczarne/streamdeck-litra/issues/174
 [#183]: https://github.com/daczarne/streamdeck-litra/issues/183
 [#194]: https://github.com/daczarne/streamdeck-litra/issues/194
+[#195]: https://github.com/daczarne/streamdeck-litra/issues/195
 [architecture]: architecture.md
 [manual-testing]: manual_testing/
 [style-guide]: style_guide.md

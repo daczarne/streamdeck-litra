@@ -17,24 +17,7 @@
       "
     />
     <script src="vendor/sdpi-components.js"></script>
-    <style>
-      /* A slider with its value on its right, shown by range-value.js. */
-      .range {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-      }
-
-      .range sdpi-range {
-        flex: 1;
-      }
-
-      .range output {
-        min-width: 6ch;
-        text-align: right;
-        font-variant-numeric: tabular-nums;
-      }
-    </style>
+    <script src="number-field.js"></script>
   </head>
 
   <body>
@@ -44,17 +27,7 @@
     <!-- Key tiles: snap to a fixed Kelvin. Dial tiles: step size and the lamp screens' blink. -->
     <div id="key-settings" hidden>
       <sdpi-item label="Temperature">
-        <div class="range">
-          <sdpi-range
-            id="preset-kelvin"
-            setting="presetKelvin"
-            min="2700"
-            max="6500"
-            step="100"
-            default="2700"
-          ></sdpi-range>
-          <output for="preset-kelvin" data-suffix=" K"></output>
-        </div>
+        <litra-number setting="presetKelvin" min="2700" max="6500" step="100" default="2700" unit="K"></litra-number>
       </sdpi-item>
       <!-- The lamps the key acts on, which lamp-picker.js lists and saves (#20), and whether lamps added later
         join them, which plugin-settings.js shows and saves (#147). -->
@@ -65,12 +38,7 @@
     </div>
     <div id="dial-settings" hidden>
       <sdpi-item label="Step K">
-        <sdpi-select setting="stepKelvin" default="300">
-          <option value="100">100</option>
-          <option value="200">200</option>
-          <option value="300">300</option>
-          <option value="500">500</option>
-        </sdpi-select>
+        <litra-number setting="stepKelvin" min="100" max="500" step="100" default="300" unit="K"></litra-number>
       </sdpi-item>
       <!-- The dial's own blink of each lamp as its lamp screen shows it, which plugin-settings.js shows and saves to the
         plugin's global settings, beside every dial's (#144). -->
@@ -79,7 +47,6 @@
       </sdpi-item>
     </div>
     <script src="controller-toggle.js"></script>
-    <script src="range-value.js"></script>
     <script src="lamp-picker.js"></script>
     <script src="plugin-settings.js"></script>
   </body>

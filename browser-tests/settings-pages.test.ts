@@ -28,8 +28,8 @@ const manifest = JSON.parse(readFileSync(path.join(pluginDir, "manifest.json"), 
 
 type Controller = "Keypad" | "Encoder";
 
-/** A slider: its setting, what it shows after its value, next to it, and a value to move it to. */
-type Slider = { setting: string; suffix: string; value: string };
+/** A number field (#195): its setting, the unit it shows inside it, after its value, and a value to set it to. */
+type NumberSetting = { setting: string; unit: string; value: string };
 
 type Panel = {
   page: string;
@@ -38,7 +38,7 @@ type Panel = {
   settings: string[];
   /** A setting to change through its control, and the value Stream Deck should receive for it. */
   change: { setting: string; value: string; saved: unknown };
-  sliders?: Slider[];
+  numbers?: NumberSetting[];
 };
 
 // What each settings page shows on each controller its action supports, as listed in manifest.json.
@@ -54,36 +54,37 @@ const PANELS: Panel[] = [
     controller: "Keypad",
     settings: ["presetPercentage"],
     change: { setting: "presetPercentage", value: "40", saved: 40 },
-    sliders: [{ setting: "presetPercentage", suffix: "%", value: "40" }],
+    numbers: [{ setting: "presetPercentage", unit: "%", value: "40" }],
   },
   {
     page: "ui/brightness.html",
     controller: "Encoder",
     settings: ["stepPercentage"],
     change: { setting: "stepPercentage", value: "20", saved: 20 },
-    sliders: [{ setting: "stepPercentage", suffix: "%", value: "20" }],
+    numbers: [{ setting: "stepPercentage", unit: "%", value: "20" }],
   },
   {
     page: "ui/temperature.html",
     controller: "Keypad",
     settings: ["presetKelvin"],
     change: { setting: "presetKelvin", value: "5000", saved: 5000 },
-    sliders: [{ setting: "presetKelvin", suffix: " K", value: "5000" }],
+    numbers: [{ setting: "presetKelvin", unit: "K", value: "5000" }],
   },
   {
     page: "ui/temperature.html",
     controller: "Encoder",
     settings: ["stepKelvin"],
-    change: { setting: "stepKelvin", value: "500", saved: "500" },
+    change: { setting: "stepKelvin", value: "400", saved: 400 },
+    numbers: [{ setting: "stepKelvin", unit: "K", value: "400" }],
   },
   {
     page: "ui/scene.html",
     controller: "Keypad",
     settings: ["power", "presetPercentage", "presetKelvin"],
     change: { setting: "presetKelvin", value: "5000", saved: 5000 },
-    sliders: [
-      { setting: "presetPercentage", suffix: "%", value: "40" },
-      { setting: "presetKelvin", suffix: " K", value: "5000" },
+    numbers: [
+      { setting: "presetPercentage", unit: "%", value: "40" },
+      { setting: "presetKelvin", unit: "K", value: "5000" },
     ],
   },
   {
@@ -91,13 +92,14 @@ const PANELS: Panel[] = [
     controller: "Keypad",
     settings: ["stepPercentage"],
     change: { setting: "stepPercentage", value: "20", saved: 20 },
-    sliders: [{ setting: "stepPercentage", suffix: "%", value: "20" }],
+    numbers: [{ setting: "stepPercentage", unit: "%", value: "20" }],
   },
   {
     page: "ui/temperature-step.html",
     controller: "Keypad",
     settings: ["stepKelvin"],
-    change: { setting: "stepKelvin", value: "500", saved: "500" },
+    change: { setting: "stepKelvin", value: "400", saved: 400 },
+    numbers: [{ setting: "stepKelvin", unit: "K", value: "400" }],
   },
 ];
 
@@ -273,7 +275,7 @@ function visibleSettings(page: Page, { global = false } = {}): Promise<string[]>
   `);
 }
 
-/** A control as the page declares it: its default, a slider's ends and step, a select's options. */
+/** A control as the page declares it: its default, a number field's ends and step, a select's options. */
 type Control = {
   tag: string;
   default: string | null;
@@ -299,16 +301,58 @@ function controlOf(page: Page, setting: string): Promise<Control> {
   })()`);
 }
 
-/** A value as a control saves it: a slider as a number, a select as its option's text. */
+/** A value as a control saves it: a number field as a number, a select as its option's text. */
 function saved(control: Control, value: string): JsonValue {
-  return control.tag === "sdpi-range" ? Number(value) : value;
+  return control.tag === "litra-number" ? Number(value) : value;
 }
 
-/** The value shown next to the slider of a setting. */
+/** Reads what a number field shows (#195): its value, then its unit, apart. */
+const NUMBER_SHOWN = `(field) => field.querySelector("input").value + " " + field.querySelector(".unit").textContent`;
+
+/** What the number field of a setting shows, its value and its unit. */
 function shownValue(page: Page, setting: string): Promise<string> {
-  return page.evaluate(`
-    document.querySelector('[setting="${setting}"]').closest(".range").querySelector("output").value
-  `);
+  return page.evaluate(`(${NUMBER_SHOWN})(document.querySelector('[setting="${setting}"]'))`);
+}
+
+/**
+ * Sets a control to `value`, as the user would: a list's choice, or a value typed into a number field and taken with
+ * Enter (#195).
+ */
+function setControl(page: Page, selector: string, value: string): Promise<void> {
+  return page.evaluate(`(async () => {
+    const host = ${selector};
+    if (host.localName === "litra-number") {
+      const input = host.querySelector("input");
+      input.focus();
+      input.value = ${JSON.stringify(value)};
+      input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+      return;
+    }
+    await host.updateComplete;
+    const control = host.shadowRoot.querySelector("select, input");
+    control.value = ${JSON.stringify(value)};
+    control.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+    control.dispatchEvent(new Event("change", { bubbles: true, composed: true }));
+  })()`);
+}
+
+/** Presses and lets go of a number field's − or + button, as a pointer does, after holding it for `holdMs`. */
+function pressNumberButton(page: Page, selector: string, label: "Lower" | "Raise", holdMs = 0): Promise<void> {
+  return page.evaluate(`(async () => {
+    const button = ${selector}.querySelector('button[aria-label="${label}"]');
+    button.dispatchEvent(new PointerEvent("pointerdown", { button: 0, bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, ${holdMs}));
+    button.dispatchEvent(new PointerEvent("pointerup", { button: 0, bubbles: true }));
+  })()`);
+}
+
+/** Whether a number field's − and + buttons are greyed out. */
+function numberButtonsOf(page: Page, selector: string): Promise<{ lower: boolean; raise: boolean }> {
+  return page.evaluate(`(() => {
+    const field = ${selector};
+    const disabled = (label) => field.querySelector('button[aria-label="' + label + '"]').disabled;
+    return { lower: disabled("Lower"), raise: disabled("Raise") };
+  })()`);
 }
 
 describe("settings pages", () => {
@@ -343,14 +387,7 @@ describe("settings pages", () => {
     it(`sends a changed ${panel.change.setting} to Stream Deck`, async () => {
       const { page, uuid } = await openPanel(panel);
       const { setting, value, saved } = panel.change;
-      await page.evaluate(`(async () => {
-        const host = document.querySelector('[setting="${setting}"]');
-        await host.updateComplete;
-        const control = host.shadowRoot.querySelector("select, input");
-        control.value = "${value}";
-        control.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
-        control.dispatchEvent(new Event("change", { bubbles: true, composed: true }));
-      })()`);
+      await setControl(page, `document.querySelector('[setting="${setting}"]')`, value);
       const message = await streamDeck.waitFor((m) => m.event === "setSettings" && m.context === uuid);
       expect(message.payload).toEqual({ [setting]: saved });
       await page.close();
@@ -405,7 +442,7 @@ describe("settings pages", () => {
       await page.close();
 
       const offered =
-        control.tag === "sdpi-range"
+        control.tag === "litra-number"
           ? Array.from({ length: (Number(control.max) - Number(control.min)) / Number(control.step) + 1 }, (_, index) =>
               String(Number(control.min) + index * Number(control.step)),
             )
@@ -417,9 +454,18 @@ describe("settings pages", () => {
     });
   });
 
-  const sliders = PANELS.flatMap((panel) => (panel.sliders ?? []).map((slider) => ({ ...slider, panel })));
-  describe.each(sliders)("the $setting slider of $panel.page on $panel.controller", (slider) => {
-    const { panel, setting, suffix } = slider;
+  const numbers = PANELS.flatMap((panel) => (panel.numbers ?? []).map((number) => ({ ...number, panel })));
+  describe.each(numbers)("the $setting number field of $panel.page on $panel.controller (#195)", (number) => {
+    const { panel, setting, unit } = number;
+    const FIELD = `document.querySelector('[setting="${setting}"]')`;
+
+    /** The values the page saved for the setting after the `after`th message. */
+    function savesOf(uuid: string, after: number) {
+      return streamDeck.messages
+        .slice(after)
+        .filter((m) => m.event === "setSettings" && m.context === uuid && m.payload?.[setting] !== undefined)
+        .map((m) => m.payload?.[setting]);
+    }
 
     it("ends where settings.ts does", async () => {
       const { page } = await openPanel(panel);
@@ -431,30 +477,87 @@ describe("settings pages", () => {
       expect(read(setting, max + step).valid).toBe(false);
     });
 
-    it("shows its default value next to it", async () => {
+    it("shows its default value, with its unit inside the field", async () => {
       const { page } = await openPanel(panel);
-      await expect.poll(() => shownValue(page, setting)).toBe(`${defaultOf(setting)}${suffix}`);
+      await expect.poll(() => shownValue(page, setting)).toBe(`${defaultOf(setting)} ${unit}`);
       await page.close();
     });
 
-    it("shows the saved value next to it", async () => {
-      const saved = Number(slider.value);
-      const { page } = await openPanel(panel, { [setting]: saved });
-      await expect.poll(() => shownValue(page, setting)).toBe(`${saved}${suffix}`);
+    it("shows the saved value", async () => {
+      const value = Number(number.value);
+      const { page } = await openPanel(panel, { [setting]: value });
+      await expect.poll(() => shownValue(page, setting)).toBe(`${value} ${unit}`);
       await page.close();
     });
 
-    it("follows it while it's dragged, before it's released", async () => {
-      const { page } = await openPanel(panel);
-      const { value } = slider;
-      await page.evaluate(`(async () => {
-        const host = document.querySelector('[setting="${setting}"]');
-        await host.updateComplete;
-        const control = host.shadowRoot.querySelector("input");
-        control.value = "${value}";
-        control.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
-      })()`);
-      expect(await shownValue(page, setting)).toBe(`${value}${suffix}`);
+    it("steps by its step on − and +, greyed out at the ends of its range, and saves once the clicks stop", async () => {
+      const { page, uuid } = await openPanel(panel);
+      const control = await controlOf(page, setting);
+      const [min, max, step] = [Number(control.min), Number(control.max), Number(control.step)];
+      await setControl(page, FIELD, String(min));
+      await expect.poll(() => numberButtonsOf(page, FIELD)).toEqual({ lower: true, raise: false });
+
+      const after = streamDeck.messages.length;
+      await pressNumberButton(page, FIELD, "Raise");
+      await pressNumberButton(page, FIELD, "Raise");
+      await pressNumberButton(page, FIELD, "Lower");
+      await pressNumberButton(page, FIELD, "Raise");
+
+      await expect.poll(() => savesOf(uuid, after)).toEqual([min + 2 * step]);
+      expect(await shownValue(page, setting)).toBe(`${min + 2 * step} ${unit}`);
+
+      await setControl(page, FIELD, String(max));
+      await expect.poll(() => numberButtonsOf(page, FIELD)).toEqual({ lower: false, raise: true });
+      await page.close();
+    });
+
+    it("takes a typed value on Enter, snapped to its step and kept within its range", async () => {
+      const { page, uuid } = await openPanel(panel);
+      const control = await controlOf(page, setting);
+      const [min, max, step] = [Number(control.min), Number(control.max), Number(control.step)];
+
+      // A value other than the default, which a field already showing it wouldn't save again.
+      const target = min + 2 * step === Number(control.default) ? min + 3 * step : min + 2 * step;
+      let after = streamDeck.messages.length;
+      await setControl(page, FIELD, String(target + 0.4 * step));
+      await expect.poll(() => savesOf(uuid, after)).toEqual([target]);
+
+      after = streamDeck.messages.length;
+      await setControl(page, FIELD, String(max + 10 * step));
+      await expect.poll(() => savesOf(uuid, after)).toEqual([max]);
+
+      after = streamDeck.messages.length;
+      await setControl(page, FIELD, "abc");
+      // Long enough for a save, which there mustn't be.
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      expect(savesOf(uuid, after)).toEqual([]);
+      expect(await shownValue(page, setting)).toBe(`${max} ${unit}`);
+      await page.close();
+    });
+  });
+
+  describe("a number field held down (#195)", () => {
+    const BRIGHTNESS = at(PANELS, 1);
+    const FIELD = `document.querySelector('[setting="presetPercentage"]')`;
+
+    it("repeats its step while held, and saves once it's let go", async () => {
+      const { page, uuid } = await openPanel(BRIGHTNESS, { presetPercentage: 10 });
+      await expect.poll(() => shownValue(page, "presetPercentage")).toBe("10 %");
+
+      const after = streamDeck.messages.length;
+      // One step on the press, then one every 80 ms from 400 ms on.
+      await pressNumberButton(page, FIELD, "Raise", 700);
+
+      const saves = () =>
+        streamDeck.messages
+          .slice(after)
+          .filter((m) => m.event === "setSettings" && m.context === uuid)
+          .map((m) => m.payload?.presetPercentage);
+      await expect.poll(() => saves().length).toBe(1);
+      const value = Number(at(saves(), 0));
+      expect(value).toBeGreaterThanOrEqual(14);
+      expect(value).toBeLessThanOrEqual(17);
+      expect(await shownValue(page, "presetPercentage")).toBe(`${value} %`);
       await page.close();
     });
   });
@@ -901,8 +1004,8 @@ describe("settings pages", () => {
     });
   });
 
-  // How long a blink lasts, a slider in the plugin settings, on a page without sliders of its own and on one with them,
-  // whose values a script shows (#171).
+  // How long a blink lasts, a number field in the plugin settings (#171, #195), on a page without number fields of its
+  // own and on one with them.
   describe.each([at(PANELS, 0), at(PANELS, 2)])(
     "the blink's length in the plugin settings on $page on $controller",
     (panel) => {
@@ -912,26 +1015,12 @@ describe("settings pages", () => {
         streamDeck.globalSettings = {};
       });
 
-      /** Waits for the page to have the global settings, which the slider shows once they've arrived. */
+      /** Waits for the page to have the global settings, which the field shows once they've arrived. */
       async function globalSettingsRead(page: Page): Promise<void> {
         await page.evaluate(`SDPIComponents.useGlobalSettings("${SETTING}")[0]()`);
       }
 
-      /** Moves the slider to `value`, as a drag does, and releases it unless asked not to. */
-      async function slide(page: Page, value: number, { release = true } = {}): Promise<void> {
-        await page.evaluate(`(async () => {
-          const host = document.querySelector('[setting="${SETTING}"]');
-          await host.updateComplete;
-          const control = host.shadowRoot.querySelector("input");
-          control.value = "${value}";
-          control.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
-          if (${release}) {
-            control.dispatchEvent(new Event("change", { bubbles: true, composed: true }));
-          }
-        })()`);
-      }
-
-      it("defaults to its default in settings.ts, and shows it next to it", async () => {
+      it("defaults to its default in settings.ts, and shows it", async () => {
         const { page } = await openPanel(panel);
         const control = await controlOf(page, SETTING);
         await globalSettingsRead(page);
@@ -966,22 +1055,12 @@ describe("settings pages", () => {
         await page.close();
       });
 
-      it("follows the slider while it's dragged, before it's released", async () => {
-        const { page } = await openPanel(panel);
-        await globalSettingsRead(page);
-        await slide(page, 900, { release: false });
-        const shown = await shownValue(page, SETTING);
-        await page.close();
-
-        expect(shown).toBe("900 ms");
-      });
-
       it("saves to the global settings, as settings.ts takes it, keeping the others and the action's own", async () => {
         streamDeck.globalSettings = { blinkOnLampScreen: true };
         const { page, uuid } = await openPanel(panel);
         await globalSettingsRead(page);
         await clickInPluginSettings(page, "Plugin settings");
-        await slide(page, 900);
+        await setControl(page, `document.querySelector('[setting="${SETTING}"]')`, "900");
         const message = await streamDeck.waitFor((m) => m.event === "setGlobalSettings" && m.context === uuid);
         // Long enough for a save of the action's own settings to arrive, which there mustn't be.
         await new Promise((resolve) => setTimeout(resolve, 300));
@@ -1449,7 +1528,7 @@ describe("settings pages", () => {
             heading: "Group 2",
             power: "off",
             presets: false,
-            brightness: "40%",
+            brightness: "40 %",
             temperature: "5000 K",
             lamps: [
               { label: FIRST.label, checked: false, disabled: false, note: null },
@@ -1479,13 +1558,13 @@ describe("settings pages", () => {
 
       expect(saved).toEqual([{ ...NEW_GROUP, presetPercentage: 40, presetKelvin: 5000 }]);
       expect(readGroup(at(saved, 0))).toMatchObject({ valid: true });
-      expect(await groupsOf(page)).toMatchObject({ groups: [{ brightness: "40%", temperature: "5000 K" }] });
+      expect(await groupsOf(page)).toMatchObject({ groups: [{ brightness: "40 %", temperature: "5000 K" }] });
       await page.close();
     });
 
     it("keeps a group's controls in place when one changes, so the page doesn't scroll as new ones are drawn", async () => {
       const { page, uuid } = await openScene({ ...FIRST_HOLDS_NONE, addedGroups: [NEW_GROUP] });
-      await page.evaluate(`document.querySelector("#added-groups .group sdpi-range").dataset.kept = "yes"`);
+      await page.evaluate(`document.querySelector("#added-groups .group litra-number").dataset.kept = "yes"`);
 
       for (const [label, value] of [
         ["Brightness", "40"],
@@ -1501,7 +1580,9 @@ describe("settings pages", () => {
       // Long enough for the saved groups to come back from Stream Deck, which mustn't draw them again either.
       await new Promise((resolve) => setTimeout(resolve, 200));
 
-      expect(await page.evaluate(`document.querySelector("#added-groups .group sdpi-range").dataset.kept`)).toBe("yes");
+      expect(await page.evaluate(`document.querySelector("#added-groups .group litra-number").dataset.kept`)).toBe(
+        "yes",
+      );
       await page.close();
     });
 
@@ -2126,8 +2207,8 @@ function groupsOf(
       heading: group.querySelector(".group-heading").textContent,
       power: itemOf(group, "Power").querySelector("sdpi-select").value,
       presets: !itemOf(group, "Brightness").hidden && !itemOf(group, "Temperature").hidden,
-      brightness: itemOf(group, "Brightness").querySelector("output").value,
-      temperature: itemOf(group, "Temperature").querySelector("output").value,
+      brightness: (${NUMBER_SHOWN})(itemOf(group, "Brightness").querySelector("litra-number")),
+      temperature: (${NUMBER_SHOWN})(itemOf(group, "Temperature").querySelector("litra-number")),
       lamps: rows(group),
       remove: group.querySelector("sdpi-button")?.textContent ?? null,
     }));
@@ -2162,18 +2243,15 @@ function clickInGroups(page: Page, text: string, group?: number): Promise<void> 
   })()`);
 }
 
-/** Sets the control of a group's row, by its label, to `value`, as the user would: a list's choice, a slider's release. */
+/** Sets the control of a group's row, by its label, to `value`, as the user would: a list's choice, a typed number. */
 function setGroupControl(page: Page, group: number, label: string, value: string): Promise<void> {
-  return page.evaluate(`(async () => {
-    const view = [...document.querySelectorAll("#added-groups .group")].find((candidate) =>
-      candidate.querySelector(".group-heading").textContent === "Group ${group}");
-    const host = view.querySelector('sdpi-item[label="${label}"]').querySelector("sdpi-select, sdpi-range");
-    await host.updateComplete;
-    const control = host.shadowRoot.querySelector("select, input");
-    control.value = ${JSON.stringify(value)};
-    control.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
-    control.dispatchEvent(new Event("change", { bubbles: true, composed: true }));
-  })()`);
+  const view = `[...document.querySelectorAll("#added-groups .group")].find((candidate) =>
+    candidate.querySelector(".group-heading").textContent === "Group ${group}")`;
+  return setControl(
+    page,
+    `${view}.querySelector('sdpi-item[label="${label}"]').querySelector("sdpi-select, litra-number")`,
+    value,
+  );
 }
 
 /** Clicks a checkbox of the lamp picker by its label, as the user would: on the input inside the component. */
