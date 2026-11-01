@@ -2,11 +2,14 @@
 // first group is the page's own controls, which save the key's settings as a scene with a single group saves them, and
 // whose presets this hides while its power is off. The groups added after it are drawn here, under a heading each, and
 // saved as `addedGroups`: each with its power, its presets, and the lamps checked for it, with their ids and labels, so
-// a lamp that isn't connected keeps its place. A lamp a group checks leaves the first group, and no two groups check
-// the same lamp: a lamp another group holds is greyed out, and says which group holds it, here and in the first group's
-// lamp picker (lamp-picker.js), which this tells of the lamps the groups hold, through an event on the document. The
-// lamps found and their names come as the lamp picker gets them. A file rather than an inline script, so the pages'
-// Content-Security-Policy doesn't have to allow inline scripts.
+// a lamp that isn't connected keeps its place. No two groups hold the same lamp: a lamp another group holds, the first
+// included, is greyed out, and says which group holds it, here and in the first group's lamp picker (lamp-picker.js),
+// which tells this of the lamps the first group holds, as this tells it of the ones the others do, through events on
+// the document. A lamp that a group added after the first checks leaves the first, as the plugin takes it. The
+// lamps found and their names come as the lamp picker gets them. Only adding or removing a group, or groups that
+// arrive changed, draw the groups again: a change to a group saves it in place, and a lamp checked or unchecked draws
+// the lamp lists alone, since a page drawn again scrolls while its new controls are drawn. A file rather than an
+// inline script, so the pages' Content-Security-Policy doesn't have to allow inline scripts.
 (() => {
   const container = document.getElementById("added-groups");
   if (container === null) {
@@ -22,6 +25,10 @@
   let found;
   // The lamps' names, by id, from the plugin's global settings.
   let names = {};
+  // Each group's list of lamps, as last drawn, by the group's place.
+  let lampLists = [];
+  // The ids of the lamps the first group holds, as its lamp picker shows them.
+  let firstGroupLamps = [];
 
   // The first group's presets, which don't apply while it turns its lamps off.
   const power = document.getElementById("power");
@@ -37,8 +44,12 @@
   const [readGroups, saveGroups] = SDPIComponents.useSettings(
     "addedGroups",
     (value) => {
-      groups = validGroups(value);
-      render();
+      // The groups this page just saved come back unchanged, and aren't drawn again.
+      const arrived = validGroups(value);
+      if (JSON.stringify(asSaved(arrived)) !== JSON.stringify(asSaved(groups))) {
+        groups = arrived;
+        render();
+      }
     },
     0,
   );
@@ -46,7 +57,7 @@
   // Names saved by other pages arrive with the global settings.
   const [readNames] = SDPIComponents.useGlobalSettings("lampNames", (value) => {
     names = validNames(value);
-    render();
+    renderLamps();
   });
 
   /** The groups as the key saved them, each with its settings' defaults for the ones that aren't valid. */
@@ -76,7 +87,8 @@
 
   /**
    * The group that holds each lamp, by the lamp's id, as the page numbers it: the first added group that checks the
-   * lamp, as the plugin takes it, since only an edited profile has two groups check the same lamp.
+   * lamp, as the plugin takes it, since only an edited profile has two groups check the same lamp. The first group's
+   * lamps aren't among them: the lamp picker leaves out the ones these hold.
    */
   function holders() {
     const held = {};
@@ -88,17 +100,19 @@
     return held;
   }
 
-  /** Saves the groups, and draws them again. */
-  function store() {
-    render();
-    saveGroups(
-      groups.map(({ power: groupPower, presetPercentage, presetKelvin, lamps }) => ({
-        power: groupPower,
-        presetPercentage,
-        presetKelvin,
-        lamps: lamps.map(({ id, label }) => ({ id, label })),
-      })),
-    ).catch((error) => console.error("Can't save the groups", error));
+  /** Groups as the key saves them: every setting written out, and each lamp with its id and label alone. */
+  function asSaved(list) {
+    return list.map(({ power: groupPower, presetPercentage, presetKelvin, lamps }) => ({
+      power: groupPower,
+      presetPercentage,
+      presetKelvin,
+      lamps: lamps.map(({ id, label }) => ({ id, label })),
+    }));
+  }
+
+  /** Saves the groups. */
+  function save() {
+    saveGroups(asSaved(groups)).catch((error) => console.error("Can't save the groups", error));
   }
 
   /** A row of its own, as wide as the page's controls, holding `content`, with `label` on its left. */
@@ -172,7 +186,7 @@
    * group that holds it.
    */
   function listedIn(group) {
-    const held = holders();
+    const held = { ...Object.fromEntries(firstGroupLamps.map((id) => [id, 1])), ...holders() };
     const lamps = (found ?? []).map(({ id, label }) => ({ id, label, missing: false }));
     for (const { id, label } of group.lamps) {
       if (!lamps.some((lamp) => lamp.id === id)) {
@@ -198,7 +212,8 @@
           group.lamps = checked
             ? [...group.lamps, { id: lamp.id, label: lamp.label }]
             : group.lamps.filter(({ id }) => id !== lamp.id);
-          store();
+          save();
+          renderLamps();
         },
         { label: names[lamp.id] ?? lamp.label, disabled: elsewhere },
       ),
@@ -212,19 +227,23 @@
   }
 
   /** A group's lamps: a row for each, or what stands in for them. */
-  function lampList(group, number) {
-    const list = document.createElement("div");
-    list.className = "group-lamps";
+  function lampRows(group, number) {
     if (found === undefined) {
-      list.append(note("Looking for lamps…"));
-      return list;
+      return [note("Looking for lamps…")];
     }
     const lamps = listedIn(group);
-    if (lamps.length === 0) {
-      list.append(note("No lamps found"));
-    }
-    list.append(...lamps.map((lamp) => lampRow(group, number, lamp)));
-    return list;
+    return lamps.length === 0 ? [note("No lamps found")] : lamps.map((lamp) => lampRow(group, number, lamp));
+  }
+
+  /** Draws every group's lamps again, and tells the lamp picker of the lamps the groups hold. */
+  function renderLamps() {
+    lampLists.forEach((list, index) => {
+      const group = groups[index];
+      if (group !== undefined) {
+        list.replaceChildren(...lampRows(group, index + 2));
+      }
+    });
+    document.dispatchEvent(new CustomEvent("litra:held-lamps", { detail: holders() }));
   }
 
   /** A group's heading and controls, numbered after the first group, with a button that removes it. */
@@ -235,7 +254,7 @@
     heading.textContent = `Group ${number}`;
     const change = (setting) => (value) => {
       group[setting] = value;
-      store();
+      save();
     };
     const presets = [
       item(
@@ -247,29 +266,45 @@
         slider(group.presetKelvin, { min: 2700, max: 6500, step: 100, suffix: " K" }, change("presetKelvin")),
       ),
     ];
-    for (const preset of presets) {
-      preset.hidden = group.power === "off";
-    }
+    const showPresets = () => {
+      for (const preset of presets) {
+        preset.hidden = group.power === "off";
+      }
+    };
+    showPresets();
+    const list = document.createElement("div");
+    list.className = "group-lamps";
+    list.append(...lampRows(group, number));
+    lampLists[index] = list;
     const view = document.createElement("div");
     view.className = "group";
     view.append(
       heading,
       item(
         "Power",
-        control("sdpi-select", group.power, change("power"), {
-          options: [
-            ["on", "On"],
-            ["off", "Off"],
-          ],
-        }),
+        control(
+          "sdpi-select",
+          group.power,
+          (value) => {
+            change("power")(value);
+            showPresets();
+          },
+          {
+            options: [
+              ["on", "On"],
+              ["off", "Off"],
+            ],
+          },
+        ),
       ),
       ...presets,
-      item("Lamps", lampList(group, number)),
+      item("Lamps", list),
       item(
         undefined,
         button(`Remove group ${number}`, () => {
           groups.splice(index, 1);
-          store();
+          save();
+          render();
         }),
       ),
     );
@@ -279,13 +314,15 @@
   /** Draws the groups added after the first, and tells the lamp picker of the lamps they hold. */
   function render() {
     document.getElementById("first-group-heading").hidden = groups.length === 0;
+    lampLists = [];
     container.replaceChildren(
       ...groups.map(groupView),
       item(
         undefined,
         button("Add a group", () => {
           groups.push({ ...NEW_GROUP, lamps: [] });
-          store();
+          save();
+          render();
         }),
       ),
     );
@@ -297,11 +334,18 @@
     // change.
     document.addEventListener("litra:lamps", (event) => {
       found = event.detail;
-      render();
+      renderLamps();
     });
     document.addEventListener("litra:lamp-names", (event) => {
       names = event.detail;
-      render();
+      renderLamps();
+    });
+    // Told each time the picker draws its lamps, so the same ones draw nothing again.
+    document.addEventListener("litra:first-group-lamps", (event) => {
+      if (JSON.stringify(event.detail) !== JSON.stringify(firstGroupLamps)) {
+        firstGroupLamps = event.detail;
+        renderLamps();
+      }
     });
     render();
     [groups, names] = await Promise.all([readGroups().then(validGroups), readNames().then(validNames)]);

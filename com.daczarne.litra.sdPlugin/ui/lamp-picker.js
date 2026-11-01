@@ -6,7 +6,8 @@
 // acts on the checked ones alone (#147). Whether it adds them comes from plugin-settings.js, which shows that choice.
 // On a Scene key's page, a lamp a group added after the first holds is greyed out, and says which group holds it
 // (scene-groups.js, #174), while the key keeps what it saved for it, which applies again once no group holds it. The
-// lamps found are told to the page's other scripts, through an event on the document.
+// lamps found, and the ones the key acts on, its scene's first group, are told to the page's other scripts, through
+// events on the document.
 // `lamps` is "all" for a key saved before lamps could be picked, or never saved, which acts on every lamp. A file rather
 // than an inline script, so the pages' Content-Security-Policy doesn't have to allow inline scripts.
 (() => {
@@ -198,12 +199,18 @@
           store((lamp) => (free(lamp) ? value : isChecked(lamp))),
         ),
       );
+      const own = lamps.filter((lamp) => free(lamp) && isChecked(lamp)).map(({ id }) => id);
+      document.dispatchEvent(new CustomEvent("litra:first-group-lamps", { detail: own }));
     }
     picker.replaceChildren(...rows);
   }
 
-  // Listened for from the start, since scene-groups.js may tell it before this page knows it's a key's.
+  // Listened for from the start, since scene-groups.js may tell it before this page knows it's a key's. Lamps held as
+  // before draw nothing again, since this tells scene-groups.js of its own lamps each time it draws them.
   document.addEventListener("litra:held-lamps", (event) => {
+    if (JSON.stringify(event.detail) === JSON.stringify(held)) {
+      return;
+    }
     held = event.detail;
     if (found !== undefined) {
       render();
