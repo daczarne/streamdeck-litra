@@ -30,9 +30,9 @@ const POWER = "com.daczarne.litra.power";
 
 const SWITCHED = { ok: true, deviceCount: 2, failures: 0 };
 
-// Lamps as the settings page saves them, with their ids and labels (#20).
-const LAMP_1 = { id: "lamp-1", label: "Beam - 1111" };
-const LAMP_2 = { id: "lamp-2", label: "Beam - 2222" };
+// Lamps as the settings page saves them, by their ids (#20, #194).
+const LAMP_1 = "lamp-1";
+const LAMP_2 = "lamp-2";
 
 let deck: FakeDeck;
 // What the action does when litra-manager announces that the lamps changed.
@@ -201,7 +201,7 @@ describe("PowerAction", () => {
 
       await deck.press(key);
 
-      expect(operation).toHaveBeenCalledExactlyOnceWith([LAMP_1.id, LAMP_2.id]);
+      expect(operation).toHaveBeenCalledExactlyOnceWith([LAMP_1, LAMP_2]);
     });
 
     it("switches every lamp from a key without lamps saved, set up before they could be picked", async () => {
@@ -223,7 +223,7 @@ describe("PowerAction", () => {
       // Lamp 1 is on, lamp 2 off.
       vi.mocked(areLampsOn).mockImplementation(async (lamps) => ({
         ok: true,
-        allOn: Array.isArray(lamps) && lamps.every((id) => id === LAMP_1.id),
+        allOn: Array.isArray(lamps) && lamps.every((id) => id === LAMP_1),
         deviceCount: Array.isArray(lamps) ? lamps.length : 2,
       }));
 
@@ -235,7 +235,7 @@ describe("PowerAction", () => {
         [1],
         [0],
       ]);
-      expect(vi.mocked(areLampsOn).mock.calls).toEqual([["all"], [[LAMP_1.id]], [[LAMP_2.id]]]);
+      expect(vi.mocked(areLampsOn).mock.calls).toEqual([["all"], [[LAMP_1]], [[LAMP_2]]]);
     });
 
     it("shows the state of the key's new lamps once they're changed on the settings page", async () => {
@@ -245,7 +245,7 @@ describe("PowerAction", () => {
 
       await deck.changeSettings(key, { lamps: [LAMP_2] });
 
-      expect(areLampsOn).toHaveBeenCalledExactlyOnceWith([LAMP_2.id]);
+      expect(areLampsOn).toHaveBeenCalledExactlyOnceWith([LAMP_2]);
       expect(key.setState).toHaveBeenCalledExactlyOnceWith(1);
     });
 
@@ -277,7 +277,7 @@ describe("PowerAction", () => {
 
       await deck.press(key);
 
-      expect(turnLampsOn).toHaveBeenCalledExactlyOnceWith({ except: [LAMP_2.id] });
+      expect(turnLampsOn).toHaveBeenCalledExactlyOnceWith({ except: [LAMP_2] });
     });
 
     it("switches the lamps checked alone once it adds no new lamps, and shows their state at once", async () => {
@@ -286,10 +286,10 @@ describe("PowerAction", () => {
       vi.mocked(turnLampsOn).mockReturnValue(SWITCHED);
 
       changeGlobalSettings({ addNewLamps: false });
-      await vi.waitFor(() => expect(areLampsOn).toHaveBeenCalledWith([LAMP_1.id]));
+      await vi.waitFor(() => expect(areLampsOn).toHaveBeenCalledWith([LAMP_1]));
       await deck.press(key);
 
-      expect(turnLampsOn).toHaveBeenCalledExactlyOnceWith([LAMP_1.id]);
+      expect(turnLampsOn).toHaveBeenCalledExactlyOnceWith([LAMP_1]);
     });
   });
 });

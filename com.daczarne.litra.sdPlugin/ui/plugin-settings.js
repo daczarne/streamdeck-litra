@@ -3,8 +3,8 @@
 // `lamps`, each by the end of its serial number and its model, with a field for its name, a button that blinks it, and
 // one that forgets it. The plugin alone saves the lamps: this asks it to find them, and to rename or forget one, and
 // shows them as Stream Deck passes on what the plugin saved. Find lamps is the only time they're looked for, and marks
-// the ones it didn't find. The keys' lamp pickers show the names too (lamp-picker.js, which this tells of every lamp
-// found, through an event on the document). Under the lamps come the global settings that every dial and
+// the ones it didn't find. The keys' lamp pickers list the same lamps, with their names (lamp-picker.js). Under the lamps
+// come the global settings that every dial and
 // key shares, such as whether each lamp steps from its own value (#145), how long a blink lasts (#171), whether keys
 // take in lamps added later (#147), which a key's own page can choose for that key alone, and tells its lamp
 // picker, the lamp screens' blink (#144), which a dial's own page can turn on or off for that dial alone, and what each
@@ -90,12 +90,33 @@
     }
 
     /* A lamp the last Find lamps didn't find, greyed out as a lamp picker's lamp held by another group is. */
-    #plugin-settings tr.missing td:not(.name) {
+    #plugin-settings tr.missing td:not(.name, .identify) {
       opacity: 0.6;
     }
 
-    #plugin-settings tr.missing .note {
+    /* Identify and "Not found" in the same place, the one not shown hidden but keeping its room, so the column is as wide
+      as the wider of the two, whichever lamps the last Find lamps found. */
+    #plugin-settings .identify-or-missing {
+      display: grid;
+      align-items: center;
+      justify-items: center;
+    }
+
+    #plugin-settings .identify-or-missing > * {
+      grid-area: 1 / 1;
+    }
+
+    #plugin-settings .identify-or-missing > [aria-hidden="true"] {
+      visibility: hidden;
+    }
+
+    /* That the last Find lamps didn't find the lamp, in the Alert red of "No lamps found", at the panel's size. */
+    #plugin-settings td.identify .note {
+      color: #ff6b6b;
+      font-size: 9pt;
+      font-weight: 600;
       padding: 0 4px;
+      white-space: nowrap;
     }
 
     /* The trash can's button, a plain one rather than sdpi-components', whose hover can't be restyled from outside: it
@@ -270,14 +291,28 @@
     render();
   });
 
-  /** The lamps in the global settings, or none when they aren't a set of lamps by id, each with a model and serial end. */
+  /**
+   * The lamps the plugin knows, by id, or none when they aren't lamps by id: each with a model and serial end, and a
+   * name only when it's text.
+   */
   function validLamps(value) {
     if (typeof value !== "object" || value === null || Array.isArray(value)) {
       return {};
     }
     return Object.fromEntries(
-      Object.entries(value).filter(
-        ([, lamp]) => typeof lamp?.model === "string" && typeof lamp?.serialEnd === "string",
+      Object.entries(value).flatMap(([id, lamp]) =>
+        typeof lamp?.model === "string" && typeof lamp?.serialEnd === "string"
+          ? [
+              [
+                id,
+                {
+                  model: lamp.model,
+                  serialEnd: lamp.serialEnd,
+                  ...(typeof lamp.name === "string" ? { name: lamp.name } : {}),
+                },
+              ],
+            ]
+          : [],
       ),
     );
   }
@@ -293,8 +328,8 @@
   }
 
   /**
-   * Asks the plugin for the lamps connected now, which it adds to the ones it knows, marks the ones it knows that it
-   * didn't find, and tells the lamp picker.
+   * Asks the plugin for the lamps connected now, which it adds to the ones it knows, and marks the ones it knows that it
+   * didn't find. The lamps it adds arrive with the global settings, as the plugin saves them.
    */
   async function findLamps() {
     const reply = await client.get(
@@ -304,7 +339,6 @@
       { event: "lamps" },
     );
     found = reply.payload.lamps.map(({ id }) => id);
-    document.dispatchEvent(new CustomEvent("litra:lamps", { detail: reply.payload.lamps }));
     render();
   }
 
@@ -767,7 +801,7 @@
 
   /**
    * A lamp's row: the end of its serial number, its model, its name, a button that blinks it, and one that forgets it.
-   * A lamp the last Find lamps didn't find is greyed out, with "not found" in place of its Identify button.
+   * A lamp the last Find lamps didn't find is greyed out, with "Not found" in place of its Identify button.
    */
   function lampRow([id, lamp]) {
     const label = `${lamp.model} - ${lamp.serialEnd}`;
@@ -783,9 +817,14 @@
     row.className = missing ? "lamp missing" : "lamp";
     const nameCell = cell("td", name);
     nameCell.className = "name";
-    const identify = missing
-      ? note("not found")
-      : button("Identify", () => client.send("sendToPlugin", { event: "identify", id }));
+    const identify = button("Identify", () => client.send("sendToPlugin", { event: "identify", id }));
+    const notFound = note("Not found");
+    (missing ? identify : notFound).setAttribute("aria-hidden", "true");
+    const identifyOrMissing = document.createElement("div");
+    identifyOrMissing.className = "identify-or-missing";
+    identifyOrMissing.append(identify, notFound);
+    const identifyCell = cell("td", identifyOrMissing);
+    identifyCell.className = "identify";
     const trash = document.createElement("button");
     trash.type = "button";
     trash.className = "forget";
@@ -793,7 +832,7 @@
     trash.setAttribute("aria-label", trash.title);
     trash.append(trashCan());
     trash.addEventListener("click", () => forget(id));
-    row.append(cell("td", lamp.serialEnd), cell("td", lamp.model), nameCell, cell("td", identify), cell("td", trash));
+    row.append(cell("td", lamp.serialEnd), cell("td", lamp.model), nameCell, identifyCell, cell("td", trash));
     return row;
   }
 

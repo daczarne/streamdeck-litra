@@ -1,14 +1,14 @@
-// The lamps a key acts on (#20): a checkbox for each lamp the plugin finds, and one for every lamp. Each lamp shows
-// with the name given to it in the plugin settings (plugin-settings.js, #146), kept with the lamps the plugin knows
-// (#194), or else its label, such as
-// "Beam - 7K98". The key saves the lamps checked, as `lamps`, and the ones listed and left unchecked, as
-// `leftOutLamps`, each with its id and its label, so a lamp that isn't connected keeps its place here. A key that adds
-// new lamps acts on every lamp but the left out ones, so a lamp it hasn't listed yet shows checked, and one that doesn't
-// acts on the checked ones alone (#147). Whether it adds them comes from plugin-settings.js, which shows that choice.
-// On a Scene key's page, a lamp a group added after the first holds is greyed out, and says which group holds it
-// (scene-groups.js, #174), while the key keeps what it saved for it, which applies again once no group holds it. The
-// lamps found, and the ones the key acts on, its scene's first group, are told to the page's other scripts, through
-// events on the document.
+// The lamps a key acts on (#20): a checkbox for each lamp the plugin knows (#194), and one for every lamp. The lamps
+// come from the plugin's global settings, where the plugin saves them, and the page looks for none: Find lamps in the
+// plugin settings does (plugin-settings.js). Each lamp shows with the name given to it in the plugin settings (#146), or
+// else its label, such as "Beam - 7K98". The key saves the ids of the lamps checked, as `lamps`, and of the ones left
+// unchecked, as `leftOutLamps`, and keeps the ids of the lamps the plugin no longer knows, such as one forgotten, which
+// comes back as the key left it once the plugin knows it again. A key that adds new lamps acts on every lamp but the
+// left out ones, so a lamp it hasn't listed yet shows checked, and one that doesn't acts on the checked ones alone
+// (#147). Whether it adds them comes from plugin-settings.js, which shows that choice. On a Scene key's page, a lamp a
+// group added after the first holds is greyed out, and says which group holds it (scene-groups.js, #174), while the key
+// keeps what it saved for it, which applies again once no group holds it. The lamps the key acts on, its scene's first
+// group, are told to scene-groups.js, through an event on the document.
 // `lamps` is "all" for a key saved before lamps could be picked, or never saved, which acts on every lamp. A file rather
 // than an inline script, so the pages' Content-Security-Policy doesn't have to allow inline scripts.
 (() => {
@@ -18,17 +18,17 @@
   }
   const client = SDPIComponents.streamDeckClient;
 
-  // What the key has saved: "all", or the lamps checked, and the lamps left out.
+  // What the key has saved: "all", or the ids of the lamps checked, and of the lamps left out.
   let saved = "all";
   let leftOut = [];
   // Whether the key takes in lamps added later, as plugin-settings.js says, which every key does by default.
   let addsNew = true;
-  // The lamps the plugin found, or undefined while it's asked.
-  let found;
-  // The lamps' names, by id, from the plugin's global settings.
-  let names = {};
+  // The lamps the plugin knows, by id, from its global settings, or undefined until they're read.
+  let known;
   // The number of the scene group that holds each lamp, by lamp id, on a Scene key's page.
   let held = {};
+  // Whether the page is a key's, which the picker draws only on, once the page knows it.
+  let onKey = false;
 
   const style = document.createElement("style");
   style.textContent = `
@@ -51,7 +51,7 @@
   const [readSaved, save] = SDPIComponents.useSettings(
     "lamps",
     (value) => {
-      saved = value ?? "all";
+      saved = validChecked(value);
       render();
     },
     0,
@@ -60,58 +60,62 @@
   const [readLeftOut, saveLeftOut] = SDPIComponents.useSettings(
     "leftOutLamps",
     (value) => {
-      leftOut = validLamps(value);
+      leftOut = validIds(value);
       render();
     },
     0,
   );
 
-  /** A list of lamps as the key saves them, or none when it isn't one. */
-  function validLamps(value) {
-    return Array.isArray(value) ? value.filter((lamp) => typeof lamp?.id === "string") : [];
-  }
-
-  // The names arrive with the lamps the plugin knows, in the global settings, each time the plugin saves them.
-  const [readNames] = SDPIComponents.useGlobalSettings("lamps", (value) => {
-    names = validNames(value);
+  // The lamps arrive with the global settings, each time the plugin saves them.
+  const [readKnown] = SDPIComponents.useGlobalSettings("lamps", (value) => {
+    known = validKnown(value);
     render();
   });
 
-  /** The names of the lamps the plugin knows, by id, from the global settings, or none when they aren't lamps by id. */
-  function validNames(value) {
+  /** A list of lamp ids as the key saves them, or none when it isn't one. */
+  function validIds(value) {
+    return Array.isArray(value) ? value.filter((id) => typeof id === "string") : [];
+  }
+
+  /** The lamps checked, as the key saves them: "all" for a key that never saved them, or their ids. */
+  function validChecked(value) {
+    return value === undefined || value === "all" ? "all" : validIds(value);
+  }
+
+  /**
+   * The lamps the plugin knows, by id, or none when they aren't lamps by id: each with a model and serial end, and a
+   * name only when it's text.
+   */
+  function validKnown(value) {
     if (typeof value !== "object" || value === null || Array.isArray(value)) {
       return {};
     }
     return Object.fromEntries(
-      Object.entries(value).flatMap(([id, lamp]) => (typeof lamp?.name === "string" ? [[id, lamp.name]] : [])),
+      Object.entries(value).flatMap(([id, lamp]) =>
+        typeof lamp?.model === "string" && typeof lamp?.serialEnd === "string"
+          ? [
+              [
+                id,
+                {
+                  model: lamp.model,
+                  serialEnd: lamp.serialEnd,
+                  ...(typeof lamp.name === "string" ? { name: lamp.name } : {}),
+                },
+              ],
+            ]
+          : [],
+      ),
     );
-  }
-
-  /** Asks the plugin for the lamps connected now, and shows them. */
-  async function findLamps() {
-    const reply = await client.get(
-      "sendToPlugin",
-      "sendToPropertyInspector",
-      (message) => message.payload?.event === "lamps",
-      { event: "lamps" },
-    );
-    found = reply.payload.lamps;
-    render();
-    document.dispatchEvent(new CustomEvent("litra:lamps", { detail: found }));
   }
 
   /**
-   * Every lamp the page lists: the ones found, then the ones the key has saved, checked or left out, that weren't,
-   * marked as missing.
+   * Every lamp the page lists: the ones the plugin knows, in the order of the ends of their serial numbers, as the plugin
+   * settings list them, each with its name, or else its label.
    */
   function listed() {
-    const lamps = (found ?? []).map(({ id, label }) => ({ id, label, missing: false }));
-    for (const { id, label } of [...(saved === "all" ? [] : saved), ...leftOut]) {
-      if (!lamps.some((lamp) => lamp.id === id)) {
-        lamps.push({ id, label, missing: true });
-      }
-    }
-    return lamps;
+    return Object.entries(known ?? {})
+      .sort(([, a], [, b]) => (a.serialEnd < b.serialEnd ? -1 : 1))
+      .map(([id, lamp]) => ({ id, label: lamp.name ?? `${lamp.model} - ${lamp.serialEnd}` }));
   }
 
   /**
@@ -119,18 +123,21 @@
    * a lamp it hasn't listed yet only if it adds new lamps.
    */
   function isChecked(lamp) {
-    if (saved === "all" || saved.some(({ id }) => id === lamp.id)) {
+    if (saved === "all" || saved.includes(lamp.id)) {
       return true;
     }
-    return !leftOut.some(({ id }) => id === lamp.id) && addsNew;
+    return !leftOut.includes(lamp.id) && addsNew;
   }
 
-  /** Saves which of the listed lamps the key acts on, and which it leaves out, and shows them. */
+  /**
+   * Saves which of the listed lamps the key acts on, and which it leaves out, keeping the lamps the plugin doesn't know
+   * as they were saved, and shows them.
+   */
   function store(checked) {
     const lamps = listed();
-    const asSaved = ({ id, label }) => ({ id, label });
-    saved = lamps.filter(checked).map(asSaved);
-    leftOut = lamps.filter((lamp) => !checked(lamp)).map(asSaved);
+    const unknown = (ids) => ids.filter((id) => known?.[id] === undefined);
+    saved = [...lamps.filter(checked).map(({ id }) => id), ...unknown(saved === "all" ? [] : saved)];
+    leftOut = [...lamps.filter((lamp) => !checked(lamp)).map(({ id }) => id), ...unknown(leftOut)];
     render();
     save(saved).catch((error) => console.error("Can't save the lamps", error));
     saveLeftOut(leftOut).catch((error) => console.error("Can't save the lamps left out", error));
@@ -161,8 +168,8 @@
   }
 
   /**
-   * A lamp's row: its checkbox, by its name or else its label, and a note when it isn't connected. A lamp a scene group
-   * holds shows unchecked and greyed out, with the group that holds it.
+   * A lamp's row: its checkbox, by its name or else its label. A lamp a scene group holds shows unchecked and greyed
+   * out, with the group that holds it.
    */
   function lampRow(lamp) {
     const holder = held[lamp.id];
@@ -170,7 +177,7 @@
     row.className = "lamp";
     row.append(
       checkbox(
-        names[lamp.id] ?? lamp.label,
+        lamp.label,
         holder === undefined && isChecked(lamp),
         (value) => toggleLamp(lamp, value),
         holder !== undefined,
@@ -178,33 +185,30 @@
     );
     if (holder !== undefined) {
       row.append(note(`in group ${holder}`));
-    } else if (lamp.missing) {
-      row.append(note("not found"));
     }
     return row;
   }
 
-  /** Draws the picker from what the key has saved and what the plugin found. */
+  /** Draws the picker from what the key has saved and the lamps the plugin knows, on a key's page, once they're read. */
   function render() {
-    const rows = [];
-    if (found === undefined) {
-      rows.push(note("Looking for lamps…"));
-    } else {
-      const lamps = listed();
-      if (lamps.length === 0) {
-        rows.push(note("No lamps found"));
-      }
-      rows.push(...lamps.map(lampRow));
-      // All covers the lamps no scene group holds, and keeps what the key saved for the others.
-      const free = (lamp) => held[lamp.id] === undefined;
-      rows.push(
-        checkbox("All", lamps.filter(free).every(isChecked), (value) =>
-          store((lamp) => (free(lamp) ? value : isChecked(lamp))),
-        ),
-      );
-      const own = lamps.filter((lamp) => free(lamp) && isChecked(lamp)).map(({ id }) => id);
-      document.dispatchEvent(new CustomEvent("litra:first-group-lamps", { detail: own }));
+    if (!onKey || known === undefined) {
+      return;
     }
+    const rows = [];
+    const lamps = listed();
+    if (lamps.length === 0) {
+      rows.push(note("No lamps found"));
+    }
+    rows.push(...lamps.map(lampRow));
+    // All covers the lamps no scene group holds, and keeps what the key saved for the others.
+    const free = (lamp) => held[lamp.id] === undefined;
+    rows.push(
+      checkbox("All", lamps.filter(free).every(isChecked), (value) =>
+        store((lamp) => (free(lamp) ? value : isChecked(lamp))),
+      ),
+    );
+    const own = lamps.filter((lamp) => free(lamp) && isChecked(lamp)).map(({ id }) => id);
+    document.dispatchEvent(new CustomEvent("litra:first-group-lamps", { detail: own }));
     picker.replaceChildren(...rows);
   }
 
@@ -215,17 +219,13 @@
       return;
     }
     held = event.detail;
-    if (found !== undefined) {
-      render();
-    }
+    render();
   });
 
   // Listened for from the start, since plugin-settings.js may tell it before this page knows it's a key's.
   document.addEventListener("litra:adds-new-lamps", (event) => {
     addsNew = event.detail;
-    if (found !== undefined) {
-      render();
-    }
+    render();
   });
 
   (async () => {
@@ -234,17 +234,11 @@
     if (info?.actionInfo?.payload?.controller === "Encoder") {
       return;
     }
-    // The plugin settings tell of the lamps they find.
-    document.addEventListener("litra:lamps", (event) => {
-      found = event.detail;
-      render();
-    });
+    onKey = true;
+    const [checked, left, lamps] = await Promise.all([readSaved(), readLeftOut(), readKnown()]);
+    saved = validChecked(checked);
+    leftOut = validIds(left);
+    known = validKnown(lamps);
     render();
-    [saved, leftOut, names] = await Promise.all([
-      readSaved().then((value) => value ?? "all"),
-      readLeftOut().then(validLamps),
-      readNames().then(validNames),
-    ]);
-    await findLamps();
   })().catch((error) => console.error("Can't show the lamps", error));
 })();

@@ -335,7 +335,7 @@ describe("the Scene key", () => {
       addedGroups: [
         {
           power: "off",
-          lamps: [{ id: lampId(center.serialNumber), label: `Beam - ${center.serialNumber.slice(-4)}` }],
+          lamps: [lampId(center.serialNumber)],
         },
       ],
     });
@@ -761,14 +761,15 @@ describe("what the dials show", () => {
 });
 
 describe("lamps picked on a key's settings page (#20)", () => {
-  /** A lamp as the settings page saves it: its id, and the label it showed. */
+  /** A lamp as the settings page saves it: its id (#194). */
   function picked(lamp: EmulatedLitra) {
-    return { id: lampId(lamp.serialNumber), label: `Beam - ${lamp.serialNumber.slice(-4)}` };
+    return lampId(lamp.serialNumber);
   }
 
-  /** A lamp as the plugin lists it for a page: as it's saved, with its model and the end of its serial (#146). */
+  /** A lamp as the plugin lists it for a page: its id and label, with its model and the end of its serial (#146). */
   function listed(lamp: EmulatedLitra) {
-    return { ...picked(lamp), model: "Beam", serialEnd: lamp.serialNumber.slice(-4) };
+    const serialEnd = lamp.serialNumber.slice(-4);
+    return { id: picked(lamp), label: `Beam - ${serialEnd}`, model: "Beam", serialEnd };
   }
 
   it("are the only ones a key switches, and its state shows theirs", async () => {

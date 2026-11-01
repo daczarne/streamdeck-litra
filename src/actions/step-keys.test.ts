@@ -56,9 +56,9 @@ const NO_LAMP: BroadcastResult = { ok: false, deviceCount: 0, failures: 1 };
 
 const FAILED: BroadcastResult = { ...LAMPS, ok: false, failures: 1 };
 
-// Lamps as the settings page saves them, with their ids and labels (#20).
-const LAMP_1 = { id: "lamp-1", label: "Beam - 1111" };
-const LAMP_2 = { id: "lamp-2", label: "Beam - 2222" };
+// Lamps as the settings page saves them, by their ids (#20, #194).
+const LAMP_1 = "lamp-1";
+const LAMP_2 = "lamp-2";
 
 let deck: FakeDeck;
 // What each action does when litra-manager announces that the lamps changed, in the order they were created.
@@ -319,7 +319,7 @@ describe("the step keys", () => {
 
       await deck.press(key);
 
-      expect(adjust).toHaveBeenCalledExactlyOnceWith([LAMP_1.id], expect.any(Number), step, "together");
+      expect(adjust).toHaveBeenCalledExactlyOnceWith([LAMP_1], expect.any(Number), step, "together");
     });
 
     it("shows on each key what its own lamps are at, from one read for each set of lamps", async () => {
@@ -331,13 +331,13 @@ describe("the step keys", () => {
       // Lamp 1 at 63%, lamp 2 at 79%.
       vi.mocked(readLampsBrightness).mockImplementation(async (lamps) => ({
         ...LAMPS,
-        brightnessPercentages: Array.isArray(lamps) ? lamps.map((id) => (id === LAMP_1.id ? 63 : 79)) : [63, 79],
+        brightnessPercentages: Array.isArray(lamps) ? lamps.map((id) => (id === LAMP_1 ? 63 : 79)) : [63, 79],
       }));
 
       await lampsChanged();
 
       expect([onEvery, onFirst, alsoOnFirst, onSecond].map(titleOf)).toEqual(["79%", "63%", "63%", "79%"]);
-      expect(vi.mocked(readLampsBrightness).mock.calls).toEqual([["all"], [[LAMP_1.id]], [[LAMP_2.id]]]);
+      expect(vi.mocked(readLampsBrightness).mock.calls).toEqual([["all"], [[LAMP_1]], [[LAMP_2]]]);
     });
 
     it("shows what the key's new lamps are at once they're changed on the settings page", async () => {
@@ -347,7 +347,7 @@ describe("the step keys", () => {
 
       await deck.changeSettings(key, { lamps: [LAMP_2] });
 
-      expect(readLampsTemperature).toHaveBeenCalledExactlyOnceWith([LAMP_2.id]);
+      expect(readLampsTemperature).toHaveBeenCalledExactlyOnceWith([LAMP_2]);
       expect(titleOf(key)).toBe("6500");
     });
 
