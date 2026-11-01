@@ -553,10 +553,8 @@ describe("the lamp screens", () => {
   it("show the name a lamp was given in the plugin settings, in a cell set to show it (#177)", async () => {
     const { first, dial } = await onFirstLampScreen();
 
-    await saveFromPage({
-      lampNames: { [lampId(first.serialNumber)]: "Key light" },
-      lampScreenOptions: { topLeft: { identification: { first: "name", second: "empty" } } },
-    });
+    sdk.sendToPlugin({ event: "rename", id: lampId(first.serialNumber), name: "Key light" });
+    await saveFromPage({ lampScreenOptions: { topLeft: { identification: { first: "name", second: "empty" } } } });
     await vi.runAllTimersAsync();
 
     expect(cellsOf(dial)).toMatchObject({ topLeft: "Key light", topRight: "1 of 2" });

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { findLamps, identifyLamp } from "../litra-manager";
 import { logger } from "../logging";
 import { at } from "../test-support/at";
-import { addLamps } from "./global-settings";
+import { addLamps, forgetLamp, renameLamp } from "./global-settings";
 import { answer, answerLampPickers } from "./lamp-picker";
 import { globalSettings } from "./settings";
 
@@ -29,7 +29,12 @@ vi.mock("../litra-manager", () => ({
 // The lamps the plugin knows, which the real global settings save through Stream Deck.
 vi.mock("./global-settings", async () => {
   const { globalSettings } = await import("./settings");
-  return { addLamps: vi.fn(async () => {}), identifyBlinkMs: () => globalSettings.identifyBlinkMs.default };
+  return {
+    addLamps: vi.fn(async () => {}),
+    forgetLamp: vi.fn(async () => {}),
+    identifyBlinkMs: () => globalSettings.identifyBlinkMs.default,
+    renameLamp: vi.fn(async () => {}),
+  };
 });
 
 const LAMPS = [
@@ -77,9 +82,26 @@ describe("the lamp picker's answers (#20)", () => {
     expect(ui.sendToPropertyInspector).not.toHaveBeenCalled();
   });
 
+  it("have the plugin name the lamp a page renamed (#146)", async () => {
+    await answer({ event: "rename", id: "lamp-2", name: "Fill light" });
+
+    expect(renameLamp).toHaveBeenCalledExactlyOnceWith("lamp-2", "Fill light");
+    expect(ui.sendToPropertyInspector).not.toHaveBeenCalled();
+  });
+
+  it("have the plugin forget the lamp a page asked it to (#194)", async () => {
+    await answer({ event: "forget", id: "lamp-1" });
+
+    expect(forgetLamp).toHaveBeenCalledExactlyOnceWith("lamp-1");
+    expect(ui.sendToPropertyInspector).not.toHaveBeenCalled();
+  });
+
   it.each([
     ["another event", { event: "something" }],
     ["an identify without a lamp", { event: "identify" }],
+    ["a rename without a name", { event: "rename", id: "lamp-1" }],
+    ["a rename without a lamp", { event: "rename", name: "Key light" }],
+    ["a forget without a lamp", { event: "forget" }],
     ["a message that isn't an object", "lamps"],
     ["an empty message", null],
   ])("ignore %s", async (_name, payload) => {
@@ -88,16 +110,20 @@ describe("the lamp picker's answers (#20)", () => {
     expect(findLamps).not.toHaveBeenCalled();
     expect(addLamps).not.toHaveBeenCalled();
     expect(identifyLamp).not.toHaveBeenCalled();
+    expect(renameLamp).not.toHaveBeenCalled();
+    expect(forgetLamp).not.toHaveBeenCalled();
     expect(ui.sendToPropertyInspector).not.toHaveBeenCalled();
   });
 
   it("log what the page asked for", async () => {
     await answer({ event: "lamps" });
     await answer({ event: "identify", id: "lamp-1" });
+    await answer({ event: "forget", id: "lamp-1" });
 
     expect(vi.mocked(logger.info).mock.calls).toEqual([
       [expect.stringContaining("asked for the lamps")],
       [expect.stringContaining("Identify")],
+      [expect.stringContaining("Forget")],
     ]);
   });
 

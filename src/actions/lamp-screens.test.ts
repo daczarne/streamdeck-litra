@@ -292,6 +292,11 @@ describe("LampScreens", () => {
       return dial;
     }
 
+    /** A lamp as the plugin knows it, with the name given to it in the plugin settings (#146, #194). */
+    function known(lamp: LampStatus, name: string) {
+      return { model: lamp.model, serialEnd: lamp.serialNumber.slice(-4), name };
+    }
+
     /** What the top left cell of a dial was last told to show. */
     function topLeft(dial: ReturnType<typeof createFakeDial>) {
       const slots = at(dial.setFeedback.mock.calls, -1)[0] as Record<string, unknown>;
@@ -304,7 +309,7 @@ describe("LampScreens", () => {
       [{ first: "id", second: "model" }, "A1 - Beam"],
       [{ first: "empty", second: "model" }, "Beam"],
     ])("builds the identification from its parts, %o", async (options, text) => {
-      const dial = await topLeftOf("identification", options, { lampNames: { [A.id]: "Key light" } });
+      const dial = await topLeftOf("identification", options, { lamps: { [A.id]: known(A, "Key light") } });
 
       expect(topLeft(dial)).toEqual(cell("topLeft", shown(text)));
     });
@@ -333,7 +338,7 @@ describe("LampScreens", () => {
     });
 
     it("trims a long identification to 10 characters, ending in …, and leaves a short one as it is", async () => {
-      const names = { lampNames: { [A.id]: "Studio key light", [B.id]: "Key light" } };
+      const names = { lamps: { [A.id]: known(A, "Studio key light"), [B.id]: known(B, "Key light") } };
       const dial = await topLeftOf("identification", { first: "name", second: "empty", trim: true }, names);
 
       expect(topLeft(dial)).toEqual(cell("topLeft", shown("Studio ke…")));

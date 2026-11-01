@@ -19,7 +19,7 @@ import {
 } from "../src/actions/settings";
 import { at } from "../src/test-support/at";
 import { Chrome, type ExceptionDetails, type Page } from "./support/chrome";
-import { FakeStreamDeck, type ListedLamp } from "./support/fake-stream-deck";
+import { FakeStreamDeck, type KnownLamp, type ListedLamp } from "./support/fake-stream-deck";
 
 const pluginDir = path.resolve("com.daczarne.litra.sdPlugin");
 const manifest = JSON.parse(readFileSync(path.join(pluginDir, "manifest.json"), "utf8")) as {
@@ -1196,7 +1196,9 @@ describe("settings pages", () => {
     });
 
     it("shows a named lamp by its name, connected or not, and saves it with its label (#146)", async () => {
-      streamDeck.globalSettings = { lampNames: { [FIRST.id]: "Left", [SECOND.id]: "Key light" } };
+      streamDeck.globalSettings = {
+        lamps: { [FIRST.id]: known(FIRST, "Left"), [SECOND.id]: known(SECOND, "Key light") },
+      };
       const { page, uuid } = await openPicker([FIRST], {
         lamps: [savedLamp(SECOND)],
         leftOutLamps: [savedLamp(FIRST)],
@@ -1220,7 +1222,9 @@ describe("settings pages", () => {
     });
 
     it("shows a lamp by its label when its saved name isn't text", async () => {
-      streamDeck.globalSettings = { lampNames: { [FIRST.id]: 7 } };
+      streamDeck.globalSettings = {
+        lamps: { [FIRST.id]: { model: FIRST.model, serialEnd: FIRST.serialEnd, name: 7 } },
+      };
       const { page } = await openPicker([FIRST]);
 
       await expect.poll(async () => (await pickerOf(page)).lamps.map((lamp) => lamp.label)).toEqual([FIRST.label]);
@@ -1780,7 +1784,7 @@ describe("settings pages", () => {
     });
 
     it("show in place of the action's settings, and give way to them again on Back", async () => {
-      streamDeck.lamps = [FIRST];
+      streamDeck.globalSettings = { lamps: { [FIRST.id]: known(FIRST) } };
       const { page } = await openPanel(panel);
 
       await clickInPluginSettings(page, "Plugin settings");
@@ -1794,6 +1798,7 @@ describe("settings pages", () => {
           "Back",
           "Find lamps",
           "Identify",
+          `Forget ${FIRST.label}`,
           ...LAMP_SCREEN_LISTS.map(() => "Configure"),
           ...Object.keys(TEXT_STYLES).map(() => "Reset"),
         ],
@@ -1807,7 +1812,7 @@ describe("settings pages", () => {
         buttons: ["Plugin settings"],
       });
       expect(await shownGlobalSettings(page)).toEqual([]);
-      streamDeck.lamps = [];
+      streamDeck.globalSettings = {};
       await page.close();
     });
   });
@@ -1820,31 +1825,45 @@ describe("settings pages", () => {
       streamDeck.globalSettings = {};
     });
 
-    /** Opens the Power key's page with the lamps the plugin finds, then its plugin settings, once they list them. */
-    async function openPluginSettings(lamps: ListedLamp[]) {
-      streamDeck.lamps = lamps;
+    /**
+     * Opens the Power key's page with the lamps the plugin knows (#194) and the ones it finds, then its plugin settings,
+     * once they list the ones it knows.
+     */
+    async function openPluginSettings(knows: Record<string, unknown>, finds: ListedLamp[] = []) {
+      streamDeck.globalSettings = { ...streamDeck.globalSettings, lamps: knows };
+      streamDeck.lamps = finds;
       const opened = await openPanel(POWER);
       await clickInPluginSettings(opened.page, "Plugin settings");
-      await expect.poll(async () => (await pluginSettingsOf(opened.page)).notes).not.toContain("Looking for lamps…");
+      await expect.poll(async () => (await pluginSettingsOf(opened.page)).lamps.length).toBe(Object.keys(knows).length);
       return opened;
     }
 
-    /** The next global settings the page saves. */
-    async function nextGlobalSave(uuid: string, after: number): Promise<unknown> {
-      const message = await streamDeck.waitFor(
-        (m) => m.event === "setGlobalSettings" && m.context === uuid && streamDeck.messages.indexOf(m) >= after,
-      );
-      return message.payload;
+    /** The messages the page sent the plugin with this event, after the `after`th message. */
+    function sentToPlugin(uuid: string, event: string, after = 0) {
+      return streamDeck.messages
+        .slice(after)
+        .filter((m) => m.event === "sendToPlugin" && m.context === uuid && m.payload?.event === event);
     }
 
-    it("list every lamp found by the end of its serial, its model and its name, with an Identify button", async () => {
-      streamDeck.globalSettings = { lampNames: { [SECOND.id]: "Key light" } };
-      const { page } = await openPluginSettings([FIRST, SECOND]);
+    it("list every lamp the plugin knows by the end of its serial, its model and its name, without looking for lamps (#194)", async () => {
+      const { page, uuid } = await openPluginSettings({
+        [FIRST.id]: known(FIRST),
+        [SECOND.id]: known(SECOND, "Key light"),
+      });
 
       expect(await pluginSettingsOf(page)).toMatchObject({
-        headers: ["ID", "Model", "Name", ""],
+        headers: ["ID", "Model", "Name", "", ""],
         lamps: [
-          { serialEnd: "1111", model: "Beam", name: "", placeholder: FIRST.label, maxLength: "24", identify: true },
+          {
+            serialEnd: "1111",
+            model: "Beam",
+            name: "",
+            placeholder: FIRST.label,
+            maxLength: "24",
+            identify: true,
+            forget: `Forget ${FIRST.label}`,
+            missing: false,
+          },
           {
             serialEnd: "2222",
             model: "Beam LX",
@@ -1852,44 +1871,58 @@ describe("settings pages", () => {
             placeholder: SECOND.label,
             maxLength: "24",
             identify: true,
+            forget: "Forget Key light",
+            missing: false,
           },
         ],
         notes: [],
       });
+      // Only by the lamp picker, as the page opened.
+      expect(streamDeck.messages.filter((m) => isLampsRequest(m, uuid))).toHaveLength(1);
       await page.close();
     });
 
-    it("save a name typed, by lamp id, keeping the other global settings, and show it in the lamp picker", async () => {
-      streamDeck.globalSettings = { blinkOnLampScreen: true, lampNames: { [SECOND.id]: "Key light" } };
-      const { page, uuid } = await openPluginSettings([FIRST, SECOND]);
+    it("ask the plugin to name a lamp as it's typed, save no global settings, and show the name in the lamp picker", async () => {
+      const { page, uuid } = await openPluginSettings(
+        { [FIRST.id]: known(FIRST), [SECOND.id]: known(SECOND, "Key light") },
+        [FIRST, SECOND],
+      );
 
       const after = streamDeck.messages.length;
       await typeName(page, FIRST.serialEnd, "  Left ");
 
-      expect(await nextGlobalSave(uuid, after)).toEqual({
-        blinkOnLampScreen: true,
-        lampNames: { [SECOND.id]: "Key light", [FIRST.id]: "Left" },
-      });
+      await expect
+        .poll(() => sentToPlugin(uuid, "rename", after).map((m) => m.payload))
+        .toEqual([{ event: "rename", id: FIRST.id, name: "  Left " }]);
+      expect(streamDeck.messages.slice(after).filter((m) => m.event === "setGlobalSettings")).toEqual([]);
       await clickInPluginSettings(page, "Back");
-      expect((await pickerOf(page)).lamps.map((lamp) => lamp.label)).toEqual(["Left", "Key light"]);
+      await expect
+        .poll(async () => (await pickerOf(page)).lamps.map((lamp) => lamp.label))
+        .toEqual(["Left", "Key light"]);
       await page.close();
     });
 
-    it("take a name away when its field is emptied, and show the lamp by its label again", async () => {
-      streamDeck.globalSettings = { lampNames: { [FIRST.id]: "Left", [SECOND.id]: "Key light" } };
-      const { page, uuid } = await openPluginSettings([FIRST, SECOND]);
+    it("ask the plugin to take a name away when its field is emptied, and show the lamp by its label again", async () => {
+      const { page, uuid } = await openPluginSettings(
+        { [FIRST.id]: known(FIRST, "Left"), [SECOND.id]: known(SECOND, "Key light") },
+        [FIRST, SECOND],
+      );
 
       const after = streamDeck.messages.length;
       await typeName(page, FIRST.serialEnd, " ");
 
-      expect(await nextGlobalSave(uuid, after)).toEqual({ lampNames: { [SECOND.id]: "Key light" } });
+      await expect
+        .poll(() => sentToPlugin(uuid, "rename", after).map((m) => m.payload))
+        .toEqual([{ event: "rename", id: FIRST.id, name: " " }]);
       await clickInPluginSettings(page, "Back");
-      expect((await pickerOf(page)).lamps.map((lamp) => lamp.label)).toEqual([FIRST.label, "Key light"]);
+      await expect
+        .poll(async () => (await pickerOf(page)).lamps.map((lamp) => lamp.label))
+        .toEqual([FIRST.label, "Key light"]);
       await page.close();
     });
 
     it("ask the plugin to blink a lamp on its Identify button", async () => {
-      const { page, uuid } = await openPluginSettings([FIRST, SECOND]);
+      const { page, uuid } = await openPluginSettings({ [FIRST.id]: known(FIRST), [SECOND.id]: known(SECOND) });
 
       await clickInPluginSettings(page, "Identify", SECOND.serialEnd);
       const message = await streamDeck.waitFor(
@@ -1900,26 +1933,52 @@ describe("settings pages", () => {
       await page.close();
     });
 
-    it("ask the plugin again on Find lamps, and list the lamps plugged in since, as the lamp picker does", async () => {
-      const { page, uuid } = await openPluginSettings([FIRST]);
+    it("ask the plugin to forget a lamp on its trash can, and list the lamps it knows then (#194)", async () => {
+      const { page, uuid } = await openPluginSettings({
+        [FIRST.id]: known(FIRST),
+        [SECOND.id]: known(SECOND, "Key light"),
+      });
 
-      streamDeck.lamps = [FIRST, SECOND];
-      await clickInPluginSettings(page, "Find lamps");
+      await clickInPluginSettings(page, "Forget Key light", SECOND.serialEnd);
 
       await expect
+        .poll(() => sentToPlugin(uuid, "forget").map((m) => m.payload))
+        .toEqual([{ event: "forget", id: SECOND.id }]);
+      await expect
         .poll(async () => (await pluginSettingsOf(page)).lamps.map((lamp) => lamp.serialEnd))
-        .toEqual([FIRST.serialEnd, SECOND.serialEnd]);
-      // Once by the lamp picker as the page opened, once as the plugin settings opened, and once on Find lamps.
-      expect(streamDeck.messages.filter((m) => isLampsRequest(m, uuid))).toHaveLength(3);
-      await clickInPluginSettings(page, "Back");
-      expect((await pickerOf(page)).lamps.map((lamp) => lamp.label)).toEqual([FIRST.label, SECOND.label]);
+        .toEqual([FIRST.serialEnd]);
       await page.close();
     });
 
-    it("say so when no lamp is found", async () => {
-      const { page } = await openPluginSettings([]);
+    it("ask the plugin to find the lamps on Find lamps, list the ones it adds, and mark the ones it didn't find", async () => {
+      const { page, uuid } = await openPluginSettings({ [FIRST.id]: known(FIRST) });
 
-      expect(await pluginSettingsOf(page)).toMatchObject({ lamps: [], notes: ["No lamps found"] });
+      streamDeck.lamps = [SECOND];
+      await clickInPluginSettings(page, "Find lamps");
+
+      await expect
+        .poll(async () =>
+          (await pluginSettingsOf(page)).lamps.map(({ serialEnd, identify, missing }) => ({
+            serialEnd,
+            identify,
+            missing,
+          })),
+        )
+        .toEqual([
+          { serialEnd: FIRST.serialEnd, identify: false, missing: true },
+          { serialEnd: SECOND.serialEnd, identify: true, missing: false },
+        ]);
+      expect((await pluginSettingsOf(page)).notes).toEqual(["not found"]);
+      // Once by the lamp picker as the page opened, and once on Find lamps.
+      expect(streamDeck.messages.filter((m) => isLampsRequest(m, uuid))).toHaveLength(2);
+      await page.close();
+    });
+
+    it("say so when the plugin knows no lamp", async () => {
+      const { page } = await openPluginSettings({});
+
+      await expect.poll(async () => (await pluginSettingsOf(page)).notes).toEqual(["No lamps found"]);
+      expect((await pluginSettingsOf(page)).lamps).toEqual([]);
       await page.close();
     });
   });
@@ -1980,6 +2039,11 @@ function clickEveryDialBlink(page: Page): Promise<void> {
 }
 
 /** Whether a message is a page asking the plugin for the lamps. */
+/** A lamp as the plugin knows it, in the global settings (#194), with the name given to it, if any (#146). */
+function known(lamp: ListedLamp, name?: string): KnownLamp {
+  return { model: lamp.model, serialEnd: lamp.serialEnd, ...(name === undefined ? {} : { name }) };
+}
+
 function isLampsRequest(message: { event: string; context?: string; payload?: Record<string, unknown> }, uuid: string) {
   return message.event === "sendToPlugin" && message.context === uuid && message.payload?.event === "lamps";
 }
@@ -2118,6 +2182,10 @@ type PluginSettingsLamp = {
   placeholder: string | null;
   maxLength: string | null;
   identify: boolean;
+  /** The label of the button that forgets the lamp (#194), or null when there's none. */
+  forget: string | null;
+  /** Whether it's greyed out, as a lamp the last Find lamps didn't find. */
+  missing: boolean;
 };
 
 type PluginSettings = {
@@ -2154,7 +2222,7 @@ function pluginSettingsOf(page: Page): Promise<PluginSettings> {
       ),
       buttons: [...container.querySelectorAll("sdpi-button")]
         .filter((button) => button.checkVisibility())
-        .map((button) => button.textContent),
+        .map((button) => button.textContent || button.getAttribute("aria-label")),
       ...(headers.length === 0 ? {} : { headers }),
       lamps: [...container.querySelectorAll("tr.lamp")].map((row) => {
         const [serialEnd, model] = [...row.children].map((td) => td.textContent);
@@ -2165,7 +2233,9 @@ function pluginSettingsOf(page: Page): Promise<PluginSettings> {
           name: name.value ?? "",
           placeholder: name.getAttribute("placeholder"),
           maxLength: name.getAttribute("maxlength"),
-          identify: row.querySelector("sdpi-button")?.textContent === "Identify",
+          identify: [...row.querySelectorAll("sdpi-button")].some((button) => button.textContent === "Identify"),
+          forget: row.querySelector("sdpi-button.forget")?.getAttribute("aria-label") ?? null,
+          missing: row.classList.contains("missing"),
         };
       }),
       notes: [...container.querySelectorAll(".note")].map((note) => note.textContent),
@@ -2174,15 +2244,17 @@ function pluginSettingsOf(page: Page): Promise<PluginSettings> {
 }
 
 /**
- * Clicks a button of the plugin settings by its text, in the row of the lamp whose serial ends in `row` when given, as
- * the user would: on the button inside the component.
+ * Clicks a button of the plugin settings by its text, or its label for one with no text, such as a trash can, in the row
+ * of the lamp whose serial ends in `row` when given, as the user would: on the button inside the component.
  */
 function clickInPluginSettings(page: Page, text: string, row?: string): Promise<void> {
   return page.evaluate(`(async () => {
     const container = document.getElementById("plugin-settings");
     const scope = ${row === undefined ? "container" : `[...container.querySelectorAll("tr.lamp")].find((r) => r.firstElementChild.textContent === ${JSON.stringify(row)})`};
     const host = [...scope.querySelectorAll("sdpi-button")].find(
-      (element) => element.textContent === ${JSON.stringify(text)} && element.checkVisibility(),
+      (element) =>
+        (element.textContent === ${JSON.stringify(text)} || element.getAttribute("aria-label") === ${JSON.stringify(text)}) &&
+        element.checkVisibility(),
     );
     await host.updateComplete;
     host.shadowRoot.querySelector("button").click();

@@ -54,8 +54,8 @@
     0,
   );
 
-  // Names saved by other pages arrive with the global settings.
-  const [readNames] = SDPIComponents.useGlobalSettings("lampNames", (value) => {
+  // The names arrive with the lamps the plugin knows, in the global settings, each time the plugin saves them.
+  const [readNames] = SDPIComponents.useGlobalSettings("lamps", (value) => {
     names = validNames(value);
     renderLamps();
   });
@@ -77,12 +77,14 @@
       }));
   }
 
-  /** The names in the global settings, or none when they aren't a set of names by id. */
+  /** The names of the lamps the plugin knows, by id, from the global settings, or none when they aren't lamps by id. */
   function validNames(value) {
     if (typeof value !== "object" || value === null || Array.isArray(value)) {
       return {};
     }
-    return Object.fromEntries(Object.entries(value).filter(([, name]) => typeof name === "string"));
+    return Object.fromEntries(
+      Object.entries(value).flatMap(([id, lamp]) => (typeof lamp?.name === "string" ? [[id, lamp.name]] : [])),
+    );
   }
 
   /**
@@ -330,14 +332,9 @@
   }
 
   (async () => {
-    // The lamp picker and the plugin settings tell of the lamps they find, and the plugin settings of the names they
-    // change.
+    // The lamp picker and the plugin settings tell of the lamps they find.
     document.addEventListener("litra:lamps", (event) => {
       found = event.detail;
-      renderLamps();
-    });
-    document.addEventListener("litra:lamp-names", (event) => {
-      names = event.detail;
       renderLamps();
     });
     // Told each time the picker draws its lamps, so the same ones draw nothing again.
