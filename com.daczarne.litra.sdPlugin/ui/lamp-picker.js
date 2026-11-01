@@ -20,7 +20,7 @@
   // What the key has saved: "all", or the lamps checked, and the lamps left out.
   let saved = "all";
   let leftOut = [];
-  // Whether the key adds lamps plugged in later, as plugin-settings.js says, which every key does by default.
+  // Whether the key takes in lamps added later, as plugin-settings.js says, which every key does by default.
   let addsNew = true;
   // The lamps the plugin found, or undefined while it's asked.
   let found;

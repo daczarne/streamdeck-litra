@@ -131,6 +131,10 @@ export default {
   },
   settings: {
     getGlobalSettings: async (): Promise<JsonObject> => globalSettings,
+    // Stream Deck passes the plugin's own save on to the settings pages, not back to the plugin.
+    setGlobalSettings: async (settings: JsonObject): Promise<void> => {
+      globalSettings = settings;
+    },
     onDidReceiveGlobalSettings: (listener: (ev: { settings: JsonObject }) => void): { dispose: () => void } => {
       globalSettingsListeners.push(listener);
       return { dispose: () => globalSettingsListeners.splice(globalSettingsListeners.indexOf(listener), 1) };

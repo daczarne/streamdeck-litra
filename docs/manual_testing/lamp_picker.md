@@ -4,16 +4,16 @@
 - [Setup](#setup)
 - [Checks](#checks)
 
-Every key's settings page has a Lamps item, where the key's lamps are picked ([#20]): a checkbox for each lamp the plugin finds, under the name given to it in the plugin settings, or else its model and the end of its serial number ([#146]), and one for every lamp, and under them whether the key takes in lamps plugged in later ([#147]). Finding the lamps again, blinking one and naming them are the plugin settings' (see [`plugin_settings.md`][plugin-settings]). The unit tests check against a fake Stream Deck that each key acts on and shows its own lamps, every lamp but the ones its page left out when it adds new lamps, and the ones checked when it doesn't, and against emulated lamps that the plugin lists them by id, and that a lamp plugged in later joins a key. The browser tests check the page in a headless Chrome, with a fake standing in for Stream Deck and the plugin: what it lists, under which names, what each checkbox saves, the lamps checked and the ones left out, a saved lamp that isn't found, a lamp the key hasn't listed yet, and the key's own and every key's choice of new lamps, and, on a Scene key's page, a lamp one of its groups holds greyed out, with the group that holds it ([#174]). The checks below cover what they take for granted: that Stream Deck carries the page's messages to the plugin and back, draws the picker legibly in its panel, and passes on what it saves, and that the lamps follow.
+Every key's settings page has a Lamps item, where the key's lamps are picked ([#20]): a checkbox for each lamp the plugin finds, under the name given to it in the plugin settings, or else its model and the end of its serial number ([#146]), and one for every lamp, and under them whether the key takes in lamps added later ([#147]). Finding the lamps again, blinking one and naming them are the plugin settings' (see [`plugin_settings.md`][plugin-settings]). The unit tests check against a fake Stream Deck that each key acts on and shows its own lamps, every lamp but the ones its page left out when it adds new lamps, and the ones checked when it doesn't, and against emulated lamps that the plugin lists them by id, and that a lamp added later joins a key. The browser tests check the page in a headless Chrome, with a fake standing in for Stream Deck and the plugin: what it lists, under which names, what each checkbox saves, the lamps checked and the ones left out, a saved lamp that isn't found, a lamp the key hasn't listed yet, and the key's own and every key's choice of new lamps, and, on a Scene key's page, a lamp one of its groups holds greyed out, with the group that holds it ([#174]). The checks below cover what they take for granted: that Stream Deck carries the page's messages to the plugin and back, draws the picker legibly in its panel, and passes on what it saves, and that the lamps follow.
 
 ## When to run these checks
 
-- After a change to the lamp picker (`ui/lamp-picker.js` or `src/actions/lamp-picker.ts`), to how it shows the lamps' names, to how a key reads its lamps, or to how the plugin finds the lamps.
+- After a change to the lamp picker (`ui/lamp-picker.js` or `src/actions/lamp-picker.ts`), to how it shows the lamps' names, to how a key reads its lamps, to how the plugin finds the lamps, or to the lamps it knows ([#194]).
 - After a Stream Deck update, or an update of the vendored sdpi-components.
 
 ## Setup
 
-Plug in two Beams, turned on at different brightness. Place two Power keys and a Brightness Up key on the Deck, and a Brightness dial. Build the branch and restart the plugin:
+Plug in two Beams, turned on at different brightness. Place two Power keys and a Brightness Up key on the Deck, and a Brightness dial. Check 13 needs a lamp the plugin doesn't know yet. Build the branch and restart the plugin:
 
 ```shell
 npm run build
@@ -36,7 +36,7 @@ In VS Code, the `Build and restart` task runs both.
 10. **Dials have no picker.** Select the Brightness dial: its settings page shows its step, and no Lamps item.
 11. **The log tells the page and each press.** `logs/litra.log` has a `Lamp picker` line each time a key's page opens. Each key press names the lamps it acts on: "on every lamp", "on every lamp but 1 lamp" for a key that takes in new lamps and left one out, or "on 1 lamp" for one that doesn't.
 12. **The key's own choice shows.** Select a Power key: under its lamps, set a little apart, "Add new lamps automatically, on this key" is checked. In the plugin settings, under "Keys", "Add new lamps automatically, on every key" is checked. Share a screenshot of the key's page.
-13. **A lamp plugged in later joins.** Unplug the second lamp, and place a new Power key. Its page lists the first lamp alone, checked: uncheck and check it again, so the key saves its lamps. Plug the second lamp in, and press the key: both lamps toggle. Select the key: the second lamp is listed, checked.
+13. **A lamp added later joins.** Place a new Power key, and on its page uncheck and check the first lamp again, so the key saves its lamps. Plug in a lamp the plugin doesn't know yet, and press Find lamps in the plugin settings. Press the key: every lamp toggles, the new one included. Select the key: the new lamp is listed, checked.
 14. **A key that adds no new lamps.** Repeat check 13 with "Add new lamps automatically, on this key" unchecked before plugging the second lamp in: the press toggles the first lamp alone, and the key's page lists the second lamp unchecked. The plugin settings' "Add new lamps automatically, on every key" shows a bar, since the keys differ.
 15. **Every key's choice.** Click "Add new lamps automatically, on every key", showing its bar: it's checked, and the key from check 14 has its own checked again. Press that key: both lamps toggle.
 16. **A lamp left out stays out.** On a key that adds new lamps, uncheck the second lamp. Unplug it, and select the key: it's listed unchecked, with "not found". Plug it back in, and press the key: the first lamp alone toggles.
@@ -45,4 +45,5 @@ In VS Code, the `Build and restart` task runs both.
 [#146]: https://github.com/daczarne/streamdeck-litra/issues/146
 [#147]: https://github.com/daczarne/streamdeck-litra/issues/147
 [#174]: https://github.com/daczarne/streamdeck-litra/issues/174
+[#194]: https://github.com/daczarne/streamdeck-litra/issues/194
 [plugin-settings]: plugin_settings.md

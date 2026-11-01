@@ -38,8 +38,9 @@ export type BroadcastResult = {
 };
 
 /**
- * Which lamps an operation acts on: every lamp connected, the ones with these ids (see {@link lampId}, #20), or every
- * lamp connected but the ones with these ids, which takes in lamps plugged in later (#147).
+ * Which lamps an operation acts on, among the ones the plugin knows (see {@link setKnownLamps}): every one connected, the
+ * ones with these ids (see {@link lampId}, #20), or every one connected but the ones with these ids, which takes in lamps
+ * added later (#147).
  */
 export type LampSelection = "all" | readonly string[] | { readonly except: readonly string[] };
 
@@ -151,6 +152,17 @@ let capReversalEndsAt = 0;
 let brightnessChanges: Promise<unknown> = Promise.resolve();
 
 const lampsChangedListeners: Array<() => void | Promise<void>> = [];
+
+/**
+ * The ids of the lamps the plugin knows, the only ones an operation acts on (#194), or none until the global settings
+ * that hold them are read. Only finding the lamps sees the others.
+ */
+let knownLamps: ReadonlySet<string> = new Set();
+
+/** Sets the lamps the plugin knows, by id, which every operation from then on acts on alone (#194). */
+export function setKnownLamps(ids: Iterable<string>): void {
+  knownLamps = new Set(ids);
+}
 
 /**
  * Registers a listener called after every operation that writes to the lamps, whichever action asked for it, so that
@@ -442,23 +454,30 @@ function selects(lamps: LampSelection, id: string): boolean {
 }
 
 /**
- * Opens the lamps an operation acts on, named in the logs: every connected lamp, the selected ones, or every connected
- * lamp but the left out ones, closing the others. A selected lamp that isn't connected is logged, and so is a selection
- * of none, or every connected lamp left out. Returns none when no lamp is selected or connected, none of the selected
- * ones is, every connected one is left out, or finding them fails.
+ * Opens the lamps an operation acts on, named in the logs: every connected lamp the plugin knows, the selected ones, or
+ * every one but the left out ones, closing the others. A selected lamp that isn't known or connected is logged, and so
+ * is a selection of none, or every lamp left out. Returns none when no lamp is selected or connected, none of the
+ * selected ones is, every one is left out, or finding them fails.
  */
 function openDevices(operation: string, lamps: LampSelection): Device[] {
   return [...openGroups(operation, [{ lamps }]).keys()];
 }
 
+/** Opens every connected lamp, the ones the plugin doesn't know included, to find them. */
+function openEveryDevice(operation: string): Device[] {
+  return [...openGroups(operation, [{ lamps: "all" }], { onlyKnown: false }).keys()];
+}
+
 /**
  * Opens the lamps of several groups, as {@link openDevices} opens one group's, each with the first group that selects
  * it, so a lamp two groups select takes the first one's part. A selection of none is logged only when every group
- * selects none, since a group may lose its lamps to another.
+ * selects none, since a group may lose its lamps to another. A connected lamp the plugin doesn't know is closed unused,
+ * unless `onlyKnown` is false.
  */
 function openGroups<G extends { readonly lamps: LampSelection }>(
   operation: string,
   groups: readonly G[],
+  { onlyKnown = true }: { onlyKnown?: boolean } = {},
 ): Map<Device, G> {
   const opened = new Map<Device, G>();
   if (groups.every(({ lamps }) => Array.isArray(lamps) && lamps.length === 0)) {
@@ -476,16 +495,24 @@ function openGroups<G extends { readonly lamps: LampSelection }>(
     logger.warn(`${operation}: no lamps found`);
     return opened;
   }
+  const known = (id: string): boolean => !onlyKnown || knownLamps.has(id);
+  const connected: string[] = [];
   for (const device of devices) {
     const id = lampId(device.serialNumber);
-    const group = groups.find(({ lamps }) => selects(lamps, id));
+    const group = known(id) ? groups.find(({ lamps }) => selects(lamps, id)) : undefined;
+    if (known(id)) {
+      connected.push(id);
+    }
     if (group === undefined) {
       closeDevice(device);
     } else {
       opened.set(device, group);
     }
   }
-  const connected = devices.map((device) => lampId(device.serialNumber));
+  if (connected.length === 0) {
+    logger.warn(`${operation}: none of the lamps connected is one of the plugin's lamps`);
+    return opened;
+  }
   for (const { lamps } of groups) {
     if (lamps === "all") {
       continue;
@@ -497,7 +524,9 @@ function openGroups<G extends { readonly lamps: LampSelection }>(
       continue;
     }
     for (const id of lamps) {
-      if (!connected.includes(id)) {
+      if (!known(id)) {
+        logger.warn(`${operation}: lamp ${id} isn't one of the plugin's lamps`);
+      } else if (!connected.includes(id)) {
         logger.warn(`${operation}: lamp ${id} not connected`);
       }
     }
@@ -980,7 +1009,7 @@ export async function readLampsBrightness(lamps: LampSelection): Promise<Broadca
 }
 
 /**
- * Reads every lamp for the lamp screens, sorted by serial number, since findDevices lists them in no fixed order. A
+ * Reads every lamp the plugin knows for the lamp screens, sorted by serial number, since findDevices lists them in no fixed order. A
  * lamp that can't be read is left out. Waits for the brightness change in progress, if any, which holds the lamps open
  * until it has read them back.
  */
@@ -1017,13 +1046,13 @@ export async function readLampStatuses(): Promise<{ ok: boolean; lamps: LampStat
 }
 
 /**
- * Lists the connected lamps for the settings pages, sorted by serial number as the lamp screens are (#20), with what the
- * keys' lamp pickers and the plugin settings show of each (#146). Finding a
- * lamp tells its model and serial, so none is read, and none of the brightness changes has to be waited for. Lists none
- * when finding them fails.
+ * Lists the connected lamps, the ones the plugin doesn't know included, which it adds to the ones it knows (#194),
+ * sorted by serial number as the lamp screens are (#20), with what the keys' lamp pickers and the plugin settings show
+ * of each (#146). Finding a lamp tells its model and serial, so none is read, and none of the brightness changes has to
+ * be waited for. Lists none when finding them fails.
  */
 export function findLamps(): FoundLamp[] {
-  const devices = openDevices("find lamps", "all");
+  const devices = openEveryDevice("find lamps");
   try {
     return [...devices]
       .sort((a, b) => bySerialNumber(a.serialNumber, b.serialNumber))

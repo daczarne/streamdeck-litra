@@ -32,10 +32,12 @@ vi.mock("../logging", () => import("../test-support/fake-logging"));
 vi.mock("../litra-manager", () => ({
   adjustLampsTemperature: vi.fn(),
   createDialDebouncer: vi.fn(),
+  findLamps: vi.fn(() => []),
   identifyLamp: vi.fn(),
   onLampsChanged: vi.fn(),
   readLampStatuses: vi.fn(),
   readLampsTemperature: vi.fn(),
+  setKnownLamps: vi.fn(),
   setLampsTemperature: vi.fn(),
   toggleLamps: vi.fn(),
 }));

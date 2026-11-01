@@ -4,7 +4,7 @@
 // `lampNames`, by lamp id, and the keys' lamp pickers show them (lamp-picker.js, which this tells of every name changed
 // and every lamp found, through events on the document). Under the lamps come the global settings that every dial and
 // key shares, such as whether each lamp steps from its own value (#145), how long a blink lasts (#171), whether keys
-// take in lamps plugged in later (#147), which a key's own page can choose for that key alone, and tells its lamp
+// take in lamps added later (#147), which a key's own page can choose for that key alone, and tells its lamp
 // picker, the lamp screens' blink (#144), which a dial's own page can turn on or off for that dial alone, and what each
 // cell of the lamp screens shows, with a Configure button that shows the cell's options in place of the plugin settings
 // (#177). A file rather
@@ -751,7 +751,7 @@
   }
 
   //* Choices every dial or every key shares, which one dial or one key can make otherwise on its own page: the lamp
-  // screens' blink (#144), and whether a key adds lamps plugged in later (#147). Each is a global setting, and the ids of
+  // screens' blink (#144), and whether a key takes in lamps added later (#147). Each is a global setting, and the ids of
   // the dials or keys that chose otherwise. The plugin settings show every one's at once, indeterminate when they differ,
   // and a click there gives every one the same again, even the ones not on screen. A dial's or key's page shows its own,
   // in the element the page has for it.

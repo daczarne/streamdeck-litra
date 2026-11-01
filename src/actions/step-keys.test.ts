@@ -28,9 +28,11 @@ vi.mock("../litra-manager", () => ({
   adjustLampsBrightness: vi.fn(),
   adjustLampsTemperature: vi.fn(),
   createDialDebouncer: vi.fn(),
+  findLamps: vi.fn(() => []),
   onLampsChanged: vi.fn(),
   readLampsBrightness: vi.fn(),
   readLampsTemperature: vi.fn(),
+  setKnownLamps: vi.fn(),
 }));
 
 const BRIGHTNESS_UP = "com.daczarne.litra.brightness-up";
