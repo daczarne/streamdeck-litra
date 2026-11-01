@@ -8,7 +8,7 @@ Download `com.daczarne.litra.streamDeckPlugin` below and open it: Stream Deck in
 
 - The plugin is developed and checked on macOS, with Litra Beams, run from its repository rather than installed from a release.
 - It should work on Windows, and with the Beam LX and Glow front lights, but it isn't checked there. The Beam LX back light isn't supported.
-- If something doesn't work, an issue with the plugin's log helps: the README says where the logs are. They hold your lamps' serial numbers, so replace those before posting.
+- If something doesn't work, an issue with the plugin's log helps: the user guide, `docs/user_guide.md` in the repository, says where the logs are. They hold your lamps' serial numbers, so replace those before posting.
 
 ## Verifying the download
 

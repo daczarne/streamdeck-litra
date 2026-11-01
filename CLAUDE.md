@@ -20,6 +20,7 @@ The plugin isn't on Elgato's Marketplace: `docs/releases.md` describes how a rel
 
 ## Read before changing things
 
+- `docs/user_guide.md`: how the plugin is used, action by action, for its users. A change to what the Deck shows or does, or to a setting, updates it.
 - `docs/contributing.md`: how work is done here. Changes go through pull requests, features come with their tests, dependencies are pinned, unused code is removed, a new setting goes in the plugin settings' section of what it reaches, and a text on the lamp screens takes the text style of its role. This file only adds what is specific to Claude.
 - `docs/style_guide.md`: the conventions the linters don't enforce (see [Style](#style)).
 - `docs/elgato_sdk/`: what the Stream Deck SDK offers and what it doesn't (how actions are registered, the interactions a dial receives, its layouts, how Stream Deck loads the settings pages, its logger, what a key shows), checked against the installed version. Read it before designing how an action behaves on the Deck, and add to it when a change finds out something new about the SDK.
