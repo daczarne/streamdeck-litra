@@ -2038,12 +2038,12 @@ function clickEveryDialBlink(page: Page): Promise<void> {
   return page.evaluate(`${triState("Blink each lamp")}.click()`);
 }
 
-/** Whether a message is a page asking the plugin for the lamps. */
 /** A lamp as the plugin knows it, in the global settings (#194), with the name given to it, if any (#146). */
 function known(lamp: ListedLamp, name?: string): KnownLamp {
   return { model: lamp.model, serialEnd: lamp.serialEnd, ...(name === undefined ? {} : { name }) };
 }
 
+/** Whether a message is a page asking the plugin for the lamps. */
 function isLampsRequest(message: { event: string; context?: string; payload?: Record<string, unknown> }, uuid: string) {
   return message.event === "sendToPlugin" && message.context === uuid && message.payload?.event === "lamps";
 }
