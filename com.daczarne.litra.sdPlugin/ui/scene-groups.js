@@ -1,16 +1,17 @@
-// The groups of a scene (#174), each of which turns its lamps off, or on at its own brightness and temperature. The
-// first group is the page's own controls, which save the key's settings as a scene with a single group saves them, and
-// whose presets this hides while its power is off. The groups added after it are drawn here, under a heading each, and
-// saved as `addedGroups`: each with its power, its presets, and the ids of the lamps checked for it, among the lamps
-// the plugin knows (#194), keeping the ones it no longer knows, such as one forgotten. No two groups hold the same
-// lamp: a lamp another group holds, the first included, is greyed out, and says which group holds it, here and in the
-// first group's lamp picker (lamp-picker.js), which tells this of the lamps the first group holds, as this tells it of
-// the ones the others do, through events on the document. A lamp that a group added after the first checks leaves the
-// first, as the plugin takes it. The lamps, with their names, come from the plugin's global settings, where the plugin
-// saves them. Only adding or removing a group, or groups that arrive changed, draw the groups again: a change to a
-// group saves it in place, and a lamp checked or unchecked draws the lamp lists alone, since a page drawn again scrolls
-// while its new controls are drawn. A file rather than an inline script, so the pages' Content-Security-Policy doesn't
-// have to allow inline scripts.
+// The groups of a scene (#174), each of which turns its lamps off, or on at its own brightness and temperature, on one
+// row: a switch for its power, and number fields for its presets. The first group is the page's own controls, which
+// save the key's settings as a scene with a single group saves them, and whose presets this greys out while its power
+// is off. The groups added after it are drawn here, under a heading each, and saved as `addedGroups`: each with its
+// power, its presets, and the ids of the lamps checked for it, among the lamps the plugin knows (#194), keeping the
+// ones it no longer knows, such as one forgotten. No two groups hold the same lamp: a lamp another group holds, the
+// first included, is greyed out, and says which group holds it, here and in the first group's lamp picker
+// (lamp-picker.js), which tells this of the lamps the first group holds, as this tells it of the ones the others do,
+// through events on the document. A lamp that a group added after the first checks leaves the first, as the plugin
+// takes it. The lamps, with their names, come from the plugin's global settings, where the plugin saves them. Only
+// adding or removing a group, or groups that arrive changed, draw the groups again: a change to a group saves it in
+// place, and a lamp checked or unchecked draws the lamp lists alone, since a page drawn again scrolls while its new
+// controls are drawn. A file rather than an inline script, so the pages' Content-Security-Policy doesn't have to allow
+// inline scripts.
 (() => {
   const container = document.getElementById("added-groups");
   if (container === null) {
@@ -29,12 +30,12 @@
   // The ids of the lamps the first group holds, as its lamp picker shows them.
   let firstGroupLamps = [];
 
-  // The first group's presets, which don't apply while it turns its lamps off.
+  // The first group's presets, greyed out while it turns its lamps off, since they don't apply.
   const power = document.getElementById("power");
   const firstPresets = document.querySelectorAll(".first-group-preset");
   const showFirstPresets = () => {
     for (const preset of firstPresets) {
-      preset.hidden = (power.value ?? "on") === "off";
+      preset.disabled = power.value === "off";
     }
   };
   power.addEventListener("valuechange", showFirstPresets);
@@ -154,17 +155,11 @@
    * A control from sdpi-components that saves nothing itself, showing `value`, which calls `onChange` with a new value.
    * Its listener is added after the value is set, so only the user's changes reach it.
    */
-  function control(tag, value, onChange, { label, options, disabled = false } = {}) {
+  function control(tag, value, onChange, { label, disabled = false } = {}) {
     const element = document.createElement(tag);
     element.disabled = disabled;
     if (label !== undefined) {
       element.setAttribute("label", label);
-    }
-    for (const [optionValue, text] of options ?? []) {
-      const option = document.createElement("option");
-      option.value = optionValue;
-      option.textContent = text;
-      element.append(option);
     }
     element.value = value;
     element.addEventListener("valuechange", () => onChange(element.value));
@@ -261,21 +256,30 @@
       save();
     };
     const presets = [
-      item(
-        "Brightness",
-        numberField(group.presetPercentage, { min: 0, max: 100, step: 1, unit: "%" }, change("presetPercentage")),
-      ),
-      item(
-        "Temperature",
-        numberField(group.presetKelvin, { min: 2700, max: 6500, step: 100, unit: "K" }, change("presetKelvin")),
-      ),
+      numberField(group.presetKelvin, { min: 2700, max: 6500, step: 100, unit: "K" }, change("presetKelvin")),
+      numberField(group.presetPercentage, { min: 0, max: 100, step: 1, unit: "%" }, change("presetPercentage")),
     ];
     const showPresets = () => {
       for (const preset of presets) {
-        preset.hidden = group.power === "off";
+        preset.disabled = group.power === "off";
       }
     };
     showPresets();
+    const power = document.createElement("litra-switch");
+    power.value = group.power;
+    power.addEventListener("valuechange", () => {
+      change("power")(power.value);
+      showPresets();
+    });
+    // The group's power and presets on one row, under their labels, as the first group's.
+    const row = document.createElement("div");
+    row.className = "scene-row";
+    for (const label of ["Power", "Temperature", "Brightness"]) {
+      const element = document.createElement("span");
+      element.textContent = label;
+      row.append(element);
+    }
+    row.append(power, ...presets);
     const list = document.createElement("div");
     list.className = "group-lamps";
     list.append(...lampRows(group, number));
@@ -284,24 +288,7 @@
     view.className = "group";
     view.append(
       heading,
-      item(
-        "Power",
-        control(
-          "sdpi-select",
-          group.power,
-          (value) => {
-            change("power")(value);
-            showPresets();
-          },
-          {
-            options: [
-              ["on", "On"],
-              ["off", "Off"],
-            ],
-          },
-        ),
-      ),
-      ...presets,
+      row,
       item("Lamps", list),
       item(
         undefined,

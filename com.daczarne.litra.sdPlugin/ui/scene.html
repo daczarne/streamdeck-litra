@@ -18,7 +18,30 @@
     />
     <script src="vendor/sdpi-components.js"></script>
     <script src="number-field.js"></script>
+    <script src="power-switch.js"></script>
     <style>
+      /* A group's power and presets on one row, under their labels, so a group takes a row rather than three. It ends
+        where sdpi-components' rows do, 336 px in, their label column (95 px) and their content (241 px), which keep that
+        width whatever the panel's, so Brightness's + lines up with the buttons' right edge. The controls are drawn from
+        there to the left, 8 px apart, which puts the switch over the labels' column. Its fields are narrower than
+        elsewhere, so the three fit. */
+      .scene-row {
+        width: 336px;
+        max-width: 100%;
+        display: grid;
+        grid-template-columns: repeat(3, auto);
+        justify-content: end;
+        column-gap: 8px;
+        row-gap: 4px;
+        align-items: center;
+        justify-items: center;
+        margin: 8px 0;
+        color: #969696;
+        font-family: "Segoe UI", Arial, Roboto, Helvetica, sans-serif;
+        font-size: 9pt;
+        --number-field-width: 60px;
+      }
+
       /* The groups' headings, as the plugin settings draw their sections. Outside sdpi-components' rows, so in its font
         and text color, written out. */
       .group-heading {
@@ -54,21 +77,33 @@
       (#146). -->
     <div id="plugin-settings"></div>
     <!-- The scene's first group, the key's own settings (#174): whether it turns its lamps on or off, and the presets it
-      turns them on at, the same as the Brightness and Temperature keys', which scene-groups.js hides while it turns
-      them off. Its heading shows only once a group is added. -->
+      turns them on at, the same as the Temperature and Brightness keys', which scene-groups.js greys out while it turns
+      them off, on one row. Its heading shows only once a group is added. -->
     <h2 id="first-group-heading" class="group-heading" hidden>Group 1</h2>
-    <sdpi-item label="Power">
-      <sdpi-select id="power" setting="power" default="on">
-        <option value="on">On</option>
-        <option value="off">Off</option>
-      </sdpi-select>
-    </sdpi-item>
-    <sdpi-item label="Brightness" class="first-group-preset">
-      <litra-number setting="presetPercentage" min="0" max="100" step="1" default="0" unit="%"></litra-number>
-    </sdpi-item>
-    <sdpi-item label="Temperature" class="first-group-preset">
-      <litra-number setting="presetKelvin" min="2700" max="6500" step="100" default="2700" unit="K"></litra-number>
-    </sdpi-item>
+    <div class="scene-row">
+      <span>Power</span>
+      <span>Temperature</span>
+      <span>Brightness</span>
+      <litra-switch id="power" setting="power" default="on"></litra-switch>
+      <litra-number
+        class="first-group-preset"
+        setting="presetKelvin"
+        min="2700"
+        max="6500"
+        step="100"
+        default="2700"
+        unit="K"
+      ></litra-number>
+      <litra-number
+        class="first-group-preset"
+        setting="presetPercentage"
+        min="0"
+        max="100"
+        step="1"
+        default="0"
+        unit="%"
+      ></litra-number>
+    </div>
     <!-- The lamps the key acts on, which lamp-picker.js lists and saves (#20), and whether lamps added later
       join them, which plugin-settings.js shows and saves (#147). -->
     <sdpi-item label="Lamps">

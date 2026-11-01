@@ -80,11 +80,11 @@ const PANELS: Panel[] = [
   {
     page: "ui/scene.html",
     controller: "Keypad",
-    settings: ["power", "presetPercentage", "presetKelvin"],
+    settings: ["power", "presetKelvin", "presetPercentage"],
     change: { setting: "presetKelvin", value: "5000", saved: 5000 },
     numbers: [
-      { setting: "presetPercentage", unit: "%", value: "40" },
       { setting: "presetKelvin", unit: "K", value: "5000" },
+      { setting: "presetPercentage", unit: "%", value: "40" },
     ],
   },
   {
@@ -301,7 +301,7 @@ function controlOf(page: Page, setting: string): Promise<Control> {
   })()`);
 }
 
-/** A value as a control saves it: a number field as a number, a select as its option's text. */
+/** A value as a control saves it: a number field as a number, a select as its option's text, a switch as on or off. */
 function saved(control: Control, value: string): JsonValue {
   return control.tag === "litra-number" ? Number(value) : value;
 }
@@ -315,12 +315,18 @@ function shownValue(page: Page, setting: string): Promise<string> {
 }
 
 /**
- * Sets a control to `value`, as the user would: a list's choice, or a value typed into a number field and taken with
- * Enter (#195).
+ * Sets a control to `value`, as the user would: a list's choice, a value typed into a number field and taken with
+ * Enter (#195), or a switch clicked to the other side, if it isn't there yet.
  */
 function setControl(page: Page, selector: string, value: string): Promise<void> {
   return page.evaluate(`(async () => {
     const host = ${selector};
+    if (host.localName === "litra-switch") {
+      if (host.value !== ${JSON.stringify(value)}) {
+        host.querySelector("button").click();
+      }
+      return;
+    }
     if (host.localName === "litra-number") {
       const input = host.querySelector("input");
       input.focus();
@@ -442,11 +448,14 @@ describe("settings pages", () => {
       await page.close();
 
       const offered =
-        control.tag === "litra-number"
-          ? Array.from({ length: (Number(control.max) - Number(control.min)) / Number(control.step) + 1 }, (_, index) =>
-              String(Number(control.min) + index * Number(control.step)),
-            )
-          : control.options;
+        control.tag === "litra-switch"
+          ? ["on", "off"]
+          : control.tag === "litra-number"
+            ? Array.from(
+                { length: (Number(control.max) - Number(control.min)) / Number(control.step) + 1 },
+                (_, index) => String(Number(control.min) + index * Number(control.step)),
+              )
+            : control.options;
       expect(offered.length).toBeGreaterThan(0);
       for (const value of offered) {
         expect(read(setting, saved(control, value)), `${setting} set to ${value}`).toMatchObject({ valid: true });
@@ -1487,11 +1496,12 @@ describe("settings pages", () => {
     it.each([
       ["on", true],
       ["off", false],
-    ])("shows the first group's presets only while it turns its lamps on (%s)", async (power, shown) => {
+    ])("lets the first group's presets be changed only while it turns its lamps on (%s)", async (power, usable) => {
       const { page } = await openScene({ power });
 
-      await expect.poll(async () => (await groupsOf(page)).firstPresets).toBe(shown);
-      expect(await visibleSettings(page)).toEqual(shown ? ["power", "presetPercentage", "presetKelvin"] : ["power"]);
+      await expect.poll(async () => (await groupsOf(page)).firstPresets).toBe(usable);
+      // Greyed out rather than hidden, so the row keeps its shape.
+      expect(await visibleSettings(page)).toEqual(["power", "presetKelvin", "presetPercentage"]);
       await page.close();
     });
 
@@ -1515,7 +1525,7 @@ describe("settings pages", () => {
       await page.close();
     });
 
-    it("shows a saved group's power and lamps, and hides its presets while it turns its lamps off", async () => {
+    it("shows a saved group's power and lamps, and greys out its presets while it turns its lamps off", async () => {
       const { page } = await openScene({
         ...FIRST_HOLDS_NONE,
         addedGroups: [{ power: "off", presetPercentage: 40, presetKelvin: 5000, lamps: [savedLamp(SECOND)] }],
@@ -1548,7 +1558,9 @@ describe("settings pages", () => {
       expect(await nextGroups(uuid, after)).toEqual([{ ...NEW_GROUP, power: "off" }]);
       await expect.poll(async () => at((await groupsOf(page)).groups, 0).presets).toBe(false);
 
+      after = streamDeck.messages.length;
       await setGroupControl(page, 2, "Power", "on");
+      await nextGroups(uuid, after);
       after = streamDeck.messages.length;
       await setGroupControl(page, 2, "Brightness", "40");
       await nextGroups(uuid, after);
@@ -2185,7 +2197,7 @@ function pickerRowsOf(page: Page): Promise<ListedLampRow[]> {
 type SceneGroupView = {
   heading: string | null;
   power: string;
-  /** Whether its Brightness and Temperature show. */
+  /** Whether its Temperature and Brightness can be changed, rather than greyed out. */
   presets: boolean;
   brightness: string;
   temperature: string;
@@ -2202,19 +2214,20 @@ function groupsOf(
 ): Promise<{ firstHeading: boolean; firstPresets: boolean; groups: SceneGroupView[]; add: boolean }> {
   return page.evaluate(`(() => {
     const rows = ${LAMP_ROWS};
-    const itemOf = (group, label) => group.querySelector('sdpi-item[label="' + label + '"]');
+    // Whether any of these number fields can be changed, by its buttons or by typing.
+    const usable = (fields) => fields.some((field) => [...field.querySelectorAll("input, button")].some((c) => !c.disabled));
     const groups = [...document.querySelectorAll("#added-groups .group")].map((group) => ({
       heading: group.querySelector(".group-heading").textContent,
-      power: itemOf(group, "Power").querySelector("sdpi-select").value,
-      presets: !itemOf(group, "Brightness").hidden && !itemOf(group, "Temperature").hidden,
-      brightness: (${NUMBER_SHOWN})(itemOf(group, "Brightness").querySelector("litra-number")),
-      temperature: (${NUMBER_SHOWN})(itemOf(group, "Temperature").querySelector("litra-number")),
+      power: group.querySelector(".scene-row litra-switch").value,
+      presets: usable([...group.querySelectorAll(".scene-row litra-number")]),
+      brightness: (${NUMBER_SHOWN})(group.querySelector('.scene-row litra-number[unit="%"]')),
+      temperature: (${NUMBER_SHOWN})(group.querySelector('.scene-row litra-number[unit="K"]')),
       lamps: rows(group),
       remove: group.querySelector("sdpi-button")?.textContent ?? null,
     }));
     return {
       firstHeading: !document.getElementById("first-group-heading").hidden,
-      firstPresets: [...document.querySelectorAll(".first-group-preset")].every((preset) => !preset.hidden),
+      firstPresets: usable([...document.querySelectorAll(".first-group-preset")]),
       groups,
       add: [...document.querySelectorAll("#added-groups > sdpi-item sdpi-button")].some(
         (button) => button.textContent === "Add a group"),
@@ -2243,15 +2256,21 @@ function clickInGroups(page: Page, text: string, group?: number): Promise<void> 
   })()`);
 }
 
-/** Sets the control of a group's row, by its label, to `value`, as the user would: a list's choice, a typed number. */
-function setGroupControl(page: Page, group: number, label: string, value: string): Promise<void> {
+/** Sets the control of a group's row, by its label, to `value`, as the user would: the switch, or a typed number. */
+function setGroupControl(
+  page: Page,
+  group: number,
+  label: "Power" | "Temperature" | "Brightness",
+  value: string,
+): Promise<void> {
   const view = `[...document.querySelectorAll("#added-groups .group")].find((candidate) =>
     candidate.querySelector(".group-heading").textContent === "Group ${group}")`;
-  return setControl(
-    page,
-    `${view}.querySelector('sdpi-item[label="${label}"]').querySelector("sdpi-select, litra-number")`,
-    value,
-  );
+  const control = {
+    Power: "litra-switch",
+    Temperature: 'litra-number[unit="K"]',
+    Brightness: 'litra-number[unit="%"]',
+  }[label];
+  return setControl(page, `${view}.querySelector('.scene-row ${control}')`, value);
 }
 
 /** Clicks a checkbox of the lamp picker by its label, as the user would: on the input inside the component. */
