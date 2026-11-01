@@ -34,6 +34,34 @@
         text-align: right;
         font-variant-numeric: tabular-nums;
       }
+
+      /* The groups' headings, as the plugin settings draw their sections. Outside sdpi-components' rows, so in its font
+        and text color, written out. */
+      .group-heading {
+        border-bottom: 1px solid #666;
+        color: #d8d8d8;
+        font-family: "Segoe UI", Arial, Roboto, Helvetica, sans-serif;
+        font-size: 11pt;
+        font-weight: 600;
+        margin: 16px 0 8px;
+        padding-bottom: 4px;
+      }
+
+      /* The lamps of a group added after the first, drawn as the lamp picker draws the first group's. */
+      #added-groups .lamp {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+
+      #added-groups .note {
+        color: #969696;
+        font-family: "Segoe UI", Arial, Roboto, Helvetica, sans-serif;
+        font-size: 9pt;
+        margin: 0;
+        padding: 4px 0;
+      }
     </style>
   </head>
 
@@ -41,8 +69,17 @@
     <!-- The plugin's own settings, the same on every page, which plugin-settings.js shows in place of the action's
       (#146). -->
     <div id="plugin-settings"></div>
-    <!-- The scene a press sets every lamp to, on: the same presets as the Brightness and Temperature keys. -->
-    <sdpi-item label="Brightness">
+    <!-- The scene's first group, the key's own settings (#174): whether it turns its lamps on or off, and the presets it
+      turns them on at, the same as the Brightness and Temperature keys', which scene-groups.js hides while it turns
+      them off. Its heading shows only once a group is added. -->
+    <h2 id="first-group-heading" class="group-heading" hidden>Group 1</h2>
+    <sdpi-item label="Power">
+      <sdpi-select id="power" setting="power" default="on">
+        <option value="on">On</option>
+        <option value="off">Off</option>
+      </sdpi-select>
+    </sdpi-item>
+    <sdpi-item label="Brightness" class="first-group-preset">
       <div class="range">
         <sdpi-range
           id="preset-percentage"
@@ -55,7 +92,7 @@
         <output for="preset-percentage" data-suffix="%"></output>
       </div>
     </sdpi-item>
-    <sdpi-item label="Temperature">
+    <sdpi-item label="Temperature" class="first-group-preset">
       <div class="range">
         <sdpi-range
           id="preset-kelvin"
@@ -74,8 +111,11 @@
       <div id="lamp-picker"></div>
       <div id="key-new-lamps"></div>
     </sdpi-item>
+    <!-- The groups added after the first, and the button that adds one, which scene-groups.js draws and saves. -->
+    <div id="added-groups"></div>
     <script src="range-value.js"></script>
     <script src="lamp-picker.js"></script>
+    <script src="scene-groups.js"></script>
     <script src="plugin-settings.js"></script>
   </body>
 

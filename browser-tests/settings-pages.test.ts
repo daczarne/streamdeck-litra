@@ -13,6 +13,7 @@ import {
   lampSettings,
   parseSettings,
   powerSettings,
+  sceneGroupSettings,
   sceneSettings,
   temperatureSettings,
 } from "../src/actions/settings";
@@ -78,7 +79,7 @@ const PANELS: Panel[] = [
   {
     page: "ui/scene.html",
     controller: "Keypad",
-    settings: ["presetPercentage", "presetKelvin"],
+    settings: ["power", "presetPercentage", "presetKelvin"],
     change: { setting: "presetKelvin", value: "5000", saved: 5000 },
     sliders: [
       { setting: "presetPercentage", suffix: "%", value: "40" },
@@ -1340,6 +1341,279 @@ describe("settings pages", () => {
     });
   });
 
+  describe("the scene's groups (#174)", () => {
+    const SCENE = PANELS.find((panel) => panel.page === "ui/scene.html") as Panel;
+    const NEW_GROUP = { power: "on", presetPercentage: 0, presetKelvin: 2700, lamps: [] };
+    // A first group that holds none of the lamps, which leaves them free for the groups added after it.
+    const FIRST_HOLDS_NONE = { lamps: [], leftOutLamps: [savedLamp(FIRST), savedLamp(SECOND)] };
+
+    afterEach(() => {
+      streamDeck.lamps = [];
+      streamDeck.globalSettings = {};
+    });
+
+    /** Opens the Scene key's page with the lamps the plugin finds and the key's saved settings, once it lists them. */
+    async function openScene(settings: Record<string, unknown> = {}) {
+      streamDeck.lamps = [FIRST, SECOND];
+      const opened = await openPanel(SCENE, settings);
+      await expect.poll(() => pickerOf(opened.page)).toMatchObject({ all: expect.any(Boolean) });
+      await opened.page.evaluate(`SDPIComponents.useSettings("addedGroups")[0]()`);
+      return opened;
+    }
+
+    /** The groups the page saves next, once a change is made after `after`. */
+    async function nextGroups(uuid: string, after: number) {
+      const saves = () =>
+        streamDeck.messages.filter(
+          (m) =>
+            m.event === "setSettings" &&
+            m.context === uuid &&
+            streamDeck.messages.indexOf(m) >= after &&
+            m.payload?.addedGroups !== undefined,
+        );
+      await expect.poll(() => saves().length).toBeGreaterThanOrEqual(1);
+      return at(saves(), -1).payload?.addedGroups as Record<string, unknown>[];
+    }
+
+    /** Reads a group as the plugin reads it, and whether every one of its settings was valid. */
+    function readGroup(group: Record<string, unknown>) {
+      const warn = vi.fn();
+      return {
+        value: parseSettings(group as never, sceneGroupSettings, { warn }),
+        valid: warn.mock.calls.length === 0,
+      };
+    }
+
+    it("shows the first group alone, without a heading, and a button that adds a group, for a key with none added", async () => {
+      const { page } = await openScene();
+
+      expect(await groupsOf(page)).toEqual({ firstHeading: false, firstPresets: true, groups: [], add: true });
+      expect(read("addedGroups", [])).toEqual({ value: defaultOf("addedGroups"), valid: true });
+      await page.close();
+    });
+
+    it.each([
+      ["on", true],
+      ["off", false],
+    ])("shows the first group's presets only while it turns its lamps on (%s)", async (power, shown) => {
+      const { page } = await openScene({ power });
+
+      await expect.poll(async () => (await groupsOf(page)).firstPresets).toBe(shown);
+      expect(await visibleSettings(page)).toEqual(shown ? ["power", "presetPercentage", "presetKelvin"] : ["power"]);
+      await page.close();
+    });
+
+    it("adds a group, on at settings.ts's defaults with no lamps, saves it, and numbers it after the first", async () => {
+      const { page, uuid } = await openScene();
+
+      const after = streamDeck.messages.length;
+      await clickInGroups(page, "Add a group");
+      const saved = await nextGroups(uuid, after);
+
+      expect(saved).toEqual([NEW_GROUP]);
+      expect(readGroup(at(saved, 0))).toEqual({
+        value: { power: "on", presetPercentage: 0, presetKelvin: 2700, lamps: [] },
+        valid: true,
+      });
+      expect(Object.values(sceneGroupSettings).map((setting) => setting.default)).toEqual(["on", 0, 2700, []]);
+      expect(await groupsOf(page)).toMatchObject({
+        firstHeading: true,
+        groups: [{ heading: "Group 2", power: "on", presets: true, remove: "Remove group 2" }],
+      });
+      await page.close();
+    });
+
+    it("shows a saved group's power and lamps, and hides its presets while it turns its lamps off", async () => {
+      const { page } = await openScene({
+        ...FIRST_HOLDS_NONE,
+        addedGroups: [{ power: "off", presetPercentage: 40, presetKelvin: 5000, lamps: [savedLamp(SECOND)] }],
+      });
+
+      await expect
+        .poll(async () => (await groupsOf(page)).groups)
+        .toEqual([
+          {
+            heading: "Group 2",
+            power: "off",
+            presets: false,
+            brightness: "40%",
+            temperature: "5000 K",
+            lamps: [
+              { label: FIRST.label, checked: false, disabled: false, note: null },
+              { label: SECOND.label, checked: true, disabled: false, note: null },
+            ],
+            remove: "Remove group 2",
+          },
+        ]);
+      await page.close();
+    });
+
+    it("saves a group's power and presets as settings.ts takes them", async () => {
+      const { page, uuid } = await openScene({ addedGroups: [NEW_GROUP] });
+
+      let after = streamDeck.messages.length;
+      await setGroupControl(page, 2, "Power", "off");
+      expect(await nextGroups(uuid, after)).toEqual([{ ...NEW_GROUP, power: "off" }]);
+      await expect.poll(async () => at((await groupsOf(page)).groups, 0).presets).toBe(false);
+
+      await setGroupControl(page, 2, "Power", "on");
+      after = streamDeck.messages.length;
+      await setGroupControl(page, 2, "Brightness", "40");
+      await nextGroups(uuid, after);
+      after = streamDeck.messages.length;
+      await setGroupControl(page, 2, "Temperature", "5000");
+      const saved = await nextGroups(uuid, after);
+
+      expect(saved).toEqual([{ ...NEW_GROUP, presetPercentage: 40, presetKelvin: 5000 }]);
+      expect(readGroup(at(saved, 0))).toMatchObject({ valid: true });
+      expect(await groupsOf(page)).toMatchObject({ groups: [{ brightness: "40%", temperature: "5000 K" }] });
+      await page.close();
+    });
+
+    it("keeps a group's controls in place when one changes, so the page doesn't scroll as new ones are drawn", async () => {
+      const { page, uuid } = await openScene({ ...FIRST_HOLDS_NONE, addedGroups: [NEW_GROUP] });
+      await page.evaluate(`document.querySelector("#added-groups .group sdpi-range").dataset.kept = "yes"`);
+
+      for (const [label, value] of [
+        ["Brightness", "40"],
+        ["Power", "off"],
+      ] as const) {
+        const after = streamDeck.messages.length;
+        await setGroupControl(page, 2, label, value);
+        await nextGroups(uuid, after);
+      }
+      const after = streamDeck.messages.length;
+      await clickInGroups(page, FIRST.label, 2);
+      await nextGroups(uuid, after);
+      // Long enough for the saved groups to come back from Stream Deck, which mustn't draw them again either.
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      expect(await page.evaluate(`document.querySelector("#added-groups .group sdpi-range").dataset.kept`)).toBe("yes");
+      await page.close();
+    });
+
+    it("saves a lamp checked in a group, and greys it out in the first group's lamp picker, with its group", async () => {
+      const { page, uuid } = await openScene({ ...FIRST_HOLDS_NONE, addedGroups: [NEW_GROUP] });
+
+      const after = streamDeck.messages.length;
+      await clickInGroups(page, FIRST.label, 2);
+      const saved = await nextGroups(uuid, after);
+
+      expect(saved).toEqual([{ ...NEW_GROUP, lamps: [savedLamp(FIRST)] }]);
+      expect(readGroup(at(saved, 0)).value.lamps).toEqual([FIRST.id]);
+      await expect
+        .poll(() => pickerRowsOf(page))
+        .toEqual([
+          { label: FIRST.label, checked: false, disabled: true, note: "in group 2" },
+          { label: SECOND.label, checked: false, disabled: false, note: null },
+        ]);
+      await page.close();
+    });
+
+    it("greys out the first group's lamps in the groups added after it, and frees one once it's unchecked there", async () => {
+      const { page } = await openScene({ lamps: [savedLamp(FIRST), savedLamp(SECOND)], addedGroups: [NEW_GROUP] });
+
+      await expect
+        .poll(async () => at((await groupsOf(page)).groups, 0).lamps)
+        .toEqual([
+          { label: FIRST.label, checked: false, disabled: true, note: "in group 1" },
+          { label: SECOND.label, checked: false, disabled: true, note: "in group 1" },
+        ]);
+
+      await clickInPicker(page, FIRST.label);
+
+      await expect
+        .poll(async () => at((await groupsOf(page)).groups, 0).lamps)
+        .toEqual([
+          { label: FIRST.label, checked: false, disabled: false, note: null },
+          { label: SECOND.label, checked: false, disabled: true, note: "in group 1" },
+        ]);
+      await page.close();
+    });
+
+    it("greys out every lamp in the groups added after the first, for a first group that has every lamp", async () => {
+      const { page } = await openScene({ addedGroups: [NEW_GROUP] });
+
+      await expect
+        .poll(async () => at((await groupsOf(page)).groups, 0).lamps.map((lamp) => lamp.note))
+        .toEqual(["in group 1", "in group 1"]);
+      await page.close();
+    });
+
+    it("greys out a lamp another group holds, with its group, and leaves the others free", async () => {
+      const { page } = await openScene({
+        ...FIRST_HOLDS_NONE,
+        addedGroups: [{ ...NEW_GROUP, lamps: [savedLamp(FIRST)] }, NEW_GROUP],
+      });
+
+      await expect
+        .poll(async () => at((await groupsOf(page)).groups, 1).lamps)
+        .toEqual([
+          { label: FIRST.label, checked: false, disabled: true, note: "in group 2" },
+          { label: SECOND.label, checked: false, disabled: false, note: null },
+        ]);
+      await page.close();
+    });
+
+    it("keeps what the first group saved for a lamp a group holds, and All covers the others", async () => {
+      const { page, uuid } = await openScene({ addedGroups: [{ ...NEW_GROUP, lamps: [savedLamp(FIRST)] }] });
+      await expect.poll(async () => (await pickerOf(page)).all).toBe(true);
+
+      const after = streamDeck.messages.length;
+      await clickInPicker(page, "All");
+      const saves = () =>
+        streamDeck.messages.filter(
+          (m) => m.event === "setSettings" && m.context === uuid && streamDeck.messages.indexOf(m) >= after,
+        );
+      await expect.poll(() => saves().length).toBeGreaterThanOrEqual(2);
+      const payload = at(saves(), -1).payload ?? {};
+
+      expect({ lamps: payload.lamps, leftOutLamps: payload.leftOutLamps }).toEqual({
+        lamps: [savedLamp(FIRST)],
+        leftOutLamps: [savedLamp(SECOND)],
+      });
+      await page.close();
+    });
+
+    it("keeps a lamp a group checked that isn't connected, checked and marked as not found", async () => {
+      const gone = { id: "aaaaaaaaaaaaaaaa", label: "Beam - 9999" };
+      const { page } = await openScene({ ...FIRST_HOLDS_NONE, addedGroups: [{ ...NEW_GROUP, lamps: [gone] }] });
+
+      await expect
+        .poll(async () => at((await groupsOf(page)).groups, 0).lamps)
+        .toEqual([
+          { label: FIRST.label, checked: false, disabled: false, note: null },
+          { label: SECOND.label, checked: false, disabled: false, note: null },
+          { label: gone.label, checked: true, disabled: false, note: "not found" },
+        ]);
+      await page.close();
+    });
+
+    it("removes a group, numbers the ones after it again, and frees its lamps in the first group's picker", async () => {
+      const { page, uuid } = await openScene({
+        addedGroups: [
+          { ...NEW_GROUP, lamps: [savedLamp(FIRST)] },
+          { ...NEW_GROUP, lamps: [savedLamp(SECOND)] },
+        ],
+      });
+      await expect.poll(async () => (await groupsOf(page)).groups.length).toBe(2);
+
+      const after = streamDeck.messages.length;
+      await clickInGroups(page, "Remove group 2");
+      const saved = await nextGroups(uuid, after);
+
+      expect(saved).toEqual([{ ...NEW_GROUP, lamps: [savedLamp(SECOND)] }]);
+      expect(await groupsOf(page)).toMatchObject({
+        groups: [{ heading: "Group 2", lamps: [{ checked: false }, { checked: true }] }],
+      });
+      expect(await pickerRowsOf(page)).toEqual([
+        { label: FIRST.label, checked: true, disabled: false, note: null },
+        { label: SECOND.label, checked: false, disabled: true, note: "in group 2" },
+      ]);
+      await page.close();
+    });
+  });
+
   describe("the lamp screens' blink (#144)", () => {
     const KEY = at(PANELS, 0);
     const DIAL = at(PANELS, 2);
@@ -1713,7 +1987,7 @@ function pickerOf(
     const lamps = [...picker.querySelectorAll(".lamp")].map((row) => ({
       label: row.querySelector("sdpi-checkbox").getAttribute("label"),
       checked: row.querySelector("sdpi-checkbox").value === true,
-      missing: row.querySelector(".note") !== null,
+      missing: row.querySelector(".note")?.textContent === "not found",
     }));
     const all = [...picker.children].find((child) => child.localName === "sdpi-checkbox");
     return {
@@ -1722,6 +1996,99 @@ function pickerOf(
       notes: [...picker.querySelectorAll(":scope > .note")].map((note) => note.textContent),
       buttons: [...picker.querySelectorAll("sdpi-button")].map((button) => button.textContent),
     };
+  })()`);
+}
+
+type ListedLampRow = { label: string | null; checked: boolean; disabled: boolean; note: string | null };
+
+/** Reads a list of lamps' rows: each checkbox's label, whether it's checked and greyed out, and its note, if any. */
+const LAMP_ROWS = `(list) => [...list.querySelectorAll(".lamp")].map((row) => {
+  const box = row.querySelector("sdpi-checkbox");
+  return {
+    label: box.getAttribute("label"),
+    checked: box.value === true,
+    disabled: box.disabled === true,
+    note: row.querySelector(".note")?.textContent ?? null,
+  };
+})`;
+
+/** The lamp picker's rows, with whether each is greyed out and its note, such as the scene group that holds it. */
+function pickerRowsOf(page: Page): Promise<ListedLampRow[]> {
+  return page.evaluate(`(${LAMP_ROWS})(document.getElementById("lamp-picker"))`);
+}
+
+type SceneGroupView = {
+  heading: string | null;
+  power: string;
+  /** Whether its Brightness and Temperature show. */
+  presets: boolean;
+  brightness: string;
+  temperature: string;
+  lamps: ListedLampRow[];
+  remove: string | null;
+};
+
+/**
+ * What the Scene page shows of its groups: whether the first group's heading and presets show, each group added after
+ * it, and whether the button that adds one does.
+ */
+function groupsOf(
+  page: Page,
+): Promise<{ firstHeading: boolean; firstPresets: boolean; groups: SceneGroupView[]; add: boolean }> {
+  return page.evaluate(`(() => {
+    const rows = ${LAMP_ROWS};
+    const itemOf = (group, label) => group.querySelector('sdpi-item[label="' + label + '"]');
+    const groups = [...document.querySelectorAll("#added-groups .group")].map((group) => ({
+      heading: group.querySelector(".group-heading").textContent,
+      power: itemOf(group, "Power").querySelector("sdpi-select").value,
+      presets: !itemOf(group, "Brightness").hidden && !itemOf(group, "Temperature").hidden,
+      brightness: itemOf(group, "Brightness").querySelector("output").value,
+      temperature: itemOf(group, "Temperature").querySelector("output").value,
+      lamps: rows(group),
+      remove: group.querySelector("sdpi-button")?.textContent ?? null,
+    }));
+    return {
+      firstHeading: !document.getElementById("first-group-heading").hidden,
+      firstPresets: [...document.querySelectorAll(".first-group-preset")].every((preset) => !preset.hidden),
+      groups,
+      add: [...document.querySelectorAll("#added-groups > sdpi-item sdpi-button")].some(
+        (button) => button.textContent === "Add a group"),
+    };
+  })()`);
+}
+
+/**
+ * Clicks a button of the Scene page's groups, or, in the group numbered `group`, a lamp's checkbox by its label, as
+ * the user would.
+ */
+function clickInGroups(page: Page, text: string, group?: number): Promise<void> {
+  return page.evaluate(`(async () => {
+    const groups = document.getElementById("added-groups");
+    if (${group === undefined}) {
+      [...groups.querySelectorAll("sdpi-button")].find((button) => button.textContent === ${JSON.stringify(text)})
+        .shadowRoot.querySelector("button").click();
+      return;
+    }
+    const view = [...groups.querySelectorAll(".group")].find((candidate) =>
+      candidate.querySelector(".group-heading").textContent === "Group ${group}");
+    const host = [...view.querySelectorAll("sdpi-checkbox")].find((box) =>
+      box.getAttribute("label") === ${JSON.stringify(text)});
+    await host.updateComplete;
+    host.shadowRoot.querySelector("input").click();
+  })()`);
+}
+
+/** Sets the control of a group's row, by its label, to `value`, as the user would: a list's choice, a slider's release. */
+function setGroupControl(page: Page, group: number, label: string, value: string): Promise<void> {
+  return page.evaluate(`(async () => {
+    const view = [...document.querySelectorAll("#added-groups .group")].find((candidate) =>
+      candidate.querySelector(".group-heading").textContent === "Group ${group}");
+    const host = view.querySelector('sdpi-item[label="${label}"]').querySelector("sdpi-select, sdpi-range");
+    await host.updateComplete;
+    const control = host.shadowRoot.querySelector("select, input");
+    control.value = ${JSON.stringify(value)};
+    control.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+    control.dispatchEvent(new Event("change", { bubbles: true, composed: true }));
   })()`);
 }
 
