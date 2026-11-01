@@ -8,12 +8,12 @@ Every settings page, on a key or a dial, has a Plugin settings button at its top
 
 ## When to run these checks
 
-- After a change to the plugin settings (`ui/plugin-settings.js`), to the lamp picker's names (`ui/lamp-picker.js`), or to how the plugin finds or blinks the lamps.
+- After a change to the plugin settings (`ui/plugin-settings.js`), to the lamp picker's names (`ui/lamp-picker.js`), to how the plugin finds or blinks the lamps, or to the lamps it knows ([#194]).
 - After a Stream Deck update, or an update of the vendored sdpi-components.
 
 ## Setup
 
-Plug in two Beams, turned on. Place a Power key and a Brightness dial on the Deck. Build the branch and restart the plugin:
+Plug in two Beams, turned on, and keep a third lamp, such as a Beam LX, unplugged for checks 13 to 15. Place a Power key and a Brightness dial on the Deck. Build the branch and restart the plugin:
 
 ```shell
 npm run build
@@ -36,9 +36,13 @@ In VS Code, the `Build and restart` task runs both.
 10. **The log tells each request.** `logs/litra.log` has a `Lamp picker` line each time the plugin settings open or Find lamps is pressed, and one for each Identify.
 11. **The blink's length is the plugin's.** With both lamps at 100%, press Identify: at 400 ms, the lamp only dims part of the way. Drag Blink length to 600 ms, and press Identify: the lamp fades almost to dark, clearly enough to tell even with the other one on. Drag it to 1500 ms: the value next to it follows the slider. Press Identify: the lamp stays dark for a moment before it comes back. Select the Brightness dial, tap its strip to the first lamp's screen, and hold the strip: the lamp blinks just as long. Restart the plugin and press Identify again: still as long, and the slider still shows "1500 ms". Drag it back to 400 ms, to leave the default.
 12. **No lamps found stands out.** Unplug both lamps, open the plugin settings, and press Find lamps: "No lamps found" shows centered under Find lamps, in red and in bold, larger than the labels around it, and in the panel's font. Plug the lamps back in and press Find lamps: the table comes back in its place.
+13. **The plugin finds the lamps when it knows none.** The first time the plugin starts knowing no lamps, such as after the update that brought the lamps it knows, `logs/litra.log` has a `No lamps known: finding the lamps connected` line, then `Lamps added:` with both Beams. Restart the plugin: neither line comes again. This check only runs once, since the plugin knows the lamps from then on.
+14. **A lamp plugged in is left alone until it's found.** Plug in the third lamp, and turn every lamp on. Without opening a settings page, which finds the lamps, press the Power key in its toggle mode: the Beams turn off, and the third lamp stays on. Open the plugin settings: the third lamp is listed, and `logs/litra.log` has a `Lamps added:` line with it. Press the key: the Beams turn on. Press it again: every lamp turns off, the third one included.
+15. **A page's save keeps the lamps the plugin knows.** In the plugin settings, drag Blink length to 600 ms and back to 400 ms, which saves the global settings from the page. Restart the plugin, and without opening a settings page, press the Power key: every lamp turns on, the third one included, and `logs/litra.log` has no `No lamps known` line.
 
 [#146]: https://github.com/daczarne/streamdeck-litra/issues/146
 [#171]: https://github.com/daczarne/streamdeck-litra/issues/171
+[#194]: https://github.com/daczarne/streamdeck-litra/issues/194
 [lamp-picker]: lamp_picker.md
 [lamp-screens]: lamp_screens.md
 [lamps-apart]: lamps_apart.md

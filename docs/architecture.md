@@ -3,6 +3,7 @@
 - [From a press to the lamps](#from-a-press-to-the-lamps)
 - [Why litra, not litra-rs](#why-litra-not-litra-rs)
 - [One module talks to the lamps](#one-module-talks-to-the-lamps)
+- [The lamps the plugin knows](#the-lamps-the-plugin-knows)
 - [Every lamp, found afresh every time](#every-lamp-found-afresh-every-time)
   - [What it does remember](#what-it-does-remember)
 - [Reading what a lamp sends](#reading-what-a-lamp-sends)
@@ -13,7 +14,7 @@ This document describes how the plugin's parts fit together, and why they're bui
 
 ## From a press to the lamps
 
-Stream Deck starts the plugin as a Node process (`src/plugin.ts`). The plugin registers the actions and connects to Stream Deck. A press, a turn or a tap reaches the action it belongs to, in `src/actions/`. The action reads its settings against their schema (`src/actions/settings.ts`), logs what was asked for, and calls `src/litra-manager.ts`. That module finds the lamps through the [`litra`][litra] library, which writes HID++ reports to each lamp through `node-hid`, and reads back their replies. Once the lamps are changed, `litra-manager` tells every action, which redraws its keys and dials from what the lamps report. A key's settings page talks to the plugin too: its lamp picker asks for the connected lamps, and for a blink of one, which `src/actions/lamp-picker.ts` answers for every page. The dials' pages save the blink of the lamp screens to the plugin's global settings, which every dial shares, rather than to the dial's own, and `src/actions/global-settings.ts` reads them once the plugin is connected and follows them as a page changes them ([#144]).
+Stream Deck starts the plugin as a Node process (`src/plugin.ts`). The plugin registers the actions and connects to Stream Deck. A press, a turn or a tap reaches the action it belongs to, in `src/actions/`. The action reads its settings against their schema (`src/actions/settings.ts`), logs what was asked for, and calls `src/litra-manager.ts`. That module finds the lamps through the [`litra`][litra] library, which writes HID++ reports to each lamp through `node-hid`, and reads back their replies. Once the lamps are changed, `litra-manager` tells every action, which redraws its keys and dials from what the lamps report. A key's settings page talks to the plugin too: its lamp picker asks for the connected lamps, which the plugin adds to the lamps it knows, and for a blink of one, which `src/actions/lamp-picker.ts` answers for every page. The dials' pages save the blink of the lamp screens to the plugin's global settings, which every dial shares, rather than to the dial's own, and `src/actions/global-settings.ts` reads them once the plugin is connected and follows them as a page changes them ([#144]).
 
 ## Why litra, not litra-rs
 
@@ -29,9 +30,17 @@ Two libraries speak the lamps' protocol, both by Tim Rogers: `litra`, in TypeScr
 
 `src/litra-manager.ts` is the only module that imports `litra`. The actions import from it, and it offers what the actions need, such as turning every lamp on or stepping their brightness, rather than `litra`'s own functions. So whatever lies under it can change without touching the actions: a fork or a copy of `litra`, or HID++ calls of the plugin's own, which the Beam LX's back light needs ([#19]). It also makes it the one place that logs what each lamp did (see [the logging document][logging]).
 
+## The lamps the plugin knows
+
+Which lamps the plugin acts on is decided in one place: the lamps it knows, kept in its global settings as `lamps`, by id, each with its model and the end of its serial number ([#194]). Every key and dial leaves alone a lamp that's connected but not among them. A lamp joins them when the plugin finds it: on its own when the plugin starts knowing none, so a new user starts with every lamp connected, and otherwise only when a settings page asks it to find the lamps. Plugging a lamp in changes nothing until then, so which lamps the plugin controls is always the user's decision. Before, every page built its own list, from the lamps it found and the ones its key had saved, so the pages could disagree about which lamps there were.
+
+The plugin is the only one that writes `lamps`: a page shows them, and asks the plugin to find lamps. Each setting has one owner, which writes it, while the others only read it, so no two writers can undo each other's change. The other global settings are the plugin settings page's to write, and each key's and dial's settings its own page's. Stream Deck takes the global settings whole on every write, so `src/actions/global-settings.ts` writes them from the latest ones it was sent, which keeps what a page saved.
+
+`global-settings` tells `litra-manager` the ids of the lamps known each time it reads them (`setKnownLamps`), and every operation leaves out the connected lamps that aren't among them. A selection of every lamp, or of every lamp but some, therefore means every lamp known. Only finding the lamps sees the others. Until the global settings are read, the plugin knows no lamps, and acts on none.
+
 ## Every lamp, found afresh every time
 
-`litra-manager` keeps no list of lamps. Every operation finds the connected lamps again, opens each, applies the operation to every one, and closes them, so a lamp that was unplugged is simply not found, and one plugged in again is, without any code for either. An operation can also be given the lamps to act on, by their ids: the start of each serial number's SHA-256, which a key's settings can hold, and an exported profile carry, without revealing the serial ([#20]). A lamp screen gives its lamp the same way. Or it can be given the lamps to leave out, which is how a key takes in lamps plugged in later: every lamp found but those ([#147]). A scene is given one selection for each of its groups, and each lamp found takes the part of the first group that selects it ([#174]). It then closes the others unused, and logs a selected lamp it doesn't find, or that every lamp found is left out. Finding the lamps is a call inside the plugin's process, not a new process, so doing it on every operation costs little.
+`litra-manager` keeps no list of the lamps connected. Every operation finds them again, opens each one the plugin knows, applies the operation to every one, and closes them, so a lamp that was unplugged is simply not found, and one plugged in again is, without any code for either. An operation can also be given the lamps to act on, by their ids: the start of each serial number's SHA-256, which a key's settings can hold, and an exported profile carry, without revealing the serial ([#20]). A lamp screen gives its lamp the same way. Or it can be given the lamps to leave out, which is how a key takes in lamps added later: every lamp found but those ([#147]). A scene is given one selection for each of its groups, and each lamp found takes the part of the first group that selects it ([#174]). It then closes the others unused, and logs a selected lamp it doesn't find, or that every lamp found is left out. Finding the lamps is a call inside the plugin's process, not a new process, so doing it on every operation costs little.
 
 Closing the handles matters because the plugin runs for as long as Stream Deck does: a handle left open would leak for the whole session. `litra`'s type for a lamp's handle leaves out `close`, which `node-hid`'s handle has, so the module reaches it through a type of its own.
 
@@ -39,7 +48,7 @@ A lamp that fails is logged, and the operation goes on with the others. Finding 
 
 ### What it does remember
 
-Four things outlive an operation. The first three are there because a lamp on a low-power supply needs them ([#55]):
+Besides the lamps the plugin knows, four things outlive an operation. The first three are there because a lamp on a low-power supply needs them ([#55]):
 
 - The brightness each lamp can reach, its cap, learned the first time it falls short of what it was sent, and kept by its serial number with the path it was plugged in at. A lamp only moves to another power supply by being plugged in again, which on macOS gives it a new path, so a cap is forgotten once its lamp has another one. Whether Windows gives it a new path too isn't checked: if it kept the old one, a cap would outlive a move until the plugin restarts.
 - When a capped lamp may still go back to its cap after being asked for more, which can undo a lower brightness written in between: the next brightness change waits until then.
@@ -78,6 +87,7 @@ A dial sends a tick at a time, and a quick turn sends many. The dial gathers tic
 [#153]: https://github.com/daczarne/streamdeck-litra/issues/153
 [#174]: https://github.com/daczarne/streamdeck-litra/issues/174
 [#177]: https://github.com/daczarne/streamdeck-litra/issues/177
+[#194]: https://github.com/daczarne/streamdeck-litra/issues/194
 [contributing]: contributing.md
 [keys]: elgato_sdk/keys.md
 [litra]: https://github.com/timrogers/litra

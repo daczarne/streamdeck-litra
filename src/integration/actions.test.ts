@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import type { JsonObject } from "@elgato/utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { LAMP_SCREEN_CELLS } from "../actions/settings";
@@ -63,10 +64,22 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-/** Plugs in these lamps, in the order litra finds them, in place of the ones before. */
+/**
+ * Plugs in these lamps, in the order litra finds them, in place of the ones before, and presses Find lamps, which adds
+ * the new ones to the lamps the plugin knows (#194). The plugin takes them before the find's answer reaches the page.
+ */
 function plugIn(...plugged: EmulatedLitra[]): void {
   lamps.push(...plugged.filter((lamp) => !lamps.includes(lamp)));
   connect(...plugged);
+  sdk.sendToPlugin({ event: "lamps" });
+}
+
+/**
+ * Saves global settings from a settings page, which keeps the ones it doesn't show, such as the lamps the plugin knows
+ * (#194).
+ */
+async function saveFromPage(changes: JsonObject): Promise<void> {
+  sdk.changeGlobalSettings({ ...(await sdk.default.settings.getGlobalSettings()), ...changes });
 }
 
 /** A Beam, on unless said otherwise, at 50% and 4000 K unless said otherwise. */
@@ -518,7 +531,7 @@ describe("the lamp screens", () => {
     const temperatureDial = await deck.dial(TEMPERATURE);
     await deck.tap(temperatureDial);
 
-    sdk.changeGlobalSettings({
+    await saveFromPage({
       lampScreenTopLeft: "power",
       lampScreenMiddleRight: "none",
       lampScreenBottomRight: "counter",
@@ -540,7 +553,7 @@ describe("the lamp screens", () => {
   it("show the name a lamp was given in the plugin settings, in a cell set to show it (#177)", async () => {
     const { first, dial } = await onFirstLampScreen();
 
-    sdk.changeGlobalSettings({
+    await saveFromPage({
       lampNames: { [lampId(first.serialNumber)]: "Key light" },
       lampScreenOptions: { topLeft: { identification: { first: "name", second: "empty" } } },
     });
@@ -559,7 +572,7 @@ describe("the lamp screens", () => {
 
     expect([first.writes("power"), second.writes("power")]).toEqual([[], []]);
 
-    sdk.changeGlobalSettings({ blinkOnLampScreen: true });
+    await saveFromPage({ blinkOnLampScreen: true });
     await deck.quickly(() => {
       void deck.tap(brightnessDial);
       void deck.tap(brightnessDial);
@@ -585,7 +598,7 @@ describe("the lamp screens", () => {
     const brightnessDial = await deck.dial(BRIGHTNESS);
     const temperatureDial = await deck.dial(TEMPERATURE);
 
-    sdk.changeGlobalSettings({ blinkOnLampScreen: true, blinkOnLampScreenExceptions: [brightnessDial.id] });
+    await saveFromPage({ blinkOnLampScreen: true, blinkOnLampScreenExceptions: [brightnessDial.id] });
     await deck.tap(brightnessDial);
 
     expect(first.writes("power")).toEqual([]);
@@ -620,7 +633,7 @@ describe("lamps kept apart (#145)", () => {
     const brightnessDial = await deck.dial(BRIGHTNESS, { stepPercentage: 10 });
     const brightnessUp = await deck.key(BRIGHTNESS_UP, { stepPercentage: 10 });
     const temperatureDial = await deck.dial(TEMPERATURE, { stepKelvin: 100 });
-    sdk.changeGlobalSettings({ keepBrightnessDifference: true });
+    await saveFromPage({ keepBrightnessDifference: true });
 
     await deck.turn(brightnessDial, 1);
 
@@ -645,7 +658,7 @@ describe("lamps kept apart (#145)", () => {
     const behind = beam({ serialNumber: "SERIAL-B", brightnessInLumen: LUMEN_AT_0, capInLumen: 244 });
     plugIn(ahead, behind);
     const dial = await deck.dial(BRIGHTNESS, { stepPercentage: 10 });
-    sdk.changeGlobalSettings({ keepBrightnessDifference: true });
+    await saveFromPage({ keepBrightnessDifference: true });
     const levels = () => [ahead.brightnessInLumen, behind.brightnessInLumen];
 
     for (let tick = 0; tick < 10; tick++) {
@@ -671,9 +684,9 @@ describe("lamps kept apart (#145)", () => {
     const [dim, bright] = [beam({ brightnessInLumen: LUMEN_AT_50 }), beam({ brightnessInLumen: LUMEN_AT_80 })];
     plugIn(dim, bright);
     const dial = await deck.dial(BRIGHTNESS, { stepPercentage: 10 });
-    sdk.changeGlobalSettings({ keepBrightnessDifference: true });
+    await saveFromPage({ keepBrightnessDifference: true });
     await deck.turn(dial, -1);
-    sdk.changeGlobalSettings({ keepBrightnessDifference: false });
+    await saveFromPage({ keepBrightnessDifference: false });
 
     await deck.turn(dial, -1);
 
@@ -762,7 +775,7 @@ describe("lamps picked on a key's settings page (#20)", () => {
 
   it("are the only ones a key switches, and its state shows theirs", async () => {
     // A key that adds no new lamps acts on the lamps checked alone (#147).
-    sdk.changeGlobalSettings({ addNewLamps: false });
+    await saveFromPage({ addNewLamps: false });
     const [first, second] = [beam({ on: false }), beam({ on: false })];
     plugIn(first, second);
     const firstKey = await deck.key(POWER, { mode: "toggle", lamps: [picked(first)] });
@@ -775,7 +788,7 @@ describe("lamps picked on a key's settings page (#20)", () => {
   });
 
   it("are the only ones a step key steps, and its title shows them", async () => {
-    sdk.changeGlobalSettings({ addNewLamps: false });
+    await saveFromPage({ addNewLamps: false });
     const [first, second] = [beam(), beam({ brightnessInLumen: LUMEN_AT_80 })];
     plugIn(first, second);
     const key = await deck.key(BRIGHTNESS_UP, { stepPercentage: 10, lamps: [picked(first)] });
@@ -786,7 +799,7 @@ describe("lamps picked on a key's settings page (#20)", () => {
     expect(titleOf(key)).toBe("60%");
   });
 
-  it("take in a lamp plugged in later, but not the ones the page left out, by default (#147)", async () => {
+  it("take in a lamp added later, but not the ones the page left out, by default (#147)", async () => {
     const [first, second, third] = [beam({ on: false }), beam({ on: false }), beam({ on: false })];
     plugIn(first, second);
     const key = await deck.key(POWER, { mode: "on", lamps: [picked(first)], leftOutLamps: [picked(second)] });
@@ -804,7 +817,7 @@ describe("lamps picked on a key's settings page (#20)", () => {
     sdk.sendToPlugin({ event: "lamps" });
     await vi.runAllTimersAsync();
 
-    expect(sdk.sentToPropertyInspector()).toEqual([{ event: "lamps", lamps: [listed(first), listed(second)] }]);
+    expect(at(sdk.sentToPropertyInspector(), -1)).toEqual({ event: "lamps", lamps: [listed(first), listed(second)] });
 
     sdk.sendToPlugin({ event: "identify", id: lampId(second.serialNumber) });
     await vi.runAllTimersAsync();
@@ -816,7 +829,7 @@ describe("lamps picked on a key's settings page (#20)", () => {
     const lamp = beam();
     plugIn(lamp);
 
-    sdk.changeGlobalSettings({ identifyBlinkMs: 1000 });
+    await saveFromPage({ identifyBlinkMs: 1000 });
     sdk.sendToPlugin({ event: "identify", id: lampId(lamp.serialNumber) });
     await vi.advanceTimersByTimeAsync(999);
 
@@ -825,5 +838,50 @@ describe("lamps picked on a key's settings page (#20)", () => {
     await vi.advanceTimersByTimeAsync(1);
 
     expect(lamp.writes("power")).toEqual([0, 1]);
+  });
+});
+
+describe("the lamps the plugin knows (#194)", () => {
+  it("leave a lamp plugged in alone until Find lamps adds it, then every key takes it in", async () => {
+    const [known, added] = [beam({ on: false }), beam({ on: false })];
+    plugIn(known);
+    const key = await deck.key(POWER, { mode: "on" });
+    lamps.push(added);
+    connect(known, added);
+
+    await deck.press(key);
+
+    expect([known.on, added.on]).toEqual([true, false]);
+
+    sdk.sendToPlugin({ event: "lamps" });
+    await deck.press(key);
+
+    expect([known.on, added.on]).toEqual([true, true]);
+  });
+
+  it("are kept when a lamp is unplugged, so it's acted on again once it's plugged back in, without a find", async () => {
+    const lamp = beam({ on: false });
+    plugIn(lamp);
+    const key = await deck.key(POWER, { mode: "on" });
+    connect();
+    await deck.press(key);
+    connect(lamp);
+
+    await deck.press(key);
+
+    expect(lamp.on).toBe(true);
+  });
+
+  it("are saved in the global settings, keeping the ones a page saved", async () => {
+    await saveFromPage({ identifyBlinkMs: 600 });
+    const lamp = beam({ serialNumber: "SERIAL-A" });
+
+    plugIn(lamp);
+    await vi.runAllTimersAsync();
+
+    expect(await sdk.default.settings.getGlobalSettings()).toEqual({
+      identifyBlinkMs: 600,
+      lamps: { [lampId("SERIAL-A")]: { model: "Beam", serialEnd: "AL-A" } },
+    });
   });
 });

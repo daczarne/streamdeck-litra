@@ -1,12 +1,13 @@
 import streamDeck from "@elgato/streamdeck";
 import type { JsonObject } from "@elgato/utils";
 
-import type { LampSelection, Stepping } from "../litra-manager";
+import { type FoundLamp, findLamps, type LampSelection, type Stepping, setKnownLamps } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
 import {
   type CheckedLamps,
   type GlobalSettings,
   globalSettings,
+  type KnownLamp,
   LAMP_SCREEN_CELLS,
   type LampScreenCell,
   type LampScreenItem,
@@ -29,8 +30,10 @@ export type LampScreenCellContent = {
 
 const logger = pluginLogger.createScope("Global settings");
 
-// The global settings as last read, their defaults until the first read answers, and the lamp screens' cells read from
-// them, once per read, so an option that isn't valid is warned about once.
+// The global settings as last read, as Stream Deck sent them and as read against their schema, their defaults until the
+// first read answers, and the lamp screens' cells read from them, once per read, so an option that isn't valid is warned
+// about once. The plugin writes the lamps back into the settings as sent, which keeps the others as a page saved them.
+let sent: JsonObject = {};
 let current: GlobalSettings = parseSettings({}, globalSettings, logger);
 let cells: Record<LampScreenCell, LampScreenCellContent> = readCells(current);
 
@@ -45,29 +48,69 @@ export function onGlobalSettingsChanged(listener: () => void | Promise<void>): v
 }
 
 /**
+ * Takes the global settings as the ones in use: reads them, tells litra-manager of the lamps the plugin knows, and calls
+ * the listeners.
+ */
+function apply(settings: JsonObject): void {
+  sent = settings;
+  current = parseSettings(settings, globalSettings, logger);
+  cells = readCells(current);
+  setKnownLamps(Object.keys(current.lamps));
+  for (const listener of changedListeners) {
+    Promise.resolve()
+      .then(listener)
+      .catch((error: unknown) => {
+        logger.error("Global settings listener failed", error);
+      });
+  }
+}
+
+/**
  * Follows the plugin's global settings, which the settings pages save (#144): reads them once Stream Deck is
  * connected, and again whenever a page changes them. They're kept rather than asked for on every tap, turn or press, so
- * none of them waits on Stream Deck.
+ * none of them waits on Stream Deck. When the plugin knows no lamps yet, it finds the connected ones first, so a new
+ * user starts with every lamp (#194).
  */
 export function followGlobalSettings(): void {
-  const apply = (settings: JsonObject): void => {
-    current = parseSettings(settings, globalSettings, logger);
-    cells = readCells(current);
-    for (const listener of changedListeners) {
-      Promise.resolve()
-        .then(listener)
-        .catch((error: unknown) => {
-          logger.error("Global settings listener failed", error);
-        });
-    }
-  };
   streamDeck.settings.onDidReceiveGlobalSettings((ev) => apply(ev.settings));
   streamDeck.settings
     .getGlobalSettings()
-    .then(apply)
+    .then(async (settings) => {
+      apply(settings);
+      if (Object.keys(current.lamps).length === 0) {
+        logger.info("No lamps known: finding the lamps connected");
+        await addLamps(findLamps());
+      }
+    })
     .catch((error: unknown) => {
       logger.error("Reading the global settings failed", error);
     });
+}
+
+/**
+ * Adds the lamps found that the plugin doesn't know to the ones it knows (#194), and saves them. The plugin is the only
+ * one that writes them, so a page can't overwrite a change made here, nor this one a page's: the global settings are
+ * written whole, from the latest ones Stream Deck sent. Saves nothing when every lamp found is known already. The
+ * plugin takes the lamps added even when saving them fails, until it restarts.
+ */
+export async function addLamps(found: readonly FoundLamp[]): Promise<void> {
+  const added = found.filter(({ id }) => current.lamps[id] === undefined);
+  if (added.length === 0) {
+    return;
+  }
+  const lamps: Record<string, KnownLamp> = { ...current.lamps };
+  for (const { id, model, serialEnd } of added) {
+    lamps[id] = { model, serialEnd };
+  }
+  logger.info(`Lamps added: ${added.map(({ label }) => label).join(", ")}`);
+  const settings = { ...sent, lamps };
+  // Taken at once, so an operation that follows acts on the lamps added, and another find adds to them.
+  apply(settings);
+  try {
+    await streamDeck.settings.setGlobalSettings(settings);
+  } catch (error) {
+    logger.error("Saving the lamps failed", error);
+  }
 }
 
 /** The global settings as last read, or their defaults until the first read answers. */

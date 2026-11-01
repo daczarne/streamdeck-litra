@@ -27,9 +27,11 @@ vi.mock("./global-settings", async (importOriginal) => ({
 
 // The real litra-manager loads node-hid's native binary on import and talks to real lamps.
 vi.mock("../litra-manager", () => ({
+  findLamps: vi.fn(() => []),
   identifyLamp: vi.fn(),
   onLampsChanged: vi.fn(),
   readLampStatuses: vi.fn(),
+  setKnownLamps: vi.fn(),
 }));
 
 const LAMP_LAYOUT = "layouts/lamp.json";

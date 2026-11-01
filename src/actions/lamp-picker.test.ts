@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { findLamps, identifyLamp } from "../litra-manager";
 import { logger } from "../logging";
 import { at } from "../test-support/at";
+import { addLamps } from "./global-settings";
 import { answer, answerLampPickers } from "./lamp-picker";
 import { globalSettings } from "./settings";
 
@@ -25,6 +26,12 @@ vi.mock("../litra-manager", () => ({
   identifyLamp: vi.fn(),
 }));
 
+// The lamps the plugin knows, which the real global settings save through Stream Deck.
+vi.mock("./global-settings", async () => {
+  const { globalSettings } = await import("./settings");
+  return { addLamps: vi.fn(async () => {}), identifyBlinkMs: () => globalSettings.identifyBlinkMs.default };
+});
+
 const LAMPS = [
   { id: "lamp-1", label: "Beam - 1111", model: "Beam", serialEnd: "1111" },
   { id: "lamp-2", label: "Beam LX - 2222", model: "Beam LX", serialEnd: "2222" },
@@ -44,6 +51,15 @@ describe("the lamp picker's answers (#20)", () => {
 
     expect(findLamps).toHaveBeenCalledOnce();
     expect(ui.sendToPropertyInspector).toHaveBeenCalledExactlyOnceWith({ event: "lamps", lamps: LAMPS });
+  });
+
+  it("add the lamps found to the ones the plugin knows, before answering (#194)", async () => {
+    await answer({ event: "lamps" });
+
+    expect(addLamps).toHaveBeenCalledExactlyOnceWith(LAMPS);
+    expect(vi.mocked(addLamps).mock.invocationCallOrder[0]).toBeLessThan(
+      at(ui.sendToPropertyInspector.mock.invocationCallOrder, 0),
+    );
   });
 
   it("send an empty list when no lamp is connected", async () => {
@@ -70,6 +86,7 @@ describe("the lamp picker's answers (#20)", () => {
     await answer(payload);
 
     expect(findLamps).not.toHaveBeenCalled();
+    expect(addLamps).not.toHaveBeenCalled();
     expect(identifyLamp).not.toHaveBeenCalled();
     expect(ui.sendToPropertyInspector).not.toHaveBeenCalled();
   });

@@ -1,6 +1,7 @@
 import type { JsonObject } from "@elgato/utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { findLamps, setKnownLamps } from "../litra-manager";
 import { logger } from "../logging";
 import { at } from "../test-support/at";
 
@@ -10,12 +11,16 @@ import { at } from "../test-support/at";
 const settings = vi.hoisted(() => ({
   getGlobalSettings: vi.fn<() => Promise<JsonObject>>(),
   onDidReceiveGlobalSettings: vi.fn<(listener: (ev: { settings: JsonObject }) => void) => void>(),
+  setGlobalSettings: vi.fn<(settings: JsonObject) => Promise<void>>(),
 }));
 
 vi.mock("@elgato/streamdeck", () => ({ default: { settings } }));
 
 // The real logger writes to a logs/ folder.
 vi.mock("../logging", () => import("../test-support/fake-logging"));
+
+// The real litra-manager loads node-hid's native binary on import and talks to real lamps.
+vi.mock("../litra-manager", () => ({ findLamps: vi.fn(), setKnownLamps: vi.fn() }));
 
 let globalSettings: typeof import("./global-settings");
 
@@ -24,6 +29,8 @@ beforeEach(async () => {
   vi.resetModules();
   globalSettings = await import("./global-settings");
   settings.getGlobalSettings.mockResolvedValue({});
+  settings.setGlobalSettings.mockResolvedValue();
+  vi.mocked(findLamps).mockReturnValue([]);
 });
 
 /** Follows the global settings, and waits for the first read to answer. */
@@ -66,6 +73,7 @@ const DEFAULTS = {
   lampScreenAlertWeight: "bold",
   lampScreenAlertSize: 18,
   lampNames: {},
+  lamps: {},
 };
 
 //* Tests
@@ -416,5 +424,108 @@ describe("the lamps' names (#146)", () => {
     expect(globalSettings.lampName("lamp-1")).toBe("Key light");
     expect(globalSettings.lampName("lamp-2")).toBeUndefined();
     expect(globalSettings.lampName("lamp-3")).toBeUndefined();
+  });
+});
+
+describe("the lamps the plugin knows (#194)", () => {
+  const BEAM = { id: "lamp-1", label: "Beam - 1111", model: "Beam", serialEnd: "1111" };
+  const BEAM_LX = { id: "lamp-2", label: "Beam LX - 2222", model: "Beam LX", serialEnd: "2222" };
+
+  it("are told to litra-manager each time they're read, by id", async () => {
+    settings.getGlobalSettings.mockResolvedValue({ lamps: { "lamp-1": { model: "Beam", serialEnd: "1111" } } });
+
+    await follow();
+    changeFromPage({ lamps: { "lamp-2": { model: "Beam LX", serialEnd: "2222" } } });
+
+    expect(vi.mocked(setKnownLamps).mock.calls).toEqual([[["lamp-1"]], [["lamp-2"]]]);
+  });
+
+  it("leave out an entry without a model and a serial end, and keep the others", async () => {
+    settings.getGlobalSettings.mockResolvedValue({
+      lamps: { "lamp-1": { model: "Beam", serialEnd: "1111" }, "lamp-2": { model: "Beam LX" }, "lamp-3": "Beam" },
+    });
+
+    await follow();
+
+    expect(globalSettings.currentGlobalSettings().lamps).toEqual({ "lamp-1": { model: "Beam", serialEnd: "1111" } });
+  });
+
+  it("are found and saved when the plugin starts with none, keeping the other settings", async () => {
+    settings.getGlobalSettings.mockResolvedValue({ identifyBlinkMs: 600 });
+    vi.mocked(findLamps).mockReturnValue([BEAM, BEAM_LX]);
+
+    await follow();
+    await vi.waitFor(() => expect(settings.setGlobalSettings).toHaveBeenCalledOnce());
+
+    const lamps = {
+      "lamp-1": { model: "Beam", serialEnd: "1111" },
+      "lamp-2": { model: "Beam LX", serialEnd: "2222" },
+    };
+    expect(settings.setGlobalSettings).toHaveBeenCalledWith({ identifyBlinkMs: 600, lamps });
+    expect(globalSettings.currentGlobalSettings().lamps).toEqual(lamps);
+    expect(setKnownLamps).toHaveBeenLastCalledWith(["lamp-1", "lamp-2"]);
+    expect(vi.mocked(logger.info).mock.calls).toEqual([
+      [expect.stringContaining("No lamps known")],
+      [expect.stringContaining("Beam - 1111, Beam LX - 2222")],
+    ]);
+  });
+
+  it("aren't looked for when the plugin starts with some", async () => {
+    settings.getGlobalSettings.mockResolvedValue({ lamps: { "lamp-1": { model: "Beam", serialEnd: "1111" } } });
+
+    await follow();
+
+    expect(findLamps).not.toHaveBeenCalled();
+  });
+
+  it("aren't looked for when a page leaves none, only when the plugin starts", async () => {
+    settings.getGlobalSettings.mockResolvedValue({ lamps: { "lamp-1": { model: "Beam", serialEnd: "1111" } } });
+    await follow();
+
+    changeFromPage({});
+
+    expect(findLamps).not.toHaveBeenCalled();
+  });
+
+  it("save nothing when the plugin starts with none and finds none", async () => {
+    await follow();
+    await vi.waitFor(() => expect(findLamps).toHaveBeenCalledOnce());
+
+    expect(settings.setGlobalSettings).not.toHaveBeenCalled();
+  });
+
+  it("take in the new lamps found, and keep the ones known and the settings a page saved since", async () => {
+    settings.getGlobalSettings.mockResolvedValue({ lamps: { "lamp-1": { model: "Beam", serialEnd: "1111" } } });
+    await follow();
+    changeFromPage({ lamps: { "lamp-1": { model: "Beam", serialEnd: "1111" } }, keepBrightnessDifference: true });
+
+    await globalSettings.addLamps([BEAM, BEAM_LX]);
+
+    expect(settings.setGlobalSettings).toHaveBeenCalledExactlyOnceWith({
+      lamps: { "lamp-1": { model: "Beam", serialEnd: "1111" }, "lamp-2": { model: "Beam LX", serialEnd: "2222" } },
+      keepBrightnessDifference: true,
+    });
+    expect(setKnownLamps).toHaveBeenLastCalledWith(["lamp-1", "lamp-2"]);
+    expect(logger.info).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("Beam LX - 2222"));
+  });
+
+  it("are taken even when saving them fails, which is logged with its error", async () => {
+    const error = new Error("Stream Deck is gone");
+    settings.setGlobalSettings.mockRejectedValue(error);
+    await follow();
+
+    await globalSettings.addLamps([BEAM]);
+
+    expect(setKnownLamps).toHaveBeenLastCalledWith(["lamp-1"]);
+    expect(logger.error).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("Saving the lamps"), error);
+  });
+
+  it("save nothing when every lamp found is known", async () => {
+    settings.getGlobalSettings.mockResolvedValue({ lamps: { "lamp-1": { model: "Beam", serialEnd: "1111" } } });
+    await follow();
+
+    await globalSettings.addLamps([BEAM]);
+
+    expect(settings.setGlobalSettings).not.toHaveBeenCalled();
   });
 });

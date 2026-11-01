@@ -105,6 +105,34 @@ function textByKey(): Setting<Readonly<Record<string, string>>> {
   };
 }
 
+/** A lamp the plugin knows (#194): its model, such as "Beam", and the last 4 characters of its serial number. */
+export type KnownLamp = { readonly model: string; readonly serialEnd: string };
+
+/**
+ * The lamps the plugin knows, by id (#194). Entries without a model and a serial end, as text, are left out, so one that
+ * was edited doesn't take the others with it.
+ */
+function lampsById(): Setting<Readonly<Record<string, KnownLamp>>> {
+  return {
+    default: {},
+    expected: "lamps by id, each with its model and serial end",
+    parse: (value) =>
+      typeof value === "object" && value !== null && !Array.isArray(value)
+        ? Object.fromEntries(
+            Object.entries(value).flatMap(([id, lamp]) =>
+              typeof lamp === "object" &&
+              lamp !== null &&
+              !Array.isArray(lamp) &&
+              typeof lamp.model === "string" &&
+              typeof lamp.serialEnd === "string"
+                ? [[id, { model: lamp.model, serialEnd: lamp.serialEnd }]]
+                : [],
+            ),
+          )
+        : undefined,
+  };
+}
+
 /** A setting that takes any object, which whoever uses it reads further against a schema of its own. */
 function anObject(): Setting<JsonObject> {
   return {
@@ -359,6 +387,8 @@ export type LampScreenItemOptions = {
 // Alert. Each has a color, a weight and a size, which a layout's text takes, and nothing else: no font family. The sizes
 // stop at 16 px, below which text is hard to read on the strip (#8), and at 22 px, which still fits the 26 px rows of
 // layouts/lamp.json. Only Primary and Secondary are used by default, which draws what the lamp screens showed before.
+// The lamps the plugin knows are the only ones it acts on (#194). Unlike the others, the plugin writes them, and no page
+// does: a page asks it to find lamps.
 export const globalSettings = {
   addNewLamps: flag(true),
   addNewLampsExceptions: textList(),
@@ -387,6 +417,7 @@ export const globalSettings = {
   lampScreenAlertWeight: oneOf(WEIGHTS, "bold"),
   lampScreenAlertSize: wholeNumberFrom(16, 22, 18),
   lampNames: textByKey(),
+  lamps: lampsById(),
 };
 
 export type GlobalSettings = Parsed<typeof globalSettings>;

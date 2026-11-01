@@ -20,7 +20,7 @@ const BEAM_ALLOWED_KELVIN = Array.from(
   (_, index) => BEAM_MIN_KELVIN + index * BEAM_KELVIN_STEP,
 );
 
-// The id of a lamp that isn't plugged in.
+// The id of a lamp the plugin knows that isn't plugged in.
 const MISSING_LAMP = "0123456789abcdef";
 
 // How long a blink lasts, in ms, the plugin settings' default.
@@ -59,9 +59,13 @@ function beam(options: ConstructorParameters<typeof EmulatedLitra>[1] = {}): Emu
   });
 }
 
-/** Makes these the lamps plugged in, in the order litra finds them. */
+/**
+ * Makes these the lamps plugged in, in the order litra finds them, and the lamps the plugin knows (#194), with
+ * {@link MISSING_LAMP}, as finding them would.
+ */
 function connect(...lamps: EmulatedLitra[]): void {
   hid.connect(...lamps);
+  manager.setKnownLamps([...lamps.map((lamp) => manager.lampId(lamp.serialNumber)), MISSING_LAMP]);
 }
 
 /** Brightness in lumen at the given percentage of a Beam's range. */
@@ -572,6 +576,90 @@ describe("a selection of lamps (#20)", () => {
       failures: 0,
     });
     expect(selected.on).toBe(false);
+  });
+});
+
+describe("the lamps the plugin knows (#194)", () => {
+  /** Plugs these lamps in, and makes the plugin know only the ones in `known`. */
+  function connectKnowing(known: readonly EmulatedLitra[], ...lamps: EmulatedLitra[]): void {
+    hid.connect(...lamps);
+    manager.setKnownLamps(known.map((lamp) => manager.lampId(lamp.serialNumber)));
+  }
+
+  it("are the only ones an operation on every lamp acts on, and the others are closed unused", () => {
+    const [known, unknown] = [beam({ on: true }), beam({ on: true })];
+    connectKnowing([known], unknown, known);
+
+    expect(manager.turnLampsOff("all")).toEqual({ ok: true, deviceCount: 1, failures: 0 });
+    expect([known.on, unknown.on]).toEqual([false, true]);
+    expect(unknown.written).toEqual([]);
+    expect([closes(known), closes(unknown)]).toEqual([1, 1]);
+  });
+
+  it("are the only ones every lamp but the left out ones takes in (#147)", () => {
+    const [known, leftOut, unknown] = [beam({ on: true }), beam({ on: true }), beam({ on: true })];
+    connectKnowing([known, leftOut], known, leftOut, unknown);
+
+    manager.turnLampsOff({ except: [manager.lampId(leftOut.serialNumber)] });
+
+    expect([known.on, leftOut.on, unknown.on]).toEqual([false, true, true]);
+  });
+
+  it("leave alone a lamp selected by id that the plugin doesn't know, and log it", () => {
+    const [known, unknown] = [beam({ on: true }), beam({ on: true })];
+    connectKnowing([known], known, unknown);
+    const unknownId = manager.lampId(unknown.serialNumber);
+
+    manager.turnLampsOff([manager.lampId(known.serialNumber), unknownId]);
+
+    expect([known.on, unknown.on]).toEqual([false, true]);
+    expect(logger.warn).toHaveBeenCalledExactlyOnceWith(`turn off: lamp ${unknownId} isn't one of the plugin's lamps`);
+  });
+
+  it("are the only ones a scene sets (#174)", async () => {
+    const [known, unknown] = [beam({ on: false }), beam({ on: false })];
+    connectKnowing([known], known, unknown);
+
+    await settled(manager.setLampsScene(everyLampAt(50, 5000)));
+
+    expect([known.on, unknown.on]).toEqual([true, false]);
+    expect(unknown.written).toEqual([]);
+  });
+
+  it("are the only ones the lamp screens read", async () => {
+    const [known, unknown] = [beam(), beam()];
+    connectKnowing([known], known, unknown);
+
+    const { lamps } = await settled(manager.readLampStatuses());
+
+    expect(lamps.map(({ serialNumber }) => serialNumber)).toEqual([known.serialNumber]);
+  });
+
+  it("make an operation fail, and log it, when none of the lamps connected is one of them", () => {
+    const unknown = beam({ on: true });
+    connectKnowing([], unknown);
+
+    expect(manager.turnLampsOff("all")).toEqual({ ok: false, deviceCount: 0, failures: 1 });
+    expect(unknown.on).toBe(true);
+    expect(closes(unknown)).toBe(1);
+    expect(logger.warn).toHaveBeenCalledExactlyOnceWith(
+      "turn off: none of the lamps connected is one of the plugin's lamps",
+    );
+  });
+
+  it("are none until they're set, so nothing is acted on before the global settings are read", () => {
+    const lamp = beam({ on: true });
+    hid.connect(lamp);
+
+    expect(manager.turnLampsOff("all")).toMatchObject({ ok: false, deviceCount: 0 });
+    expect(lamp.on).toBe(true);
+  });
+
+  it("don't limit finding the lamps, which lists the ones the plugin doesn't know too", () => {
+    const [known, unknown] = [beam({ serialNumber: "2325FE01AAAA" }), beam({ serialNumber: "2325FE02BBBB" })];
+    connectKnowing([known], known, unknown);
+
+    expect(manager.findLamps().map(({ serialEnd }) => serialEnd)).toEqual(["AAAA", "BBBB"]);
   });
 });
 

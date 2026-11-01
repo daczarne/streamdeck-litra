@@ -19,10 +19,11 @@ vi.mock("@elgato/streamdeck", async () => ({
 }));
 // The real logger writes to a logs/ folder.
 vi.mock("./logging", () => import("./test-support/fake-logging"));
-// The real litra loads node-hid's native binary on import. Starting the plugin talks to no lamp, so only what
-// litra-manager.ts reads when it loads is needed.
+// The real litra loads node-hid's native binary on import. Starting the plugin knowing no lamps looks for them (#194),
+// and finds none here, so only what litra-manager.ts reads when it loads, and finding the lamps, are needed.
 vi.mock("litra", () => ({
   DeviceType: { LitraGlow: "litra_glow", LitraBeam: "litra_beam", LitraBeamLX: "litra_beam_lx" },
+  findDevices: () => [],
 }));
 
 // The actions the manifest lists, which Stream Deck shows and sends events for.
