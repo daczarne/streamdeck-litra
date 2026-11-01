@@ -132,37 +132,45 @@ const PLUGIN_SETTINGS_GLOBALS = [
 ];
 
 // What the plugin accepts for each setting, by its name, and the default it takes: settings.ts says these are what
-// each page offers, and the pages' own defaults.
-const SCHEMA = {
-  ...powerSettings,
-  ...brightnessSettings,
-  ...temperatureSettings,
-  ...sceneSettings,
-  ...lampSettings,
-  ...globalSettings,
+// each page offers, and the pages' own defaults. A key's or dial's settings and the global ones are apart, as the
+// plugin reads them, since a name can be in both, such as `lamps`: a key's, and the ones the plugin knows (#194).
+const SCHEMAS = {
+  action: { ...powerSettings, ...brightnessSettings, ...temperatureSettings, ...sceneSettings, ...lampSettings },
+  global: globalSettings,
 };
 
-/** The setting's schema in settings.ts, alone, as parseSettings takes it. */
-function schemaOf(setting: string) {
-  const schema = SCHEMA[setting as keyof typeof SCHEMA];
-  if (schema === undefined) {
+type Scope = keyof typeof SCHEMAS;
+
+/**
+ * The setting's schema in settings.ts, alone, as parseSettings takes it: a key's or dial's, or a global one. A name in
+ * both needs its scope, so a test can't read one against the other's schema.
+ */
+function schemaOf(setting: string, scope?: Scope) {
+  const found = (Object.keys(SCHEMAS) as Scope[]).filter(
+    (candidate) => (scope === undefined || candidate === scope) && setting in SCHEMAS[candidate],
+  );
+  if (found.length > 1) {
+    throw new Error(`settings.ts has a setting ${setting} for an action and a global one: name its scope`);
+  }
+  const [where] = found;
+  if (where === undefined) {
     throw new Error(`settings.ts has no setting ${setting}`);
   }
-  return { [setting]: schema };
+  return { [setting]: SCHEMAS[where][setting as keyof (typeof SCHEMAS)[typeof where]] };
 }
 
 /** The setting's default in settings.ts. */
-function defaultOf(setting: string): unknown {
-  return at(Object.values(schemaOf(setting)), 0).default;
+function defaultOf(setting: string, scope?: Scope): unknown {
+  return at(Object.values(schemaOf(setting, scope)), 0).default;
 }
 
 /**
  * Reads a value as the plugin reads it from what Stream Deck sends: what it takes, and whether it was valid, as
  * opposed to replaced by the default with a warning.
  */
-function read(setting: string, value: JsonValue): { value: unknown; valid: boolean } {
+function read(setting: string, value: JsonValue, scope?: Scope): { value: unknown; valid: boolean } {
   const warn = vi.fn();
-  const parsed = parseSettings({ [setting]: value }, schemaOf(setting), { warn });
+  const parsed = parseSettings({ [setting]: value }, schemaOf(setting, scope), { warn });
   return { value: parsed[setting], valid: warn.mock.calls.length === 0 };
 }
 
@@ -1055,7 +1063,7 @@ describe("settings pages", () => {
         buttons: [],
       });
       // A key with no lamps saved acts on every lamp, settings.ts's default.
-      expect(read("lamps", "all")).toEqual({ value: defaultOf("lamps"), valid: true });
+      expect(read("lamps", "all", "action")).toEqual({ value: defaultOf("lamps", "action"), valid: true });
       await page.close();
     });
 
@@ -1094,7 +1102,7 @@ describe("settings pages", () => {
       const saved = await nextSave(uuid, after);
 
       expect(saved).toEqual({ lamps: [savedLamp(SECOND)], leftOutLamps: [savedLamp(FIRST)] });
-      expect(read("lamps", saved.lamps as JsonValue)).toEqual({ value: [SECOND.id], valid: true });
+      expect(read("lamps", saved.lamps as JsonValue, "action")).toEqual({ value: [SECOND.id], valid: true });
       expect(read("leftOutLamps", saved.leftOutLamps as JsonValue)).toEqual({ value: [FIRST.id], valid: true });
       expect(await pickerOf(page)).toMatchObject({ lamps: [{ checked: false }, { checked: true }], all: false });
       await page.close();
