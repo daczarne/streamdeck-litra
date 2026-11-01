@@ -379,7 +379,7 @@ describe("the lamp screens' text styles (#153)", () => {
 describe("the lamps a key acts on (#147)", () => {
   const picked = { lamps: ["lamp-1"], leftOutLamps: ["lamp-2"] };
 
-  it("are every lamp but the ones its page left out, by default, so lamps plugged in later join it", async () => {
+  it("are every lamp but the ones its page left out, by default, so lamps added later join it", async () => {
     await follow();
 
     expect(globalSettings.addsNewLamps("key")).toBe(true);

@@ -223,7 +223,7 @@ export function describeLamps(lamps: LampSelection): string {
 // key or dial saves. The browser tests check both against the pages.
 
 // Every key picks its lamps, while a dial's main screen acts on every lamp, and its lamp screens on the lamp on screen.
-// A key also keeps the lamps its page listed and left unchecked, so a lamp plugged in later can join a key that adds
+// A key also keeps the lamps its page listed and left unchecked, so a lamp added later can join a key that adds
 // new lamps without the ones left out joining too (#147).
 const lamps = checkedLamps();
 const leftOutLamps = lampList();
@@ -263,7 +263,7 @@ export const temperatureStepSettings = {
 
 // A scene is made of groups, each of which turns its lamps off, or on at its own brightness and temperature, taken as
 // the Brightness and Temperature keys take their presets (#174). The first group is the key's own settings, as a scene
-// saved before groups had them, and picks its lamps as every key does, lamps plugged in later included. Each group
+// saved before groups had them, and picks its lamps as every key does, lamps added later included. Each group
 // added after it is saved with its power, its presets and the lamps checked for it, read against sceneGroupSettings,
 // and a lamp it checks leaves the first group. A group turns its lamps on by default, as every scene did.
 const scenePower = oneOf(["on", "off"], "on");
@@ -365,7 +365,7 @@ export type LampScreenItemOptions = {
 };
 
 // The plugin's own settings, which every dial and key shares rather than each saving its own. A key that adds new lamps
-// acts on every lamp but the ones its page left unchecked, so a lamp plugged in later joins it, and one that doesn't acts
+// acts on every lamp but the ones its page left unchecked, so a lamp added later joins it, and one that doesn't acts
 // on the lamps checked (#147). Every key adds them by default, as every key did before, and the keys that chose
 // otherwise on their own page are kept by id, as the dials that chose otherwise about the blink are. With the blink on, tapping
 // a dial through its lamp screens blinks each lamp as its screen appears (#144). It's off by default, since every lamp

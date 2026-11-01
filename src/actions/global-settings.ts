@@ -126,7 +126,7 @@ export function blinksOnLampScreen(dialId: string): boolean {
   return current.blinkOnLampScreen !== current.blinkOnLampScreenExceptions.includes(dialId);
 }
 
-/** Whether a key adds lamps plugged in later (#147): the plugin's setting, or the opposite for a key that chose otherwise. */
+/** Whether a key takes in lamps added later (#147): the plugin's setting, or the opposite for a key that chose otherwise. */
 export function addsNewLamps(keyId: string): boolean {
   return current.addNewLamps !== current.addNewLampsExceptions.includes(keyId);
 }

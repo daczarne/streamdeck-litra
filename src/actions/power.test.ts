@@ -265,12 +265,12 @@ describe("PowerAction", () => {
     });
   });
 
-  describe("with lamps plugged in later (#147)", () => {
+  describe("with lamps added later (#147)", () => {
     beforeEach(() => {
       changeGlobalSettings({});
     });
 
-    it("switches every lamp but the ones its page left out, by default, so a lamp plugged in later joins", async () => {
+    it("switches every lamp but the ones its page left out, by default, so a lamp added later joins", async () => {
       const key = await deck.key(POWER, { mode: "on", lamps: [LAMP_1], leftOutLamps: [LAMP_2] });
       clearCalls();
       vi.mocked(turnLampsOn).mockReturnValue(SWITCHED);
