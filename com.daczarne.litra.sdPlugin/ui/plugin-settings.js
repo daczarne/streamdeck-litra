@@ -228,23 +228,6 @@
       margin: 0;
     }
 
-    /* A slider with its value on its right, as on the actions' pages. */
-    #plugin-settings .range {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    #plugin-settings .range sdpi-range {
-      flex: 1;
-    }
-
-    #plugin-settings .range output {
-      min-width: 7ch;
-      text-align: right;
-      font-variant-numeric: tabular-nums;
-    }
-
     /* A checkbox with a third, indeterminate state, drawn as sdpi-components draws its own, which has none, with its
       check mark. Inside quotes, a data: URL only needs its "#" encoded. */
     .tri-state {
@@ -388,33 +371,14 @@
     return box;
   }
 
-  /**
-   * A slider from sdpi-components that reads and saves a global setting itself, with its value on its right, shown as
-   * range-value.js shows the actions' sliders, which runs before this adds the slider.
-   */
-  function globalSlider(setting, { min, max, step, fallback, suffix }) {
-    const range = document.createElement("sdpi-range");
-    range.id = `plugin-settings-${setting}`;
-    range.setAttribute("setting", setting);
-    range.setAttribute("global", "");
-    range.setAttribute("min", String(min));
-    range.setAttribute("max", String(max));
-    range.setAttribute("step", String(step));
-    range.setAttribute("default", String(fallback));
-    const output = document.createElement("output");
-    output.htmlFor = range.id;
-    const show = (value) => {
-      output.value = value === undefined || value === "" ? "" : `${value}${suffix}`;
-    };
-    // The global settings arriving from Stream Deck, or the slider released.
-    range.addEventListener("valuechange", () => show(range.value ?? fallback));
-    // sdpi-range only takes the slider's value on release, so a drag is followed on the slider itself.
-    range.addEventListener("input", (event) => show(event.composedPath()[0].value));
-    show(fallback);
-    const box = document.createElement("div");
-    box.className = "range";
-    box.append(range, output);
-    return box;
+  /** A number field with − and + (number-field.js, #195) that reads and saves a global setting itself. */
+  function globalNumber(setting, { min, max, step, fallback, unit }) {
+    const field = document.createElement("litra-number");
+    const attributes = { setting, global: "", min, max, step, default: fallback, unit };
+    for (const [name, value] of Object.entries(attributes)) {
+      field.setAttribute(name, String(value));
+    }
+    return field;
   }
 
   /** A color picker from sdpi-components that reads and saves a global setting itself. */
@@ -1022,10 +986,7 @@
       "Temperature",
       globalCheckbox("keepTemperatureDifference", "Each lamp steps from its own temperature, on every dial and key"),
     ),
-    item(
-      "Blink length",
-      globalSlider("identifyBlinkMs", { min: 300, max: 1500, step: 50, fallback: 400, suffix: " ms" }),
-    ),
+    item("Blink length", globalNumber("identifyBlinkMs", { min: 300, max: 1500, step: 50, fallback: 400, unit: "ms" })),
     section("Keys"),
     item("New lamps", everyKeyAddsNewLamps),
     section("Dials"),

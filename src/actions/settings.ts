@@ -52,14 +52,18 @@ function wholeNumberFrom(min: number, max: number, fallback: number): Setting<nu
   };
 }
 
-/** A setting that takes one of a list of numbers, given as a number or as text. */
-function oneOfNumbers(allowed: readonly number[], fallback: number): Setting<number> {
+/**
+ * A setting that takes a number from `min` to `max`, both included, on a step counted from `min`, as a number field
+ * offers them (#195), given as a number or as text.
+ */
+function steppedFrom(min: number, max: number, step: number, fallback: number): Setting<number> {
+  const inRange = numberFrom(min, max, fallback);
   return {
-    default: fallback,
-    expected: `one of ${allowed.join(", ")}`,
+    ...inRange,
+    expected: `a number from ${min} to ${max}, in steps of ${step}`,
     parse: (value) => {
-      const number = toNumber(value);
-      return number !== undefined && allowed.includes(number) ? number : undefined;
+      const number = inRange.parse(value);
+      return number !== undefined && Number.isInteger((number - min) / step) ? number : undefined;
     },
   };
 }
@@ -228,7 +232,7 @@ export const brightnessSettings = {
 
 export const temperatureSettings = {
   presetKelvin: numberFrom(2700, 6500, 2700),
-  stepKelvin: oneOfNumbers([100, 200, 300, 500], 300),
+  stepKelvin: steppedFrom(100, 500, 100, 300),
   lamps,
   leftOutLamps,
 };

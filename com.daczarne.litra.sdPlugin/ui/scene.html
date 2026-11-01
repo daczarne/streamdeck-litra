@@ -17,24 +17,8 @@
       "
     />
     <script src="vendor/sdpi-components.js"></script>
+    <script src="number-field.js"></script>
     <style>
-      /* A slider with its value on its right, shown by range-value.js. */
-      .range {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-      }
-
-      .range sdpi-range {
-        flex: 1;
-      }
-
-      .range output {
-        min-width: 6ch;
-        text-align: right;
-        font-variant-numeric: tabular-nums;
-      }
-
       /* The groups' headings, as the plugin settings draw their sections. Outside sdpi-components' rows, so in its font
         and text color, written out. */
       .group-heading {
@@ -80,30 +64,10 @@
       </sdpi-select>
     </sdpi-item>
     <sdpi-item label="Brightness" class="first-group-preset">
-      <div class="range">
-        <sdpi-range
-          id="preset-percentage"
-          setting="presetPercentage"
-          min="0"
-          max="100"
-          step="1"
-          default="0"
-        ></sdpi-range>
-        <output for="preset-percentage" data-suffix="%"></output>
-      </div>
+      <litra-number setting="presetPercentage" min="0" max="100" step="1" default="0" unit="%"></litra-number>
     </sdpi-item>
     <sdpi-item label="Temperature" class="first-group-preset">
-      <div class="range">
-        <sdpi-range
-          id="preset-kelvin"
-          setting="presetKelvin"
-          min="2700"
-          max="6500"
-          step="100"
-          default="2700"
-        ></sdpi-range>
-        <output for="preset-kelvin" data-suffix=" K"></output>
-      </div>
+      <litra-number setting="presetKelvin" min="2700" max="6500" step="100" default="2700" unit="K"></litra-number>
     </sdpi-item>
     <!-- The lamps the key acts on, which lamp-picker.js lists and saves (#20), and whether lamps added later
       join them, which plugin-settings.js shows and saves (#147). -->
@@ -113,7 +77,6 @@
     </sdpi-item>
     <!-- The groups added after the first, and the button that adds one, which scene-groups.js draws and saves. -->
     <div id="added-groups"></div>
-    <script src="range-value.js"></script>
     <script src="lamp-picker.js"></script>
     <script src="scene-groups.js"></script>
     <script src="plugin-settings.js"></script>
