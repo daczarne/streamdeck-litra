@@ -30,7 +30,7 @@ n auto
 node scripts/probes/brightness-ceiling.mjs
 ```
 
-Every probe takes the lamps one at a time, in the order `findDevices` returns them, with the others closed, so no other lamp's reports mix with its own (`forEachLamp` in `lamps.mjs`). It reads the lamp's power, brightness and temperature, and turns it on if it was off. Once the probe's steps are done, or one of them fails, it puts the lamp back as it was, and reads it to check: a line ending in `FAILED` means the lamp was left elsewhere. A new probe that changes the lamps goes through it too, so it gets the same handling and checks, and keeps only its own steps.
+Every probe that changes the lamps takes them one at a time, in the order `findDevices` returns them, with the others closed, so no other lamp's reports mix with its own (`forEachLamp` in `lamps.mjs`). It reads the lamp's power, brightness and temperature, and turns it on if it was off. Once the probe's steps are done, or one of them fails, it puts the lamp back as it was, and reads it to check: a line ending in `FAILED` means the lamp was left elsewhere. A new probe that changes the lamps goes through it too, so it gets the same handling and checks, and keeps only its own steps.
 
 The results go to a file in `out/`, named after the time the run started (`YYYYMMDD_HHMMSS.txt`), and the terminal only shows its path. Each line is written as soon as it's known, so a run that fails partway keeps what it found. The files hold the lamps' serial numbers, so git ignores them. Nothing in a file says how the lamps were plugged in, so add a note at its top after the run.
 
@@ -38,7 +38,7 @@ The examples of `brightness-readback.mjs` and `brightness-ceiling.mjs` below com
 
 ## Reading the results
 
-Each report a probe logs is printed as its first 8 bytes in hex, followed by its name and value. A byte past the end of a short report shows as `--`, and a value it's too short to hold as `(report too short)`. The lamps have always sent full 20-byte reports, so neither should appear. Byte 2 is the feature (`04` on the Beam and the Glow, `06` on the Beam LX), and byte 3 says what the report is:
+Each report the probes that change the lamps log is printed as its first 8 bytes in hex, followed by its name and value. `serial-numbers.mjs` logs what its replies hold instead, as [its section](#serial-numbersmjs) shows. A byte past the end of a short report shows as `--`, and a value it's too short to hold as `(report too short)`. The lamps have always sent full 20-byte reports, so neither should appear. Byte 2 is the feature (`04` on the Beam and the Glow, `06` on the Beam LX), and byte 3 says what the report is:
 
 | Report              | Starts with      | Value in      | What it is                                                           |
 |---------------------|------------------|---------------|----------------------------------------------------------------------|

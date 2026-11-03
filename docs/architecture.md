@@ -30,7 +30,7 @@ Two libraries speak the lamps' protocol, both by Tim Rogers: `litra`, in TypeScr
 
 ## One module talks to the lamps
 
-`src/litra-manager.ts` is the only module that imports `litra`. The actions import from it, and it offers what the actions need, such as turning every lamp on or stepping their brightness, rather than `litra`'s own functions. So whatever lies under it can change without touching the actions: a fork or a copy of `litra`, or HID++ calls of the plugin's own, which the Beam LX's back light needs ([#19]). It also makes it the one place that logs what each lamp did (see [the logging document][logging]).
+`src/litra-manager.ts` is the only module that imports `litra`. The actions import from it, and it offers what the actions need, such as turning every lamp on or stepping their brightness, rather than `litra`'s own functions. So whatever lies under it can change without touching the actions: a fork or a copy of `litra`, or more HID++ calls of the plugin's own, besides the ones it already makes to read a brightness and a Beam LX's serial number, such as the ones the Beam LX's back light needs ([#19]). It also makes it the one place that logs what each lamp did (see [the logging document][logging]).
 
 ## The lamps the plugin knows
 
@@ -61,7 +61,7 @@ Besides the lamps the plugin knows, four things outlive an operation. The first 
 
 ## Reading what a lamp sends
 
-A lamp answers a query with a reply, and a write with an ACK. A lamp on a low-power supply also sends a change notice when it lowers its brightness to its cap. `litra` takes the first report that arrives as its reply, and reads a brightness from one byte, which holds 255 lm at most, where a Beam goes to 400. So the plugin reads the brightness itself (`getBrightnessInLumenSafe`), from two bytes, skipping up to 10 reports that aren't the reply, such as change notices and ACKs, after which the read fails, so a lamp that keeps sending something else can't hold an operation.
+A lamp answers a query with a reply, and a write with an ACK. A lamp on a low-power supply also sends a change notice when it lowers its brightness to its cap. `litra` takes the first report that arrives as its reply, and reads a brightness from one byte, which holds 255 lm at most, where a Beam goes to 400. So the plugin reads the brightness itself (`getBrightnessInLumenSafe`), from two bytes, skipping up to 10 reports that aren't the reply, such as change notices and ACKs, after which the read fails, so a lamp that keeps sending something else can't hold an operation. Asking a Beam LX for its serial number skips them the same way, and waits at most 500 ms for each report, so a lamp that doesn't answer is left out rather than holding the operation.
 
 After every write, it reads the write's ACK (`drainAck`), so that a read on the same handle afterwards would get its reply. The lamps were measured to ACK every write within a few ms, and an ACK is gone once its handle closes ([#96]), so the drain costs little and only guards a read that follows a write on the same handle. What was measured, and how, is in [the probes][probes].
 
