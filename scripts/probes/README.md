@@ -15,6 +15,9 @@
 - [serial-numbers.mjs](#serial-numbersmjs)
   - [Running it](#running-it-3)
   - [Example](#example-3)
+- [power-cycle.mjs](#power-cyclemjs)
+  - [Running it](#running-it-4)
+  - [Example](#example-4)
 
 These scripts talk to the lamps directly, to answer questions about how they behave that the tests can't: the emulated lamps the tests run on only do what we assume a real one does. The emulated lamp, in `src/test-support/emulated-litra.ts`, follows what these scripts measured, so a run that finds a lamp behaving otherwise updates it too. The scripts aren't part of the plugin or the build, and are run by hand with the lamps connected. CI checks their code, as it checks the other scripts': types, lint and doc comments.
 
@@ -340,7 +343,87 @@ Reading it:
 - Every lamp puts Device Information at index 2, but the plugin looks it up through Root, as a feature's index is the lamp's own.
 - Each lamp's unit id is different, and could tell apart lamps without a serial number. The Beam LX doesn't need it.
 
+## power-cycle.mjs
+
+For each connected Litra, turns it off and on, and reads its power, brightness and temperature after each step. It was written for [#100]: a Beam LX blinked by the plugin, which only turns a lamp off and back on, came back at its minimum brightness and temperature, while the Beams came back as they were. The plugin reads a lamp on both sides of turning it on, and puts back what it lost (`turnOnAsItWas` in `src/litra-manager.ts`), and the emulated lamp turns on as this probe found.
+
+Run it again with a lamp it hasn't been run on, such as a Glow, or after a firmware update.
+
+### Running it
+
+```shell
+node scripts/probes/power-cycle.mjs
+```
+
+For every lamp, from a lamp that's on, the script:
+
+1. Sets the middle of its brightness and temperature ranges.
+2. Turns it on, though it's already on.
+3. Turns it off.
+4. Turns it on.
+5. Sets a quarter of each range, then turns it off and on.
+6. Turns it off, sets the middle of each range while it's off, then turns it on.
+7. Sets a new setting, turns it off, and turns it on again 1500, 400, 100, 750 and 1000 ms later, each time from another setting. The lamp fades out in about 750 ms, and the plugin's blink lasts 400 ms by default.
+8. Twice, leaves it off for 1.5 s, sets a new setting while it's off, and turns it on, reading it every 50 ms for a second: once as it is, once sending the new setting again as soon as it's on.
+
+It listens for a second after each write, and logs every report, as [Reading the results](#reading-the-results) describes, then the state it reads. Step 8 logs each read that differs from the one before. A run takes about 35 seconds per lamp.
+
+### Example
+
+From the runs on 2026-11-03, with three Beams and a Beam LX, the LX plugged into the computer. Every Beam sent the same, so this shows one, abridged to its reads, with its serial number masked:
+
+```text
+Lamp 1: Logitech Litra Beam LX, serial
+  6. a setting written while off
+     turn off
+     reads off, 123 lm (25%), 3700 K
+     set 215 lm, 4600 K, while off
+     reads off, 215 lm (50%), 4600 K
+     turn on
+     reads on, 123 lm (25%), 3700 K
+  7. off for a while, shorter than the fade or not
+     ...
+     set 123 lm, 3700 K
+     turn off, and on again 400 ms later
+     reads on, 123 lm (25%), 3700 K
+     set 178 lm, 4200 K
+     turn off, and on again 100 ms later
+     reads on, 123 lm (25%), 3700 K
+     ...
+  8. turn on, from a setting written while off
+     set 215 lm, 4600 K while off, then turn on
+     +   6 ms: reads 141 lm (30%), 3800 K
+     +1005 ms: reads the same until then
+     set 123 lm, 3700 K while off, then turn on and set it again
+     +   8 ms: reads 123 lm (25%), 3700 K
+     +1003 ms: reads the same until then
+
+Lamp 2: Logitech Litra Beam, serial SERIAL-A
+  6. a setting written while off
+     ...
+     set 215 lm, 4600 K, while off
+     reads off, 215 lm (50%), 4600 K
+     turn on
+     reads on, 215 lm (50%), 4600 K
+  7. off for a while, shorter than the fade or not
+     ...
+     set 178 lm, 4200 K
+     turn off, and on again 100 ms later
+     reads on, 178 lm (40%), 4200 K
+     ...
+```
+
+Reading it:
+
+- Every lamp keeps its setting through a turn on while it's on, and through being off for long enough.
+- A Beam LX turns on at the setting it saved once switched off, not at the one it has. It saves it after more than 100 ms: switched on again 100 ms after it was switched off, it came back at the setting it had saved the time before, in both runs. Switched on 400 ms after, it came back as it was in both runs, while the plugin's blink of 400 ms brought it back at an older setting on the Deck, so the save comes around 400 ms, and a blink of that length may fall either side of it.
+- A setting written to a Beam LX while it's off reads back while it's off, and is lost when it turns on, which goes back to the saved one. A Beam turns on at the setting written while it was off.
+- A Beam LX shows the setting it goes back to from the first read after it turns on, 6 ms later, and keeps a setting sent as soon as it's on. So reading the lamp before and after turning it on tells what it lost, and writing it straight back holds.
+
+The emulated Beam LX saves its setting 500 ms after it's switched off, so the plugin's default blink falls short of it, as it did on the Deck.
+
 [#13]: https://github.com/daczarne/streamdeck-litra/issues/13
 [#96]: https://github.com/daczarne/streamdeck-litra/issues/96
+[#100]: https://github.com/daczarne/streamdeck-litra/issues/100
 [#164]: https://github.com/daczarne/streamdeck-litra/issues/164
 [#170]: https://github.com/daczarne/streamdeck-litra/issues/170

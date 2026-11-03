@@ -31,8 +31,10 @@ In VS Code, the `Build and restart` task runs both.
 5. **The dial says what it does.** Both strips show "Temperature" at the top, above the icon and the value. If a strip shows none, check **Show Title** under the **T** menu of the dial's settings, which Stream Deck keeps for each dial. A title typed in the title field replaces it.
 6. **The keys and the app's dial pictures show the strip's icon.** In the Stream Deck app, the round picture of each Temperature dial shows the white line thermometer from its touch strip ([#51]). So does a Temperature key or dial newly dragged onto the Deck. A key or dial given a custom image keeps it.
 7. **The dials show the first lamp's temperature.** On one dial's lamp screens, set the first lamp to 3300 K and the second to 4500 K, and tap back to its main screen: both strips show 3300, the temperature of the lamp the first tap shows, and the first in the plugin settings' list of lamps. Switch to another page of the Deck and back a few times: the strips still show 3300 each time they appear. Turn a dial one step up: both lamps go to 3400, stepped from the first lamp.
+8. **A Beam LX turns on at the temperature it was given while off.** With a Beam LX plugged in as well, tap a dial's strip to the Beam LX's screen, set it to 3000 K, push the dial to turn the lamp off, and wait a few seconds. Turn the dial to 5000 K, and push it again: the lamp turns on at 5000 K, and its screen shows it. Turn it off again, set 4000 K, and turn it on with a Power key: it turns on at 4000 K. A Beam LX turns on at the setting it had when switched off, so the plugin puts back the one it was given: `logs/litra.log` has a `turned on at` line for each, with the temperature it was put back to ([#100]).
 
 [#16]: https://github.com/daczarne/streamdeck-litra/issues/16
 [#51]: https://github.com/daczarne/streamdeck-litra/issues/51
+[#100]: https://github.com/daczarne/streamdeck-litra/issues/100
 [contributing]: ../contributing.md
 [lamps-apart]: lamps_apart.md

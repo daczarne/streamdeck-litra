@@ -18,6 +18,8 @@ Stream Deck starts the plugin as a Node process (`src/plugin.ts`). The plugin re
 
 A brightness change, from a key or a dial, turns a lamp that's off on first, since a brightness only shows on a lit lamp. A temperature change leaves the lamp's power as it is, so a lamp can be given the temperature it'll turn on at. A scene sets each group's power itself.
 
+A Beam LX doesn't turn on at the setting it has, but at the one it saved a few hundred ms after it was last switched off ([#100]). Switched on sooner, as a blink does, it comes back at an older setting, and a temperature it was given while off is lost when it turns on. It reports the setting it went back to as soon as it's on, and keeps one written right then ([the probes][probes]). So every switch-on goes through `turnOnAsItWas`, which reads the lamp's brightness and temperature, turns it on, reads them again, and writes back whichever changed. A Beam turns on as it was, and gets nothing written. A lamp that can't be read is still turned on, without the check.
+
 ## Why litra, not litra-rs
 
 Two libraries speak the lamps' protocol, both by Tim Rogers: `litra`, in TypeScript on `node-hid`, and [`litra-rs`][litra-rs], in Rust, with a CLI and an MCP server. `litra-rs` is the only one that drives the Beam LX's back light. But every way of using it from a Node plugin adds something to own:
@@ -63,7 +65,7 @@ Besides the lamps the plugin knows, four things outlive an operation. The first 
 
 A lamp answers a query with a reply, and a write with an ACK. A lamp on a low-power supply also sends a change notice when it lowers its brightness to its cap. `litra` takes the first report that arrives as its reply, and reads a brightness from one byte, which holds 255 lm at most, where a Beam goes to 400. So the plugin reads the brightness itself (`getBrightnessInLumenSafe`), from two bytes, skipping up to 10 reports that aren't the reply, such as change notices and ACKs, after which the read fails, so a lamp that keeps sending something else can't hold an operation. Asking a Beam LX for its serial number skips them the same way, and waits at most 500 ms for each report, so a lamp that doesn't answer is left out rather than holding the operation.
 
-After every write, it reads the write's ACK (`drainAck`), so that a read on the same handle afterwards would get its reply. The lamps were measured to ACK every write within a few ms, and an ACK is gone once its handle closes ([#96]), so the drain costs little and only guards a read that follows a write on the same handle. What was measured, and how, is in [the probes][probes].
+After every write, it reads the write's ACK (`drainAck`), so that a read on the same handle afterwards gets its reply, such as the one that checks a lamp just turned on (see [From a press to the lamps](#from-a-press-to-the-lamps)). The lamps were measured to ACK every write within a few ms, and an ACK is gone once its handle closes ([#96]), so the drain costs little and only guards a read that follows a write on the same handle. What was measured, and how, is in [the probes][probes].
 
 ## Keeping the Deck in step
 
@@ -84,6 +86,7 @@ A dial sends a tick at a time, and a quick turn sends many. The dial gathers tic
 [#55]: https://github.com/daczarne/streamdeck-litra/issues/55
 [#57]: https://github.com/daczarne/streamdeck-litra/issues/57
 [#96]: https://github.com/daczarne/streamdeck-litra/issues/96
+[#100]: https://github.com/daczarne/streamdeck-litra/issues/100
 [#132]: https://github.com/daczarne/streamdeck-litra/issues/132
 [#144]: https://github.com/daczarne/streamdeck-litra/issues/144
 [#145]: https://github.com/daczarne/streamdeck-litra/issues/145

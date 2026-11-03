@@ -784,8 +784,10 @@ describe("a lamp without a serial number in its USB descriptor (#170)", () => {
 
     manager.turnLampsOn("all");
 
-    expect(other.written.map(kindOf)).toEqual(["power"]);
-    expect(lx.written.map(kindOf)).toEqual([undefined, undefined, "power"]);
+    // The requests to Root and Device Information are the only ones that aren't about the lamp's light.
+    const identifying = (lamp: EmulatedLitra) => lamp.written.filter((report) => kindOf(report) === undefined);
+    expect([identifying(lx).length, identifying(other).length]).toEqual([2, 0]);
+    expect([lx.on, other.on]).toEqual([true, true]);
   });
 
   it("is left out, closed and logged when its serial number can't be read, and the others go on", () => {
@@ -830,6 +832,88 @@ describe("a lamp without a serial number in its USB descriptor (#170)", () => {
     expect(manager.turnLampsOn("all")).toEqual({ ok: false, deviceCount: 0, failures: 1 });
     expect(lamp.on).toBe(false);
     expect(closes(lamp)).toBe(1);
+  });
+});
+
+describe("a lamp that turns on at the setting it saved once switched off (#100)", () => {
+  /** A Beam LX, on, at its lowest brightness and temperature, which it has saved, unless the options say otherwise. */
+  function beamLx(options: ConstructorParameters<typeof EmulatedLitra>[1] = {}): EmulatedLitra {
+    return new EmulatedLitra("Beam LX", { serialNumber: "2541AB01C1T8", on: true, ...options });
+  }
+
+  const identify = (lamp: EmulatedLitra) => settled(manager.identifyLamp(manager.lampId(lamp.serialNumber), BLINK_MS));
+
+  it("comes back from a blink shorter than it takes to save its setting at the setting it had, and logs it", async () => {
+    const lamp = beamLx();
+    connect(lamp);
+    await settled(manager.setLampsScene(everyLampAt(100, 6500)));
+
+    expect(await identify(lamp)).toEqual({ ok: true, deviceCount: 1, failures: 0 });
+
+    expect([lamp.on, lamp.brightnessInLumen, lamp.temperatureInKelvin]).toEqual([true, 400, 6500]);
+    expect(logger.info).toHaveBeenCalledWith(
+      "identify: Beam LX …C1T8 turned on at 30 lm and 2700 K, put back to 400 lm and 6500 K",
+    );
+  });
+
+  it("is put back only to what it lost", async () => {
+    const lamp = beamLx();
+    connect(lamp);
+    await settled(manager.setLampsBrightness("all", 100));
+
+    await identify(lamp);
+
+    expect([lamp.brightnessInLumen, lamp.temperatureInKelvin]).toEqual([400, 2700]);
+    expect([lamp.writes("brightness"), lamp.writes("temperature")]).toEqual([[400, 400], []]);
+  });
+
+  it.each<[string, () => unknown]>([
+    ["turnLampsOn", () => manager.turnLampsOn("all")],
+    ["toggleLamps", () => manager.toggleLamps("all")],
+    ["setLampsBrightness", () => manager.setLampsBrightness("all", 50)],
+    ["adjustLampsBrightness", () => manager.adjustLampsBrightness("all", 1, 10)],
+  ])("turns on, through %s, at the temperature it was given while off", async (_name, turnOn) => {
+    const lamp = beamLx({ on: false });
+    connect(lamp);
+    manager.setLampsTemperature("all", 5000);
+
+    await settled(Promise.resolve(turnOn()));
+
+    expect([lamp.on, lamp.temperatureInKelvin]).toEqual([true, 5000]);
+  });
+
+  it("keeps the temperature it was given while off through a blink, and turns on at it", async () => {
+    const lamp = beamLx({ on: false });
+    connect(lamp);
+    manager.setLampsTemperature("all", 5000);
+
+    await identify(lamp);
+    manager.turnLampsOn("all");
+
+    expect([lamp.on, lamp.temperatureInKelvin]).toEqual([true, 5000]);
+  });
+
+  it("isn't written to again when it turns on as it was, as a Beam does", () => {
+    const lamp = beam({ on: false });
+    connect(lamp);
+    manager.setLampsTemperature("all", 5000);
+
+    manager.turnLampsOn("all");
+
+    expect([lamp.writes("temperature"), lamp.writes("brightness")]).toEqual([[5000], []]);
+  });
+
+  it("is still turned on, unchecked, when it can't be read, and says so", () => {
+    const lamp = beam({ on: false });
+    lamp.fail("readSync");
+    connect(lamp);
+
+    expect(manager.turnLampsOn("all")).toEqual({ ok: true, deviceCount: 1, failures: 0 });
+
+    expect(lamp.on).toBe(true);
+    expect(logger.warn).toHaveBeenCalledWith(
+      `turn on: Beam …${lamp.serialNumber.slice(-4)} turned on unchecked, since it can't be read: Error: Cannot read from hid device`,
+    );
   });
 });
 
