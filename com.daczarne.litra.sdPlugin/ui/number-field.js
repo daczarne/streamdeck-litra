@@ -99,8 +99,7 @@
       this.plus = this.button("+", "Raise", 1);
       this.input = document.createElement("input");
       this.input.inputMode = "decimal";
-      // As wide as the longest value the range holds, so the unit stays beside it.
-      this.input.style.width = `${Math.max(String(this.min).length, String(this.max).length) + 0.5}ch`;
+      this.input.addEventListener("input", () => this.fit());
       this.input.addEventListener("keydown", (event) => this.onKey(event));
       this.input.addEventListener("blur", () => this.take(this.input.value, true));
       const unit = document.createElement("span");
@@ -236,6 +235,7 @@
       }
       // The field shows what it took, snapped, or the value before, even while it has focus.
       this.input.value = String(this._value);
+      this.fit();
       if (now) {
         this.save();
       }
@@ -288,9 +288,18 @@
       if (document.activeElement !== this.input || this.changed) {
         this.input.value = String(this._value);
       }
+      this.fit();
       this.input.disabled = this.disabled;
       this.minus.disabled = this.disabled || this._value <= this.min;
       this.plus.disabled = this.disabled || this._value >= this.max;
+    }
+
+    /**
+     * Makes the input as wide as the text in it, as it's shown or typed, so the field centers the value and its unit
+     * together, rather than the widest value the range holds, which left a shorter value and its unit off center.
+     */
+    fit() {
+      this.input.style.width = `${Math.max(this.input.value.length, 1)}ch`;
     }
 
     /** Reads and follows the setting the field saves, if it has one, keeping a change the user hasn't saved yet. */

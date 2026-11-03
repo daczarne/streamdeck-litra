@@ -309,6 +309,33 @@ function saved(control: Control, value: string): JsonValue {
 /** Reads what a number field shows (#195): its value, then its unit, apart. */
 const NUMBER_SHOWN = `(field) => field.querySelector("input").value + " " + field.querySelector(".unit").textContent`;
 
+/**
+ * How far off center a number field shows its value and its unit together, in pixels: the space left of the value's
+ * text less the space right of the unit, or null when the field isn't drawn. The text is measured on a copy of it in the
+ * input's font, placed in the field so that it's drawn, since an input's box can be wider than its text, which it draws
+ * on its right.
+ */
+function numberOffCenter(page: Page, field: string): Promise<number | null> {
+  return page.evaluate(`(() => {
+    const field = ${field};
+    const input = field.querySelector("input");
+    const box = field.querySelector(".entry").getBoundingClientRect();
+    const value = input.getBoundingClientRect();
+    const unit = field.querySelector(".unit").getBoundingClientRect();
+    const style = getComputedStyle(input);
+    const copy = document.createElement("span");
+    copy.textContent = input.value;
+    copy.style.position = "absolute";
+    for (const property of ["font-family", "font-size", "font-weight", "font-variant-numeric"]) {
+      copy.style.setProperty(property, style.getPropertyValue(property));
+    }
+    field.append(copy);
+    const text = copy.getBoundingClientRect().width;
+    copy.remove();
+    return box.width > 0 ? value.right - text - box.left - (box.right - unit.right) : null;
+  })()`);
+}
+
 /** What the number field of a setting shows, its value and its unit. */
 function shownValue(page: Page, setting: string): Promise<string> {
   return page.evaluate(`(${NUMBER_SHOWN})(document.querySelector('[setting="${setting}"]'))`);
@@ -490,6 +517,16 @@ describe("settings pages", () => {
       const { page } = await openPanel(panel);
       await expect.poll(() => shownValue(page, setting)).toBe(`${defaultOf(setting)} ${unit}`);
       await page.close();
+    });
+
+    it.each(["min", "max"] as const)("centers its value and unit together at its %s", async (end) => {
+      const { page } = await openPanel(panel);
+      const control = await controlOf(page, setting);
+      await setControl(page, FIELD, String(control[end]));
+      const offCenter = await numberOffCenter(page, FIELD);
+      await page.close();
+
+      expect(Math.abs(offCenter ?? Number.NaN)).toBeLessThanOrEqual(1);
     });
 
     it("shows the saved value", async () => {
@@ -1160,6 +1197,16 @@ describe("settings pages", () => {
         await page.close();
 
         expect(beside).toBe(true);
+      });
+
+      it("centers its value and unit together", async () => {
+        const { page } = await openPanel(panel);
+        await globalSettingsRead(page);
+        await clickInPluginSettings(page, "Plugin settings");
+        const offCenter = await numberOffCenter(page, `document.querySelector('[setting="${SETTING}"]')`);
+        await page.close();
+
+        expect(Math.abs(offCenter ?? Number.NaN)).toBeLessThanOrEqual(1);
       });
 
       it("saves to the global settings, as settings.ts takes it, keeping the others and the action's own", async () => {
