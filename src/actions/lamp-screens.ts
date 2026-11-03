@@ -1,6 +1,7 @@
 import { brightnessGlyph, svgDoc, temperatureGlyph } from "@daczarne/streamdeck-icons";
 import type { TouchTapEvent } from "@elgato/streamdeck";
 
+import { bySerialNumber } from "../lamp-order";
 import { identifyLamp, type LampStatus, onLampsChanged, readLampStatuses } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
 import {
@@ -94,7 +95,10 @@ export class LampScreens {
         await dial.showAlert();
         return;
       }
-      const next = current === undefined ? lamps[0] : lamps.find((lamp) => lamp.serialNumber > current);
+      // The lamp after the one on screen in the order the lamps come in, which also finds the one after a lamp
+      // unplugged since the last tap.
+      const next =
+        current === undefined ? lamps[0] : lamps.find((lamp) => bySerialNumber(lamp.serialNumber, current) > 0);
       if (next === undefined) {
         await this.backToMain(dial.id);
         return;

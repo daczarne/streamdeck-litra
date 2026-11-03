@@ -170,6 +170,45 @@ describe("LampScreens", () => {
       expect(screens.lampOnScreen(dial.id)).toBeUndefined();
     });
 
+    /** A Beam with a whole serial number, labeled by its last 4 characters, as the plugin labels it. */
+    function beamWithSerial(serialNumber: string): LampStatus {
+      return beam(serialNumber, { label: `Beam - ${serialNumber.slice(-4)}` });
+    }
+
+    it("goes through the lamps in the order they come in, by the end of their serial numbers", async () => {
+      const dial = createFakeDial();
+      // In the order of the whole serial numbers, the third lamp would come first.
+      const lamps = [beamWithSerial("2541AB01AAAA"), beamWithSerial("2541AB02BBBB"), beamWithSerial("2419AB03CCCC")];
+      connect(...lamps);
+
+      for (const [place, lamp] of lamps.entries()) {
+        await screens.tap(dial, owner);
+
+        expect(screens.lampOnScreen(dial.id)).toBe(lamp.id);
+        expect(dial.setFeedback).toHaveBeenLastCalledWith(lampScreenOf(lamp, place + 1, 3));
+      }
+      await screens.tap(dial, owner);
+
+      expect(screens.isShowing(dial.id)).toBe(false);
+    });
+
+    it("skips a lamp unplugged since the last tap, in the order the lamps come in", async () => {
+      const dial = createFakeDial();
+      const [first, second, third] = [
+        beamWithSerial("2541AB01AAAA"),
+        beamWithSerial("2541AB02BBBB"),
+        beamWithSerial("2419AB03CCCC"),
+      ];
+      connect(first, second, third);
+      await screens.tap(dial, owner);
+      await screens.tap(dial, owner);
+      connect(first, third);
+
+      await screens.tap(dial, owner);
+
+      expect(screens.lampOnScreen(dial.id)).toBe(third.id);
+    });
+
     it("skips a lamp unplugged since the last tap", async () => {
       const dial = createFakeDial();
       connect(A, B, C);
