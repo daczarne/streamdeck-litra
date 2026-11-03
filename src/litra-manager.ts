@@ -113,6 +113,22 @@ const CAP_REVERSAL_WINDOW_MS = 1500;
 // Reports a lamp sends unasked (ACKs, change notices, error reports) can arrive ahead of the reply to a query.
 const MAX_SKIPPED_REPORTS = 10;
 
+// HID++ 2.0's Root feature, at index 0 on every lamp, gives the index of any other feature from its id. A lamp puts its
+// features at indexes of its own, so the plugin asks rather than hard-coding them.
+const ROOT_FEATURE_INDEX = 0x00;
+const ROOT_GET_FEATURE = 0;
+// Device Information, whose function 2 gives the serial number the lamp keeps itself, in up to 12 ASCII characters,
+// which on a Beam is the one its USB descriptor gives (`scripts/probes/serial-numbers.mjs`, #170).
+const DEVICE_INFORMATION_FEATURE = 0x0003;
+const GET_SERIAL_NUMBER = 2;
+const SERIAL_NUMBER_LENGTH = 12;
+// The software id the plugin's own HID++ requests carry, as litra's queries do, which the lamp sends back in its reply.
+const SOFTWARE_ID = 0x1;
+// An error report has 0xff where the feature goes, then the feature and function it refuses, then its code.
+const ERROR_REPORT = 0xff;
+// A lamp answers a request within a few ms, so a lamp that hasn't answered by then won't.
+const REPLY_TIMEOUT_MS = 500;
+
 /**
  * The brightness each lamp on a low-power supply can reach, in lumens, by serial number, with the path the lamp had
  * when it was learned. Learned when a lamp reaches less than it was sent. A lamp only moves to another power supply by
@@ -291,6 +307,72 @@ export function getBrightnessInLumenSafe(device: Device): number {
     }
   }
   throw new Error(`No brightness reply after ${MAX_SKIPPED_REPORTS} other reports`);
+}
+
+/**
+ * Sends a HID++ request to a lamp, and returns the parameters of its reply, skipping the reports that aren't it, as
+ * {@link getBrightnessInLumenSafe} does. Fails on the lamp's error report, or when no reply comes.
+ */
+function request(device: Device, featureIndex: number, fn: number, parameters: number[] = []): number[] {
+  const hid = asHid(device);
+  const operation = (fn << 4) | SOFTWARE_ID;
+  hid.write(padRight([0x11, 0xff, featureIndex, operation, ...parameters], 20));
+  for (let skipped = 0; skipped <= MAX_SKIPPED_REPORTS; skipped += 1) {
+    const report = hid.readTimeout(REPLY_TIMEOUT_MS);
+    if (report.length === 0) {
+      throw new Error(`No reply to function ${fn} of feature index ${featureIndex}`);
+    }
+    const [, , feature, replyOperation, ...reply] = report;
+    if (feature === featureIndex && replyOperation === operation) {
+      return reply;
+    }
+    if (feature === ERROR_REPORT && replyOperation === featureIndex && reply[0] === operation) {
+      throw new Error(`Error ${reply[1]} for function ${fn} of feature index ${featureIndex}`);
+    }
+  }
+  throw new Error(
+    `No reply to function ${fn} of feature index ${featureIndex} after ${MAX_SKIPPED_REPORTS} other reports`,
+  );
+}
+
+/**
+ * Asks a lamp for the serial number it keeps itself, through its Device Information feature (#170). A Beam LX needs
+ * it: its USB descriptor declares a serial number, but gives none.
+ */
+function readSerialNumber(device: Device): string {
+  const [index = 0] = request(device, ROOT_FEATURE_INDEX, ROOT_GET_FEATURE, [
+    DEVICE_INFORMATION_FEATURE >> 8,
+    DEVICE_INFORMATION_FEATURE & 0xff,
+  ]);
+  // Root answers index 0, its own, for a feature the lamp doesn't have.
+  if (index === ROOT_FEATURE_INDEX) {
+    throw new Error("No Device Information feature to read a serial number from");
+  }
+  const characters = request(device, index, GET_SERIAL_NUMBER).slice(0, SERIAL_NUMBER_LENGTH);
+  const serialNumber = String.fromCharCode(...characters).replace(/\0+$/, "");
+  if (serialNumber === "") {
+    throw new Error("Empty serial number");
+  }
+  return serialNumber;
+}
+
+/**
+ * Gives a lamp found without a serial number, such as a Beam LX, the one it keeps itself, so that it has an id of its
+ * own (#170). A lamp whose serial can't be read is logged and closed, and the operation leaves it out: without its
+ * serial, it can't be told from another lamp. Returns whether the lamp has its serial.
+ */
+function hasSerialNumber(operation: string, device: Device): boolean {
+  if (device.serialNumber !== "") {
+    return true;
+  }
+  try {
+    device.serialNumber = readSerialNumber(device);
+    return true;
+  } catch (error) {
+    logLampFailure(operation, device, error);
+    closeDevice(device);
+    return false;
+  }
 }
 
 /** Where a lamp is plugged in: the path the system gave it, which changes each time it's plugged in. */
@@ -484,18 +566,25 @@ function openGroups<G extends { readonly lamps: LampSelection }>(
     logger.warn(`${operation}: no lamp selected`);
     return opened;
   }
-  let devices: Device[];
+  let found: Device[];
   try {
-    // In the order of their serial numbers, since litra finds them in an order that changes from one call to the next.
-    // So every operation goes through the lamps in the same order, as the lamp screens and the settings pages list
-    // them, and the first lamp, whose temperature the dials show and step from, is always the same one.
-    devices = findDevices().sort((a, b) => bySerialNumber(a.serialNumber, b.serialNumber));
+    found = findDevices();
   } catch (error) {
     logger.error(`${operation}: finding the lamps failed: ${String(error)}`);
     return opened;
   }
-  if (devices.length === 0) {
+  if (found.length === 0) {
     logger.warn(`${operation}: no lamps found`);
+    return opened;
+  }
+  // In the order of their serial numbers, since litra finds them in an order that changes from one call to the next.
+  // So every operation goes through the lamps in the same order, as the lamp screens and the settings pages list them,
+  // and the first lamp, whose temperature the dials show and step from, is always the same one.
+  const devices = found
+    .filter((device) => hasSerialNumber(operation, device))
+    .sort((a, b) => bySerialNumber(a.serialNumber, b.serialNumber));
+  // Each lamp left out is logged already.
+  if (devices.length === 0) {
     return opened;
   }
   const known = (id: string): boolean => !onlyKnown || knownLamps.has(id);
@@ -1050,8 +1139,8 @@ export async function readLampStatuses(): Promise<{ ok: boolean; lamps: LampStat
 /**
  * Lists the connected lamps, the ones the plugin doesn't know included, which it adds to the ones it knows (#194),
  * in the order of their serial numbers, as the lamp screens list them (#20), with what the keys' lamp pickers and the plugin settings show
- * of each (#146). Finding a lamp tells its model and serial, so none is read, and none of the brightness changes has to
- * be waited for. Lists none when finding them fails.
+ * of each (#146). Finding a lamp tells its model and serial, or the lamp is asked for its serial alone (#170), so none
+ * of the brightness changes has to be waited for. Lists none when finding them fails.
  */
 export function findLamps(): FoundLamp[] {
   const devices = openEveryDevice("find lamps");

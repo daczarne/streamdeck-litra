@@ -13,7 +13,7 @@ Every settings page, on a key or a dial, has a Plugin settings button at its top
 
 ## Setup
 
-Plug in two Beams, turned on, and keep a third lamp, such as a Beam LX, unplugged for checks 15 and 16. Place a Power key and a Brightness dial on the Deck. Build the branch and restart the plugin:
+Plug in two Beams, turned on, and keep a third lamp unplugged for checks 15 and 16, a Beam LX for check 17. Place a Power key and a Brightness dial on the Deck. Build the branch and restart the plugin:
 
 ```shell
 npm run build
@@ -40,8 +40,10 @@ In VS Code, the `Build and restart` task runs both.
 14. **The plugin finds the lamps when it knows none.** With the plugin knowing no lamps, as check 13 leaves it, restart the plugin. `logs/litra.log` has a `No lamps known: finding the lamps connected` line, then `Lamps added:` with both Beams, and the plugin settings list both, with no names. Restart the plugin again: neither line comes again.
 15. **A lamp plugged in is left alone until it's found.** Plug in the third lamp, and turn every lamp on. Press the Power key in its toggle mode: the Beams turn off, and the third lamp stays on. Open the plugin settings: the third lamp isn't listed. Press Find lamps: it's listed, and `logs/litra.log` has a `Lamps added:` line with it. Press the key: the Beams turn on. Press it again: every lamp turns off, the third one included.
 16. **A page's save keeps the lamps the plugin knows.** In the plugin settings, set Blink length to 600 ms and back to 400 ms, which saves the global settings from the page. Restart the plugin, and press the Power key: every lamp turns on, the third one included, and `logs/litra.log` has no `No lamps known` line.
+17. **A Beam LX has a serial number of its own.** Its USB descriptor gives none, so the plugin asks the lamp for it ([#170]). With the Beam LX found, as the third lamp of check 15: its row shows the last 4 characters of its serial number under ID, never an empty ID, and its name field shows "Beam LX - " followed by them in grey. Identify blinks it, and the Brightness dial's lamp screens show it with the same label. `logs/litra.log` names it as "Beam LX …" followed by the same 4 characters, and has no `failed` line for it. A Beam LX the plugin knew before this check, with an empty ID, shows as a row with "Not found": forget it with its trash can.
 
 [#146]: https://github.com/daczarne/streamdeck-litra/issues/146
+[#170]: https://github.com/daczarne/streamdeck-litra/issues/170
 [#171]: https://github.com/daczarne/streamdeck-litra/issues/171
 [#194]: https://github.com/daczarne/streamdeck-litra/issues/194
 [lamp-picker]: lamp_picker.md
