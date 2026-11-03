@@ -1148,6 +1148,20 @@ describe("settings pages", () => {
         await page.close();
       });
 
+      it("shows its unit beside the value, not under it", async () => {
+        const { page } = await openPanel(panel);
+        await clickInPluginSettings(page, "Plugin settings");
+        const beside = await page.evaluate(`(() => {
+          const field = document.querySelector('[setting="${SETTING}"]');
+          const value = field.querySelector("input").getBoundingClientRect();
+          const unit = field.querySelector(".unit").getBoundingClientRect();
+          return unit.width > 0 && unit.left >= value.right && unit.top < value.bottom && unit.bottom > value.top;
+        })()`);
+        await page.close();
+
+        expect(beside).toBe(true);
+      });
+
       it("saves to the global settings, as settings.ts takes it, keeping the others and the action's own", async () => {
         streamDeck.globalSettings = { blinkOnLampScreen: true };
         const { page, uuid } = await openPanel(panel);

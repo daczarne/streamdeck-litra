@@ -55,13 +55,15 @@
     }
 
     litra-number button:disabled,
-    litra-number[disabled] .field {
+    litra-number[disabled] .entry {
       opacity: 0.5;
     }
 
     /* The field: the value and its unit, centered together, on the background of sdpi-components' fields. A page that
-      needs it narrower, such as to fit several on a row, sets --number-field-width. */
-    litra-number .field {
+      needs it narrower, such as to fit several on a row, sets --number-field-width. Its class isn't "field", which the
+      plugin settings give their power states' options, stacked in a column, and which would stack the unit under the
+      value. */
+    litra-number .entry {
       display: flex;
       align-items: center;
       justify-content: center;
@@ -105,7 +107,7 @@
       unit.className = "unit";
       unit.textContent = this.getAttribute("unit") ?? "";
       const field = document.createElement("div");
-      field.className = "field";
+      field.className = "entry";
       field.append(this.input, unit);
       field.addEventListener("click", () => this.input.focus());
       this.append(this.minus, field, this.plus);
