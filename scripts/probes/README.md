@@ -12,13 +12,16 @@
 - [brightness-ceiling.mjs](#brightness-ceilingmjs)
   - [Running it](#running-it-2)
   - [Example](#example-2)
+- [serial-numbers.mjs](#serial-numbersmjs)
+  - [Running it](#running-it-3)
+  - [Example](#example-3)
 
 These scripts talk to the lamps directly, to answer questions about how they behave that the tests can't: the emulated lamps the tests run on only do what we assume a real one does. The emulated lamp, in `src/test-support/emulated-litra.ts`, follows what these scripts measured, so a run that finds a lamp behaving otherwise updates it too. The scripts aren't part of the plugin or the build, and are run by hand with the lamps connected. CI checks their code, as it checks the other scripts': types, lint and doc comments.
 
 ## Running a probe
 
 > [!WARNING]
-> A probe changes the lamps while it runs, and puts each one back at the end. Don't use the Deck while it runs: the plugin opens the same lamps, and the reports it triggers would mix with the probe's.
+> A probe changes the lamps while it runs, and puts each one back at the end, except `serial-numbers.mjs`, which only reads them. Don't use the Deck while it runs: the plugin opens the same lamps, and the reports it triggers would mix with the probe's.
 
 From the repo root, with the probe's file:
 
@@ -27,7 +30,7 @@ n auto
 node scripts/probes/brightness-ceiling.mjs
 ```
 
-Every probe takes the lamps one at a time, in the order `findDevices` returns them, with the others closed, so no other lamp's reports mix with its own (`forEachLamp` in `lamps.mjs`). It reads the lamp's power, brightness and temperature, and turns it on if it was off. Once the probe's steps are done, or one of them fails, it puts the lamp back as it was, and reads it to check: a line ending in `FAILED` means the lamp was left elsewhere. A new probe goes through it too, so it gets the same handling and checks, and keeps only its own steps.
+Every probe that changes the lamps takes them one at a time, in the order `findDevices` returns them, with the others closed, so no other lamp's reports mix with its own (`forEachLamp` in `lamps.mjs`). It reads the lamp's power, brightness and temperature, and turns it on if it was off. Once the probe's steps are done, or one of them fails, it puts the lamp back as it was, and reads it to check: a line ending in `FAILED` means the lamp was left elsewhere. A new probe that changes the lamps goes through it too, so it gets the same handling and checks, and keeps only its own steps.
 
 The results go to a file in `out/`, named after the time the run started (`YYYYMMDD_HHMMSS.txt`), and the terminal only shows its path. Each line is written as soon as it's known, so a run that fails partway keeps what it found. The files hold the lamps' serial numbers, so git ignores them. Nothing in a file says how the lamps were plugged in, so add a note at its top after the run.
 
@@ -35,7 +38,7 @@ The examples of `brightness-readback.mjs` and `brightness-ceiling.mjs` below com
 
 ## Reading the results
 
-Each report a probe logs is printed as its first 8 bytes in hex, followed by its name and value. A byte past the end of a short report shows as `--`, and a value it's too short to hold as `(report too short)`. The lamps have always sent full 20-byte reports, so neither should appear. Byte 2 is the feature (`04` on the Beam and the Glow, `06` on the Beam LX), and byte 3 says what the report is:
+Each report the probes that change the lamps log is printed as its first 8 bytes in hex, followed by its name and value. `serial-numbers.mjs` logs what its replies hold instead, as [its section](#serial-numbersmjs) shows. A byte past the end of a short report shows as `--`, and a value it's too short to hold as `(report too short)`. The lamps have always sent full 20-byte reports, so neither should appear. Byte 2 is the feature (`04` on the Beam and the Glow, `06` on the Beam LX), and byte 3 says what the report is:
 
 | Report              | Starts with      | Value in      | What it is                                                           |
 |---------------------|------------------|---------------|----------------------------------------------------------------------|
@@ -284,6 +287,60 @@ Reading it:
 - After being capped, each lamp held its cap, and kept it once it could no longer go back to it.
 - The Beams on the hub had stopped at 324 lm in October, where the highest one now stopped at 320 lm. A cap moves by a few lumens over time, maybe as the lamp warms up or as the supply varies, which most likely explains [#164]: the step up didn't lower the lamp, it found a cap that had dropped since the step before. The plugin learns a cap each time a lamp falls short of what it was sent, so a cap that drops is learned again. The emulated lamp's cap is fixed, as the tests need.
 
+## serial-numbers.mjs
+
+For each connected Litra, asks for the serial number it keeps itself, over HID++, and compares it with the one its USB descriptor gives, which `litra` finds it with. It was written for [#170]: a Beam LX's descriptor declares a serial number but gives none, so `litra` finds it with an empty one, and two Beam LXs couldn't be told apart. The plugin asks a lamp found without a serial number for the one it keeps (`readSerialNumber` in `src/litra-manager.ts`), and the emulated lamp gives it as this probe found it.
+
+Run it again with a lamp it hasn't been run on, such as a Glow, or after a firmware update.
+
+### Running it
+
+```shell
+node scripts/probes/serial-numbers.mjs
+```
+
+It only reads, so it leaves the lamps as they are, and doesn't go through `forEachLamp`. For every lamp, the script:
+
+1. Asks the Root feature (index `00`) for the index and version of Device Information (feature `0x0003`). Root answers index `00`, its own, for a feature the lamp doesn't have.
+2. Reads Device Information's function 0: how many firmware entities the lamp has, its 4-byte unit id, its transport, its model ids, and, in the lowest bit of its capabilities, whether it has a serial number to give.
+3. Reads function 1 for each firmware entity: its type, name and version.
+4. Reads function 2, the serial number, in up to 12 ASCII characters, and compares it with the one the USB descriptor gives.
+
+### Example
+
+From a run on 2026-11-03, with three Beams and a Beam LX. It shows the Beam LX and one Beam, with their serial numbers and unit ids masked:
+
+```text
+Lamp 1: Logitech Litra Beam LX
+  Device Information: index 2, version 5
+  device info: 04 XX XX XX XX 00 0a b9 03 c9 03 00 00 00 01 00
+    entities 4, unit id XX XX XX XX, transport 00 0a
+    model ids b9 03 c9 03 00 00, serial number to give: yes
+  firmware 0: type 1, (none) 0.0, build 00 00
+  firmware 1: type 0, ILL 1.2, build 00 42
+  firmware 2: type 5, (none) 0.0, build 01 03
+  firmware 3: type 2, (none) 0.4, build 00 00
+  serial number: SERIAL-LX (USB descriptor: "", the descriptor gives none)
+
+Lamp 2: Logitech Litra Beam
+  Device Information: index 2, version 4
+  device info: 03 XX XX XX XX 00 08 c9 01 00 00 00 00 00 01 00
+    entities 3, unit id XX XX XX XX, transport 00 08
+    model ids c9 01 00 00 00 00, serial number to give: yes
+  firmware 0: type 1, BOT 1.2, build 00 71
+  firmware 1: type 0, U 1.2, build 00 71
+  firmware 2: type 5, (none) 0.0, build 01 03
+  serial number: SERIAL-A (USB descriptor: SERIAL-A, same)
+```
+
+Reading it:
+
+- The Beam LX keeps a serial number of 12 letters and digits, shaped as a Beam's is, and gives it over HID++, though its descriptor gives none. `ioreg -p IOUSB -l` shows the same: the descriptor declares a serial number string (`iSerialNumber` = 3), and macOS reads none from it.
+- Each Beam gives the same serial number both ways, so reading it over HID++ wouldn't change a Beam's id. The plugin still asks only a lamp found without one.
+- Every lamp puts Device Information at index 2, but the plugin looks it up through Root, as a feature's index is the lamp's own.
+- Each lamp's unit id is different, and could tell apart lamps without a serial number. The Beam LX doesn't need it.
+
 [#13]: https://github.com/daczarne/streamdeck-litra/issues/13
 [#96]: https://github.com/daczarne/streamdeck-litra/issues/96
 [#164]: https://github.com/daczarne/streamdeck-litra/issues/164
+[#170]: https://github.com/daczarne/streamdeck-litra/issues/170

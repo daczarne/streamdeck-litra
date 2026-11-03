@@ -31,7 +31,7 @@ The log tells, in order, what was pressed or turned on the Deck, what each lamp 
 
 - Each line names its source as a scope: `Lamps` for `src/litra-manager.ts`, `Global settings` for `src/actions/global-settings.ts`, and the action's name for the others (`Power`, `Brightness`, `Temperature`, `Scene`, `Brightness Up`, `Brightness Down`, `Temperature Up`, `Temperature Down`, `Lamp screens`, `Lamp picker`).
 - A message from `Lamps` starts with the operation (`turn on`, `set brightness`, `read power`, …), so searching for `set brightness:` finds every step of a brightness change.
-- A lamp is named by its model and the last 4 characters of its serial number, after `…`. That's enough to tell lamps apart, without writing whole serial numbers to a file that may end up in an issue. The examples below write those characters as `<serialNumber1>` for one lamp and `<serialNumber2>` for the other. A lamp an operation was asked for but didn't find is named by its id, since that's all the plugin knows of it.
+- A lamp is named by its model and the last 4 characters of its serial number, after `…`. That's enough to tell lamps apart, without writing whole serial numbers to a file that may end up in an issue. The examples below write those characters as `<serialNumber1>` for one lamp and `<serialNumber2>` for the other. A lamp an operation was asked for but didn't find is named by its id, since that's all the plugin knows of it. A lamp whose serial number can't be read, such as a Beam LX that doesn't answer when asked for it ([#170]), is named by its model alone, followed by `…`.
 - An error from a lamp is written as its message alone, since its stack only points inside `node-hid`. An error that means a bug in the plugin is written with its stack.
 
 A press of a Brightness key with one lamp at its cap and the other failing reads:
@@ -130,6 +130,7 @@ The same folder can hold `com.daczarne.litra.<n>.log` files. They belong to the 
 [#41]: https://github.com/daczarne/streamdeck-litra/issues/41
 [#146]: https://github.com/daczarne/streamdeck-litra/issues/146
 [#147]: https://github.com/daczarne/streamdeck-litra/issues/147
+[#170]: https://github.com/daczarne/streamdeck-litra/issues/170
 [#177]: https://github.com/daczarne/streamdeck-litra/issues/177
 [#194]: https://github.com/daczarne/streamdeck-litra/issues/194
 [manual-checks]: manual_testing/logging.md

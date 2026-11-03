@@ -30,7 +30,7 @@ Two libraries speak the lamps' protocol, both by Tim Rogers: `litra`, in TypeScr
 
 ## One module talks to the lamps
 
-`src/litra-manager.ts` is the only module that imports `litra`. The actions import from it, and it offers what the actions need, such as turning every lamp on or stepping their brightness, rather than `litra`'s own functions. So whatever lies under it can change without touching the actions: a fork or a copy of `litra`, or HID++ calls of the plugin's own, which the Beam LX's back light needs ([#19]). It also makes it the one place that logs what each lamp did (see [the logging document][logging]).
+`src/litra-manager.ts` is the only module that imports `litra`. The actions import from it, and it offers what the actions need, such as turning every lamp on or stepping their brightness, rather than `litra`'s own functions. So whatever lies under it can change without touching the actions: a fork or a copy of `litra`, or more HID++ calls of the plugin's own, besides the ones it already makes to read a brightness and a Beam LX's serial number, such as the ones the Beam LX's back light needs ([#19]). It also makes it the one place that logs what each lamp did (see [the logging document][logging]).
 
 ## The lamps the plugin knows
 
@@ -43,6 +43,8 @@ The plugin is the only one that writes `lamps`: a page shows them, and asks the 
 ## Every lamp, found afresh every time
 
 `litra-manager` keeps no list of the lamps connected. Every operation finds them again, opens each one the plugin knows, applies the operation to every one, and closes them, so a lamp that was unplugged is simply not found, and one plugged in again is, without any code for either. An operation can also be given the lamps to act on, by their ids: the start of each serial number's SHA-256, which a key's settings can hold, and an exported profile carry, without revealing the serial ([#20]). A lamp screen gives its lamp the same way. Or it can be given the lamps to leave out, which is how a key takes in lamps added later: every lamp found but those ([#147]). A scene is given one selection for each of its groups, and each lamp found takes the part of the first group that selects it ([#174]). It then closes the others unused, and logs a selected lamp it doesn't find, or that every lamp found is left out. Finding the lamps is a call inside the plugin's process, not a new process, so doing it on every operation costs little. `litra` finds them in an order that changes from one call to the next, so every operation goes through them in the order of their serial numbers: by their last 4 characters, as the settings pages list the lamps, since that's all the global settings keep of them, then by the whole serial number when two lamps share them. The first lamp, whose temperature the dials show and step from, is then always the same one: the one a dial's first tap shows, and the first in the plugin settings.
+
+A Beam LX's USB descriptor declares a serial number but gives none, so `litra` finds it with an empty one. The plugin then asks the lamp for the serial number it keeps itself, through HID++'s Device Information feature, whose index it gets from the Root feature rather than hard-coding it ([#170]). A Beam gives the same serial both ways, so only a lamp found without one is asked. It costs about 4 ms on every operation, so the serial isn't remembered: remembering it by the lamp's path would need a path that belongs to the lamp, which on Windows isn't checked. A lamp whose serial can't be read is logged and left out, since it couldn't be told from another.
 
 Closing the handles matters because the plugin runs for as long as Stream Deck does: a handle left open would leak for the whole session. `litra`'s type for a lamp's handle leaves out `close`, which `node-hid`'s handle has, so the module reaches it through a type of its own.
 
@@ -59,7 +61,7 @@ Besides the lamps the plugin knows, four things outlive an operation. The first 
 
 ## Reading what a lamp sends
 
-A lamp answers a query with a reply, and a write with an ACK. A lamp on a low-power supply also sends a change notice when it lowers its brightness to its cap. `litra` takes the first report that arrives as its reply, and reads a brightness from one byte, which holds 255 lm at most, where a Beam goes to 400. So the plugin reads the brightness itself (`getBrightnessInLumenSafe`), from two bytes, skipping up to 10 reports that aren't the reply, such as change notices and ACKs, after which the read fails, so a lamp that keeps sending something else can't hold an operation.
+A lamp answers a query with a reply, and a write with an ACK. A lamp on a low-power supply also sends a change notice when it lowers its brightness to its cap. `litra` takes the first report that arrives as its reply, and reads a brightness from one byte, which holds 255 lm at most, where a Beam goes to 400. So the plugin reads the brightness itself (`getBrightnessInLumenSafe`), from two bytes, skipping up to 10 reports that aren't the reply, such as change notices and ACKs, after which the read fails, so a lamp that keeps sending something else can't hold an operation. Asking a Beam LX for its serial number skips them the same way, and waits at most 500 ms for each report, so a lamp that doesn't answer is left out rather than holding the operation.
 
 After every write, it reads the write's ACK (`drainAck`), so that a read on the same handle afterwards would get its reply. The lamps were measured to ACK every write within a few ms, and an ACK is gone once its handle closes ([#96]), so the drain costs little and only guards a read that follows a write on the same handle. What was measured, and how, is in [the probes][probes].
 
@@ -88,6 +90,7 @@ A dial sends a tick at a time, and a quick turn sends many. The dial gathers tic
 [#147]: https://github.com/daczarne/streamdeck-litra/issues/147
 [#153]: https://github.com/daczarne/streamdeck-litra/issues/153
 [#164]: https://github.com/daczarne/streamdeck-litra/issues/164
+[#170]: https://github.com/daczarne/streamdeck-litra/issues/170
 [#174]: https://github.com/daczarne/streamdeck-litra/issues/174
 [#177]: https://github.com/daczarne/streamdeck-litra/issues/177
 [#194]: https://github.com/daczarne/streamdeck-litra/issues/194

@@ -744,6 +744,95 @@ describe.each([
   });
 });
 
+describe("a lamp without a serial number in its USB descriptor (#170)", () => {
+  /** A Beam LX, off, whose USB descriptor gives no serial number, as the one probed. */
+  function beamLx(serialNumber: string): EmulatedLitra {
+    return new EmulatedLitra("Beam LX", { serialNumber, on: false });
+  }
+
+  it("is told apart by the serial number it keeps, which it's asked for", () => {
+    const [first, second] = [beamLx("2541AB01C1T8"), beamLx("2541AB02D2T9")];
+    connect(second, first);
+
+    expect([first.info.serialNumber, second.info.serialNumber]).toEqual(["", ""]);
+    expect(manager.findLamps().map(({ id, serialEnd }) => ({ id, serialEnd }))).toEqual([
+      { id: manager.lampId("2541AB01C1T8"), serialEnd: "C1T8" },
+      { id: manager.lampId("2541AB02D2T9"), serialEnd: "D2T9" },
+    ]);
+
+    manager.turnLampsOn([manager.lampId("2541AB02D2T9")]);
+
+    expect([first.on, second.on]).toEqual([false, true]);
+  });
+
+  it("is asked through Root for the index of Device Information, then for its serial number there", () => {
+    const lamp = beamLx("2541AB01C1T8");
+    connect(lamp);
+
+    manager.turnLampsOn("all");
+
+    expect(lamp.written.slice(0, 2)).toEqual([
+      [0x11, 0xff, 0x00, 0x01, 0x00, 0x03, ...Array(14).fill(0)],
+      [0x11, 0xff, 0x02, 0x21, ...Array(16).fill(0)],
+    ]);
+    expect(lamp.on).toBe(true);
+  });
+
+  it("is the only one asked, since a lamp whose descriptor gives its serial number is found with it", () => {
+    const [lx, other] = [beamLx("2541AB01C1T8"), beam({ on: false })];
+    connect(lx, other);
+
+    manager.turnLampsOn("all");
+
+    expect(other.written.map(kindOf)).toEqual(["power"]);
+    expect(lx.written.map(kindOf)).toEqual([undefined, undefined, "power"]);
+  });
+
+  it("is left out, closed and logged when its serial number can't be read, and the others go on", () => {
+    const [lx, other] = [beamLx("2541AB01C1T8"), beam({ on: false })];
+    lx.fail("readTimeout");
+    connect(lx, other);
+
+    expect(manager.turnLampsOn("all")).toEqual({ ok: true, deviceCount: 1, failures: 0 });
+    expect([lx.on, other.on]).toEqual([false, true]);
+    expect(closes(lx)).toBe(1);
+    expect(logger.error).toHaveBeenCalledExactlyOnceWith(
+      "turn on: Beam LX … failed: Error: Cannot read from hid device",
+    );
+  });
+
+  it.each<[string, ConstructorParameters<typeof EmulatedLitra>[1], string]>([
+    [
+      "has no Device Information",
+      { deviceInformation: "none" },
+      "No Device Information feature to read a serial number from",
+    ],
+    [
+      "has a Device Information from before its serial number could be read",
+      { deviceInformation: 3 },
+      "Error 7 for function 2 of feature index 2",
+    ],
+    ["gives an empty serial number", { serialNumber: "" }, "Empty serial number"],
+  ])("is left out, and the reason logged, when it %s", (_name, options, reason) => {
+    const lamp = new EmulatedLitra("Beam LX", { on: false, ...options });
+    connect(lamp);
+
+    expect(manager.turnLampsOn("all")).toEqual({ ok: false, deviceCount: 0, failures: 1 });
+    expect(lamp.on).toBe(false);
+    expect(logger.error).toHaveBeenCalledExactlyOnceWith(`turn on: Beam LX … failed: Error: ${reason}`);
+  });
+
+  it("makes an operation fail when it's the only lamp, and its serial number can't be read", () => {
+    const lamp = beamLx("2541AB01C1T8");
+    lamp.fail("readTimeout");
+    connect(lamp);
+
+    expect(manager.turnLampsOn("all")).toEqual({ ok: false, deviceCount: 0, failures: 1 });
+    expect(lamp.on).toBe(false);
+    expect(closes(lamp)).toBe(1);
+  });
+});
+
 describe("toggleLamps", () => {
   it("turns every lamp off when every lamp is on, then drains each ACK", () => {
     const pair = [beam(), beam()];

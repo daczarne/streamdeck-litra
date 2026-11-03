@@ -3,6 +3,8 @@ codespace
 davidanson
 hidapi
 imgs
+ioreg
+IOUSB
 killall
 libvips
 licence
