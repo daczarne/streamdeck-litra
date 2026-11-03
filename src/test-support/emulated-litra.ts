@@ -5,10 +5,28 @@ import { at } from "./at";
 // What each model is, taken from litra-rs (github.com/timrogers/litra-rs, src/lib.rs at e05d931), not from litra, so
 // that the tests check litra against another account of the protocol. The Beam also comes as product 0xb901. Whether its
 // USB descriptor gives its serial number comes from `scripts/probes/serial-numbers.mjs`, run on the Beams and a Beam LX
-// (#170), and so does the version of its Device Information feature. The Glow wasn't probed, and is taken to be a Beam.
+// (#170), and so does the version of its Device Information feature. Whether it turns on at the setting it saved once
+// switched off, rather than at the one it has, comes from `scripts/probes/power-cycle.mjs` (#100). The Glow wasn't
+// probed, and is taken to be a Beam.
 const MODELS = {
-  Glow: { productId: 0xc900, feature: 0x04, minLumen: 20, maxLumen: 250, serialInDescriptor: true, deviceInfo: 4 },
-  Beam: { productId: 0xc901, feature: 0x04, minLumen: 30, maxLumen: 400, serialInDescriptor: true, deviceInfo: 4 },
+  Glow: {
+    productId: 0xc900,
+    feature: 0x04,
+    minLumen: 20,
+    maxLumen: 250,
+    serialInDescriptor: true,
+    deviceInfo: 4,
+    turnsOnAtSaved: false,
+  },
+  Beam: {
+    productId: 0xc901,
+    feature: 0x04,
+    minLumen: 30,
+    maxLumen: 400,
+    serialInDescriptor: true,
+    deviceInfo: 4,
+    turnsOnAtSaved: false,
+  },
   "Beam LX": {
     productId: 0xc903,
     feature: 0x06,
@@ -16,6 +34,7 @@ const MODELS = {
     maxLumen: 400,
     serialInDescriptor: false,
     deviceInfo: 5,
+    turnsOnAtSaved: true,
   },
 } as const;
 
@@ -87,6 +106,12 @@ export const CAP_DELAY_MS = 100;
 // between. The probes saw it happen between 0.5 s and 1.25 s after the request.
 export const CAP_REVERSAL_MS = 1000;
 
+// How long after it's switched off a Beam LX saves the brightness and temperature it had, which it turns on at. The
+// probe saw it turn on at the setting it saved before when switched on 100 ms later, and at the one it had 400 ms
+// later, while a blink of 400 ms on the Deck brought it back at the older one: the save comes around 400 ms. A longer
+// wait here makes the plugin's default blink fall short of it, as on the Deck.
+export const SAVE_DELAY_MS = 500;
+
 // An error report has 0xff where the feature goes, then the feature and function it refuses, then its code. The lamps
 // have been seen sending 0x02 (invalid argument). The other codes are HID++ 2.0's, and unchecked on a lamp.
 const ERROR = 0xff;
@@ -154,6 +179,10 @@ function bigEndian(value: number): [number, number] {
  * Information feature, which a Beam LX, whose USB descriptor gives none, is asked for (#170). A handle opened on it starts empty, since what the lamp sent to a handle is gone once that
  * handle closes.
  *
+ * A Beam LX turns on at the brightness and temperature it saved {@link SAVE_DELAY_MS} after it was last switched off,
+ * which are the ones it had when switched off. Switched on sooner, it turns on at the setting it saved before, and a
+ * setting written while it's off, which it reads back, doesn't last past the switch on, as the probe measured.
+ *
  * A capped lamp, like a Beam on a low-power supply, also behaves as measured: sent more than its cap, it takes the
  * brightness it was sent, then lowers it to its cap after {@link CAP_DELAY_MS} and sends a change notice. Sent more
  * than its cap while already at it, it refuses with an error report, followed by a change notice. Either way, it goes
@@ -178,6 +207,9 @@ export class EmulatedLitra {
   private lowerToCap: ReturnType<typeof setTimeout> | undefined;
   // The return to the cap that a request above it has started, which a later request above it restarts.
   private backToCap: ReturnType<typeof setTimeout> | undefined;
+  // The setting a Beam LX turns on at, and its saving of the one it had when switched off, which a switch on cancels.
+  private saved: { lumen: number; kelvin: number };
+  private save: ReturnType<typeof setTimeout> | undefined;
   // The reports waiting on each open handle, to be read.
   private readonly inputs = new Set<number[][]>();
   private readonly failingCalls = new Set<FailingCall>();
@@ -203,6 +235,7 @@ export class EmulatedLitra {
     this.brightnessInLumen = options.brightnessInLumen ?? MODELS[model].minLumen;
     this.temperatureInKelvin = options.temperatureInKelvin ?? MIN_KELVIN;
     this.capInLumen = options.capInLumen;
+    this.saved = { lumen: this.brightnessInLumen, kelvin: this.temperatureInKelvin };
   }
 
   /** Makes a call on the lamp's handles fail from now on, as an HID error does. */
@@ -300,7 +333,7 @@ export class EmulatedLitra {
         if (high !== 0 && high !== 1) {
           return refuse(INVALID_ARGUMENT);
         }
-        this.on = high === 1;
+        this.setPower(high === 1);
         return reply();
       case BRIGHTNESS_QUERY:
         return reply(...bigEndian(this.brightnessInLumen));
@@ -347,6 +380,28 @@ export class EmulatedLitra {
       }
     }
     return [padded([REPORT_ID, DEVICE_INDEX, ERROR, featureIndex, operation, INVALID_FUNCTION_ID])];
+  }
+
+  /**
+   * Switches the lamp on or off. A Beam LX switched off saves its setting a while later, and switched on goes back to
+   * the setting it saved last.
+   */
+  private setPower(on: boolean): void {
+    if (MODELS[this.model].turnsOnAtSaved && on !== this.on) {
+      if (on) {
+        clearTimeout(this.save);
+        this.save = undefined;
+        this.brightnessInLumen = this.saved.lumen;
+        this.temperatureInKelvin = this.saved.kelvin;
+      } else {
+        const setting = { lumen: this.brightnessInLumen, kelvin: this.temperatureInKelvin };
+        this.save = setTimeout(() => {
+          this.save = undefined;
+          this.saved = setting;
+        }, SAVE_DELAY_MS);
+      }
+    }
+    this.on = on;
   }
 
   /** Takes a brightness within the lamp's range, and returns what it answers, as a capped lamp does if it's capped. */

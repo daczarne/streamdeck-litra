@@ -260,8 +260,8 @@ function asHid(device: Device): ClosableHid {
  * Reads the ACK a write leaves on the handle, so that a read on the same handle afterwards gets its reply rather than
  * the ACK: litra's isOn and getTemperatureInKelvin take the first report that arrives. Every write gets an ACK within a
  * few ms, so the drain returns as soon as it arrives, and an ACK left on a handle is gone once the handle closes
- * (`scripts/probes/write-reports.mjs`, #96). No operation reads after a write on the same handle today: the drain is a
- * guard for one that does.
+ * (`scripts/probes/write-reports.mjs`, #96). {@link turnOnAsItWas} reads its lamp right after turning it on, on the
+ * same handle.
  */
 function drainAck(device: Device): void {
   try {
@@ -663,8 +663,7 @@ export function turnLampsOn(lamps: LampSelection): BroadcastResult {
     forEachDevice(
       operation,
       (device) => {
-        turnOn(device);
-        drainAck(device);
+        turnOnAsItWas(operation, device);
         logger.info(`${operation}: ${lampLabel(device)} turned on`);
       },
       lamps,
@@ -720,10 +719,10 @@ export function toggleLamps(lamps: LampSelection): BroadcastResult {
         () => {
           if (allOn) {
             turnOff(device);
+            drainAck(device);
           } else {
-            turnOn(device);
+            turnOnAsItWas(operation, device);
           }
-          drainAck(device);
           logger.info(`${operation}: ${lampLabel(device)} turned ${allOn ? "off" : "on"}`);
         },
         undefined,
@@ -773,10 +772,49 @@ export async function areLampsOn(lamps: LampSelection): Promise<{ ok: boolean; a
 /** Ensure the device is powered on before a brightness change is visible. */
 function ensureOn(operation: string, device: Device): void {
   if (!isOn(device)) {
-    turnOn(device);
-    drainAck(device);
+    turnOnAsItWas(operation, device);
     logger.info(`${operation}: ${lampLabel(device)} turned on`);
   }
+}
+
+/**
+ * Turns a lamp on, and puts back the brightness and temperature it had before when it turns on at others. A Beam LX
+ * turns on at the setting it saves a few hundred ms after it's switched off: switched back on sooner, as a blink does,
+ * it comes back at an older one, and a temperature it was given while off is lost (#100). It reads the setting it was
+ * given while off, and the one it goes back to as soon as it's on (`scripts/probes/power-cycle.mjs`), so reading it on
+ * both sides of the switch tells. A Beam keeps its setting, and gets nothing written. A lamp that can't be read is
+ * still turned on, unchecked.
+ */
+function turnOnAsItWas(operation: string, device: Device): void {
+  let lumen: number;
+  let kelvin: number;
+  try {
+    lumen = getBrightnessInLumenSafe(device);
+    kelvin = getTemperatureInKelvin(device);
+  } catch (error) {
+    turnOn(device);
+    drainAck(device);
+    logger.warn(`${operation}: ${lampLabel(device)} turned on unchecked, since it can't be read: ${String(error)}`);
+    return;
+  }
+  turnOn(device);
+  drainAck(device);
+  const lumenOn = getBrightnessInLumenSafe(device);
+  const kelvinOn = getTemperatureInKelvin(device);
+  if (lumenOn === lumen && kelvinOn === kelvin) {
+    return;
+  }
+  if (kelvinOn !== kelvin) {
+    setTemperatureInKelvin(device, kelvin);
+    drainAck(device);
+  }
+  if (lumenOn !== lumen) {
+    setBrightnessInLumen(device, lumen);
+    drainAck(device);
+  }
+  logger.info(
+    `${operation}: ${lampLabel(device)} turned on at ${lumenOn} lm and ${kelvinOn} K, put back to ${lumen} lm and ${kelvin} K`,
+  );
 }
 
 /** Where a brightness in lumens sits in a lamp's range, from 0 to 100. */
@@ -1175,11 +1213,11 @@ export function identifyLamp(id: string, blinkMs: number): Promise<BroadcastResu
       }
       const setPower = (on: boolean): void => {
         if (on) {
-          turnOn(device);
+          turnOnAsItWas(operation, device);
         } else {
           turnOff(device);
+          drainAck(device);
         }
-        drainAck(device);
       };
       try {
         const wasOn = isOn(device);
