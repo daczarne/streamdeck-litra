@@ -15,6 +15,7 @@ import {
   turnOn,
 } from "litra";
 
+import { bySerialNumber } from "./lamp-order";
 import { logger as pluginLogger } from "./logging";
 
 type ClosableHid = {
@@ -1156,19 +1157,6 @@ export function findLamps(): FoundLamp[] {
       closeDevice(device);
     }
   }
-}
-
-/**
- * Orders two serial numbers, as every operation goes through the lamps: by their last 4 characters, as the settings
- * pages list the lamps, since that's all the global settings keep of them, then by the whole serial number when two
- * lamps share them.
- */
-function bySerialNumber(a: string, b: string): number {
-  const [endA, endB] = [a.slice(-4), b.slice(-4)];
-  if (endA !== endB) {
-    return endA < endB ? -1 : 1;
-  }
-  return a < b ? -1 : a > b ? 1 : 0;
 }
 
 /**
