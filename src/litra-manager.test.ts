@@ -817,12 +817,65 @@ describe("a lamp without a serial number in its USB descriptor (#170)", () => {
     lx.fail("identifying");
     connect(lx, other);
 
-    expect(manager.turnLampsOn("all")).toEqual({ ok: true, deviceCount: 1, failures: 0 });
+    manager.turnLampsOn("all");
+
     expect([lx.on, other.on]).toEqual([false, true]);
     expect(closes(lx)).toBe(1);
     expect(logger.error).toHaveBeenCalledExactlyOnceWith(
       "turn on: Beam LX … failed: Error: Cannot read from hid device",
     );
+  });
+
+  describe("whose serial number can't be read (#100)", () => {
+    /** A Beam LX that can't be told apart, plugged in with a Beam. */
+    function unidentifiedWithBeam(): { lx: EmulatedLitra; other: EmulatedLitra } {
+      const [lx, other] = [beamLx("2541AB01C1T8"), beam({ on: true })];
+      lx.fail("identifying");
+      connect(lx, other);
+      return { lx, other };
+    }
+
+    it.each<[string, () => BroadcastResult | Promise<BroadcastResult>]>([
+      ["turnLampsOn", () => manager.turnLampsOn("all")],
+      ["toggleLamps", () => manager.toggleLamps("all")],
+      ["setLampsBrightness", () => manager.setLampsBrightness("all", 50)],
+      ["setLampsScene", () => manager.setLampsScene(everyLampAt(50, 5000))],
+      ["adjustLampsTemperature, each lamp from its own", () => manager.adjustLampsTemperature("all", 1, 100, "each")],
+      ["readLampsBrightness", () => manager.readLampsBrightness("all")],
+    ])("counts as a failed lamp for %s on every lamp, which it could be one of", async (_name, operation) => {
+      const { other } = unidentifiedWithBeam();
+
+      expect(await settled(Promise.resolve(operation()))).toMatchObject({ ok: false, deviceCount: 2, failures: 1 });
+      expect(other.on).toBe(true);
+    });
+
+    it("counts as a failed lamp for every lamp but some, which it could be one of", () => {
+      unidentifiedWithBeam();
+
+      expect(manager.turnLampsOff({ except: [MISSING_LAMP] })).toEqual({ ok: false, deviceCount: 2, failures: 1 });
+    });
+
+    it("counts as off, as a lamp that can't be read does, so the lamps don't all read as on", async () => {
+      unidentifiedWithBeam();
+
+      expect(await manager.areLampsOn("all")).toEqual({ ok: false, allOn: false, deviceCount: 2 });
+    });
+
+    it("is left out unnoticed by an operation on given lamps, which can't tell whether it was one of them", () => {
+      const { other } = unidentifiedWithBeam();
+
+      expect(manager.turnLampsOff([manager.lampId(other.serialNumber)])).toEqual({
+        ok: true,
+        deviceCount: 1,
+        failures: 0,
+      });
+    });
+
+    it("is left out unnoticed when the plugin finds the lamps, which lists the others", () => {
+      const { other } = unidentifiedWithBeam();
+
+      expect(manager.findLamps().map(({ id }) => id)).toEqual([manager.lampId(other.serialNumber)]);
+    });
   });
 
   it.each<[string, ConstructorParameters<typeof EmulatedLitra>[1], string]>([

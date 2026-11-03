@@ -815,6 +815,24 @@ describe("a Beam and a Beam LX together (#100)", () => {
     expect([first.topLeft, cellsOf(dial).topLeft]).toEqual(["Beam - AL-A", "Beam LX - AL-B"]);
   });
 
+  it("show an alert on a key for every lamp when the Beam LX can't be told apart, but not on the Beam's lamp screen", async () => {
+    const { beam, lx } = beamAndBeamLx();
+    const key = await deck.key(BRIGHTNESS, { presetPercentage: 100 });
+    const dial = await deck.dial(BRIGHTNESS, { stepPercentage: 10 });
+    await deck.tap(dial);
+    lx.fail("identifying");
+
+    await deck.press(key);
+
+    expect(key.showAlert).toHaveBeenCalledOnce();
+    expect(beam.brightnessInLumen).toBe(LUMEN_AT_100);
+
+    await deck.turn(dial, -1);
+
+    expect(dial.showAlert).not.toHaveBeenCalled();
+    expect(beam.brightnessInLumen).toBe(LUMEN_AT_90);
+  });
+
   it("come back from a blink as they were after a scene, as their lamp screens show", async () => {
     const { beam, lx } = beamAndBeamLx();
     const scene = await deck.key(SCENE, { presetPercentage: 100, presetKelvin: 6500 });
