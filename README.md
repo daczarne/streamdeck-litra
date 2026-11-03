@@ -35,13 +35,13 @@ Not an official Logitech or Elgato product.
 
 ## Supported hardware
 
-| Lamp          | Front power, brightness and temperature |
-|---------------|-----------------------------------------|
-| Litra Beam    | Yes, checked on the lamp                |
-| Litra Beam LX | Yes, checked on the lamp                |
-| Litra Glow    | Not checked on a lamp                   |
+| Lamp          | Power, brightness and temperature     |
+|---------------|---------------------------------------|
+| Litra Beam    | Yes, checked on the lamp              |
+| Litra Beam LX | Front light only, checked on the lamp |
+| Litra Glow    | Not checked on a lamp                 |
 
-The plugin is made and checked on Litra Beams, and was checked on a Beam LX's front light, which its tests cover on every change. The Glow takes the same commands, with its own range, so the plugin should control its front light too, but it hasn't been checked on one, and isn't planned: see "Supported lamps" in [the contributing guide][contributing]. If you try one, [an issue][issues] saying how it went helps.
+The plugin is made and checked on Litra Beams, and was checked on a Beam LX's front light, which its tests cover on every change. The Glow takes the same commands, with its own range, so the plugin should control it too, but it hasn't been checked on one, and isn't planned: see "Supported lamps" in [the contributing guide][contributing]. If you try one, [an issue][issues] saying how it went helps.
 
 The Beam LX back light (RGB and G HUB effect presets) isn't supported. What's known about it so far, from the original author's research, is in [#19].
 

@@ -4,8 +4,8 @@ body:
   - type: markdown
     attributes:
       value: >-
-        The plugin is checked on Litra Beams and on a Beam LX's front light. The Glow takes the same commands, so its
-        front light should work, but nobody has checked. Whether it works or not, a report helps.
+        The plugin is checked on Litra Beams and on a Beam LX's front light. The Glow takes the same commands, so it
+        should work, but nobody has checked. Whether it works or not, a report helps.
   - type: textarea
     id: lamps
     attributes:
