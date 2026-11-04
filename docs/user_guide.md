@@ -66,7 +66,7 @@ By default, a key also takes in lamps added later: it acts on every lamp but the
 
 Dials look like Stream Deck's own volume dials: the value, with a bar under it. The keys, and the dials' pictures in the Stream Deck app, show the same line icon as the strip, smaller, at the size of the Icon Library's Litra icons. The temperature bar runs from the lamp's warmest setting (empty) to its coolest (full). The brightness bar is white up to the dimmest lamp's level, and a lighter grey from there to the brightest lamp's, the part only some lamps reach. Their title says what they control ("Brightness", "Temperature"), and can be replaced or hidden like a key's.
 
-Rotating adjusts every lamp (see [Steps](#steps)), and pressing toggles the front light. A Brightness dial shows the brightest lamp's %, and a Temperature dial the first lamp's temperature, the first in the plugin settings' list of lamps.
+Rotating adjusts every lamp (see [Steps](#steps)), and pressing toggles every lamp, as a Power key in its toggle mode does (see [Power](#power)). A Brightness dial shows the brightest lamp's %, and a Temperature dial the first lamp's temperature, the first in the plugin settings' list of lamps.
 
 ### Lamp screens
 
