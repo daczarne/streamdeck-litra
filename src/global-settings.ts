@@ -15,7 +15,8 @@ import {
   parseSettings,
   type TextStyleName,
 } from "./actions/settings";
-import { Lamp, type LampIdentity } from "./lamp";
+import { Lamp } from "./lamp";
+import type { LampIdentity } from "./lamp-identity";
 import { findLamps, type LampSelection, type Stepping, useLamps } from "./litra-manager";
 import { logger as pluginLogger } from "./logging";
 

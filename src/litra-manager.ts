@@ -19,7 +19,8 @@ import {
   turnOn,
 } from "./device";
 
-import { Lamp, lampId } from "./lamp";
+import type { Lamp } from "./lamp";
+import { lampId, lampLabel } from "./lamp-identity";
 import { bySerialNumber } from "./lamp-order";
 import { logger as pluginLogger } from "./logging";
 
@@ -999,7 +1000,7 @@ export function findLamps(): FoundLamp[] {
   try {
     return devices.map((device) => {
       const identity = identityOf(device);
-      return { ...identity, label: new Lamp(identity).label };
+      return { ...identity, label: lampLabel(identity) };
     });
   } finally {
     for (const device of devices) {

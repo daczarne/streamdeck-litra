@@ -7,7 +7,7 @@
 
 import { type Device, DeviceType } from "litra";
 
-import { Lamp, type LampIdentity, lampId } from "./lamp";
+import { type LampIdentity, lampId, lampLogLabel } from "./lamp-identity";
 import { logger as pluginLogger } from "./logging";
 
 export {
@@ -77,7 +77,7 @@ export function identityOf(device: Device): LampIdentity {
  * number to tell it by, such as a Beam LX that hasn't given it yet (#170).
  */
 export function logLabelOf(device: Device): string {
-  return device.serialNumber === "" ? `${modelOf(device)} …` : new Lamp(identityOf(device)).logLabel;
+  return device.serialNumber === "" ? `${modelOf(device)} …` : lampLogLabel(identityOf(device));
 }
 
 /** A lamp's HID handle with the methods node-hid has at runtime, which litra's type leaves out. */

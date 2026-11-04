@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, inject, it, vi } from "vitest";
 
 import type { Device } from "./device";
-import { lampId } from "./lamp";
+import { lampId } from "./lamp-identity";
 import type { BroadcastResult, SceneGroup } from "./litra-manager";
 import { at } from "./test-support/at";
 import { loadOnEmulatedLamps } from "./test-support/emulated-lamps";

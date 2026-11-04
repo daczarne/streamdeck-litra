@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { BRIGHTNESS_CAP_REVERSAL_WINDOW_MS, Lamp, lampId } from "./lamp";
+import { BRIGHTNESS_CAP_REVERSAL_WINDOW_MS, Lamp } from "./lamp";
+import { lampId } from "./lamp-identity";
 import { logger } from "./test-support/fake-logging";
 
 vi.mock("./logging", () => import("./test-support/fake-logging"));
@@ -8,17 +9,6 @@ vi.mock("./logging", () => import("./test-support/fake-logging"));
 const SERIAL = "2541AB017K98";
 const PATH = "path-1";
 const OTHER_PATH = "path-2";
-
-describe("lampId", () => {
-  it("is the first 16 hex characters of the serial number's SHA-256", () => {
-    // printf '%s' 2325FE01ABCD | shasum -a 256
-    expect(lampId("2325FE01ABCD")).toBe("912c77c6cebad870");
-  });
-
-  it("tells lamps apart", () => {
-    expect(lampId("2541AB017K98")).not.toBe(lampId("2541AB027K99"));
-  });
-});
 
 /** A lamp the plugin knows, of a model, and reached as an operation reaches it, with its whole serial number. */
 function reachedLamp(model = "Beam"): Lamp {

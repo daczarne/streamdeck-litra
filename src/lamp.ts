@@ -1,5 +1,4 @@
-import { createHash } from "node:crypto";
-
+import { type LampIdentity, lampId, lampLabel, lampLogLabel } from "./lamp-identity";
 import { logger as pluginLogger } from "./logging";
 
 const logger = pluginLogger.createScope("Lamps");
@@ -15,26 +14,6 @@ export const BRIGHTNESS_CAP_REVERSAL_WINDOW_MS = 1500;
  * in % and lumens for the brightness, in kelvin for the temperature.
  */
 type Position = { position: number; left: number };
-
-/**
- * A lamp's id: the first 16 hex characters of its serial number's SHA-256. It tells lamps apart wherever the plugin
- * names a lamp outside its own process, such as a key's settings, which travel with an exported profile, without
- * revealing the serial (#20).
- */
-export function lampId(serialNumber: string): string {
-  return createHash("sha256").update(serialNumber).digest("hex").slice(0, 16);
-}
-
-/**
- * What identifies a lamp as the global settings keep it (#194): its id, its model, such as "Beam", the last 4
- * characters of its serial number, and the name given to it, if any (#146).
- */
-export type LampIdentity = {
-  readonly id: string;
-  readonly model: string;
-  readonly serialEnd: string;
-  readonly name?: string | undefined;
-};
 
 /**
  * One lamp, and what the plugin remembers about it between operations (#198): who it is, as the global settings keep
@@ -98,7 +77,7 @@ export class Lamp {
    * a file that may be shared (#41).
    */
   get logLabel(): string {
-    return `${this.model} …${this.serialEnd}`;
+    return lampLogLabel(this);
   }
 
   /**
@@ -106,7 +85,7 @@ export class Lamp {
    * "…", which reads poorly there (#20).
    */
   get label(): string {
-    return `${this.model} - ${this.serialEnd}`;
+    return lampLabel(this);
   }
 
   /**
