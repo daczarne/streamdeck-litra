@@ -11,7 +11,7 @@ import {
   type WillDisappearEvent,
 } from "@elgato/streamdeck";
 import type { JsonObject } from "@elgato/utils";
-
+import { globalSettings } from "../global-settings";
 import {
   adjustLampsTemperature,
   type BroadcastResult,
@@ -22,7 +22,6 @@ import {
   toggleLamps,
 } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
-import { keyLamps, temperatureStepping } from "./global-settings";
 import { type LampScreens, lampScreens as sharedLampScreens } from "./lamp-screens";
 import { describeLamps, parseSettings, temperatureSettings } from "./settings";
 
@@ -76,7 +75,7 @@ export class TemperatureAction extends SingletonAction {
    */
   override async onKeyDown(ev: KeyDownEvent): Promise<void> {
     const { presetKelvin: preset, ...saved } = parseSettings(ev.payload.settings, temperatureSettings, logger);
-    const lamps = keyLamps(ev.action.id, saved);
+    const lamps = globalSettings.actionKeyLamps(ev.action.id, saved);
     logger.info(`Key pressed: preset ${preset} K, on ${describeLamps(lamps)}`);
     const result = setLampsTemperature(lamps, preset);
     if (!result.ok) {
@@ -130,7 +129,7 @@ export class TemperatureAction extends SingletonAction {
         const settings = this.latestSettings.get(id) ?? {};
         const { stepKelvin: step } = parseSettings(settings, temperatureSettings, logger);
         // A lamp screen turns its lamp alone, and the main screen every lamp, together or each from its own (#145).
-        const stepping = lamp === undefined ? temperatureStepping() : "together";
+        const stepping = lamp === undefined ? globalSettings.temperatureStepping : "together";
         const screen = lamp === undefined ? "" : " on a lamp screen";
         const each = stepping === "each" ? ", each lamp from its own" : "";
         logger.info(`Dial turned${screen}: ${ticks} ticks of ${step} K${each}`);

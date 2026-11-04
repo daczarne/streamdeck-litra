@@ -2,12 +2,27 @@ import type { JsonObject } from "@elgato/utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { GlobalSettings } from "./global-settings";
+import { findLamps, useLamps } from "./litra-manager";
 import { logger } from "./logging";
+import { at } from "./test-support/at";
 
 //* Fakes
 
+// The SDK's settings, which carry the plugin's global settings between Stream Deck and the plugin. The real SDK opens
+// a connection to Stream Deck and creates a logs/ folder on import.
+const settings = vi.hoisted(() => ({
+  getGlobalSettings: vi.fn<() => Promise<JsonObject>>(),
+  onDidReceiveGlobalSettings: vi.fn<(listener: (ev: { settings: JsonObject }) => void) => void>(),
+  setGlobalSettings: vi.fn<(settings: JsonObject) => Promise<void>>(),
+}));
+
+vi.mock("@elgato/streamdeck", () => ({ default: { settings } }));
+
 // The real logger writes to a logs/ folder.
 vi.mock("./logging", () => import("./test-support/fake-logging"));
+
+// The real litra-manager loads node-hid's native binary on import and talks to real lamps.
+vi.mock("./litra-manager", () => ({ findLamps: vi.fn(), useLamps: vi.fn() }));
 
 // What the global settings save through, which sends them to Stream Deck.
 const save = vi.fn<(settings: JsonObject) => Promise<void>>();
@@ -524,5 +539,134 @@ describe("the lamps' names (#146)", () => {
 
     expect(save).not.toHaveBeenCalled();
     expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("lamp-3"));
+  });
+});
+
+describe("following the global settings (#144)", () => {
+  // The plugin's instance, from a fresh module for every test, since it keeps the settings it last read.
+  let followed: typeof import("./global-settings");
+
+  const BEAM = { id: "lamp-1", label: "Beam - 1111", model: "Beam", serialEnd: "1111" };
+  const BEAM_LX = { id: "lamp-2", label: "Beam LX - 2222", model: "Beam LX", serialEnd: "2222" };
+
+  beforeEach(async () => {
+    vi.resetModules();
+    followed = await import("./global-settings");
+    settings.getGlobalSettings.mockResolvedValue({});
+    settings.setGlobalSettings.mockResolvedValue();
+    vi.mocked(findLamps).mockReturnValue([]);
+  });
+
+  /** Follows the global settings, and waits for the first read to answer. */
+  async function follow(): Promise<void> {
+    followed.followGlobalSettings();
+    await settings.getGlobalSettings.mock.results[0]?.value;
+  }
+
+  /** Changes the global settings from a settings page, as Stream Deck passes them on to the plugin. */
+  function changeFromPage(saved: JsonObject): void {
+    const [listener] = at(settings.onDidReceiveGlobalSettings.mock.calls, 0);
+    listener({ settings: saved });
+  }
+
+  it("hands litra-manager the lamps the plugin knows, which follow every read (#198)", async () => {
+    settings.getGlobalSettings.mockResolvedValue({ lamps: { "lamp-1": { model: "Beam", serialEnd: "1111" } } });
+
+    await follow();
+
+    const [handed] = at(vi.mocked(useLamps).mock.calls, 0);
+    expect(handed).toBe(followed.globalSettings.lamps);
+    expect([...handed.keys()]).toEqual(["lamp-1"]);
+
+    changeFromPage({ lamps: { "lamp-2": { model: "Beam LX", serialEnd: "2222" } } });
+
+    expect([...handed.keys()]).toEqual(["lamp-2"]);
+  });
+
+  it("are their defaults before the first read answers", () => {
+    settings.getGlobalSettings.mockReturnValue(new Promise(() => {}));
+
+    followed.followGlobalSettings();
+
+    expect(followed.globalSettings.current).toEqual(DEFAULTS);
+  });
+
+  it("are the ones saved, once read, and follow a settings page that changes them", async () => {
+    settings.getGlobalSettings.mockResolvedValue({ blinkOnLampScreen: true });
+
+    await follow();
+
+    expect(followed.globalSettings.current).toEqual({ ...DEFAULTS, blinkOnLampScreen: true });
+
+    changeFromPage({ keepTemperatureDifference: true });
+
+    expect(followed.globalSettings.current).toEqual({ ...DEFAULTS, keepTemperatureDifference: true });
+  });
+
+  it("log a failed read, and keep the defaults", async () => {
+    const error = new Error("connection closed");
+    settings.getGlobalSettings.mockRejectedValue(error);
+
+    followed.followGlobalSettings();
+
+    await vi.waitFor(() => expect(logger.error).toHaveBeenCalledExactlyOnceWith(expect.any(String), error));
+    expect(followed.globalSettings.current).toEqual(DEFAULTS);
+  });
+
+  it("save the lamps through Stream Deck, keeping the other settings", async () => {
+    settings.getGlobalSettings.mockResolvedValue({ lamps: { "lamp-1": { model: "Beam", serialEnd: "1111" } } });
+    await follow();
+
+    await followed.globalSettings.renameLamp("lamp-1", "Key light");
+
+    expect(settings.setGlobalSettings).toHaveBeenCalledExactlyOnceWith({
+      lamps: { "lamp-1": { model: "Beam", serialEnd: "1111", name: "Key light" } },
+    });
+  });
+
+  it("find and save the lamps when the plugin starts with none, keeping the other settings (#194)", async () => {
+    settings.getGlobalSettings.mockResolvedValue({ identifyBlinkMs: 600 });
+    vi.mocked(findLamps).mockReturnValue([BEAM, BEAM_LX]);
+
+    await follow();
+    await vi.waitFor(() => expect(settings.setGlobalSettings).toHaveBeenCalledOnce());
+
+    expect(settings.setGlobalSettings).toHaveBeenCalledWith({
+      identifyBlinkMs: 600,
+      lamps: { "lamp-1": { model: "Beam", serialEnd: "1111" }, "lamp-2": { model: "Beam LX", serialEnd: "2222" } },
+    });
+    expect([...followed.globalSettings.lamps.keys()]).toEqual(["lamp-1", "lamp-2"]);
+    expect(vi.mocked(logger.info).mock.calls).toEqual([
+      [expect.stringContaining("No lamps known")],
+      [expect.stringContaining("Beam - 1111, Beam LX - 2222")],
+    ]);
+  });
+
+  it("find the lamps when what's saved isn't lamps by id, as when the plugin starts with none (#194)", async () => {
+    settings.getGlobalSettings.mockResolvedValue({ lamps: ["lamp-1"] });
+    vi.mocked(findLamps).mockReturnValue([BEAM]);
+
+    await follow();
+    await vi.waitFor(() => expect(settings.setGlobalSettings).toHaveBeenCalledOnce());
+
+    expect(settings.setGlobalSettings).toHaveBeenCalledWith({
+      lamps: { "lamp-1": { model: "Beam", serialEnd: "1111" } },
+    });
+  });
+
+  it("don't look for the lamps when the plugin starts with some, or when a page leaves none (#194)", async () => {
+    settings.getGlobalSettings.mockResolvedValue({ lamps: { "lamp-1": { model: "Beam", serialEnd: "1111" } } });
+    await follow();
+
+    changeFromPage({});
+
+    expect(findLamps).not.toHaveBeenCalled();
+  });
+
+  it("save nothing when the plugin starts with none and finds none (#194)", async () => {
+    await follow();
+    await vi.waitFor(() => expect(findLamps).toHaveBeenCalledOnce());
+
+    expect(settings.setGlobalSettings).not.toHaveBeenCalled();
   });
 });

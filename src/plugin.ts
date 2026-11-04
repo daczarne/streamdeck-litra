@@ -1,7 +1,6 @@
 import streamDeck from "@elgato/streamdeck";
 
 import { BrightnessAction } from "./actions/brightness";
-import { followGlobalSettings } from "./actions/global-settings";
 import { answerLampPickers } from "./actions/lamp-picker";
 import { PowerAction } from "./actions/power";
 import { SceneAction } from "./actions/scene";
@@ -12,6 +11,7 @@ import {
   TemperatureUpAction,
 } from "./actions/step-keys";
 import { TemperatureAction } from "./actions/temperature";
+import { followGlobalSettings } from "./global-settings";
 import { logger } from "./logging";
 
 // The SDK's own logger, which only records what the SDK reports itself, in files of its own.

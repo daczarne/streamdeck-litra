@@ -1,9 +1,9 @@
 import streamDeck from "@elgato/streamdeck";
 import type { JsonValue } from "@elgato/utils";
 
+import { globalSettings } from "../global-settings";
 import { findLamps, identifyLamp } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
-import { addLamps, forgetLamp, identifyBlinkMs, renameLamp } from "./global-settings";
 
 const logger = pluginLogger.createScope("Lamp picker");
 
@@ -30,16 +30,16 @@ export async function answer(payload: JsonValue): Promise<void> {
   if (payload.event === "lamps") {
     logger.info("Settings page asked for the lamps");
     const lamps = findLamps();
-    await addLamps(lamps);
+    await globalSettings.addLamps(lamps);
     await streamDeck.ui.sendToPropertyInspector({ event: "lamps", lamps });
   } else if (payload.event === "identify" && typeof payload.id === "string") {
     logger.info("Identify pressed on a settings page");
     // The page has no alert to show: litra-manager logs a lamp it can't find or blink.
-    await identifyLamp(payload.id, identifyBlinkMs());
+    await identifyLamp(payload.id, globalSettings.identifyBlinkMs);
   } else if (payload.event === "rename" && typeof payload.id === "string" && typeof payload.name === "string") {
-    await renameLamp(payload.id, payload.name);
+    await globalSettings.renameLamp(payload.id, payload.name);
   } else if (payload.event === "forget" && typeof payload.id === "string") {
     logger.info("Forget pressed on a settings page");
-    await forgetLamp(payload.id);
+    await globalSettings.forgetLamp(payload.id);
   }
 }

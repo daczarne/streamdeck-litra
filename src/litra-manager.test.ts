@@ -30,6 +30,10 @@ const MISSING_LAMP = "0123456789abcdef";
 const BLINK_MS = 400;
 
 let manager: typeof import("./litra-manager");
+// The Lamp class loaded with litra-manager, whose cap logs reach the fake logger.
+let Lamp: typeof import("./lamp").Lamp;
+// The lamps the plugin knows, as the global settings hold them and hand them over, keeping their Lamps.
+let known: Map<string, InstanceType<typeof Lamp>>;
 let litra: typeof import("litra");
 let hid: typeof import("./test-support/fake-node-hid");
 let logger: typeof import("./test-support/fake-logging").logger;
@@ -39,13 +43,16 @@ beforeEach(async () => {
   vi.useFakeTimers();
   // A fresh litra-manager for every test: no learned caps, listeners or brightness changes carried over.
   ({
-    loaded: { manager, litra },
+    loaded: { manager, litra, Lamp },
     hid,
     logger,
   } = await loadOnEmulatedLamps(async () => ({
     manager: await import("./litra-manager"),
     litra: await import("litra"),
+    Lamp: (await import("./lamp")).Lamp,
   })));
+  known = new Map();
+  manager.useLamps(known);
 });
 
 afterEach(() => {
@@ -77,7 +84,29 @@ function beam(options: ConstructorParameters<typeof EmulatedLitra>[1] = {}): Emu
  */
 function connect(...lamps: EmulatedLitra[]): void {
   hid.connect(...lamps);
-  manager.setKnownLamps([...lamps.map((lamp) => lampId(lamp.serialNumber)), MISSING_LAMP]);
+  knowOnly([...lamps.map(identityOf), { id: MISSING_LAMP, model: MODEL, serialEnd: "MISS" }]);
+}
+
+/** What the global settings keep of an emulated lamp. */
+function identityOf(lamp: EmulatedLitra) {
+  return { id: lampId(lamp.serialNumber), model: lamp.model, serialEnd: lamp.serialNumber.slice(-4) };
+}
+
+/**
+ * Makes these the lamps the plugin knows, as the global settings do when they're read: a lamp still among them keeps
+ * its Lamp, and what it remembers, one no longer among them drops it, and a new one gets one.
+ */
+function knowOnly(identities: readonly { id: string; model: string; serialEnd: string }[]): void {
+  for (const id of [...known.keys()]) {
+    if (!identities.some((identity) => identity.id === id)) {
+      known.delete(id);
+    }
+  }
+  for (const identity of identities) {
+    if (!known.has(identity.id)) {
+      known.set(identity.id, new Lamp(identity));
+    }
+  }
 }
 
 /** Brightness in lumen at the given percentage of the lamps' range. */
@@ -637,9 +666,9 @@ describe("a selection of lamps (#20)", () => {
 
 describe("the lamps the plugin knows (#194)", () => {
   /** Plugs these lamps in, and makes the plugin know only the ones in `known`. */
-  function connectKnowing(known: readonly EmulatedLitra[], ...lamps: EmulatedLitra[]): void {
+  function connectKnowing(knownLamps: readonly EmulatedLitra[], ...lamps: EmulatedLitra[]): void {
     hid.connect(...lamps);
-    manager.setKnownLamps(known.map((lamp) => lampId(lamp.serialNumber)));
+    knowOnly(knownLamps.map(identityOf));
   }
 
   it("are the only ones an operation on every lamp acts on, and the others are closed unused", () => {

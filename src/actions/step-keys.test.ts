@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
+import { followGlobalSettings } from "../global-settings";
 import {
   adjustLampsBrightness,
   adjustLampsTemperature,
@@ -13,7 +13,6 @@ import { logger } from "../logging";
 import { at } from "../test-support/at";
 import { FakeDeck } from "../test-support/fake-deck";
 import { changeGlobalSettings } from "../test-support/fake-stream-deck";
-import { followGlobalSettings } from "./global-settings";
 import { BrightnessDownAction, BrightnessUpAction, TemperatureDownAction, TemperatureUpAction } from "./step-keys";
 
 //* Fakes
@@ -32,7 +31,7 @@ vi.mock("../litra-manager", () => ({
   onLampsChanged: vi.fn(),
   readLampsBrightness: vi.fn(),
   readLampsTemperature: vi.fn(),
-  setKnownLamps: vi.fn(),
+  useLamps: vi.fn(),
 }));
 
 const BRIGHTNESS_UP = "com.daczarne.litra.brightness-up";

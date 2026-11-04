@@ -1,8 +1,8 @@
 import { action, type KeyDownEvent, SingletonAction } from "@elgato/streamdeck";
 
+import { globalSettings } from "../global-settings";
 import { type LampSelection, type SceneGroup, setLampsScene } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
-import { keyLamps } from "./global-settings";
 import { describeLamps, parseSettings, sceneGroupSettings, sceneSettings } from "./settings";
 
 const logger = pluginLogger.createScope("Scene");
@@ -21,7 +21,7 @@ export class SceneAction extends SingletonAction {
     const added = addedGroups.map((group) => parseSettings(group, sceneGroupSettings, logger));
     const taken = added.flatMap((group) => group.lamps);
     const groups = [
-      sceneGroup({ ...first, lamps: without(keyLamps(ev.action.id, first), taken) }),
+      sceneGroup({ ...first, lamps: without(globalSettings.actionKeyLamps(ev.action.id, first), taken) }),
       ...added.map(sceneGroup),
     ];
     logger.info(`Key pressed: scene ${groups.map(describeGroup).join("; ")}`);

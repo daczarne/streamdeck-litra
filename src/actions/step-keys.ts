@@ -7,7 +7,7 @@ import {
 } from "@elgato/streamdeck";
 import type { JsonObject } from "@elgato/utils";
 import type { Logger } from "@elgato/utils/logging";
-
+import { globalSettings } from "../global-settings";
 import {
   adjustLampsBrightness,
   adjustLampsTemperature,
@@ -20,7 +20,6 @@ import {
   type Stepping,
 } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
-import { brightnessStepping, keyLamps, onGlobalSettingsChanged, temperatureStepping } from "./global-settings";
 import {
   brightnessStepSettings,
   describeLamps,
@@ -49,7 +48,7 @@ type Stepped = {
 /** The brightness, which a key shows as the dials do: the brightest lamp's %, or "—" when no lamp can be read. */
 const BRIGHTNESS: Stepped = {
   readStep: (settings, logger) => parseSettings(settings, brightnessStepSettings, logger).stepPercentage,
-  readStepping: brightnessStepping,
+  readStepping: () => globalSettings.brightnessStepping,
   unit: "%",
   adjust: adjustLampsBrightness,
   readTitle: async (lamps) => {
@@ -61,7 +60,7 @@ const BRIGHTNESS: Stepped = {
 /** The temperature, which a key shows as the dials do: the first lamp that answers, in kelvin, or "—" without one. */
 const TEMPERATURE: Stepped = {
   readStep: (settings, logger) => parseSettings(settings, temperatureStepSettings, logger).stepKelvin,
-  readStepping: temperatureStepping,
+  readStepping: () => globalSettings.temperatureStepping,
   unit: " K",
   adjust: adjustLampsTemperature,
   readTitle: async (lamps) => {
@@ -91,7 +90,7 @@ abstract class StepKeyAction extends SingletonAction {
   ) {
     super();
     onLampsChanged(() => this.syncEveryKey());
-    onGlobalSettingsChanged(() => this.syncEveryKey());
+    globalSettings.onChanged(() => this.syncEveryKey());
   }
 
   /** Shows what its lamps are at as soon as the key is placed or shown. */
@@ -158,7 +157,10 @@ abstract class StepKeyAction extends SingletonAction {
 
   /** The lamps a key acts on, from the settings it was last seen with. */
   private lampsOf(id: string): LampSelection {
-    return keyLamps(id, parseSettings(this.latestSettings.get(id) ?? {}, lampSettings, this.logger));
+    return globalSettings.actionKeyLamps(
+      id,
+      parseSettings(this.latestSettings.get(id) ?? {}, lampSettings, this.logger),
+    );
   }
 }
 

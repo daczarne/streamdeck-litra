@@ -2,11 +2,11 @@ import { brightnessGlyph, svgDoc, temperatureGlyph } from "@daczarne/streamdeck-
 import type { JsonObject } from "@elgato/utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { followGlobalSettings, globalSettings as pluginSettings } from "../global-settings";
 import { identifyLamp, type LampStatus, onLampsChanged, readLampStatuses } from "../litra-manager";
 import { logger } from "../logging";
 import { at } from "../test-support/at";
 import { changeGlobalSettings, createFakeDial } from "../test-support/fake-stream-deck";
-import { followGlobalSettings, onGlobalSettingsChanged } from "./global-settings";
 import { type DialOwner, LampScreens, MAIN_LAYOUT } from "./lamp-screens";
 import { globalSettings } from "./settings";
 
@@ -20,10 +20,11 @@ vi.mock("../logging", () => import("../test-support/fake-logging"));
 
 // The global settings are the real ones, followed from the fake SDK, but the listeners each instance registers are
 // kept by the mock, so the instances of earlier tests don't redraw.
-vi.mock("./global-settings", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("./global-settings")>()),
-  onGlobalSettingsChanged: vi.fn(),
-}));
+vi.mock("../global-settings", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../global-settings")>();
+  original.globalSettings.onChanged = vi.fn();
+  return original;
+});
 
 // The real litra-manager loads node-hid's native binary on import and talks to real lamps.
 vi.mock("../litra-manager", () => ({
@@ -31,7 +32,7 @@ vi.mock("../litra-manager", () => ({
   identifyLamp: vi.fn(),
   onLampsChanged: vi.fn(),
   readLampStatuses: vi.fn(),
-  setKnownLamps: vi.fn(),
+  useLamps: vi.fn(),
 }));
 
 const LAMP_LAYOUT = "layouts/lamp.json";
@@ -315,7 +316,7 @@ describe("LampScreens", () => {
       await screens.tap(dial, owner);
 
       changeGlobalSettings({ lampScreenBottomRight: "none" });
-      const globalSettingsChanged = vi.mocked(onGlobalSettingsChanged).mock.lastCall?.[0];
+      const globalSettingsChanged = vi.mocked(pluginSettings.onChanged).mock.lastCall?.[0];
       await globalSettingsChanged?.();
 
       expect(dial.setFeedback).toHaveBeenLastCalledWith({ ...lampScreenOf(A, 1, 2), ...cell("bottomRight") });

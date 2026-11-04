@@ -1,21 +1,16 @@
 import { brightnessGlyph, svgDoc, temperatureGlyph } from "@daczarne/streamdeck-icons";
 import type { TouchTapEvent } from "@elgato/streamdeck";
 
+import {
+  FONT_WEIGHTS,
+  globalSettings,
+  type LampScreenCellContent,
+  type TextStyle,
+  type TextStyles,
+} from "../global-settings";
 import { bySerialNumber } from "../lamp-order";
 import { identifyLamp, type LampStatus, onLampsChanged, readLampStatuses } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
-import {
-  blinksOnLampScreen,
-  FONT_WEIGHTS,
-  identifyBlinkMs,
-  type LampScreenCellContent,
-  lampName,
-  lampScreenCells,
-  onGlobalSettingsChanged,
-  type TextStyle,
-  type TextStyles,
-  textStyles,
-} from "./global-settings";
 import { LAMP_SCREEN_CELLS, type LampScreenCell, type LampScreenItem, type LampScreenItemOptions } from "./settings";
 
 /** What the lamp screens use of a dial, whichever action it belongs to. */
@@ -70,7 +65,7 @@ export class LampScreens {
   /** Subscribes to every change made to the lamps, and to the global settings, to redraw the lamp screens. */
   constructor() {
     onLampsChanged(() => this.refresh());
-    onGlobalSettingsChanged(() => this.refresh());
+    globalSettings.onChanged(() => this.refresh());
   }
 
   /** Whether a dial is on a lamp screen rather than its main screen. */
@@ -104,7 +99,7 @@ export class LampScreens {
         return;
       }
       await this.show(dial, next, lamps, owner);
-      if (blinksOnLampScreen(dial.id)) {
+      if (globalSettings.blinksOnLampScreen(dial.id)) {
         await blink(dial, next.id);
       }
     });
@@ -209,7 +204,7 @@ const TRIMMED_LENGTH = 10;
 
 /** Blinks a lamp, by its id, and shows an alert on the dial when it can't. */
 async function blink(dial: LampScreenDial, lampId: string): Promise<void> {
-  const result = await identifyLamp(lampId, identifyBlinkMs());
+  const result = await identifyLamp(lampId, globalSettings.identifyBlinkMs);
   if (!result.ok) {
     await dial.showAlert();
   }
@@ -260,7 +255,7 @@ function identification(options: LampScreenItemOptions["identification"], lamp: 
       case "id":
         return lamp.serialNumber.slice(-4);
       case "name":
-        return lampName(lamp.id) ?? lamp.label;
+        return globalSettings.lamps.get(lamp.id)?.name ?? lamp.label;
       case "empty":
         return "";
     }
@@ -343,8 +338,8 @@ function cellSlots(cell: LampScreenCell, shown: Shown | undefined) {
 
 /** Fills the slots of the lamp layout, each cell with what the global settings give it, and how (#177). */
 async function draw(dial: LampScreenDial, lamp: LampStatus, lamps: LampStatus[]): Promise<void> {
-  const cells = lampScreenCells();
-  const styles = textStyles();
+  const cells = globalSettings.lampScreenCells;
+  const styles = globalSettings.textStyles;
   await dial.setFeedback(
     Object.assign({}, ...LAMP_SCREEN_CELLS.map((cell) => cellSlots(cell, shownIn(cells[cell], lamp, lamps, styles)))),
   );

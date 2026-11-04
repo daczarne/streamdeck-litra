@@ -1,3 +1,4 @@
+import streamDeck from "@elgato/streamdeck";
 import type { JsonObject } from "@elgato/utils";
 
 import {
@@ -15,7 +16,7 @@ import {
   type TextStyleName,
 } from "./actions/settings";
 import { Lamp, type LampIdentity } from "./lamp";
-import type { LampSelection, Stepping } from "./litra-manager";
+import { findLamps, type LampSelection, type Stepping, useLamps } from "./litra-manager";
 import { logger as pluginLogger } from "./logging";
 
 /** A text's look on the lamp screens: its color, and its font's size and weight (#153). */
@@ -284,4 +285,30 @@ function readCells(settings: ParsedGlobalSettings): Record<LampScreenCell, LampS
 function objectAt(object: JsonObject, key: string): JsonObject {
   const value = object[key];
   return typeof value === "object" && value !== null && !Array.isArray(value) ? value : {};
+}
+
+/** The plugin's global settings, the single instance, which saves them to Stream Deck. */
+export const globalSettings = new GlobalSettings((settings) => streamDeck.settings.setGlobalSettings(settings));
+
+/**
+ * Follows the plugin's global settings, which the settings pages save (#144): hands litra-manager the lamps the plugin
+ * knows, reads the settings once Stream Deck is connected, and again whenever a page changes them. They're kept rather
+ * than asked for on every tap, turn or press, so none of them waits on Stream Deck. When the plugin knows no lamps yet,
+ * it finds the connected ones first, so a new user starts with every lamp (#194).
+ */
+export function followGlobalSettings(): void {
+  useLamps(globalSettings.lamps);
+  streamDeck.settings.onDidReceiveGlobalSettings((ev) => globalSettings.read(ev.settings));
+  streamDeck.settings
+    .getGlobalSettings()
+    .then(async (settings) => {
+      globalSettings.read(settings);
+      if (globalSettings.lamps.size === 0) {
+        logger.info("No lamps known: finding the lamps connected");
+        await globalSettings.addLamps(findLamps());
+      }
+    })
+    .catch((error: unknown) => {
+      logger.error("Reading the global settings failed", error);
+    });
 }

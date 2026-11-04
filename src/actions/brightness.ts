@@ -11,7 +11,7 @@ import {
   type WillDisappearEvent,
 } from "@elgato/streamdeck";
 import type { JsonObject } from "@elgato/utils";
-
+import { globalSettings } from "../global-settings";
 import {
   adjustLampsBrightness,
   createDialDebouncer,
@@ -21,7 +21,6 @@ import {
   toggleLamps,
 } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
-import { brightnessStepping, keyLamps } from "./global-settings";
 import { type LampScreens, lampScreens as sharedLampScreens } from "./lamp-screens";
 import { brightnessSettings, describeLamps, parseSettings } from "./settings";
 
@@ -107,7 +106,7 @@ export class BrightnessAction extends SingletonAction {
    */
   override async onKeyDown(ev: KeyDownEvent): Promise<void> {
     const { presetPercentage: preset, ...saved } = parseSettings(ev.payload.settings, brightnessSettings, logger);
-    const lamps = keyLamps(ev.action.id, saved);
+    const lamps = globalSettings.actionKeyLamps(ev.action.id, saved);
     logger.info(`Key pressed: preset ${preset}%, on ${describeLamps(lamps)}`);
     const result = await setLampsBrightness(lamps, preset);
     if (!result.ok) {
@@ -161,7 +160,7 @@ export class BrightnessAction extends SingletonAction {
         const settings = this.latestSettings.get(id) ?? {};
         const { stepPercentage: step } = parseSettings(settings, brightnessSettings, logger);
         // A lamp screen turns its lamp alone, and the main screen every lamp, together or each from its own (#145).
-        const stepping = lamp === undefined ? brightnessStepping() : "together";
+        const stepping = lamp === undefined ? globalSettings.brightnessStepping : "together";
         const screen = lamp === undefined ? "" : " on a lamp screen";
         const each = stepping === "each" ? ", each lamp from its own" : "";
         logger.info(`Dial turned${screen}: ${ticks} ticks of ${step}%${each}`);

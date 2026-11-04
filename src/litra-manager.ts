@@ -13,7 +13,7 @@ import {
   turnOn,
 } from "litra";
 
-import { Lamp, lampId } from "./lamp";
+import { Lamp, type LampIdentity, lampId } from "./lamp";
 import { bySerialNumber } from "./lamp-order";
 import { logger as pluginLogger } from "./logging";
 
@@ -38,7 +38,7 @@ export type BroadcastResult = {
 };
 
 /**
- * Which lamps an operation acts on, among the ones the plugin knows (see {@link setKnownLamps}): every one connected, the
+ * Which lamps an operation acts on, among the ones the plugin knows (see {@link useLamps}): every one connected, the
  * ones with these ids (see {@link Lamp.id}, #20), or every one connected but the ones with these ids, which takes in lamps
  * added later (#147).
  */
@@ -126,28 +126,6 @@ const ERROR_REPORT = 0xff;
 const REPLY_TIMEOUT_MS = 500;
 
 /**
- * The lamps the plugin has reached since it started, by serial number, each with what outlives an operation (#198):
- * its brightness cap (#55), when it may still go back to it, and its positions when it's kept apart (#145).
- */
-const lampsReached = new Map<string, Lamp>();
-
-/** The `Lamp` of a lamp found, created the first time the plugin reaches it. */
-function lampOf(device: Device): Lamp {
-  let lamp = lampsReached.get(device.serialNumber);
-  if (lamp === undefined) {
-    const { serialNumber } = device;
-    lamp = new Lamp({
-      id: lampId(serialNumber),
-      model: MODEL_BY_DEVICE_TYPE[device.type],
-      serialEnd: serialNumber.slice(-4),
-    });
-    lamp.reachedAs(serialNumber);
-    lampsReached.set(device.serialNumber, lamp);
-  }
-  return lamp;
-}
-
-/**
  * The last brightness change, or blink, queued by {@link oneBrightnessChangeAtATime}, which the next one waits for.
  */
 let brightnessChanges: Promise<unknown> = Promise.resolve();
@@ -155,14 +133,38 @@ let brightnessChanges: Promise<unknown> = Promise.resolve();
 const lampsChangedListeners: Array<() => void | Promise<void>> = [];
 
 /**
- * The ids of the lamps the plugin knows, the only ones an operation acts on (#194), or none until the global settings
- * that hold them are read. Only finding the lamps sees the others.
+ * The lamps the plugin knows, by id, the only ones an operation acts on (#194), as the global settings hold them, or
+ * none until they're handed over. Only finding the lamps sees the others.
  */
-let knownLamps: ReadonlySet<string> = new Set();
+let knownLamps: ReadonlyMap<string, Lamp> = new Map();
 
-/** Sets the lamps the plugin knows, by id, which every operation from then on acts on alone (#194). */
-export function setKnownLamps(ids: Iterable<string>): void {
-  knownLamps = new Set(ids);
+/**
+ * Takes the lamps the plugin knows, as the global settings hold them (#198): the map itself, which they keep up to date,
+ * so every operation from then on acts on them alone (#194), and asks each one's `Lamp` what it remembers.
+ */
+export function useLamps(lamps: ReadonlyMap<string, Lamp>): void {
+  knownLamps = lamps;
+}
+
+/** What identifies a lamp found, as the global settings would keep it. */
+function identityOf(device: Device): LampIdentity {
+  const { serialNumber } = device;
+  return { id: lampId(serialNumber), model: MODEL_BY_DEVICE_TYPE[device.type], serialEnd: serialNumber.slice(-4) };
+}
+
+/**
+ * The `Lamp` of a lamp the plugin knows, which takes the lamp's whole serial number the first time it's reached. Every
+ * operation acts on known lamps alone, so one it doesn't know is a bug.
+ */
+function lampOf(device: Device): Lamp {
+  const lamp = knownLamps.get(lampId(device.serialNumber));
+  if (lamp === undefined) {
+    throw new Error(`${lampLabel(device)} isn't one of the plugin's lamps`);
+  }
+  if (lamp.serialNumber === undefined) {
+    lamp.reachedAs(device.serialNumber);
+  }
+  return lamp;
 }
 
 /**
@@ -205,7 +207,7 @@ function announced<T>(result: T): T {
  * to tell it by, such as a Beam LX that hasn't given it yet (#170).
  */
 function lampLabel(device: Device): string {
-  return device.serialNumber === "" ? `${MODEL_BY_DEVICE_TYPE[device.type]} …` : lampOf(device).logLabel;
+  return device.serialNumber === "" ? `${MODEL_BY_DEVICE_TYPE[device.type]} …` : new Lamp(identityOf(device)).logLabel;
 }
 
 /** Logs a lamp's part in an operation failing. The other lamps carry on. */
@@ -552,7 +554,7 @@ function openGroups<G extends { readonly lamps: LampSelection }>(
   const known = (id: string): boolean => !onlyKnown || knownLamps.has(id);
   const connected: string[] = [];
   for (const device of devices) {
-    const { id } = lampOf(device);
+    const id = lampId(device.serialNumber);
     const group = known(id) ? groups.find(({ lamps }) => selects(lamps, id)) : undefined;
     if (known(id)) {
       connected.push(id);
@@ -884,7 +886,7 @@ function inStages(operation: string): { failed: Set<Device>; attempt: (device: D
  * {@link Lamp.brightnessCapReversalEndsAt}), so a change that asks for less isn't undone.
  */
 async function waitForCapReversal(operation: string): Promise<void> {
-  const endsAt = Math.max(0, ...[...lampsReached.values()].map((lamp) => lamp.brightnessCapReversalEndsAt));
+  const endsAt = Math.max(0, ...[...knownLamps.values()].map((lamp) => lamp.brightnessCapReversalEndsAt));
   const reversalMs = endsAt - Date.now();
   if (reversalMs > 0) {
     logger.debug(`${operation}: waiting ${reversalMs} ms, until no lamp can go back to its cap`);
@@ -1149,8 +1151,8 @@ export function findLamps(): FoundLamp[] {
   const devices = openEveryDevice("find lamps");
   try {
     return devices.map((device) => {
-      const { id, label, model, serialEnd } = lampOf(device);
-      return { id, label, model, serialEnd };
+      const identity = identityOf(device);
+      return { ...identity, label: new Lamp(identity).label };
     });
   } finally {
     for (const device of devices) {
