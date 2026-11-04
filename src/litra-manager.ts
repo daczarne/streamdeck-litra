@@ -1,5 +1,3 @@
-import { createHash } from "node:crypto";
-
 import {
   type Device,
   DeviceType,
@@ -15,6 +13,7 @@ import {
   turnOn,
 } from "litra";
 
+import { Lamp } from "./lamp";
 import { bySerialNumber } from "./lamp-order";
 import { logger as pluginLogger } from "./logging";
 
@@ -40,7 +39,7 @@ export type BroadcastResult = {
 
 /**
  * Which lamps an operation acts on, among the ones the plugin knows (see {@link setKnownLamps}): every one connected, the
- * ones with these ids (see {@link lampId}, #20), or every one connected but the ones with these ids, which takes in lamps
+ * ones with these ids (see {@link Lamp.id}, #20), or every one connected but the ones with these ids, which takes in lamps
  * added later (#147).
  */
 export type LampSelection = "all" | readonly string[] | { readonly except: readonly string[] };
@@ -107,10 +106,6 @@ const MODEL_BY_DEVICE_TYPE: Record<DeviceType, string> = {
 // A capped lamp applies its cap within about 100 ms of a write, and until then reports the brightness it was sent.
 const BRIGHTNESS_SETTLE_MS = 250;
 
-// A capped lamp can go back to its cap up to 1.25 s after a request above it, undoing a lower brightness written in
-// between (#55). A later write stays, so a brightness change waits until this long after such a request.
-const CAP_REVERSAL_WINDOW_MS = 1500;
-
 // Reports a lamp sends unasked (ACKs, change notices, error reports) can arrive ahead of the reply to a query.
 const MAX_SKIPPED_REPORTS = 10;
 
@@ -131,37 +126,20 @@ const ERROR_REPORT = 0xff;
 const REPLY_TIMEOUT_MS = 500;
 
 /**
- * The brightness each lamp on a low-power supply can reach, in lumens, by serial number, with the path the lamp had
- * when it was learned. Learned when a lamp reaches less than it was sent. A lamp only moves to another power supply by
- * being plugged in again, which gives it a new path, so a cap is forgotten once its lamp has another path (#55).
+ * The lamps the plugin has reached since it started, by serial number, each with what outlives an operation (#198):
+ * its brightness cap (#55), when it may still go back to it, and its positions when it's kept apart (#145).
  */
-const brightnessCaps = new Map<string, { path: string; lumen: number }>();
+const lampsReached = new Map<string, Lamp>();
 
-/**
- * Where a lamp kept apart would be if no end of its range or cap had stopped it, with the value it was left at: in % and
- * lumens for the brightness, in kelvin for the temperature (#145).
- */
-type Position = { position: number; left: number };
-
-/**
- * The positions of the lamps kept apart, by serial number, which their next step goes on from, so lamps stopped by an
- * end keep their difference. A position is only used while its lamp is still at the value it was left at, and every
- * other change to that value forgets it, so a lamp moved by anything else steps from where it is.
- */
-const brightnessPositions = new Map<string, Position>();
-const temperaturePositions = new Map<string, Position>();
-
-/** Where a lamp kept apart steps from: the position it was left at, if it's still there, or else the value it's at. */
-function positionOf(positions: Map<string, Position>, device: Device, value: number, fallback: number): number {
-  const remembered = positions.get(device.serialNumber);
-  return remembered !== undefined && remembered.left === value ? remembered.position : fallback;
+/** The `Lamp` of a lamp found, created the first time the plugin reaches it. */
+function lampOf(device: Device): Lamp {
+  let lamp = lampsReached.get(device.serialNumber);
+  if (lamp === undefined) {
+    lamp = new Lamp(device.serialNumber, MODEL_BY_DEVICE_TYPE[device.type]);
+    lampsReached.set(device.serialNumber, lamp);
+  }
+  return lamp;
 }
-
-/**
- * When a lamp may still go back to its cap, as a time from `Date.now()`: {@link CAP_REVERSAL_WINDOW_MS} after the
- * last write that went above a lamp's cap. Brightness changes wait until then.
- */
-let capReversalEndsAt = 0;
 
 /**
  * The last brightness change, or blink, queued by {@link oneBrightnessChangeAtATime}, which the next one waits for.
@@ -217,33 +195,11 @@ function announced<T>(result: T): T {
 }
 
 /**
- * A lamp as the logs name it: its model and the end of its serial number, enough to tell lamps apart without writing
- * the whole serial to a file that may be shared (#41).
+ * A lamp as the logs name it, as its `Lamp` does, or by its model alone, followed by "…", while it has no serial number
+ * to tell it by, such as a Beam LX that hasn't given it yet (#170).
  */
 function lampLabel(device: Device): string {
-  return `${MODEL_BY_DEVICE_TYPE[device.type]} ${serialTail(device.serialNumber)}`;
-}
-
-/**
- * A lamp's id: the first 16 hex characters of its serial number's SHA-256. It tells lamps apart wherever the plugin
- * names a lamp outside its own process, such as a key's settings, which travel with an exported profile, without
- * revealing the serial (#20).
- */
-export function lampId(serialNumber: string): string {
-  return createHash("sha256").update(serialNumber).digest("hex").slice(0, 16);
-}
-
-/**
- * A lamp as the Deck and the settings pages name it, such as "Beam - 7K98": its model and the last 4 characters of its
- * serial number, as the logs name it, with a hyphen rather than the logs' "…", which reads poorly there (#20).
- */
-function displayLabel(device: Device): string {
-  return `${MODEL_BY_DEVICE_TYPE[device.type]} - ${device.serialNumber.slice(-4)}`;
-}
-
-/** The last 4 characters of a serial number, marked as a tail. */
-function serialTail(serialNumber: string): string {
-  return `…${serialNumber.slice(-4)}`;
+  return device.serialNumber === "" ? `${MODEL_BY_DEVICE_TYPE[device.type]} …` : lampOf(device).logLabel;
 }
 
 /** Logs a lamp's part in an operation failing. The other lamps carry on. */
@@ -381,24 +337,9 @@ function plugPath(device: Device): string {
   return asHid(device).getDeviceInfo().path ?? "";
 }
 
-/** The cap learned for a lamp since it was last plugged in. One learned before that is forgotten. */
-function learnedCap(operation: string, device: Device): number | undefined {
-  const cap = brightnessCaps.get(device.serialNumber);
-  if (cap === undefined) {
-    return undefined;
-  }
-  if (cap.path !== plugPath(device)) {
-    brightnessCaps.delete(device.serialNumber);
-    logger.info(`${operation}: ${lampLabel(device)} was plugged in again, its cap of ${cap.lumen} lm is forgotten`);
-    return undefined;
-  }
-  return cap.lumen;
-}
-
 /** The lumens to send a lamp: the ones asked for, or its cap if it has a lower one. */
 function withinCap(operation: string, device: Device, lumen: number): number {
-  const cap = learnedCap(operation, device);
-  return cap === undefined ? lumen : Math.min(lumen, cap);
+  return lampOf(device).withinBrightnessCap(operation, plugPath(device), lumen);
 }
 
 /** Where a value sits in a lamp's range, from 0 to 100, such as a brightness in lumens or a temperature in kelvin. */
@@ -605,7 +546,7 @@ function openGroups<G extends { readonly lamps: LampSelection }>(
   const known = (id: string): boolean => !onlyKnown || knownLamps.has(id);
   const connected: string[] = [];
   for (const device of devices) {
-    const id = lampId(device.serialNumber);
+    const { id } = lampOf(device);
     const group = known(id) ? groups.find(({ lamps }) => selects(lamps, id)) : undefined;
     if (known(id)) {
       connected.push(id);
@@ -933,11 +874,12 @@ function inStages(operation: string): { failed: Set<Device>; attempt: (device: D
 }
 
 /**
- * Waits, right after a lamp's cap was learned, until the lamp can no longer go back to its cap (see
- * {@link capReversalEndsAt}), so a change that asks for less isn't undone.
+ * Waits, right after a lamp's cap was learned, until no lamp can go back to its cap (see
+ * {@link Lamp.brightnessCapReversalEndsAt}), so a change that asks for less isn't undone.
  */
 async function waitForCapReversal(operation: string): Promise<void> {
-  const reversalMs = capReversalEndsAt - Date.now();
+  const endsAt = Math.max(0, ...[...lampsReached.values()].map((lamp) => lamp.brightnessCapReversalEndsAt));
+  const reversalMs = endsAt - Date.now();
   if (reversalMs > 0) {
     logger.debug(`${operation}: waiting ${reversalMs} ms, until no lamp can go back to its cap`);
     await new Promise((resolve) => setTimeout(resolve, reversalMs));
@@ -984,18 +926,10 @@ async function sendBrightness(
       const reached = getBrightnessInLumenSafe(device);
       const pct = brightnessPercentage(device, reached);
       logger.info(`${operation}: ${lampLabel(device)} sent ${lumen} lm, reached ${reached} lm (${pct}%)`);
-      if (reached < lumen) {
-        brightnessCaps.set(device.serialNumber, { path: plugPath(device), lumen: reached });
-        capReversalEndsAt = Math.max(capReversalEndsAt, sentAt + CAP_REVERSAL_WINDOW_MS);
-        logger.info(`${operation}: ${lampLabel(device)} capped at ${reached} lm`);
-      }
+      const lamp = lampOf(device);
+      lamp.brightnessReached(operation, plugPath(device), lumen, reached, sentAt);
       // A lamp kept apart is left at its position, which any other change forgets.
-      const position = positions.get(device);
-      if (position === undefined) {
-        brightnessPositions.delete(device.serialNumber);
-      } else {
-        brightnessPositions.set(device.serialNumber, { position, left: reached });
-      }
+      lamp.leaveBrightness(positions.get(device), reached);
       percentages.push(pct);
       if (representative === undefined || pct > representative) {
         representative = pct;
@@ -1107,7 +1041,7 @@ async function moveLampsBrightness(
     } else {
       const apart = [...before].map(([device, lumen]) => ({
         device,
-        position: positionOf(brightnessPositions, device, lumen, brightnessPercentage(device, lumen)),
+        position: lampOf(device).brightnessPositionAt(lumen, brightnessPercentage(device, lumen)),
         value: lumen,
         reach: (position: number) => withinCap(operation, device, brightnessLumen(device, clamp(position))),
         origin: 0,
@@ -1182,11 +1116,12 @@ export async function readLampStatuses(): Promise<{ ok: boolean; lamps: LampStat
         `${operation}: ${lampLabel(device)} is ${on ? "on" : "off"}, at ${brightnessLumen} lm (${percentage}%) ` +
           `and ${temperatureKelvin} K`,
       );
+      const lamp = lampOf(device);
       lamps.push({
-        id: lampId(device.serialNumber),
+        id: lamp.id,
         serialNumber: device.serialNumber,
-        model: MODEL_BY_DEVICE_TYPE[device.type],
-        label: displayLabel(device),
+        model: lamp.model,
+        label: lamp.label,
         on,
         brightnessLumen,
         brightnessPercentage: percentage,
@@ -1207,12 +1142,10 @@ export async function readLampStatuses(): Promise<{ ok: boolean; lamps: LampStat
 export function findLamps(): FoundLamp[] {
   const devices = openEveryDevice("find lamps");
   try {
-    return devices.map((device) => ({
-      id: lampId(device.serialNumber),
-      label: displayLabel(device),
-      model: MODEL_BY_DEVICE_TYPE[device.type],
-      serialEnd: device.serialNumber.slice(-4),
-    }));
+    return devices.map((device) => {
+      const { id, label, model, serialEnd } = lampOf(device);
+      return { id, label, model, serialEnd };
+    });
   } finally {
     for (const device of devices) {
       closeDevice(device);
@@ -1266,7 +1199,7 @@ function setSnappedTemperature(operation: string, device: Device, kelvin: number
   const snapped = snapKelvin(kelvin, getAllowedTemperaturesInKelvinForDevice(device));
   setTemperatureInKelvin(device, snapped);
   drainAck(device);
-  temperaturePositions.delete(device.serialNumber);
+  lampOf(device).leaveTemperature(undefined, snapped);
   logger.info(`${operation}: ${lampLabel(device)} set to ${snapped} K`);
   return snapped;
 }
@@ -1369,7 +1302,7 @@ function adjustTemperaturesApart(
         apart.push({
           device,
           allowed,
-          position: positionOf(temperaturePositions, device, kelvin, kelvin),
+          position: lampOf(device).temperaturePositionAt(kelvin, kelvin),
           value: kelvin,
           reach: (position) => snapKelvin(Math.max(lowest, Math.min(highest, position)), allowed),
           origin: lowest,
@@ -1387,7 +1320,7 @@ function adjustTemperaturesApart(
         const snapped = lamp.reach(position);
         setTemperatureInKelvin(lamp.device, snapped);
         drainAck(lamp.device);
-        temperaturePositions.set(lamp.device.serialNumber, { position, left: snapped });
+        lampOf(lamp.device).leaveTemperature(position, snapped);
         logger.info(`${operation}: ${lampLabel(lamp.device)} set to ${snapped} K`);
         if (representative === undefined) {
           representative = snapped;

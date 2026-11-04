@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 
 import { BRIGHTNESS_CAP_REVERSAL_WINDOW_MS, Lamp, lampId } from "./lamp";
@@ -12,9 +11,8 @@ const OTHER_PATH = "path-2";
 
 describe("lampId", () => {
   it("is the first 16 hex characters of the serial number's SHA-256", () => {
-    const expected = createHash("sha256").update(SERIAL).digest("hex").slice(0, 16);
-
-    expect(lampId(SERIAL)).toBe(expected);
+    // printf '%s' 2325FE01ABCD | shasum -a 256
+    expect(lampId("2325FE01ABCD")).toBe("912c77c6cebad870");
   });
 
   it("tells lamps apart", () => {

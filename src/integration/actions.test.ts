@@ -4,6 +4,7 @@ import type { JsonObject } from "@elgato/utils";
 import { afterEach, beforeEach, describe, expect, inject, it, vi } from "vitest";
 
 import { LAMP_SCREEN_CELLS } from "../actions/settings";
+import { lampId } from "../lamp";
 import { at } from "../test-support/at";
 import { loadOnEmulatedLamps } from "../test-support/emulated-lamps";
 import { EmulatedLitra } from "../test-support/emulated-litra";
@@ -37,7 +38,6 @@ let failFindingLamps: (error: Error) => void;
 let deck: FakeDeck;
 // The fake SDK plugin.ts registered with, which carries the messages of the settings pages.
 let sdk: typeof import("../test-support/fake-stream-deck");
-let lampId: (serialNumber: string) => string;
 // Every lamp plugged in during the test, whose handles have to be closed by its end.
 let lamps: EmulatedLitra[];
 
@@ -46,7 +46,7 @@ beforeEach(async () => {
   // A fresh plugin for every test, started as Stream Deck starts it, which registers its actions with the fake SDK
   // that the fake Deck sends events through.
   ({
-    loaded: { deck, sdk, lampId },
+    loaded: { deck, sdk },
     hid: { connect, failFindingLamps },
   } = await loadOnEmulatedLamps(
     async () => {
@@ -55,7 +55,6 @@ beforeEach(async () => {
       return {
         deck: new FakeDeck(),
         sdk: await import("../test-support/fake-stream-deck"),
-        lampId: (await import("../litra-manager")).lampId,
       };
     },
     { streamDeck: true },
