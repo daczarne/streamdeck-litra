@@ -31,7 +31,7 @@ When the plugin starts knowing no lamps, as it does the first time, it finds the
 
 Each key acts on the lamps picked on its settings page: every lamp the plugin knows, unless others are picked (see [Picking a key's lamps](#picking-a-keys-lamps)). A dial's main screen acts on every lamp, and its lamp screens on one lamp at a time (see [Lamp screens](#lamp-screens)). Wherever the plugin lists the lamps, it lists them in the order of the plugin settings' table.
 
-Every Power key, Up and Down key, dial and lamp screen follows changes made by any key or dial. When the plugin starts, it reads every lamp it knows that's connected, and from then on, the keys and dials show what the plugin last set each lamp to, as the lamp reported it.
+Every Power key, Up and Down key, dial and lamp screen follows changes made by any key or dial. When the plugin starts, it reads every lamp it knows that's connected, and so does Find lamps with the lamps it adds, and from then on, the keys and dials show what the plugin last set each lamp to, as the lamp reported it.
 
 The plugin is made for controlling the lamps through it, and through it alone. A change made another way, with a lamp's own buttons, Logitech's software or a CLI, isn't followed: the Deck goes on showing what the plugin last set, and the lamp comes back in step at the next change made through the plugin. For example, a lamp the plugin set to 10%, and brought to 20% with its own button, still shows 10%. Turning a dial one step up from there, by 10%, sets the lamp to 20%, which it's already at. A lamp unplugged and plugged in again is read again the next time the plugin reaches it.
 

@@ -2,7 +2,7 @@ import streamDeck from "@elgato/streamdeck";
 import type { JsonValue } from "@elgato/utils";
 
 import { globalSettings } from "../global-settings";
-import { findLamps, identifyLamp } from "../litra-manager";
+import { findLamps, identifyLamp, reachEveryLamp } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
 
 const logger = pluginLogger.createScope("Lamp picker");
@@ -31,6 +31,8 @@ export async function answer(payload: JsonValue): Promise<void> {
     logger.info("Settings page asked for the lamps");
     const lamps = findLamps();
     await globalSettings.addLamps(lamps);
+    // The lamps just added are read, as when the plugin starts, so the keys and dials show them (#198).
+    reachEveryLamp();
     await streamDeck.ui.sendToPropertyInspector({ event: "lamps", lamps });
   } else if (payload.event === "identify" && typeof payload.id === "string") {
     logger.info("Identify pressed on a settings page");

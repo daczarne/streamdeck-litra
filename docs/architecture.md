@@ -49,9 +49,10 @@ When the second trip fails, such as on a USB error, the lamp having taken the wr
 
 ### When a lamp is read
 
-Besides the second trip of every value it sets, the plugin reads a lamp's power, brightness and temperature, and holds them, in three cases:
+Besides the second trip of every value it sets, the plugin reads a lamp's power, brightness and temperature, and holds them, in four cases:
 
 - When the plugin starts, once it has read the lamps it knows from the global settings, for every one of them that's connected, so the Deck starts out showing the lamps as they are.
+- When Find lamps adds it to the lamps the plugin knows, for the same reason.
 - When an operation reaches a lamp the plugin hasn't read since it started, such as one plugged in after.
 - When an operation reaches a lamp at another path than the one it was last reached at. A lamp unplugged and plugged in again gets a new path on macOS, and may come back in another state, or on another power supply, so its cap is forgotten too (see [What a lamp remembers](#what-a-lamp-remembers)). Whether Windows gives it a new path isn't checked: if it kept the old one, a lamp plugged in again would keep its `Lamp`'s state and cap until the next change.
 
@@ -59,7 +60,7 @@ The read comes before the operation changes anything, so a step starts from what
 
 ### Whether a lamp is connected
 
-A `Lamp` also holds whether the plugin found its lamp the last time it looked. Every operation finds the lamps (see [Finding the lamps on every operation](#finding-the-lamps-on-every-operation)), and marks every lamp the plugin knows as connected or not from what it found, as Find lamps does. So a lamp found by any operation stops being marked as not found in the plugin settings, and one unplugged is marked at the next operation. A lamp unplugged since the last operation still counts as connected until then: the plugin doesn't watch for lamps coming and going.
+A `Lamp` also holds whether the plugin found its lamp the last time it looked. Every operation finds the lamps (see [Finding the lamps on every operation](#finding-the-lamps-on-every-operation)), and marks every lamp the plugin knows as connected or not from what it found, as Find lamps does. An operation that can't find the lamps at all has found none, so it marks every lamp not connected. So a lamp found by any operation stops being marked as not found in the plugin settings, and one unplugged is marked at the next operation. A lamp unplugged since the last operation still counts as connected until then: the plugin doesn't watch for lamps coming and going.
 
 A key or a dial shows the lamps it acts on that are connected. A Power key shows on only when there's one, and every one is on, and a dial or an Up or Down key shows a dash when there's none.
 

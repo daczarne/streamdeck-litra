@@ -3,20 +3,17 @@ import {
   type Device,
   findDevices,
   getAllowedTemperaturesInKelvinForDevice,
-  getBrightnessInLumenSafe,
   getMaximumBrightnessInLumenForDevice,
   getMinimumBrightnessInLumenForDevice,
-  getTemperatureInKelvin,
   handleOf,
   identityOf,
-  isOn,
   type LampHandle,
   logLabelOf,
   plugPath,
   readSerialNumber,
 } from "./device";
 
-import { type Lamp, percentageInRange, percentageToLumen } from "./lamp";
+import { type Lamp, type LampState, percentageInRange, percentageToLumen } from "./lamp";
 import { lampId, lampLabel } from "./lamp-identity";
 import { bySerialNumber } from "./lamp-order";
 import { logger as pluginLogger } from "./logging";
@@ -314,7 +311,7 @@ export function snapKelvin(value: number, allowed: number[]): number {
 }
 
 /** Where a temperature sits between the lowest and the highest allowed for a lamp, from 0 to 100. */
-function temperaturePercentage(kelvin: number, allowed: number[]): number {
+function temperaturePercentage(kelvin: number, allowed: readonly number[]): number {
   const lowest = allowed[0];
   const highest = allowed.at(-1);
   if (lowest === undefined || highest === undefined) {
@@ -379,6 +376,8 @@ function openGroups<G extends { readonly lamps: LampSelection }>(
     found = findDevices();
   } catch (error) {
     logger.error(`${operation}: finding the lamps failed: ${String(error)}`);
+    // It found none, so none is connected as far as the plugin can tell (#198).
+    markFound([]);
     return { devices: opened, unidentified: 0 };
   }
   if (found.length === 0) {
@@ -436,6 +435,37 @@ function openGroups<G extends { readonly lamps: LampSelection }>(
     }
   }
   return { devices: opened, unidentified };
+}
+
+/**
+ * The state a lamp's `Lamp` holds, which reaching it reads the first time, so an operation has it once it reached
+ * it.
+ */
+function stateOf(lamp: Lamp): LampState {
+  const { state } = lamp;
+  if (state === undefined) {
+    throw new Error(`${lamp.logLabel} has no state before it's reached`);
+  }
+  return state;
+}
+
+/** A lamp the plugin holds a state of, with its serial number, which reaching it learned. */
+type HeldLamp = { lamp: Lamp; state: LampState; serialNumber: string };
+
+/**
+ * The lamps a selection takes in, among the ones the plugin knows that the last operation found and that it holds a
+ * state of, in the order of their serial numbers (#198). It's what the keys and dials show, and it reads nothing: the
+ * plugin's state is the lamps' state.
+ */
+function heldLamps(lamps: LampSelection): HeldLamp[] {
+  const held: HeldLamp[] = [];
+  for (const lamp of knownLamps.values()) {
+    const { state, serialNumber } = lamp;
+    if (lamp.isConnected && state !== undefined && serialNumber !== undefined && selects(lamps, lamp.id)) {
+      held.push({ lamp, state, serialNumber });
+    }
+  }
+  return held.sort((a, b) => bySerialNumber(a.serialNumber, b.serialNumber));
 }
 
 /**
@@ -556,18 +586,8 @@ export function toggleLamps(lamps: LampSelection): BroadcastResult {
   try {
     // A lamp that couldn't be told apart couldn't be read either, so it counts as off.
     const allOn =
-      devices
-        .map((device) =>
-          attempt(
-            device,
-            () => {
-              reach(operation, device);
-              return isOn(device);
-            },
-            false,
-          ),
-        )
-        .every(Boolean) && unidentified === 0;
+      devices.map((device) => attempt(device, () => stateOf(reach(operation, device).lamp).on, false)).every(Boolean) &&
+      unidentified === 0;
     for (const device of devices) {
       attempt(
         device,
@@ -592,40 +612,18 @@ export function toggleLamps(lamps: LampSelection): BroadcastResult {
  */
 export async function areLampsOn(lamps: LampSelection): Promise<{ ok: boolean; allOn: boolean; deviceCount: number }> {
   await brightnessChanges;
-  const operation = "read power";
-  const { devices, unidentified } = openDevices(operation, lamps);
-  if (devices.length === 0) {
-    return { ok: false, allOn: false, deviceCount: 0 };
-  }
-
-  let allOn = true;
-  let failures = 0;
-  for (const device of devices) {
-    try {
-      reach(operation, device);
-      const on = isOn(device);
-      logger.debug(`${operation}: ${logLabelOf(device)} is ${on ? "on" : "off"}`);
-      if (!on) {
-        allOn = false;
-      }
-    } catch (error) {
-      failures += 1;
-      allOn = false;
-      logLampFailure(operation, device, error);
-    } finally {
-      closeDevice(device);
-    }
-  }
-
-  // A lamp that couldn't be told apart couldn't be read either, so it counts as off.
-  const { ok, deviceCount } = outcome(devices.length, failures, unidentified);
-  return { ok, allOn: allOn && unidentified === 0, deviceCount };
+  const held = heldLamps(lamps);
+  return {
+    ok: held.length > 0,
+    allOn: held.length > 0 && held.every(({ state }) => state.on),
+    deviceCount: held.length,
+  };
 }
 
 /** Ensure the device is powered on before a brightness change is visible. */
 function ensureOn(operation: string, device: Device): void {
   const { lamp, handle } = reach(operation, device);
-  if (!isOn(device)) {
+  if (!stateOf(lamp).on) {
     lamp.setPower(operation, handle, true);
   }
 }
@@ -860,7 +858,7 @@ async function moveLampsBrightness(
       attempt(device, () => {
         ensureOn(operation, device);
         if (typeof target !== "number") {
-          before.set(device, getBrightnessInLumenSafe(device));
+          before.set(device, stateOf(reach(operation, device).lamp).lumen);
         }
       });
     }
@@ -914,30 +912,19 @@ async function moveLampsBrightness(
  */
 export async function readLampsBrightness(lamps: LampSelection): Promise<BroadcastResult> {
   await brightnessChanges;
-  let representative: number | undefined;
-  let representativeLumen: number | undefined;
-  const percentages: number[] = [];
-  const operation = "read brightness";
-  const result = forEachDevice(
-    operation,
-    (device) => {
-      reach(operation, device);
-      const lumen = getBrightnessInLumenSafe(device);
-      const pct = brightnessPercentage(device, lumen);
-      logger.debug(`${operation}: ${logLabelOf(device)} at ${lumen} lm (${pct}%)`);
-      percentages.push(pct);
-      if (representative === undefined || pct > representative) {
-        representative = pct;
-        representativeLumen = lumen;
-      }
-    },
-    lamps,
+  const held = heldLamps(lamps);
+  const levels = held.map(({ lamp, state }) => ({ lumen: state.lumen, pct: lamp.brightnessPercentage(state.lumen) }));
+  const brightest = levels.reduce<(typeof levels)[number] | undefined>(
+    (best, level) => (best === undefined || level.pct > best.pct ? level : best),
+    undefined,
   );
   return {
-    ...result,
-    representativeBrightnessPercentage: representative,
-    representativeBrightnessLumen: representativeLumen,
-    brightnessPercentages: percentages,
+    ok: held.length > 0,
+    deviceCount: held.length,
+    failures: held.length > 0 ? 0 : 1,
+    representativeBrightnessPercentage: brightest?.pct,
+    representativeBrightnessLumen: brightest?.lumen,
+    brightnessPercentages: levels.map(({ pct }) => pct),
   };
 }
 
@@ -948,34 +935,24 @@ export async function readLampsBrightness(lamps: LampSelection): Promise<Broadca
  */
 export async function readLampStatuses(): Promise<{ ok: boolean; lamps: LampStatus[] }> {
   await brightnessChanges;
-  const lamps: LampStatus[] = [];
   const operation = "read lamp status";
   const result = forEachDevice(
     operation,
     (device) => {
       reach(operation, device);
-      const on = isOn(device);
-      const temperatureKelvin = getTemperatureInKelvin(device);
-      const brightnessLumen = getBrightnessInLumenSafe(device);
-      const percentage = brightnessPercentage(device, brightnessLumen);
-      logger.debug(
-        `${operation}: ${logLabelOf(device)} is ${on ? "on" : "off"}, at ${brightnessLumen} lm (${percentage}%) ` +
-          `and ${temperatureKelvin} K`,
-      );
-      const lamp = lampOf(device);
-      lamps.push({
-        id: lamp.id,
-        serialNumber: device.serialNumber,
-        model: lamp.model,
-        label: lamp.label,
-        on,
-        brightnessLumen,
-        brightnessPercentage: percentage,
-        temperatureKelvin,
-      });
     },
     "all",
   );
+  const lamps = heldLamps("all").map(({ lamp, state, serialNumber }) => ({
+    id: lamp.id,
+    serialNumber,
+    model: lamp.model,
+    label: lamp.label,
+    on: state.on,
+    brightnessLumen: state.lumen,
+    brightnessPercentage: lamp.brightnessPercentage(state.lumen),
+    temperatureKelvin: state.kelvin,
+  }));
   return { ok: result.ok, lamps };
 }
 
@@ -1085,7 +1062,7 @@ export function adjustLampsTemperature(
     operation,
     (device) => {
       const { allowed, lowest, highest } = temperatureRange(device);
-      target ??= stepOnGrid(getTemperatureInKelvin(device), ticks, stepKelvin, lowest, highest);
+      target ??= stepOnGrid(stateOf(reach(operation, device).lamp).kelvin, ticks, stepKelvin, lowest, highest);
       const snapped = setSnappedTemperature(operation, device, target);
       if (representative === undefined) {
         representative = snapped;
@@ -1132,7 +1109,7 @@ function adjustTemperaturesApart(
     for (const device of devices) {
       attempt(device, () => {
         const { allowed, lowest, highest } = temperatureRange(device);
-        const kelvin = getTemperatureInKelvin(device);
+        const kelvin = stateOf(reach(operation, device).lamp).kelvin;
         apart.push({
           device,
           allowed,
@@ -1179,26 +1156,17 @@ function adjustTemperaturesApart(
  */
 export async function readLampsTemperature(lamps: LampSelection): Promise<BroadcastResult> {
   await brightnessChanges;
-  let representative: number | undefined;
-  let representativePercentage: number | undefined;
-  const operation = "read temperature";
-  const result = forEachDevice(
-    operation,
-    (device) => {
-      reach(operation, device);
-      if (representative !== undefined) {
-        return;
-      }
-      representative = getTemperatureInKelvin(device);
-      logger.debug(`${operation}: ${logLabelOf(device)} at ${representative} K`);
-      representativePercentage = temperaturePercentage(representative, getAllowedTemperaturesInKelvinForDevice(device));
-    },
-    lamps,
-  );
+  const held = heldLamps(lamps);
+  const first = held[0];
   return {
-    ...result,
-    representativeTemperatureKelvin: representative,
-    representativeTemperaturePercentage: representativePercentage,
+    ok: first !== undefined,
+    deviceCount: held.length,
+    failures: first === undefined ? 1 : 0,
+    representativeTemperatureKelvin: first?.state.kelvin,
+    representativeTemperaturePercentage:
+      first === undefined
+        ? undefined
+        : temperaturePercentage(first.state.kelvin, first.lamp.range?.allowedKelvin ?? []),
   };
 }
 

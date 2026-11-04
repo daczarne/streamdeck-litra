@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { globalSettings as pluginSettings } from "../global-settings";
-import { findLamps, identifyLamp } from "../litra-manager";
+import { findLamps, identifyLamp, reachEveryLamp } from "../litra-manager";
 import { logger } from "../logging";
 import { at } from "../test-support/at";
 import { answer, answerLampPickers } from "./lamp-picker";
@@ -24,6 +24,7 @@ vi.mock("../logging", () => import("../test-support/fake-logging"));
 vi.mock("../litra-manager", () => ({
   findLamps: vi.fn(),
   identifyLamp: vi.fn(),
+  reachEveryLamp: vi.fn(),
 }));
 
 // The lamps the plugin knows, which the real global settings save through Stream Deck.
@@ -66,6 +67,15 @@ describe("the lamp picker's answers (#20)", () => {
     expect(pluginSettings.addLamps).toHaveBeenCalledExactlyOnceWith(LAMPS);
     expect(vi.mocked(pluginSettings.addLamps).mock.invocationCallOrder[0]).toBeLessThan(
       at(ui.sendToPropertyInspector.mock.invocationCallOrder, 0),
+    );
+  });
+
+  it("read the lamps once they're added, so the keys and dials show them (#198)", async () => {
+    await answer({ event: "lamps" });
+
+    expect(reachEveryLamp).toHaveBeenCalledOnce();
+    expect(at(vi.mocked(pluginSettings.addLamps).mock.invocationCallOrder, 0)).toBeLessThan(
+      at(vi.mocked(reachEveryLamp).mock.invocationCallOrder, 0),
     );
   });
 
