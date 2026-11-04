@@ -22,7 +22,7 @@ vi.mock("@elgato/streamdeck", () => ({ default: { settings } }));
 vi.mock("./logging", () => import("./test-support/fake-logging"));
 
 // The real litra-manager loads node-hid's native binary on import and talks to real lamps.
-vi.mock("./litra-manager", () => ({ findLamps: vi.fn(), useLamps: vi.fn() }));
+vi.mock("./litra-manager", () => ({ findLamps: vi.fn(), reachEveryLamp: vi.fn(), useLamps: vi.fn() }));
 
 // What the global settings save through, which sends them to Stream Deck.
 const save = vi.fn<(settings: JsonObject) => Promise<void>>();

@@ -32,6 +32,7 @@ vi.mock("../litra-manager", () => ({
   identifyLamp: vi.fn(),
   onLampsChanged: vi.fn(),
   readLampStatuses: vi.fn(),
+  reachEveryLamp: vi.fn(),
   useLamps: vi.fn(),
 }));
 

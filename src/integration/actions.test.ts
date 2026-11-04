@@ -740,7 +740,7 @@ describe("the lamp screens", () => {
 
   it("show an alert when the lamp on screen can't be blinked", async () => {
     const { first, dial } = await onFirstLampScreen();
-    first.fail("readSync");
+    first.fail("everything");
 
     await deck.hold(dial);
 

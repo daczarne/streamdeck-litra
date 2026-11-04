@@ -376,7 +376,7 @@ describe("a lamp reached by an operation (#198)", () => {
   it("is no longer connected once an operation doesn't find it, and is again once one does", () => {
     const { lamp, handle } = reached();
 
-    lamp.notFound();
+    lamp.setFound(false);
 
     expect(lamp.isConnected).toBe(false);
 

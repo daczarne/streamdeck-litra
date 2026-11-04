@@ -50,8 +50,8 @@ A run that presses a 100% key with both lamps plugged into a hub, again once lam
 
 ```text
 2026-10-16T21:07:22.384Z INFO  Plugin started
-2026-10-16T21:07:22.512Z INFO  Lamps: start: Beam …<serialNumber1> read, since the plugin started: off at 215 lm (50%) and 4000 K
-2026-10-16T21:07:22.515Z INFO  Lamps: start: Beam …<serialNumber2> read, since the plugin started: off at 215 lm (50%) and 4000 K
+2026-10-16T21:07:22.512Z INFO  Lamps: start: Beam …<serialNumber1> read, since it was first reached: off at 215 lm (50%) and 4000 K
+2026-10-16T21:07:22.515Z INFO  Lamps: start: Beam …<serialNumber2> read, since it was first reached: off at 215 lm (50%) and 4000 K
 2026-10-16T21:07:25.269Z INFO  Brightness: Key pressed: preset 100%
 2026-10-16T21:07:25.287Z INFO  Lamps: set brightness: Beam …<serialNumber1> turned on
 2026-10-16T21:07:25.291Z INFO  Lamps: set brightness: Beam …<serialNumber2> turned on

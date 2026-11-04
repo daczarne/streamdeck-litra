@@ -30,10 +30,6 @@ export {
   getMinimumBrightnessInLumenForDevice,
   getTemperatureInKelvin,
   isOn,
-  setBrightnessInLumen,
-  setTemperatureInKelvin,
-  turnOff,
-  turnOn,
 } from "litra";
 
 /** What a lamp can be set to: its brightness, from its dimmest to its brightest, in lumens, and its temperatures. */
@@ -98,7 +94,7 @@ const ERROR_REPORT = 0xff;
 const REPLY_TIMEOUT_MS = 500;
 
 /** A lamp's model, as the plugin names it, such as "Beam". */
-export function modelOf(device: Device): string {
+function modelOf(device: Device): string {
   return MODEL_BY_DEVICE_TYPE[device.type];
 }
 
@@ -127,7 +123,7 @@ function asHid(device: Device): ClosableHid {
  * few ms, so the drain returns as soon as it arrives, and an ACK left on a handle is gone once the handle closes
  * (`scripts/probes/write-reports.mjs`, #96). A lamp just turned on is read right after, on the same handle.
  */
-export function drainAck(device: Device): void {
+function drainAck(device: Device): void {
   try {
     asHid(device).readTimeout(50);
   } catch {

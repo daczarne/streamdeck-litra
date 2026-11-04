@@ -17,7 +17,7 @@ import {
 } from "./actions/settings";
 import { Lamp } from "./lamp";
 import type { LampIdentity } from "./lamp-identity";
-import { findLamps, type LampSelection, type Stepping, useLamps } from "./litra-manager";
+import { findLamps, type LampSelection, reachEveryLamp, type Stepping, useLamps } from "./litra-manager";
 import { logger as pluginLogger } from "./logging";
 
 /** A text's look on the lamp screens: its color, and its font's size and weight (#153). */
@@ -295,7 +295,8 @@ export const globalSettings = new GlobalSettings((settings) => streamDeck.settin
  * Follows the plugin's global settings, which the settings pages save (#144): hands litra-manager the lamps the plugin
  * knows, reads the settings once Stream Deck is connected, and again whenever a page changes them. They're kept rather
  * than asked for on every tap, turn or press, so none of them waits on Stream Deck. When the plugin knows no lamps yet,
- * it finds the connected ones first, so a new user starts with every lamp (#194).
+ * it finds the connected ones first, so a new user starts with every lamp (#194). Then it reads every lamp it knows
+ * that's connected, so it holds them as they are (#198).
  */
 export function followGlobalSettings(): void {
   useLamps(globalSettings.lamps);
@@ -308,6 +309,7 @@ export function followGlobalSettings(): void {
         logger.info("No lamps known: finding the lamps connected");
         await globalSettings.addLamps(findLamps());
       }
+      reachEveryLamp();
     })
     .catch((error: unknown) => {
       logger.error("Reading the global settings failed", error);

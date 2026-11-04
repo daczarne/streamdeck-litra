@@ -17,6 +17,7 @@ vi.mock("../logging", () => import("../test-support/fake-logging"));
 // The real litra-manager loads node-hid's native binary on import and talks to real lamps.
 vi.mock("../litra-manager", () => ({
   findLamps: vi.fn(() => []),
+  reachEveryLamp: vi.fn(),
   useLamps: vi.fn(),
   setLampsScene: vi.fn(),
 }));

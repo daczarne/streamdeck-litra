@@ -248,9 +248,9 @@ export class Lamp {
     }
   }
 
-  /** Takes an operation that looked for the lamp and didn't find it (#198). */
-  notFound(): void {
-    this.found = false;
+  /** Takes whether an operation that looked for the lamp found it (#198). */
+  setFound(found: boolean): void {
+    this.found = found;
   }
 
   /** Reads the lamp's power, brightness and temperature, holds them, and logs them with why it read them. */

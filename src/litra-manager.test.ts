@@ -32,6 +32,8 @@ const BLINK_MS = 400;
 let manager: typeof import("./litra-manager");
 // The Lamp class loaded with litra-manager, whose cap logs reach the fake logger.
 let Lamp: typeof import("./lamp").Lamp;
+// The device module loaded with litra-manager, which reaches the lamps as the plugin does when it starts.
+let device: typeof import("./device");
 // The lamps the plugin knows, as the global settings hold them and hand them over, keeping their Lamps.
 let known: Map<string, InstanceType<typeof Lamp>>;
 let hid: typeof import("./test-support/fake-node-hid");
@@ -42,12 +44,13 @@ beforeEach(async () => {
   vi.useFakeTimers();
   // A fresh litra-manager for every test: no learned caps, listeners or brightness changes carried over.
   ({
-    loaded: { manager, Lamp },
+    loaded: { manager, Lamp, device },
     hid,
     logger,
   } = await loadOnEmulatedLamps(async () => ({
     manager: await import("./litra-manager"),
     Lamp: (await import("./lamp")).Lamp,
+    device: await import("./device"),
   })));
   known = new Map();
   manager.useLamps(known);
@@ -83,6 +86,41 @@ function beam(options: ConstructorParameters<typeof EmulatedLitra>[1] = {}): Emu
 function connect(...lamps: EmulatedLitra[]): void {
   hid.connect(...lamps);
   knowOnly([...lamps.map(identityOf), { id: MISSING_LAMP, model: MODEL, serialEnd: "MISS" }]);
+  reachKnown(lamps);
+}
+
+/**
+ * Reaches the lamps the plugin knows that are plugged in and were never reached, which reads each one, as the plugin
+ * does when it starts (#198), and forgets what that wrote, read and logged, so a test sees only what its operation
+ * does. A lamp plugged in again is left for the operation to reach, as on the Deck.
+ */
+function reachKnown(lamps: readonly EmulatedLitra[]): void {
+  const first = lamps.filter((lamp) => known.get(lampId(lamp.serialNumber))?.state === undefined);
+  if (first.length === 0) {
+    return;
+  }
+  for (const found of device.findDevices()) {
+    try {
+      if (found.serialNumber === "") {
+        found.serialNumber = device.readSerialNumber(found);
+      }
+      const lamp = known.get(lampId(found.serialNumber));
+      if (lamp?.state === undefined) {
+        lamp?.reach("start", device.handleOf(found));
+      }
+    } catch {
+      // A lamp a test makes fail is reached by the operation, which the test checks.
+    } finally {
+      device.closeDevice(found);
+    }
+  }
+  hid.forgetEvents();
+  for (const lamp of first) {
+    lamp.written.length = 0;
+  }
+  for (const level of ["error", "warn", "info", "debug"] as const) {
+    logger[level].mockClear();
+  }
 }
 
 /** What the global settings keep of an emulated lamp. */
@@ -892,17 +930,28 @@ describe("a lamp that turns on at the setting it saved once switched off (#100)"
     expect([lamp.writes("temperature"), lamp.writes("brightness")]).toEqual([[5000], []]);
   });
 
-  it("is still turned on, unchecked, when it can't be read, and says so", () => {
+  it("is still turned on when it takes the command but can't report back, and holds it on, with warnings (#198)", () => {
     const lamp = beam({ on: false });
-    lamp.fail("readSync");
     connect(lamp);
+    lamp.fail("readSync");
 
     expect(manager.turnLampsOn("all")).toEqual({ ok: true, deviceCount: 1, failures: 0 });
 
     expect(lamp.on).toBe(true);
+    expect(known.get(lampId(lamp.serialNumber))?.state?.on).toBe(true);
     expect(logger.warn).toHaveBeenCalledWith(
-      `turn on: Beam …${lamp.serialNumber.slice(-4)} turned on unchecked, since it can't be read: Error: Cannot read from hid device`,
+      `turn on: Beam …${lamp.serialNumber.slice(-4)} didn't report its power again, so it holds the power asked for, ` +
+        "true: Error: Cannot read from hid device",
     );
+  });
+
+  it("is sent nothing, and fails, when it can't be read the first time it's reached (#198)", () => {
+    const lamp = beam({ on: false });
+    lamp.fail("readSync");
+    connect(lamp);
+
+    expect(manager.turnLampsOn("all")).toEqual({ ok: false, deviceCount: 1, failures: 1 });
+    expect(lamp.writes("power")).toEqual([]);
   });
 });
 
@@ -938,9 +987,11 @@ describe("toggleLamps", () => {
 
     manager.toggleLamps("all");
 
+    // The commands are read back after they're sent, as every command is (#198), so only each lamp's first query is
+    // the toggle's own.
     const lastQuery = Math.max(
-      ...positions(first, "write", "power query"),
-      ...positions(second, "write", "power query"),
+      Math.min(...positions(first, "write", "power query")),
+      Math.min(...positions(second, "write", "power query")),
     );
     const firstCommand = Math.min(...positions(first, "write", "power"), ...positions(second, "write", "power"));
     expect(lastQuery).toBeLessThan(firstCommand);
@@ -948,8 +999,8 @@ describe("toggleLamps", () => {
 
   it("counts a lamp that can't be read as off, and still turns it on", () => {
     const [first, second] = [newLamp(), newLamp()];
-    first.fail("readSync");
     connect(first, second);
+    first.fail("readSync");
 
     expect(manager.toggleLamps("all")).toEqual({ ok: false, deviceCount: 2, failures: 1 });
     expect([first.writes("power"), second.writes("power")]).toEqual([[1], [1]]);
@@ -1903,7 +1954,8 @@ describe("adjustLampsTemperature", () => {
       representativeTemperaturePercentage: 21,
     });
     expect([first.writes("temperature"), second.writes("temperature")]).toEqual([[3500], [3500]]);
-    expect([first.queries("temperature"), second.queries("temperature")]).toEqual([1, 0]);
+    // The first lamp is read to step from, and each lamp is read back once set (#198).
+    expect([first.queries("temperature"), second.queries("temperature")]).toEqual([2, 1]);
   });
 
   it("steps from the lamp with the lowest serial number, whatever order the lamps are found in", () => {

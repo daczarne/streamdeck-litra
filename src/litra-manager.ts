@@ -1,22 +1,19 @@
 import {
   closeDevice,
   type Device,
-  drainAck,
   findDevices,
   getAllowedTemperaturesInKelvinForDevice,
   getBrightnessInLumenSafe,
   getMaximumBrightnessInLumenForDevice,
   getMinimumBrightnessInLumenForDevice,
   getTemperatureInKelvin,
+  handleOf,
   identityOf,
   isOn,
+  type LampHandle,
   logLabelOf,
   plugPath,
   readSerialNumber,
-  setBrightnessInLumen,
-  setTemperatureInKelvin,
-  turnOff,
-  turnOn,
 } from "./device";
 
 import { type Lamp, percentageInRange, percentageToLumen } from "./lamp";
@@ -128,10 +125,27 @@ function lampOf(device: Device): Lamp {
   if (lamp === undefined) {
     throw new Error(`${logLabelOf(device)} isn't one of the plugin's lamps`);
   }
-  if (lamp.serialNumber === undefined) {
-    lamp.reachedAs(device.serialNumber);
-  }
   return lamp;
+}
+
+/** The lamps an operation has reached, with the handle each was lent, by the device the operation opened. */
+const reached = new WeakMap<Device, { lamp: Lamp; handle: LampHandle }>();
+
+/**
+ * The `Lamp` of a lamp an operation opened, with the handle it acts on its lamp through, once it has reached the lamp,
+ * which reads it the first time, and at another path (#198). An operation reaches each lamp once, however many times it
+ * goes through it, and a lamp that can't be read when it's reached fails the operation's part for it.
+ */
+function reach(operation: string, device: Device): { lamp: Lamp; handle: LampHandle } {
+  let lent = reached.get(device);
+  if (lent === undefined) {
+    const lamp = lampOf(device);
+    const handle = handleOf(device);
+    lamp.reach(operation, handle);
+    lent = { lamp, handle };
+    reached.set(device, lent);
+  }
+  return lent;
 }
 
 /**
@@ -369,6 +383,7 @@ function openGroups<G extends { readonly lamps: LampSelection }>(
   }
   if (found.length === 0) {
     logger.warn(`${operation}: no lamps found`);
+    markFound([]);
     return { devices: opened, unidentified: 0 };
   }
   // In the order of their serial numbers, since litra finds them in an order that changes from one call to the next.
@@ -378,6 +393,7 @@ function openGroups<G extends { readonly lamps: LampSelection }>(
     .filter((device) => hasSerialNumber(operation, device))
     .sort((a, b) => bySerialNumber(a.serialNumber, b.serialNumber));
   // Each lamp left out is logged already.
+  markFound(devices.map(({ serialNumber }) => lampId(serialNumber)));
   const takesInAny = onlyKnown && groups.some(({ lamps }) => !Array.isArray(lamps));
   const unidentified = takesInAny ? found.length - devices.length : 0;
   if (devices.length === 0) {
@@ -423,6 +439,16 @@ function openGroups<G extends { readonly lamps: LampSelection }>(
 }
 
 /**
+ * Marks each lamp the plugin knows as connected when its id is among the ones found, and as not connected otherwise
+ * (#198), from what an operation found, before it reads or changes any of them.
+ */
+function markFound(foundIds: readonly string[]): void {
+  for (const lamp of knownLamps.values()) {
+    lamp.setFound(foundIds.includes(lamp.id));
+  }
+}
+
+/**
  * What an operation did, from the lamps it acted on and how many of them failed, counting the lamps it couldn't tell
  * apart as failed lamps (see {@link openGroups}).
  */
@@ -456,6 +482,23 @@ export function forEachDevice(operation: string, fn: (device: Device) => void, l
   return outcome(devices.length, failures, unidentified);
 }
 
+/**
+ * Reaches every lamp the plugin knows that's connected, which reads each one, as the plugin starts (#198), so that it
+ * holds the lamps as they are before any key or dial changes them. Tells every key and dial once they're read.
+ */
+export function reachEveryLamp(): BroadcastResult {
+  const operation = "start";
+  return announced(
+    forEachDevice(
+      operation,
+      (device) => {
+        reach(operation, device);
+      },
+      "all",
+    ),
+  );
+}
+
 /** Turns the selected lamps on. */
 export function turnLampsOn(lamps: LampSelection): BroadcastResult {
   const operation = "turn on";
@@ -463,8 +506,8 @@ export function turnLampsOn(lamps: LampSelection): BroadcastResult {
     forEachDevice(
       operation,
       (device) => {
-        turnOnAsItWas(operation, device);
-        logger.info(`${operation}: ${logLabelOf(device)} turned on`);
+        const { lamp, handle } = reach(operation, device);
+        lamp.setPower(operation, handle, true);
       },
       lamps,
     ),
@@ -478,9 +521,8 @@ export function turnLampsOff(lamps: LampSelection): BroadcastResult {
     forEachDevice(
       operation,
       (device) => {
-        turnOff(device);
-        drainAck(device);
-        logger.info(`${operation}: ${logLabelOf(device)} turned off`);
+        const { lamp, handle } = reach(operation, device);
+        lamp.setPower(operation, handle, false);
       },
       lamps,
     ),
@@ -514,18 +556,24 @@ export function toggleLamps(lamps: LampSelection): BroadcastResult {
   try {
     // A lamp that couldn't be told apart couldn't be read either, so it counts as off.
     const allOn =
-      devices.map((device) => attempt(device, () => isOn(device), false)).every(Boolean) && unidentified === 0;
+      devices
+        .map((device) =>
+          attempt(
+            device,
+            () => {
+              reach(operation, device);
+              return isOn(device);
+            },
+            false,
+          ),
+        )
+        .every(Boolean) && unidentified === 0;
     for (const device of devices) {
       attempt(
         device,
         () => {
-          if (allOn) {
-            turnOff(device);
-            drainAck(device);
-          } else {
-            turnOnAsItWas(operation, device);
-          }
-          logger.info(`${operation}: ${logLabelOf(device)} turned ${allOn ? "off" : "on"}`);
+          const { lamp, handle } = reach(operation, device);
+          lamp.setPower(operation, handle, !allOn);
         },
         undefined,
       );
@@ -554,6 +602,7 @@ export async function areLampsOn(lamps: LampSelection): Promise<{ ok: boolean; a
   let failures = 0;
   for (const device of devices) {
     try {
+      reach(operation, device);
       const on = isOn(device);
       logger.debug(`${operation}: ${logLabelOf(device)} is ${on ? "on" : "off"}`);
       if (!on) {
@@ -575,50 +624,10 @@ export async function areLampsOn(lamps: LampSelection): Promise<{ ok: boolean; a
 
 /** Ensure the device is powered on before a brightness change is visible. */
 function ensureOn(operation: string, device: Device): void {
+  const { lamp, handle } = reach(operation, device);
   if (!isOn(device)) {
-    turnOnAsItWas(operation, device);
-    logger.info(`${operation}: ${logLabelOf(device)} turned on`);
+    lamp.setPower(operation, handle, true);
   }
-}
-
-/**
- * Turns a lamp on, and puts back the brightness and temperature it had before when it turns on at others. A Beam LX
- * turns on at the setting it saves a few hundred ms after it's switched off: switched back on sooner, as a blink does,
- * it comes back at an older one, and a temperature it was given while off is lost (#100). It reads the setting it was
- * given while off, and the one it goes back to as soon as it's on (`scripts/probes/power-cycle.mjs`), so reading it on
- * both sides of the switch tells. A Beam keeps its setting, and gets nothing written. A lamp that can't be read is
- * still turned on, unchecked.
- */
-function turnOnAsItWas(operation: string, device: Device): void {
-  let lumen: number;
-  let kelvin: number;
-  try {
-    lumen = getBrightnessInLumenSafe(device);
-    kelvin = getTemperatureInKelvin(device);
-  } catch (error) {
-    turnOn(device);
-    drainAck(device);
-    logger.warn(`${operation}: ${logLabelOf(device)} turned on unchecked, since it can't be read: ${String(error)}`);
-    return;
-  }
-  turnOn(device);
-  drainAck(device);
-  const lumenOn = getBrightnessInLumenSafe(device);
-  const kelvinOn = getTemperatureInKelvin(device);
-  if (lumenOn === lumen && kelvinOn === kelvin) {
-    return;
-  }
-  if (kelvinOn !== kelvin) {
-    setTemperatureInKelvin(device, kelvin);
-    drainAck(device);
-  }
-  if (lumenOn !== lumen) {
-    setBrightnessInLumen(device, lumen);
-    drainAck(device);
-  }
-  logger.info(
-    `${operation}: ${logLabelOf(device)} turned on at ${lumenOn} lm and ${kelvinOn} K, put back to ${lumen} lm and ${kelvin} K`,
-  );
 }
 
 /** Where a brightness in lumens sits in a lamp's range, from 0 to 100. */
@@ -749,10 +758,8 @@ async function sendBrightness(
   if (targets.size > 0) {
     for (const [device, pct] of targets) {
       attempt(device, () => {
-        const lumen = withinCap(operation, device, brightnessLumen(device, pct));
-        setBrightnessInLumen(device, lumen);
-        drainAck(device);
-        sent.set(device, lumen);
+        const { lamp, handle } = reach(operation, device);
+        sent.set(device, lamp.sendBrightness(operation, handle, brightnessLumen(device, pct)));
       });
     }
     await new Promise((resolve) => setTimeout(resolve, settleMs));
@@ -763,17 +770,15 @@ async function sendBrightness(
   const percentages: number[] = [];
   for (const [device, lumen] of sent) {
     attempt(device, () => {
-      const reached = getBrightnessInLumenSafe(device);
-      const pct = brightnessPercentage(device, reached);
-      logger.info(`${operation}: ${logLabelOf(device)} sent ${lumen} lm, reached ${reached} lm (${pct}%)`);
-      const lamp = lampOf(device);
-      lamp.brightnessReached(operation, plugPath(device), lumen, reached, sentAt);
+      const { lamp, handle } = reach(operation, device);
+      const lumenReached = lamp.readBackBrightness(operation, handle, lumen, sentAt);
+      const pct = brightnessPercentage(device, lumenReached);
       // A lamp kept apart is left at its position, which any other change forgets.
-      lamp.leaveBrightness(positions.get(device), reached);
+      lamp.leaveBrightness(positions.get(device), lumenReached);
       percentages.push(pct);
       if (representative === undefined || pct > representative) {
         representative = pct;
-        representativeLumen = reached;
+        representativeLumen = lumenReached;
       }
     });
   }
@@ -808,9 +813,8 @@ async function setScene(groups: readonly SceneGroup[], settleMs: number): Promis
     for (const [device, group] of devices) {
       attempt(device, () => {
         if (!group.on) {
-          turnOff(device);
-          drainAck(device);
-          logger.info(`${operation}: ${logLabelOf(device)} turned off`);
+          const { lamp, handle } = reach(operation, device);
+          lamp.setPower(operation, handle, false);
           return;
         }
         ensureOn(operation, device);
@@ -917,6 +921,7 @@ export async function readLampsBrightness(lamps: LampSelection): Promise<Broadca
   const result = forEachDevice(
     operation,
     (device) => {
+      reach(operation, device);
       const lumen = getBrightnessInLumenSafe(device);
       const pct = brightnessPercentage(device, lumen);
       logger.debug(`${operation}: ${logLabelOf(device)} at ${lumen} lm (${pct}%)`);
@@ -948,6 +953,7 @@ export async function readLampStatuses(): Promise<{ ok: boolean; lamps: LampStat
   const result = forEachDevice(
     operation,
     (device) => {
+      reach(operation, device);
       const on = isOn(device);
       const temperatureKelvin = getTemperatureInKelvin(device);
       const brightnessLumen = getBrightnessInLumenSafe(device);
@@ -1007,20 +1013,9 @@ export function identifyLamp(id: string, blinkMs: number): Promise<BroadcastResu
       if (device === undefined) {
         return { ok: false, deviceCount: 0, failures: 1 };
       }
-      const setPower = (on: boolean): void => {
-        if (on) {
-          turnOnAsItWas(operation, device);
-        } else {
-          turnOff(device);
-          drainAck(device);
-        }
-      };
       try {
-        const wasOn = isOn(device);
-        setPower(!wasOn);
-        await new Promise((resolve) => setTimeout(resolve, blinkMs));
-        setPower(wasOn);
-        logger.info(`${operation}: ${logLabelOf(device)} blinked`);
+        const { lamp, handle } = reach(operation, device);
+        await lamp.blink(operation, handle, blinkMs);
         return { ok: true, deviceCount: 1, failures: 0 };
       } catch (error) {
         logLampFailure(operation, device, error);
@@ -1037,11 +1032,10 @@ export function identifyLamp(id: string, blinkMs: number): Promise<BroadcastResu
 /** Sets a lamp to the temperature it allows nearest to `kelvin`, and returns that temperature. */
 function setSnappedTemperature(operation: string, device: Device, kelvin: number): number {
   const snapped = snapKelvin(kelvin, getAllowedTemperaturesInKelvinForDevice(device));
-  setTemperatureInKelvin(device, snapped);
-  drainAck(device);
-  lampOf(device).leaveTemperature(undefined, snapped);
-  logger.info(`${operation}: ${logLabelOf(device)} set to ${snapped} K`);
-  return snapped;
+  const { lamp, handle } = reach(operation, device);
+  const kelvinReached = lamp.setTemperature(operation, handle, snapped);
+  lamp.leaveTemperature(undefined, kelvinReached);
+  return kelvinReached;
 }
 
 /** Sets the selected lamps to the allowed temperature nearest to `kelvin`, and reports the first one's. */
@@ -1157,14 +1151,12 @@ function adjustTemperaturesApart(
     apart.forEach((lamp, index) => {
       attempt(lamp.device, () => {
         const position = stepped[index] ?? lamp.position;
-        const snapped = lamp.reach(position);
-        setTemperatureInKelvin(lamp.device, snapped);
-        drainAck(lamp.device);
-        lampOf(lamp.device).leaveTemperature(position, snapped);
-        logger.info(`${operation}: ${logLabelOf(lamp.device)} set to ${snapped} K`);
+        const reached = reach(operation, lamp.device);
+        const kelvinReached = reached.lamp.setTemperature(operation, reached.handle, lamp.reach(position));
+        reached.lamp.leaveTemperature(position, kelvinReached);
         if (representative === undefined) {
-          representative = snapped;
-          representativePercentage = temperaturePercentage(snapped, lamp.allowed);
+          representative = kelvinReached;
+          representativePercentage = temperaturePercentage(kelvinReached, lamp.allowed);
         }
       });
     });
@@ -1193,6 +1185,7 @@ export async function readLampsTemperature(lamps: LampSelection): Promise<Broadc
   const result = forEachDevice(
     operation,
     (device) => {
+      reach(operation, device);
       if (representative !== undefined) {
         return;
       }
