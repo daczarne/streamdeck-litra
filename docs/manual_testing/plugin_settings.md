@@ -4,6 +4,9 @@
 - [Setup](#setup)
 - [Checks](#checks)
 
+> [!WARNING]
+> On the `refactoring` branch, these checks describe the plugin as it will be once [#198] is done, not the code as it is. Each step of the refactor changes them where the design doesn't work out. This note comes out before the branch is merged into `main`.
+
 Every settings page, on a key or a dial, has a Plugin settings button at its top, which shows the plugin's own settings in place of the action's ([#146]), in sections by what they reach. "Lamps" has a Find lamps button and a table of the lamps the plugin knows ([#194]), each by the end of its serial number and its model, with a field for its name, an Identify button that blinks it, and a trash can that forgets it, then how each lamp steps (see [`lamps_apart.md`][lamps-apart]) and how long a blink lasts ([#171]). "Keys" has whether every key takes in lamps added later (see [`lamp_picker.md`][lamp-picker]). "Dials" has the lamp screens' settings. The plugin alone saves the lamps, their names included, to its global settings: the page asks it to find them, and to rename or forget one, and the keys' lamp pickers show the names (see [`lamp_picker.md`][lamp-picker]). The unit tests check against emulated lamps that the plugin lists each lamp with its model and the end of its serial, and blinks the one asked for, for as long as the global settings say, and that it adds, renames and forgets the lamps it knows, keeping the other global settings. The browser tests check every page in a headless Chrome, with a fake standing in for Stream Deck and the plugin: the button, that the plugin settings take the action's place and give it back, the table, the messages a name, Find lamps, Identify and the trash can send, that a name being typed stays as typed, with its field focused, as the plugin's saves of it arrive, the lamps the table lists once the plugin saves them, and the blink's number field: its default, its ends, the value it shows, with its unit beside it and the two centered, and what it saves. The checks below cover what they take for granted: that Stream Deck draws the button, the sections and their headings, the table, or the message that stands in for it when no lamp is found, and the number field legibly in its panel, carries the page's messages to the plugin and back, passes the plugin's save on to the page, and keeps the names and the blink's length, and that the lamps follow.
 
 ## When to run these checks
@@ -41,11 +44,13 @@ In VS Code, the `Build and restart` task runs both.
 15. **A lamp plugged in is left alone until it's found.** Plug in the third lamp, and turn every lamp on. Press the Power key in its toggle mode: the Beams turn off, and the third lamp stays on. Open the plugin settings: the third lamp isn't listed. Press Find lamps: it's listed, and `logs/litra.log` has a `Lamps added:` line with it. Press the key: the Beams turn on. Press it again: every lamp turns off, the third one included.
 16. **A page's save keeps the lamps the plugin knows.** In the plugin settings, set Blink length to 600 ms and back to 400 ms, which saves the global settings from the page. Restart the plugin, and press the Power key: every lamp turns on, the third one included, and `logs/litra.log` has no `No lamps known` line.
 17. **A Beam LX has a serial number of its own.** Its USB descriptor gives none, so the plugin asks the lamp for it ([#170]). With the Beam LX found, as the third lamp of check 15: its row shows the last 4 characters of its serial number under ID, never an empty ID, and its name field shows "Beam LX - " followed by them in grey. Identify blinks it, and the Brightness dial's lamp screens show it with the same label. `logs/litra.log` names it as "Beam LX …" followed by the same 4 characters, and has no `failed` line for it. A Beam LX the plugin knew before this check, with an empty ID, shows as a row with "Not found": forget it with its trash can.
+18. **"Not found" follows every press.** With the plugin settings open on the Power key, unplug the second lamp, and press the key: the second lamp's row is greyed out, with "Not found", without pressing Find lamps. Plug it back in and press the key again: its row is as before, with Identify ([#198]).
 
 [#146]: https://github.com/daczarne/streamdeck-litra/issues/146
 [#170]: https://github.com/daczarne/streamdeck-litra/issues/170
 [#171]: https://github.com/daczarne/streamdeck-litra/issues/171
 [#194]: https://github.com/daczarne/streamdeck-litra/issues/194
+[#198]: https://github.com/daczarne/streamdeck-litra/issues/198
 [lamp-picker]: lamp_picker.md
 [lamp-screens]: lamp_screens.md
 [lamps-apart]: lamps_apart.md
