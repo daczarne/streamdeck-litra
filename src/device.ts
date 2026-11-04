@@ -5,7 +5,19 @@
  * touching the rest of the plugin.
  */
 
-import { type Device, DeviceType } from "litra";
+import {
+  type Device,
+  DeviceType,
+  getAllowedTemperaturesInKelvinForDevice,
+  getMaximumBrightnessInLumenForDevice,
+  getMinimumBrightnessInLumenForDevice,
+  getTemperatureInKelvin,
+  isOn,
+  setBrightnessInLumen,
+  setTemperatureInKelvin,
+  turnOff,
+  turnOn,
+} from "litra";
 
 import { type LampIdentity, lampId, lampLogLabel } from "./lamp-identity";
 import { logger as pluginLogger } from "./logging";
@@ -23,6 +35,30 @@ export {
   turnOff,
   turnOn,
 } from "litra";
+
+/** What a lamp can be set to: its brightness, from its dimmest to its brightest, in lumens, and its temperatures. */
+export type LampRange = {
+  readonly minLumen: number;
+  readonly maxLumen: number;
+  readonly allowedKelvin: readonly number[];
+};
+
+/**
+ * A lamp opened for one operation, as a `Lamp` acts on it (#198): what it reads from the lamp and writes to it over
+ * HID, each write's ACK drained, so a read that follows gets its reply, with the lamp's serial number, the path it's
+ * plugged in at, and its range. It's only good until the operation closes the lamp.
+ */
+export type LampHandle = {
+  readonly serialNumber: string;
+  readonly path: string;
+  readonly range: LampRange;
+  isOn(): boolean;
+  switchPower(on: boolean): void;
+  readBrightness(): number;
+  writeBrightness(lumen: number): void;
+  readTemperature(): number;
+  writeTemperature(kelvin: number): void;
+};
 
 /** The methods of a lamp's HID handle that node-hid has at runtime, and litra's type leaves out. */
 type ClosableHid = {
@@ -186,4 +222,36 @@ export function readSerialNumber(device: Device): string {
     throw new Error("Empty serial number");
   }
   return serialNumber;
+}
+
+/** The handle a `Lamp` acts on its lamp through, for a lamp an operation opened. */
+export function handleOf(device: Device): LampHandle {
+  return {
+    serialNumber: device.serialNumber,
+    path: plugPath(device),
+    range: {
+      minLumen: getMinimumBrightnessInLumenForDevice(device),
+      maxLumen: getMaximumBrightnessInLumenForDevice(device),
+      allowedKelvin: getAllowedTemperaturesInKelvinForDevice(device),
+    },
+    isOn: () => isOn(device),
+    switchPower: (on) => {
+      if (on) {
+        turnOn(device);
+      } else {
+        turnOff(device);
+      }
+      drainAck(device);
+    },
+    readBrightness: () => getBrightnessInLumenSafe(device),
+    writeBrightness: (lumen) => {
+      setBrightnessInLumen(device, lumen);
+      drainAck(device);
+    },
+    readTemperature: () => getTemperatureInKelvin(device),
+    writeTemperature: (kelvin) => {
+      setTemperatureInKelvin(device, kelvin);
+      drainAck(device);
+    },
+  };
 }

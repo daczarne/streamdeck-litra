@@ -1,7 +1,11 @@
+import type { LampHandle, LampRange } from "./device";
 import { type LampIdentity, lampId, lampLabel, lampLogLabel } from "./lamp-identity";
 import { logger as pluginLogger } from "./logging";
 
 const logger = pluginLogger.createScope("Lamps");
+
+/** How long a lamp that didn't answer what it set is given before it's asked again, in ms (#198). */
+export const READ_AGAIN_MS = 10;
 
 /**
  * How long a lamp may go back to its brightness cap after a write that went above it, in ms. Until then, a lower
@@ -14,6 +18,33 @@ export const BRIGHTNESS_CAP_REVERSAL_WINDOW_MS = 1500;
  * in % and lumens for the brightness, in kelvin for the temperature.
  */
 type Position = { position: number; left: number };
+
+/** A lamp's power, its brightness in lumens and its temperature in kelvin, as the plugin holds them (#198). */
+export type LampState = { readonly on: boolean; readonly lumen: number; readonly kelvin: number };
+
+/** Where a value sits in a lamp's range, from 0 to 100, such as a brightness in lumens or a temperature in kelvin. */
+export function percentageInRange(value: number, min: number, max: number): number {
+  if (max <= min) {
+    return 0;
+  }
+  return Math.max(0, Math.min(100, Math.round(((value - min) / (max - min)) * 100)));
+}
+
+/**
+ * The lumens litra's setBrightnessPercentage sends for a percentage. Mirrors litra's percentageWithinRange, which
+ * isn't exported.
+ */
+export function percentageToLumen(percentage: number, min: number, max: number): number {
+  return Math.ceil((percentage / 100) * (max - min) + min);
+}
+
+/**
+ * Waits, holding the thread, since the writes it follows are synchronous. Only a read that just failed waits, and only
+ * for {@link READ_AGAIN_MS}.
+ */
+function pause(ms: number): void {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
 
 /**
  * One lamp, and what the plugin remembers about it between operations (#198): who it is, as the global settings keep
@@ -37,6 +68,12 @@ export class Lamp {
   private brightnessCapReversalEnd = 0;
   private brightnessPosition: Position | undefined;
   private temperaturePosition: Position | undefined;
+  // What the plugin holds of the lamp: its state, once read, the path it was last reached at, its range, and whether
+  // the last operation that looked found it.
+  private heldState: LampState | undefined;
+  private reachedPath: string | undefined;
+  private lampRange: LampRange | undefined;
+  private found = false;
 
   /** A lamp, as the global settings keep it, which no operation has reached yet. */
   constructor({ id, model, serialEnd, name }: LampIdentity) {
@@ -162,5 +199,194 @@ export class Lamp {
   /** A position, while its lamp is still at the value it was left at, or else `fallback`. */
   private static positionAt(remembered: Position | undefined, value: number, fallback: number): number {
     return remembered !== undefined && remembered.left === value ? remembered.position : fallback;
+  }
+
+  /**
+   * The lamp's power, brightness and temperature, as the plugin last set them and the lamp reported them (#198), or
+   * undefined until the lamp is first reached.
+   */
+  get state(): LampState | undefined {
+    return this.heldState;
+  }
+
+  /** The lamp's range, once an operation has reached it. */
+  get range(): LampRange | undefined {
+    return this.lampRange;
+  }
+
+  /** Whether the last operation that looked for the lamp found it (#198). */
+  get isConnected(): boolean {
+    return this.found;
+  }
+
+  /** Where a brightness in lumens sits in the lamp's range, from 0 to 100, or 0 before the lamp is reached. */
+  brightnessPercentage(lumen: number): number {
+    return this.lampRange === undefined
+      ? 0
+      : percentageInRange(lumen, this.lampRange.minLumen, this.lampRange.maxLumen);
+  }
+
+  /**
+   * Takes the lamp an operation found, and opened through `handle`, before the operation changes anything (#198): it's
+   * connected, and it learns its serial number and its range. It's read, and holds what it reads, the first time it's
+   * reached, and again when it's reached at another path, since a lamp plugged in again may come back in another state,
+   * or on another power supply, which forgets its cap.
+   */
+  reach(operation: string, handle: LampHandle): void {
+    if (this.wholeSerialNumber === undefined) {
+      this.reachedAs(handle.serialNumber);
+    }
+    this.found = true;
+    this.lampRange = handle.range;
+    if (this.heldState === undefined) {
+      this.reachedPath = handle.path;
+      this.read(operation, handle, "it was first reached");
+    } else if (handle.path !== this.reachedPath) {
+      this.reachedPath = handle.path;
+      this.brightnessCapAt(operation, handle.path);
+      this.read(operation, handle, "it was plugged in again");
+    }
+  }
+
+  /** Takes an operation that looked for the lamp and didn't find it (#198). */
+  notFound(): void {
+    this.found = false;
+  }
+
+  /** Reads the lamp's power, brightness and temperature, holds them, and logs them with why it read them. */
+  read(operation: string, handle: LampHandle, reason: string): void {
+    this.lampRange = handle.range;
+    const state = { on: handle.isOn(), lumen: handle.readBrightness(), kelvin: handle.readTemperature() };
+    this.heldState = state;
+    logger.info(
+      `${operation}: ${this.logLabel} read, since ${reason}: ${state.on ? "on" : "off"} at ${state.lumen} lm ` +
+        `(${this.brightnessPercentage(state.lumen)}%) and ${state.kelvin} K`,
+    );
+  }
+
+  /**
+   * Turns the lamp on or off, and holds the power it then reports. A lamp turned on also reports its brightness and
+   * temperature, and gets back the ones it holds, if it came back at others: a Beam LX turns on at the setting it saved
+   * a few hundred ms after it was last switched off, and loses a temperature given while it was off (#100).
+   */
+  setPower(operation: string, handle: LampHandle, on: boolean): void {
+    this.switchPower(operation, handle, on);
+    logger.info(`${operation}: ${this.logLabel} turned ${on ? "on" : "off"}`);
+  }
+
+  /**
+   * Sends the lamp a brightness, or its cap if it has a lower one, without waiting for it to settle, and returns the
+   * lumens sent. {@link readBackBrightness} takes what it reached, once it has settled.
+   */
+  sendBrightness(operation: string, handle: LampHandle, lumen: number): number {
+    const sent = this.withinBrightnessCap(operation, handle.path, lumen);
+    handle.writeBrightness(sent);
+    return sent;
+  }
+
+  /**
+   * Reads the brightness the lamp reached for the lumens sent at `sentAt`, a time from `Date.now()`, holds it, and
+   * learns its cap if it fell short. Returns the lumens reached.
+   */
+  readBackBrightness(operation: string, handle: LampHandle, sent: number, sentAt: number): number {
+    const reached = this.readBack(operation, "brightness", () => handle.readBrightness(), sent);
+    logger.info(
+      `${operation}: ${this.logLabel} sent ${sent} lm, reached ${reached} lm (${this.brightnessPercentage(reached)}%)`,
+    );
+    this.brightnessReached(operation, handle.path, sent, reached, sentAt);
+    this.heldState = { ...this.held(), lumen: reached };
+    return reached;
+  }
+
+  /** Sets the lamp to a temperature it allows, and holds the one it then reports, which it returns. */
+  setTemperature(operation: string, handle: LampHandle, kelvin: number): number {
+    handle.writeTemperature(kelvin);
+    const reached = this.readBack(operation, "temperature", () => handle.readTemperature(), kelvin);
+    logger.debug(`${operation}: ${this.logLabel} at ${reached} K`);
+    this.heldState = { ...this.held(), kelvin: reached };
+    logger.info(`${operation}: ${this.logLabel} set to ${kelvin} K`);
+    return reached;
+  }
+
+  /**
+   * Blinks the lamp, so the user can tell which one it is (#48): switches it the other way from the power it holds,
+   * and back `blinkMs` later (#171).
+   */
+  async blink(operation: string, handle: LampHandle, blinkMs: number): Promise<void> {
+    const { on } = this.held();
+    this.switchPower(operation, handle, !on);
+    await new Promise((resolve) => setTimeout(resolve, blinkMs));
+    this.switchPower(operation, handle, on);
+    logger.info(`${operation}: ${this.logLabel} blinked`);
+  }
+
+  /** Switches the lamp, holds the power it then reports, and puts back the setting a lamp turned on lost. */
+  private switchPower(operation: string, handle: LampHandle, on: boolean): void {
+    const held = this.held();
+    handle.switchPower(on);
+    const reached = this.readBack(operation, "power", () => handle.isOn(), on);
+    logger.debug(`${operation}: ${this.logLabel} is ${reached ? "on" : "off"}`);
+    this.heldState = { ...held, on: reached };
+    if (on) {
+      this.putBackSetting(operation, handle, held);
+    }
+  }
+
+  /**
+   * Gives a lamp just turned on back the brightness and temperature it holds, if it reports others. A Beam turns on as
+   * it was, and gets nothing written.
+   */
+  private putBackSetting(operation: string, handle: LampHandle, held: LampState): void {
+    const lumen = this.readBack(operation, "brightness", () => handle.readBrightness(), held.lumen);
+    const kelvin = this.readBack(operation, "temperature", () => handle.readTemperature(), held.kelvin);
+    if (lumen === held.lumen && kelvin === held.kelvin) {
+      return;
+    }
+    if (kelvin !== held.kelvin) {
+      handle.writeTemperature(held.kelvin);
+    }
+    if (lumen !== held.lumen) {
+      handle.writeBrightness(held.lumen);
+    }
+    logger.info(
+      `${operation}: ${this.logLabel} turned on at ${lumen} lm and ${kelvin} K, put back to ${held.lumen} lm and ` +
+        `${held.kelvin} K`,
+    );
+    this.heldState = {
+      ...this.held(),
+      lumen: this.readBack(operation, "brightness", () => handle.readBrightness(), held.lumen),
+      kelvin: this.readBack(operation, "temperature", () => handle.readTemperature(), held.kelvin),
+    };
+  }
+
+  /**
+   * The second trip of a value the lamp was set to (#198): what the lamp reports. One that doesn't answer is asked
+   * again after {@link READ_AGAIN_MS}, and when it still doesn't, the value asked for is what the plugin holds. Both
+   * are logged.
+   */
+  private readBack<T>(operation: string, what: string, read: () => T, asked: T): T {
+    try {
+      return read();
+    } catch (error) {
+      logger.warn(`${operation}: ${this.logLabel} didn't report its ${what}, so it's read again: ${String(error)}`);
+    }
+    pause(READ_AGAIN_MS);
+    try {
+      return read();
+    } catch (error) {
+      logger.warn(
+        `${operation}: ${this.logLabel} didn't report its ${what} again, so it holds the ${what} asked for, ` +
+          `${String(asked)}: ${String(error)}`,
+      );
+      return asked;
+    }
+  }
+
+  /** The state the plugin holds, which an operation reads by reaching the lamp before it changes it. */
+  private held(): LampState {
+    if (this.heldState === undefined) {
+      throw new Error(`${this.logLabel} was changed before it was reached`);
+    }
+    return this.heldState;
   }
 }

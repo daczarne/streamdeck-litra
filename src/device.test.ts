@@ -96,3 +96,34 @@ describe("getBrightnessInLumenSafe", () => {
     ).toThrow("No brightness reply");
   });
 });
+
+//* A lamp's handle (#198)
+
+describe("a lamp's handle", () => {
+  it("gives the lamp's serial number, its path, and its range", () => {
+    const lamp = beam();
+
+    const handle = withDevice(lamp, device.handleOf);
+
+    expect([handle.serialNumber, handle.path]).toEqual([lamp.serialNumber, lamp.info.path]);
+    expect(handle.range).toMatchObject({ minLumen: 30, maxLumen: 400 });
+    expect([handle.range.allowedKelvin.at(0), handle.range.allowedKelvin.at(-1)]).toEqual([2700, 6500]);
+  });
+
+  it("writes the power, the brightness and the temperature, each read back on the same handle after its ACK", () => {
+    const lamp = beam();
+
+    const read = withDevice(lamp, (found) => {
+      const handle = device.handleOf(found);
+      handle.switchPower(false);
+      const on = handle.isOn();
+      handle.writeBrightness(324);
+      const lumen = handle.readBrightness();
+      handle.writeTemperature(6500);
+      return [on, lumen, handle.readTemperature()];
+    });
+
+    expect(read).toEqual([false, 324, 6500]);
+    expect([lamp.writes("power"), lamp.writes("brightness"), lamp.writes("temperature")]).toEqual([[0], [324], [6500]]);
+  });
+});

@@ -165,46 +165,6 @@ function asked(lamp: EmulatedLitra): number[][] {
 
 //* Pure functions
 
-describe("percentageInRange", () => {
-  it("maps the ends of the range to 0 and 100", () => {
-    expect(manager.percentageInRange(MIN_LUMEN, MIN_LUMEN, MAX_LUMEN)).toBe(0);
-    expect(manager.percentageInRange(MAX_LUMEN, MIN_LUMEN, MAX_LUMEN)).toBe(100);
-  });
-
-  it("maps a value inside the range proportionally, rounded to an integer", () => {
-    expect(manager.percentageInRange(215, MIN_LUMEN, MAX_LUMEN)).toBe(50);
-    expect(manager.percentageInRange(100, MIN_LUMEN, MAX_LUMEN)).toBe(19); // 18.92
-    expect(manager.percentageInRange(102, MIN_LUMEN, MAX_LUMEN)).toBe(19); // 19.46
-  });
-
-  it("clamps values outside the range", () => {
-    expect(manager.percentageInRange(20, MIN_LUMEN, MAX_LUMEN)).toBe(0);
-    expect(manager.percentageInRange(500, MIN_LUMEN, MAX_LUMEN)).toBe(100);
-  });
-
-  it("returns 0 when the range is empty or inverted", () => {
-    expect(manager.percentageInRange(50, 50, 50)).toBe(0);
-    expect(manager.percentageInRange(50, 100, 20)).toBe(0);
-  });
-});
-
-describe("percentageToLumen", () => {
-  it("maps 0 and 100 to the ends of the range", () => {
-    expect(manager.percentageToLumen(0, MIN_LUMEN, MAX_LUMEN)).toBe(30);
-    expect(manager.percentageToLumen(100, MIN_LUMEN, MAX_LUMEN)).toBe(400);
-  });
-
-  it("rounds up, like litra", () => {
-    expect(manager.percentageToLumen(70, MIN_LUMEN, MAX_LUMEN)).toBe(289);
-    expect(manager.percentageToLumen(33, MIN_LUMEN, MAX_LUMEN)).toBe(153);
-  });
-
-  it("uses the range it's given", () => {
-    // A Litra Glow's range.
-    expect(manager.percentageToLumen(50, 20, 250)).toBe(135);
-  });
-});
-
 describe("snapKelvin", () => {
   it("keeps an allowed value", () => {
     expect(manager.snapKelvin(3000, ALLOWED_KELVIN)).toBe(3000);

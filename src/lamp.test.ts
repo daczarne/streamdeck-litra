@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { BRIGHTNESS_CAP_REVERSAL_WINDOW_MS, Lamp } from "./lamp";
+import type { LampHandle, LampRange } from "./device";
+import { BRIGHTNESS_CAP_REVERSAL_WINDOW_MS, Lamp, percentageInRange, percentageToLumen } from "./lamp";
 import { lampId } from "./lamp-identity";
 import { logger } from "./test-support/fake-logging";
 
@@ -198,5 +199,327 @@ describe("a lamp kept apart (#145)", () => {
     lamp.leaveBrightness(120, 300);
 
     expect(lamp.temperaturePositionAt(300, 70)).toBe(70);
+  });
+});
+
+describe("percentageInRange", () => {
+  it("maps the ends of the range to 0 and 100", () => {
+    expect(percentageInRange(30, 30, 400)).toBe(0);
+    expect(percentageInRange(400, 30, 400)).toBe(100);
+  });
+
+  it("maps a value inside the range proportionally, rounded to an integer", () => {
+    expect(percentageInRange(215, 30, 400)).toBe(50);
+    expect(percentageInRange(100, 30, 400)).toBe(19); // 18.92
+    expect(percentageInRange(102, 30, 400)).toBe(19); // 19.46
+  });
+
+  it("clamps values outside the range", () => {
+    expect(percentageInRange(20, 30, 400)).toBe(0);
+    expect(percentageInRange(500, 30, 400)).toBe(100);
+  });
+
+  it("returns 0 when the range is empty or inverted", () => {
+    expect(percentageInRange(50, 50, 50)).toBe(0);
+    expect(percentageInRange(50, 100, 20)).toBe(0);
+  });
+});
+
+describe("percentageToLumen", () => {
+  it("maps 0 and 100 to the ends of the range", () => {
+    expect(percentageToLumen(0, 30, 400)).toBe(30);
+    expect(percentageToLumen(100, 30, 400)).toBe(400);
+  });
+
+  it("rounds up, like litra", () => {
+    expect(percentageToLumen(70, 30, 400)).toBe(289);
+    expect(percentageToLumen(33, 30, 400)).toBe(153);
+  });
+
+  it("uses the range it's given", () => {
+    // A Litra Glow's range.
+    expect(percentageToLumen(50, 20, 250)).toBe(135);
+  });
+});
+
+//* A lamp's state (#198)
+
+const RANGE: LampRange = {
+  minLumen: 30,
+  maxLumen: 400,
+  allowedKelvin: Array.from({ length: 39 }, (_, step) => 2700 + step * 100),
+};
+
+/**
+ * A lamp opened for an operation, as a `Lamp` acts on it: it keeps its power, brightness and temperature, stops at its
+ * cap, if it has one, turns on at another setting when told to, as a Beam LX does (#100), and fails as many of its next
+ * reads as it's told to. It records what it's written.
+ */
+class FakeHandle implements LampHandle {
+  readonly serialNumber = SERIAL;
+  readonly range = RANGE;
+  readonly written: string[] = [];
+  path = PATH;
+  on = true;
+  lumen = 215;
+  kelvin = 4000;
+  cap: number | undefined;
+  turnsOnAt: { lumen: number; kelvin: number } | undefined;
+  failingReads = 0;
+
+  /** Whether the lamp is on. */
+  isOn(): boolean {
+    this.read();
+    return this.on;
+  }
+
+  /** Turns the lamp on or off, at the setting it turns on at, if it has one. */
+  switchPower(on: boolean): void {
+    this.written.push(`power ${on ? "on" : "off"}`);
+    this.on = on;
+    if (on && this.turnsOnAt !== undefined) {
+      ({ lumen: this.lumen, kelvin: this.kelvin } = this.turnsOnAt);
+    }
+  }
+
+  /** The lamp's brightness, in lumens. */
+  readBrightness(): number {
+    this.read();
+    return this.lumen;
+  }
+
+  /** Sets the lamp's brightness, which stops at its cap. */
+  writeBrightness(lumen: number): void {
+    this.written.push(`${lumen} lm`);
+    this.lumen = this.cap === undefined ? lumen : Math.min(lumen, this.cap);
+  }
+
+  /** The lamp's temperature, in kelvin. */
+  readTemperature(): number {
+    this.read();
+    return this.kelvin;
+  }
+
+  /** Sets the lamp's temperature. */
+  writeTemperature(kelvin: number): void {
+    this.written.push(`${kelvin} K`);
+    this.kelvin = kelvin;
+  }
+
+  /** A read, which fails while the lamp has reads left to fail. */
+  private read(): void {
+    if (this.failingReads > 0) {
+      this.failingReads -= 1;
+      throw new Error("Cannot read from hid device");
+    }
+  }
+}
+
+/** A lamp the plugin knows, reached through a handle, as an operation reaches it before it changes it. */
+function reached(handle = new FakeHandle()): { lamp: Lamp; handle: FakeHandle } {
+  const lamp = new Lamp({ id: lampId(SERIAL), model: "Beam", serialEnd: "7K98" });
+  lamp.reach("test", handle);
+  vi.clearAllMocks();
+  return { lamp, handle };
+}
+
+/** The messages logged at a level. */
+function logged(level: "info" | "warn" | "debug"): unknown[] {
+  return logger[level].mock.calls.map(([message]: unknown[]) => message);
+}
+
+describe("a lamp reached by an operation (#198)", () => {
+  it("is read the first time, and holds its state, its range, and that it's connected", () => {
+    const lamp = new Lamp({ id: lampId(SERIAL), model: "Beam", serialEnd: "7K98" });
+
+    expect([lamp.state, lamp.isConnected]).toEqual([undefined, false]);
+
+    lamp.reach("set brightness", new FakeHandle());
+
+    expect([lamp.state, lamp.range, lamp.isConnected, lamp.serialNumber]).toEqual([
+      { on: true, lumen: 215, kelvin: 4000 },
+      RANGE,
+      true,
+      SERIAL,
+    ]);
+    expect(logged("info")).toEqual([
+      "set brightness: Beam …7K98 read, since it was first reached: on at 215 lm (50%) and 4000 K",
+    ]);
+  });
+
+  it("isn't read again at the same path, so it keeps what the plugin set, whatever the lamp is at", () => {
+    const { lamp, handle } = reached();
+    handle.lumen = 400;
+
+    lamp.reach("set brightness", handle);
+
+    expect(lamp.state).toEqual({ on: true, lumen: 215, kelvin: 4000 });
+    expect(logger.info).not.toHaveBeenCalled();
+  });
+
+  it("is read again at another path, since it was plugged in again, which forgets its cap", () => {
+    const { lamp, handle } = reached();
+    lamp.brightnessReached("set brightness", PATH, 400, 324, 0);
+    vi.clearAllMocks();
+    Object.assign(handle, { path: OTHER_PATH, on: false, lumen: 324 });
+
+    lamp.reach("set brightness", handle);
+
+    expect(lamp.state).toEqual({ on: false, lumen: 324, kelvin: 4000 });
+    expect(lamp.withinBrightnessCap("set brightness", OTHER_PATH, 400)).toBe(400);
+    expect(logged("info")).toEqual([
+      "set brightness: Beam …7K98 was plugged in again, its cap of 324 lm is forgotten",
+      "set brightness: Beam …7K98 read, since it was plugged in again: off at 324 lm (79%) and 4000 K",
+    ]);
+  });
+
+  it("is no longer connected once an operation doesn't find it, and is again once one does", () => {
+    const { lamp, handle } = reached();
+
+    lamp.notFound();
+
+    expect(lamp.isConnected).toBe(false);
+
+    lamp.reach("toggle", handle);
+
+    expect(lamp.isConnected).toBe(true);
+  });
+
+  it("can't be changed before it's reached, since the plugin holds nothing of it yet", () => {
+    const lamp = new Lamp({ id: lampId(SERIAL), model: "Beam", serialEnd: "7K98" });
+
+    expect(() => lamp.setPower("turn on", new FakeHandle(), true)).toThrow(
+      "Beam …7K98 was changed before it was reached",
+    );
+  });
+});
+
+describe("a lamp's power (#198)", () => {
+  it("is switched, and holds what the lamp reports, which is logged at debug", () => {
+    const { lamp, handle } = reached();
+
+    lamp.setPower("turn off", handle, false);
+
+    expect([handle.on, lamp.state?.on]).toEqual([false, false]);
+    expect(logged("info")).toEqual(["turn off: Beam …7K98 turned off"]);
+    expect(logged("debug")).toEqual(["turn off: Beam …7K98 is off"]);
+  });
+
+  it("turns a lamp on as it was, with nothing else written, when it turns on at the setting it holds", () => {
+    const { lamp, handle } = reached(Object.assign(new FakeHandle(), { on: false }));
+
+    lamp.setPower("turn on", handle, true);
+
+    expect(handle.written).toEqual(["power on"]);
+    expect(lamp.state).toEqual({ on: true, lumen: 215, kelvin: 4000 });
+  });
+
+  it("puts back the setting it holds when the lamp turns on at another, as a Beam LX can (#100)", () => {
+    const { lamp, handle } = reached(Object.assign(new FakeHandle(), { on: false }));
+    handle.turnsOnAt = { lumen: 400, kelvin: 6500 };
+
+    lamp.setPower("turn on", handle, true);
+
+    expect(handle.written).toEqual(["power on", "4000 K", "215 lm"]);
+    expect([handle.lumen, handle.kelvin]).toEqual([215, 4000]);
+    expect(lamp.state).toEqual({ on: true, lumen: 215, kelvin: 4000 });
+    expect(logged("info")).toEqual([
+      "turn on: Beam …7K98 turned on at 400 lm and 6500 K, put back to 215 lm and 4000 K",
+      "turn on: Beam …7K98 turned on",
+    ]);
+  });
+});
+
+describe("a lamp's brightness (#198)", () => {
+  it("is sent, then read back once the lamp has settled, and the lamp holds what it reached", () => {
+    const { lamp, handle } = reached();
+
+    const sent = lamp.sendBrightness("set brightness", handle, 400);
+    const reachedLumen = lamp.readBackBrightness("set brightness", handle, sent, 0);
+
+    expect([sent, reachedLumen, lamp.state?.lumen]).toEqual([400, 400, 400]);
+    expect(logged("info")).toEqual(["set brightness: Beam …7K98 sent 400 lm, reached 400 lm (100%)"]);
+  });
+
+  it("holds the brightness a capped lamp reached, not the one asked for, and caps what's sent next (#55)", () => {
+    const { lamp, handle } = reached(Object.assign(new FakeHandle(), { cap: 244 }));
+
+    lamp.readBackBrightness("set brightness", handle, lamp.sendBrightness("set brightness", handle, 400), 0);
+
+    expect(lamp.state?.lumen).toBe(244);
+    expect(lamp.sendBrightness("adjust brightness", handle, 400)).toBe(244);
+  });
+});
+
+describe("a lamp's temperature (#198)", () => {
+  it("is set, and holds what the lamp reports", () => {
+    const { lamp, handle } = reached();
+
+    expect(lamp.setTemperature("set temperature", handle, 6500)).toBe(6500);
+    expect(lamp.state?.kelvin).toBe(6500);
+    expect(logged("info")).toEqual(["set temperature: Beam …7K98 set to 6500 K"]);
+    expect(logged("debug")).toEqual(["set temperature: Beam …7K98 at 6500 K"]);
+  });
+});
+
+describe("a lamp that doesn't report what it set (#198)", () => {
+  it("is asked again, and holds what it reports then, with a warning", () => {
+    const { lamp, handle } = reached();
+    handle.failingReads = 1;
+
+    lamp.setTemperature("set temperature", handle, 6500);
+
+    expect(lamp.state?.kelvin).toBe(6500);
+    expect(logged("warn")).toEqual([
+      "set temperature: Beam …7K98 didn't report its temperature, so it's read again: " +
+        "Error: Cannot read from hid device",
+    ]);
+  });
+
+  it("holds the value asked for when it doesn't report it again either, with a warning each time", () => {
+    const { lamp, handle } = reached(Object.assign(new FakeHandle(), { cap: 244 }));
+    handle.failingReads = 2;
+
+    lamp.readBackBrightness("set brightness", handle, lamp.sendBrightness("set brightness", handle, 400), 0);
+
+    expect([handle.lumen, lamp.state?.lumen]).toEqual([244, 400]);
+    expect(logged("warn")).toEqual([
+      expect.stringContaining("didn't report its brightness, so it's read again"),
+      "set brightness: Beam …7K98 didn't report its brightness again, so it holds the brightness asked for, 400: " +
+        "Error: Cannot read from hid device",
+    ]);
+  });
+});
+
+describe("a lamp's blink (#48)", () => {
+  it("switches the lamp the other way from the power it holds, and back after the blink, as it was", async () => {
+    vi.useFakeTimers();
+    try {
+      const { lamp, handle } = reached();
+
+      const blink = lamp.blink("identify", handle, 400);
+
+      expect(handle.on).toBe(false);
+
+      await vi.advanceTimersByTimeAsync(400);
+      await blink;
+
+      expect([handle.on, lamp.state?.on]).toEqual([true, true]);
+      expect(logged("info")).toEqual(["identify: Beam …7K98 blinked"]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe("a lamp's brightness as a percentage", () => {
+  it("sits in the lamp's range once it's reached, and is 0 before", () => {
+    const lamp = new Lamp({ id: lampId(SERIAL), model: "Beam", serialEnd: "7K98" });
+
+    expect(lamp.brightnessPercentage(215)).toBe(0);
+
+    lamp.reach("test", new FakeHandle());
+
+    expect(lamp.brightnessPercentage(215)).toBe(50);
   });
 });

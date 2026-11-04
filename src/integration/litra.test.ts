@@ -7,18 +7,18 @@ import { EmulatedLitra, type LitraModel } from "../test-support/emulated-litra";
 //* Fakes
 
 let litra: typeof import("litra");
-let manager: typeof import("../litra-manager");
 let deviceModule: typeof import("../device");
+let lampModule: typeof import("../lamp");
 let connect: (...lamps: EmulatedLitra[]) => void;
 
 beforeEach(async () => {
   ({
-    loaded: { litra, manager, deviceModule },
+    loaded: { litra, deviceModule, lampModule },
     hid: { connect },
   } = await loadOnEmulatedLamps(async () => ({
     litra: await import("litra"),
-    manager: await import("../litra-manager"),
     deviceModule: await import("../device"),
+    lampModule: await import("../lamp"),
   })));
 });
 
@@ -294,7 +294,7 @@ describe("what litra-manager assumes about litra", () => {
 
       for (let percentage = 0; percentage <= 100; percentage += 1) {
         litra.setBrightnessPercentage(device, percentage);
-        expect(lamp.brightnessInLumen).toBe(manager.percentageToLumen(percentage, minLumen, maxLumen));
+        expect(lamp.brightnessInLumen).toBe(lampModule.percentageToLumen(percentage, minLumen, maxLumen));
       }
     });
 

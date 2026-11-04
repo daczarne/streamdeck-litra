@@ -19,7 +19,7 @@ import {
   turnOn,
 } from "./device";
 
-import type { Lamp } from "./lamp";
+import { type Lamp, percentageInRange, percentageToLumen } from "./lamp";
 import { lampId, lampLabel } from "./lamp-identity";
 import { bySerialNumber } from "./lamp-order";
 import { logger as pluginLogger } from "./logging";
@@ -196,22 +196,6 @@ function hasSerialNumber(operation: string, device: Device): boolean {
 /** The lumens to send a lamp: the ones asked for, or its cap if it has a lower one. */
 function withinCap(operation: string, device: Device, lumen: number): number {
   return lampOf(device).withinBrightnessCap(operation, plugPath(device), lumen);
-}
-
-/** Where a value sits in a lamp's range, from 0 to 100, such as a brightness in lumens or a temperature in kelvin. */
-export function percentageInRange(value: number, min: number, max: number): number {
-  if (max <= min) {
-    return 0;
-  }
-  return Math.max(0, Math.min(100, Math.round(((value - min) / (max - min)) * 100)));
-}
-
-/**
- * The lumens litra's setBrightnessPercentage sends for a percentage. Mirrors litra's percentageWithinRange, which
- * isn't exported.
- */
-export function percentageToLumen(percentage: number, min: number, max: number): number {
-  return Math.ceil((percentage / 100) * (max - min) + min);
 }
 
 /**
