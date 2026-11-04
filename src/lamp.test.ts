@@ -20,30 +20,68 @@ describe("lampId", () => {
   });
 });
 
-describe("a lamp's identity", () => {
-  it("has the id of its serial number, and keeps its serial number and model", () => {
-    const lamp = new Lamp(SERIAL, "Beam");
+/** A lamp the plugin knows, of a model, and reached as an operation reaches it, with its whole serial number. */
+function reachedLamp(model = "Beam"): Lamp {
+  const lamp = new Lamp({ id: lampId(SERIAL), model, serialEnd: "7K98" });
+  lamp.reachedAs(SERIAL);
+  return lamp;
+}
 
-    expect([lamp.id, lamp.serialNumber, lamp.model]).toEqual([lampId(SERIAL), SERIAL, "Beam"]);
+describe("a lamp's identity", () => {
+  it("is what the global settings keep: its id, model, the end of its serial number, and its name", () => {
+    const lamp = new Lamp({ id: lampId(SERIAL), model: "Beam", serialEnd: "7K98", name: "Key light" });
+
+    expect([lamp.id, lamp.model, lamp.serialEnd, lamp.name]).toEqual([lampId(SERIAL), "Beam", "7K98", "Key light"]);
   });
 
-  it("names itself by its model and the last 4 characters of its serial number, for the logs and for the pages", () => {
-    const lamp = new Lamp(SERIAL, "Beam LX");
+  it("has no name unless it was given one, and takes a new one, or loses it (#146)", () => {
+    const lamp = new Lamp({ id: lampId(SERIAL), model: "Beam", serialEnd: "7K98" });
 
-    expect([lamp.serialEnd, lamp.logLabel, lamp.label]).toEqual(["7K98", "Beam LX …7K98", "Beam LX - 7K98"]);
+    expect(lamp.name).toBeUndefined();
+
+    lamp.rename("Key light");
+
+    expect(lamp.name).toBe("Key light");
+
+    lamp.rename(undefined);
+
+    expect(lamp.name).toBeUndefined();
+  });
+
+  it("names itself by its model and the end of its serial number, for the logs and for the pages", () => {
+    const lamp = new Lamp({ id: lampId(SERIAL), model: "Beam LX", serialEnd: "7K98" });
+
+    expect([lamp.logLabel, lamp.label]).toEqual(["Beam LX …7K98", "Beam LX - 7K98"]);
+  });
+
+  it("learns its whole serial number once an operation reaches it", () => {
+    const lamp = new Lamp({ id: lampId(SERIAL), model: "Beam", serialEnd: "7K98" });
+
+    expect(lamp.serialNumber).toBeUndefined();
+
+    lamp.reachedAs(SERIAL);
+
+    expect(lamp.serialNumber).toBe(SERIAL);
+  });
+
+  it("refuses a serial number that isn't its own, without the whole serial number in the error", () => {
+    const lamp = new Lamp({ id: lampId(SERIAL), model: "Beam", serialEnd: "7K98" });
+
+    expect(() => lamp.reachedAs("2541AB027K99")).toThrow(/^Serial number …7K99 isn't lamp [0-9a-f]{16}'s$/);
+    expect(lamp.serialNumber).toBeUndefined();
   });
 });
 
 describe("a lamp's cap (#55)", () => {
   it("has none until the lamp reaches less than it was sent, and sends what's asked for until then", () => {
-    const lamp = new Lamp(SERIAL, "Beam");
+    const lamp = reachedLamp();
 
     expect(lamp.brightnessCapAt("set brightness", PATH)).toBeUndefined();
     expect(lamp.withinBrightnessCap("set brightness", PATH, 400)).toBe(400);
   });
 
   it("is learned when the lamp reaches less than it was sent, and caps what's sent from then on", () => {
-    const lamp = new Lamp(SERIAL, "Beam");
+    const lamp = reachedLamp();
 
     lamp.brightnessReached("set brightness", PATH, 400, 324, 0);
 
@@ -53,7 +91,7 @@ describe("a lamp's cap (#55)", () => {
   });
 
   it("is learned again when it drops, and kept when the lamp reaches all it was sent", () => {
-    const lamp = new Lamp(SERIAL, "Beam");
+    const lamp = reachedLamp();
     lamp.brightnessReached("set brightness", PATH, 400, 324, 0);
 
     lamp.brightnessReached("set brightness", PATH, 324, 320, 0);
@@ -66,7 +104,7 @@ describe("a lamp's cap (#55)", () => {
   });
 
   it("is forgotten once the lamp is reached at another path, since it was plugged in again", () => {
-    const lamp = new Lamp(SERIAL, "Beam");
+    const lamp = reachedLamp();
     lamp.brightnessReached("set brightness", PATH, 400, 324, 0);
 
     expect(lamp.withinBrightnessCap("set brightness", OTHER_PATH, 400)).toBe(400);
@@ -74,7 +112,7 @@ describe("a lamp's cap (#55)", () => {
   });
 
   it("logs the cap learned and the cap forgotten at info, with the operation, the lamp and the lumens", () => {
-    const lamp = new Lamp(SERIAL, "Beam");
+    const lamp = reachedLamp();
 
     lamp.brightnessReached("set brightness", PATH, 400, 324, 0);
     lamp.brightnessCapAt("adjust brightness", OTHER_PATH);
@@ -86,7 +124,7 @@ describe("a lamp's cap (#55)", () => {
   });
 
   it("is logged without the whole serial number", () => {
-    const lamp = new Lamp(SERIAL, "Beam");
+    const lamp = reachedLamp();
 
     lamp.brightnessReached("set brightness", PATH, 400, 324, 0);
     lamp.brightnessCapAt("set brightness", OTHER_PATH);
@@ -97,7 +135,7 @@ describe("a lamp's cap (#55)", () => {
   });
 
   it("logs nothing when the lamp reaches all it was sent", () => {
-    new Lamp(SERIAL, "Beam").brightnessReached("set brightness", PATH, 400, 400, 0);
+    reachedLamp().brightnessReached("set brightness", PATH, 400, 400, 0);
 
     expect(logger.info).not.toHaveBeenCalled();
   });
@@ -105,14 +143,14 @@ describe("a lamp's cap (#55)", () => {
 
 describe("when a capped lamp may go back to its cap (#55)", () => {
   it("is never for a lamp that was never capped", () => {
-    const lamp = new Lamp(SERIAL, "Beam");
+    const lamp = reachedLamp();
     lamp.brightnessReached("set brightness", PATH, 400, 400, 1000);
 
     expect(lamp.brightnessCapReversalEndsAt).toBe(0);
   });
 
   it("ends a window after the write that went above the cap, and the latest window counts", () => {
-    const lamp = new Lamp(SERIAL, "Beam");
+    const lamp = reachedLamp();
 
     lamp.brightnessReached("set brightness", PATH, 400, 324, 5000);
 
@@ -133,13 +171,13 @@ describe.each([
   ["temperature", "temperaturePositionAt", "leaveTemperature"],
 ] as const)("a lamp kept apart, on its %s (#145)", (_value, positionAt, leave) => {
   it("steps from the fallback until it's left at a position", () => {
-    const lamp = new Lamp(SERIAL, "Beam");
+    const lamp = reachedLamp();
 
     expect(lamp[positionAt](300, 70)).toBe(70);
   });
 
   it("steps from the position it was left at, while it's still at the value it was left at", () => {
-    const lamp = new Lamp(SERIAL, "Beam");
+    const lamp = reachedLamp();
 
     lamp[leave](120, 300);
 
@@ -147,14 +185,14 @@ describe.each([
   });
 
   it("steps from the fallback once it's at another value, set by anything else", () => {
-    const lamp = new Lamp(SERIAL, "Beam");
+    const lamp = reachedLamp();
     lamp[leave](120, 300);
 
     expect(lamp[positionAt](250, 70)).toBe(70);
   });
 
   it("forgets its position when it's left without one", () => {
-    const lamp = new Lamp(SERIAL, "Beam");
+    const lamp = reachedLamp();
     lamp[leave](120, 300);
 
     lamp[leave](undefined, 300);
@@ -165,7 +203,7 @@ describe.each([
 
 describe("a lamp kept apart (#145)", () => {
   it("keeps its brightness's and its temperature's positions apart", () => {
-    const lamp = new Lamp(SERIAL, "Beam");
+    const lamp = reachedLamp();
 
     lamp.leaveBrightness(120, 300);
 

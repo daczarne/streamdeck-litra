@@ -26,14 +26,32 @@ export function lampId(serialNumber: string): string {
 }
 
 /**
- * One lamp the plugin has reached, and what the plugin remembers about it between operations (#198): the brightness it
- * can reach on a low-power supply, its brightness cap (#55), when it may still go back to that cap, and where it would
- * be if it's kept apart from the others and an end stopped it (#145). It sends its lamp nothing: the operations do, and
- * tell it what they learn. It forgets everything when the plugin restarts.
+ * What identifies a lamp as the global settings keep it (#194): its id, its model, such as "Beam", the last 4
+ * characters of its serial number, and the name given to it, if any (#146).
+ */
+export type LampIdentity = {
+  readonly id: string;
+  readonly model: string;
+  readonly serialEnd: string;
+  readonly name?: string | undefined;
+};
+
+/**
+ * One lamp, and what the plugin remembers about it between operations (#198): who it is, as the global settings keep
+ * it, its whole serial number once an operation has reached it, the brightness it can reach on a low-power supply, its
+ * brightness cap (#55), when it may still go back to that cap, and where it would be if it's kept apart from the others
+ * and an end stopped it (#145). It sends its lamp nothing: the operations do, and tell it what they learn. It forgets
+ * all but who it is when the plugin restarts.
  */
 export class Lamp {
   /** The lamp's id, from its serial number, as the settings and the pages name it. */
   readonly id: string;
+  /** The lamp's model, such as "Beam". */
+  readonly model: string;
+  /** The last 4 characters of the lamp's serial number, which the global settings keep. */
+  readonly serialEnd: string;
+  private lampName: string | undefined;
+  private wholeSerialNumber: string | undefined;
   // The brightness cap learned, with the path the lamp had then: a lamp only moves to another power supply by being
   // plugged in again, which gives it a new path, so a cap learned at another path is forgotten.
   private brightnessCap: { path: string; lumen: number } | undefined;
@@ -41,17 +59,38 @@ export class Lamp {
   private brightnessPosition: Position | undefined;
   private temperaturePosition: Position | undefined;
 
-  /** A lamp, by its whole serial number and its model, such as "Beam". */
-  constructor(
-    readonly serialNumber: string,
-    readonly model: string,
-  ) {
-    this.id = lampId(serialNumber);
+  /** A lamp, as the global settings keep it, which no operation has reached yet. */
+  constructor({ id, model, serialEnd, name }: LampIdentity) {
+    this.id = id;
+    this.model = model;
+    this.serialEnd = serialEnd;
+    this.lampName = name;
   }
 
-  /** The last 4 characters of the lamp's serial number, which the global settings keep. */
-  get serialEnd(): string {
-    return this.serialNumber.slice(-4);
+  /** The name given to the lamp in the plugin settings, or undefined when it has none (#146). */
+  get name(): string | undefined {
+    return this.lampName;
+  }
+
+  /** Names the lamp, or takes its name away with undefined. The global settings are its only caller. */
+  rename(name: string | undefined): void {
+    this.lampName = name;
+  }
+
+  /** The lamp's whole serial number, once an operation has reached it, which the global settings don't keep. */
+  get serialNumber(): string | undefined {
+    return this.wholeSerialNumber;
+  }
+
+  /**
+   * Takes the whole serial number of the lamp an operation reached. Throws when it isn't this lamp's, which would be a
+   * bug: the operations find a lamp's `Lamp` by the id of its serial number.
+   */
+  reachedAs(serialNumber: string): void {
+    if (lampId(serialNumber) !== this.id) {
+      throw new Error(`Serial number …${serialNumber.slice(-4)} isn't lamp ${this.id}'s`);
+    }
+    this.wholeSerialNumber = serialNumber;
   }
 
   /**

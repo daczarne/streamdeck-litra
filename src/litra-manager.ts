@@ -13,7 +13,7 @@ import {
   turnOn,
 } from "litra";
 
-import { Lamp } from "./lamp";
+import { Lamp, lampId } from "./lamp";
 import { bySerialNumber } from "./lamp-order";
 import { logger as pluginLogger } from "./logging";
 
@@ -135,7 +135,13 @@ const lampsReached = new Map<string, Lamp>();
 function lampOf(device: Device): Lamp {
   let lamp = lampsReached.get(device.serialNumber);
   if (lamp === undefined) {
-    lamp = new Lamp(device.serialNumber, MODEL_BY_DEVICE_TYPE[device.type]);
+    const { serialNumber } = device;
+    lamp = new Lamp({
+      id: lampId(serialNumber),
+      model: MODEL_BY_DEVICE_TYPE[device.type],
+      serialEnd: serialNumber.slice(-4),
+    });
+    lamp.reachedAs(serialNumber);
     lampsReached.set(device.serialNumber, lamp);
   }
   return lamp;
