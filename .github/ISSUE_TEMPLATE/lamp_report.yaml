@@ -1,19 +1,19 @@
 name: Unchecked lamp report
-description: How the plugin works with a lamp it hasn't been checked on, such as a Beam LX or a Glow.
+description: How the plugin works with a lamp it hasn't been checked on, such as a Glow.
 body:
   - type: markdown
     attributes:
       value: >-
-        The plugin is checked on Litra Beams only. The Beam LX and the Glow take the same commands, so their front
-        light should work, but nobody has checked. Whether it works or not, a report helps.
+        The plugin is checked on Litra Beams and on a Beam LX's front light. The Glow takes the same commands, so it
+        should work, but nobody has checked. Whether it works or not, a report helps.
   - type: textarea
     id: lamps
     attributes:
       label: Lamps
       description: Every lamp connected while you tried it, the Beams too, with its model and what it's plugged into.
       placeholder: |
-        One Litra Beam LX, plugged into the computer
-        Two Litra Glows, one on a USB hub and one plugged into the computer
+        One Litra Glow, plugged into the computer
+        Two Litra Beams, one on a USB hub and one plugged into the computer
     validations:
       required: true
   - type: textarea
@@ -28,7 +28,7 @@ body:
     attributes:
       label: Plugin version
       description: In Stream Deck's preferences, under Plugins.
-      placeholder: 0.4.4
+      placeholder: 0.5.0
     validations:
       required: true
   - type: input

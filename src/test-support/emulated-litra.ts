@@ -6,7 +6,8 @@ import { at } from "./at";
 // that the tests check litra against another account of the protocol. The Beam also comes as product 0xb901. Whether its
 // USB descriptor gives its serial number comes from `scripts/probes/serial-numbers.mjs`, run on the Beams and a Beam LX
 // (#170), and so does the version of its Device Information feature. Whether it turns on at the setting it saved once
-// switched off, rather than at the one it has, comes from `scripts/probes/power-cycle.mjs` (#100). The Glow wasn't
+// switched off, rather than at the one it has, comes from `scripts/probes/power-cycle.mjs` (#100). The Beam's and the
+// Beam LX's ranges, 30 to 400 lm and 2700 to 6500 K, were checked on the lamps, the Beam LX's in #100. The Glow wasn't
 // probed, and is taken to be a Beam.
 const MODELS = {
   Glow: {
@@ -40,14 +41,25 @@ const MODELS = {
 
 export type LitraModel = keyof typeof MODELS;
 
+declare module "vitest" {
+  /** What `vitest.config.mjs` gives the tests, which they take with `inject`. */
+  export interface ProvidedContext {
+    /** The model of the lamps the tests that run on emulated lamps plug in, a Beam or a Beam LX by run (#100). */
+    model: LitraModel;
+  }
+}
+
 /** What a lamp can be told or asked about. */
 export type Command = "power" | "brightness" | "temperature";
 
 /**
- * The calls on a lamp's HID handles that can be made to fail. `everything` fails every write and read, as on a lamp
- * unplugged while it's open, and leaves closing alone.
+ * The calls on a lamp's HID handles that can be made to fail. A write or a read fails on what's about the lamp's light,
+ * and leaves alone the requests that identify a Beam LX and their answers, so that a Beam LX is found and fails as a
+ * Beam does: `identifying` fails reading those answers instead, as on a Beam LX whose serial number can't be read
+ * (#170). `everything` fails every write and read about the light, as on a lamp unplugged once it's found, and leaves
+ * closing alone.
  */
-export type FailingCall = "everything" | "readSync" | "readTimeout" | "close";
+export type FailingCall = "everything" | "readSync" | "readTimeout" | "identifying" | "close";
 
 const LOGITECH_VENDOR_ID = 0x046d;
 const LITRA_USAGE_PAGE = 0xff43;
@@ -170,6 +182,15 @@ function bigEndian(value: number): [number, number] {
 }
 
 /**
+ * Whether a report is a request that identifies the lamp, to Root or Device Information, or the answer to one, which
+ * an error report gives the feature of in byte 3.
+ */
+export function isIdentifying(report: number[]): boolean {
+  const feature = report[2] === ERROR ? report[3] : report[2];
+  return report.length > 0 && (feature === ROOT_INDEX || feature === DEVICE_INFORMATION_INDEX);
+}
+
+/**
  * A Litra lamp without hardware, for the fake node-hid in `fake-node-hid.ts`: it keeps its power, brightness and
  * temperature, carries out the reports written to it, and answers them on every handle open on it, as a lamp does.
  *
@@ -248,12 +269,21 @@ export class EmulatedLitra {
     this.failingWrites.add(WRITE_BY_COMMAND[command]);
   }
 
-  /** Whether a call on one of the lamp's handles fails, for the fake node-hid. A write fails by what it writes. */
+  /**
+   * Whether a call on one of the lamp's handles fails, for the fake node-hid. A write fails by what it writes, and a
+   * read by what it would read, if anything.
+   */
   fails(call: "write" | "readSync" | "readTimeout" | "close", report: number[] = []): boolean {
+    if (call === "close") {
+      return this.failingCalls.has("close");
+    }
+    if (isIdentifying(report)) {
+      return call !== "write" && this.failingCalls.has("identifying");
+    }
     if (call === "write") {
       return this.failingCalls.has("everything") || this.failingWrites.has(at(report, 3));
     }
-    return this.failingCalls.has(call) || (call !== "close" && this.failingCalls.has("everything"));
+    return this.failingCalls.has(call) || this.failingCalls.has("everything");
   }
 
   /** The values written for a command, in order: 1 or 0 for the power, lumens for the brightness, kelvin for the temperature. */

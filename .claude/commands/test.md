@@ -10,7 +10,7 @@ Run the tests from CI's `tests` and `browser-tests` jobs, from the repository ro
 1. The unit tests and the integration tests, with `npm test`.
 1. The browser tests, with `npm run test:browser`. They drive the settings pages in a headless Chrome, so they need Chrome installed. Run them even when the unit or integration tests fail.
 
-To rerun a single file while looking into a failure, pass it after `--` (`npm test -- src/litra-manager.test.ts`). The linters have their own command, `/lint`, and `/ci` runs both.
+To rerun a single file while looking into a failure, pass it after `--` (`npm test -- src/litra-manager.test.ts`). The tests that run on emulated lamps run twice, once on Beams and once on Beam LXs, and a failure names the run it failed in, `|Beam|` or `|Beam LX|`. To rerun one run alone, name it too (`npm test -- --project "Beam LX" src/litra-manager.test.ts`). A test that fails in one run only points to a difference between the models: say so in its report. The linters have their own command, `/lint`, and `/ci` runs both.
 
 Failures are reported, never fixed on their own. A failing test means that either the code or the test is wrong, and choosing which one is a decision. For each failure, report the test's name, what it expected and what it got, and propose a fix that says which side it changes and why. A browser test that fails because Chrome can't start is a problem with the machine, not with the pages: report it as such.
 

@@ -75,7 +75,7 @@ export class HID {
    * instead of hanging.
    */
   readSync(): number[] {
-    this.ensureUsable("readSync");
+    this.ensureUsable("readSync", this.input[0]);
     const report = this.input.shift();
     if (report === undefined) {
       throw new Error("readSync would wait forever: the lamp has sent nothing to read");
@@ -86,7 +86,7 @@ export class HID {
 
   /** Reads the next report the lamp sent, or none when there's nothing to read. No time passes. */
   readTimeout(_timeout: number): number[] {
-    this.ensureUsable("readTimeout");
+    this.ensureUsable("readTimeout", this.input[0]);
     const report = this.input.shift() ?? [];
     events.push({ lamp: this.lamp, call: "readTimeout", report });
     return report;
@@ -115,7 +115,7 @@ export class HID {
 
   /**
    * Fails, like node-hid, when the handle is used after it was closed, on a lamp that was unplugged, or for a call the
-   * lamp is set to fail.
+   * lamp is set to fail, by the report written or the one waiting to be read.
    */
   private ensureUsable(call: "write" | "readSync" | "readTimeout", report?: number[]): void {
     if (this.closed) {

@@ -537,18 +537,25 @@ function selects(lamps: LampSelection, id: string): boolean {
 }
 
 /**
+ * The lamps an operation opened, and how many lamps it couldn't tell apart that its selection could take in, which it
+ * counts as failed lamps (see {@link openGroups}).
+ */
+type Opened<T> = { devices: T; unidentified: number };
+
+/**
  * Opens the lamps an operation acts on, named in the logs: every connected lamp the plugin knows, the selected ones, or
  * every one but the left out ones, closing the others. A selected lamp that isn't known or connected is logged, and so
- * is a selection of none, or every lamp left out. Returns none when no lamp is selected or connected, none of the
+ * is a selection of none, or every lamp left out. Opens none when no lamp is selected or connected, none of the
  * selected ones is, every one is left out, or finding them fails.
  */
-function openDevices(operation: string, lamps: LampSelection): Device[] {
-  return [...openGroups(operation, [{ lamps }]).keys()];
+function openDevices(operation: string, lamps: LampSelection): Opened<Device[]> {
+  const { devices, unidentified } = openGroups(operation, [{ lamps }]);
+  return { devices: [...devices.keys()], unidentified };
 }
 
 /** Opens every connected lamp, the ones the plugin doesn't know included, to find them. */
 function openEveryDevice(operation: string): Device[] {
-  return [...openGroups(operation, [{ lamps: "all" }], { onlyKnown: false }).keys()];
+  return [...openGroups(operation, [{ lamps: "all" }], { onlyKnown: false }).devices.keys()];
 }
 
 /**
@@ -556,27 +563,32 @@ function openEveryDevice(operation: string): Device[] {
  * it, so a lamp two groups select takes the first one's part. A selection of none is logged only when every group
  * selects none, since a group may lose its lamps to another. A connected lamp the plugin doesn't know is closed unused,
  * unless `onlyKnown` is false.
+ *
+ * A lamp whose serial number can't be read is left out, since it can't be told from another (#170), but counted, when
+ * a group takes in every lamp, or every lamp but some, which it could be one of: a Beam that fails counts as a failed
+ * lamp, and a Beam LX that can't even be told apart is one too (#100). A group of given lamps can't tell whether it
+ * was one of them, and fails on its own when none of them is found.
  */
 function openGroups<G extends { readonly lamps: LampSelection }>(
   operation: string,
   groups: readonly G[],
   { onlyKnown = true }: { onlyKnown?: boolean } = {},
-): Map<Device, G> {
+): Opened<Map<Device, G>> {
   const opened = new Map<Device, G>();
   if (groups.every(({ lamps }) => Array.isArray(lamps) && lamps.length === 0)) {
     logger.warn(`${operation}: no lamp selected`);
-    return opened;
+    return { devices: opened, unidentified: 0 };
   }
   let found: Device[];
   try {
     found = findDevices();
   } catch (error) {
     logger.error(`${operation}: finding the lamps failed: ${String(error)}`);
-    return opened;
+    return { devices: opened, unidentified: 0 };
   }
   if (found.length === 0) {
     logger.warn(`${operation}: no lamps found`);
-    return opened;
+    return { devices: opened, unidentified: 0 };
   }
   // In the order of their serial numbers, since litra finds them in an order that changes from one call to the next.
   // So every operation goes through the lamps in the same order, as the lamp screens and the settings pages list them,
@@ -585,8 +597,10 @@ function openGroups<G extends { readonly lamps: LampSelection }>(
     .filter((device) => hasSerialNumber(operation, device))
     .sort((a, b) => bySerialNumber(a.serialNumber, b.serialNumber));
   // Each lamp left out is logged already.
+  const takesInAny = onlyKnown && groups.some(({ lamps }) => !Array.isArray(lamps));
+  const unidentified = takesInAny ? found.length - devices.length : 0;
   if (devices.length === 0) {
-    return opened;
+    return { devices: opened, unidentified };
   }
   const known = (id: string): boolean => !onlyKnown || knownLamps.has(id);
   const connected: string[] = [];
@@ -604,7 +618,7 @@ function openGroups<G extends { readonly lamps: LampSelection }>(
   }
   if (connected.length === 0) {
     logger.warn(`${operation}: none of the lamps connected is one of the plugin's lamps`);
-    return opened;
+    return { devices: opened, unidentified };
   }
   for (const { lamps } of groups) {
     if (lamps === "all") {
@@ -624,7 +638,16 @@ function openGroups<G extends { readonly lamps: LampSelection }>(
       }
     }
   }
-  return opened;
+  return { devices: opened, unidentified };
+}
+
+/**
+ * What an operation did, from the lamps it acted on and how many of them failed, counting the lamps it couldn't tell
+ * apart as failed lamps (see {@link openGroups}).
+ */
+function outcome(deviceCount: number, failures: number, unidentified: number): BroadcastResult {
+  const failed = failures + unidentified;
+  return { ok: failed === 0, deviceCount: deviceCount + unidentified, failures: failed };
 }
 
 /**
@@ -632,7 +655,7 @@ function openGroups<G extends { readonly lamps: LampSelection }>(
  * call in the logs, and fn logs what it did to each lamp.
  */
 export function forEachDevice(operation: string, fn: (device: Device) => void, lamps: LampSelection): BroadcastResult {
-  const devices = openDevices(operation, lamps);
+  const { devices, unidentified } = openDevices(operation, lamps);
   if (devices.length === 0) {
     return { ok: false, deviceCount: 0, failures: 1 };
   }
@@ -649,11 +672,7 @@ export function forEachDevice(operation: string, fn: (device: Device) => void, l
     }
   }
 
-  return {
-    ok: failures === 0,
-    deviceCount: devices.length,
-    failures,
-  };
+  return outcome(devices.length, failures, unidentified);
 }
 
 /** Turns the selected lamps on. */
@@ -694,7 +713,7 @@ export function turnLampsOff(lamps: LampSelection): BroadcastResult {
  */
 export function toggleLamps(lamps: LampSelection): BroadcastResult {
   const operation = "toggle";
-  const devices = openDevices(operation, lamps);
+  const { devices, unidentified } = openDevices(operation, lamps);
   if (devices.length === 0) {
     return announced({ ok: false, deviceCount: 0, failures: 1 });
   }
@@ -712,7 +731,9 @@ export function toggleLamps(lamps: LampSelection): BroadcastResult {
   };
 
   try {
-    const allOn = devices.map((device) => attempt(device, () => isOn(device), false)).every(Boolean);
+    // A lamp that couldn't be told apart couldn't be read either, so it counts as off.
+    const allOn =
+      devices.map((device) => attempt(device, () => isOn(device), false)).every(Boolean) && unidentified === 0;
     for (const device of devices) {
       attempt(
         device,
@@ -728,7 +749,7 @@ export function toggleLamps(lamps: LampSelection): BroadcastResult {
         undefined,
       );
     }
-    return announced({ ok: failed.size === 0, deviceCount: devices.length, failures: failed.size });
+    return announced(outcome(devices.length, failed.size, unidentified));
   } finally {
     for (const device of devices) {
       closeDevice(device);
@@ -743,7 +764,7 @@ export function toggleLamps(lamps: LampSelection): BroadcastResult {
 export async function areLampsOn(lamps: LampSelection): Promise<{ ok: boolean; allOn: boolean; deviceCount: number }> {
   await brightnessChanges;
   const operation = "read power";
-  const devices = openDevices(operation, lamps);
+  const { devices, unidentified } = openDevices(operation, lamps);
   if (devices.length === 0) {
     return { ok: false, allOn: false, deviceCount: 0 };
   }
@@ -766,7 +787,9 @@ export async function areLampsOn(lamps: LampSelection): Promise<{ ok: boolean; a
     }
   }
 
-  return { ok: failures === 0, allOn, deviceCount: devices.length };
+  // A lamp that couldn't be told apart couldn't be read either, so it counts as off.
+  const { ok, deviceCount } = outcome(devices.length, failures, unidentified);
+  return { ok, allOn: allOn && unidentified === 0, deviceCount };
 }
 
 /** Ensure the device is powered on before a brightness change is visible. */
@@ -999,7 +1022,7 @@ async function setScene(groups: readonly SceneGroup[], settleMs: number): Promis
   const operation = "set scene";
   await waitForCapReversal(operation);
 
-  const devices = openGroups(operation, groups);
+  const { devices, unidentified } = openGroups(operation, groups);
   if (devices.size === 0) {
     return { ok: false, deviceCount: 0, failures: 1 };
   }
@@ -1022,7 +1045,7 @@ async function setScene(groups: readonly SceneGroup[], settleMs: number): Promis
       });
     }
     const brightness = await sendBrightness(operation, targets, new Map(), attempt, settleMs);
-    return { ok: failed.size === 0, deviceCount: devices.size, failures: failed.size, ...brightness };
+    return { ...outcome(devices.size, failed.size, unidentified), ...brightness };
   } finally {
     for (const device of devices.keys()) {
       closeDevice(device);
@@ -1045,7 +1068,7 @@ async function moveLampsBrightness(
 ): Promise<BroadcastResult> {
   await waitForCapReversal(operation);
 
-  const devices = openDevices(operation, lamps);
+  const { devices, unidentified } = openDevices(operation, lamps);
   if (devices.length === 0) {
     return { ok: false, deviceCount: 0, failures: 1 };
   }
@@ -1099,7 +1122,7 @@ async function moveLampsBrightness(
     }
 
     const brightness = await sendBrightness(operation, targets, positions, attempt, settleMs);
-    return { ok: failed.size === 0, deviceCount: devices.length, failures: failed.size, ...brightness };
+    return { ...outcome(devices.length, failed.size, unidentified), ...brightness };
   } finally {
     for (const device of devices) {
       closeDevice(device);
@@ -1205,7 +1228,7 @@ export function findLamps(): FoundLamp[] {
 export function identifyLamp(id: string, blinkMs: number): Promise<BroadcastResult> {
   return oneBrightnessChangeAtATime(async () => {
     const operation = "identify";
-    const devices = openDevices(operation, [id]);
+    const { devices } = openDevices(operation, [id]);
     try {
       const device = devices[0];
       if (device === undefined) {
@@ -1332,7 +1355,7 @@ function adjustTemperaturesApart(
   ticks: number,
   stepKelvin: number,
 ): BroadcastResult {
-  const devices = openDevices(operation, lamps);
+  const { devices, unidentified } = openDevices(operation, lamps);
   if (devices.length === 0) {
     return { ok: false, deviceCount: 0, failures: 1 };
   }
@@ -1374,9 +1397,7 @@ function adjustTemperaturesApart(
     });
 
     return {
-      ok: failed.size === 0,
-      deviceCount: devices.length,
-      failures: failed.size,
+      ...outcome(devices.length, failed.size, unidentified),
       representativeTemperatureKelvin: representative,
       representativeTemperaturePercentage: representativePercentage,
     };

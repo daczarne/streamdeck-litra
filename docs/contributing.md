@@ -76,7 +76,9 @@ The plugin is at 0.x, and isn't on Elgato's Marketplace. Until 1.0, a change to 
 
 ## Supported lamps
 
-The Litra Beam is the plugin's target: it's what the plugin is checked on, and the tests, the fakes and the defaults use its real values. Other models are added one at a time, and a model is called supported once it has been checked on the lamp. The Beam LX comes next, front light first ([#100]), with its back light in [#19].
+The Litra Beam is the plugin's target: it's what the plugin is checked on, and the defaults use its real values. Other models are added one at a time, and a model is called supported once it has been checked on the lamp. The Beam LX's front light is supported, checked on the lamp in [#100], with its back light in [#19].
+
+The plugin is checked on Beams alone from day to day, so the tests are what keep the Beam LX working. The tests that run on emulated lamps run twice, once on Beams and once on Beam LXs, since a Beam LX needs the plugin's help where a Beam doesn't, such as for its serial number and for how it turns on. A test about one model on its own, such as a Beam LX's serial number, plugs that model in, whatever the run's.
 
 The Glow isn't planned. The plugin does for it whatever the code it shares with the Beams does, and nothing is built or checked for the Glow on its own. Changes for it are welcome from contributors who have one.
 
