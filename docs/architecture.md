@@ -50,7 +50,7 @@ A Beam LX's USB descriptor declares a serial number but gives none, so `litra` f
 
 Closing the handles matters because the plugin runs for as long as Stream Deck does: a handle left open would leak for the whole session. `litra`'s type for a lamp's handle leaves out `close`, which `node-hid`'s handle has, so the module reaches it through a type of its own.
 
-A lamp that fails is logged, and the operation goes on with the others. Finding no lamp counts as a failure too, so a press with nothing plugged in shows an alert, rather than doing nothing, and so does a turn on a lamp screen whose lamp was unplugged.
+A lamp that fails is logged, and the operation goes on with the others. Finding no lamp counts as a failure too, so a press with nothing plugged in shows an alert, rather than doing nothing, and so does a turn on a lamp screen whose lamp was unplugged. So does an operation left with no lamp to act on: one given no lamp, one whose lamps aren't connected, one that leaves out every lamp connected, one that finds none of the lamps the plugin knows, and one for which finding the lamps fails. Each is logged with its reason (see [the logging document][logging]).
 
 ### What it does remember
 
@@ -69,7 +69,9 @@ After every write, it reads the write's ACK (`drainAck`), so that a read on the 
 
 ## Keeping the Deck in step
 
-After every operation that writes to the lamps, failed ones included, `litra-manager` calls the listeners registered with `onLampsChanged` ([#57]). Every action that shows the lamps listens: the Power keys, the step keys, the Brightness and Temperature dials, and the lamp screens. So whichever key or dial changed the lamps, everything on the Deck follows, from one read per action, or per set of lamps for the keys, which each show their own. A change made with a lamp's own buttons isn't noticed, and shows at the next change made through the plugin.
+After every operation that writes to the lamps, failed ones included, `litra-manager` calls the listeners registered with `onLampsChanged` ([#57]). Every action that shows the lamps listens: the Power keys, the step keys, the Brightness and Temperature dials, and the lamp screens. So whichever key or dial changed the lamps, everything on the Deck follows, from one read per action, or per set of lamps for the keys, which each show their own. A change made with a lamp's own buttons isn't noticed, and shows at the next change made through the plugin. A lamp screen whose lamp the read doesn't find goes back to its dial's main screen.
+
+A lamp that can't be read counts as off: a Power key shows on only when it reads every one of its lamps on, and a toggle turns the lamps off only then, so a lamp that can't be read makes it turn them on. A dial or an Up or Down key whose lamps don't answer shows a dash.
 
 The global settings are followed the same way: each time `src/actions/global-settings.ts` reads them, once the plugin is connected and whenever a page changes them, it calls the listeners registered with `onGlobalSettingsChanged`. The lamp screens listen, so a change to what their cells show ([#177]), or to their text styles ([#153]), redraws every lamp screen on the Deck at once.
 
