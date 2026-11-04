@@ -33,6 +33,7 @@ const LUMEN_AT_90 = 363;
 const LUMEN_AT_100 = 400;
 
 let connect: (...lamps: EmulatedLitra[]) => void;
+let failFindingLamps: (error: Error) => void;
 let deck: FakeDeck;
 // The fake SDK plugin.ts registered with, which carries the messages of the settings pages.
 let sdk: typeof import("../test-support/fake-stream-deck");
@@ -46,7 +47,7 @@ beforeEach(async () => {
   // that the fake Deck sends events through.
   ({
     loaded: { deck, sdk, lampId },
-    hid: { connect },
+    hid: { connect, failFindingLamps },
   } = await loadOnEmulatedLamps(
     async () => {
       const { FakeDeck } = await import("../test-support/fake-deck");
@@ -189,6 +190,32 @@ describe("the Power key", () => {
 
     expect(pair.map((lamp) => lamp.on)).toEqual([false, false]);
     expect(stateOf(powerKey)).toBe(0);
+  });
+
+  it("toggles the lamps on when one can't be read, which counts as off, and shows an alert", async () => {
+    const [failing, working] = [newLamp(), newLamp()];
+    plugIn(failing, working);
+    const key = await deck.key(POWER, { mode: "toggle" });
+    failing.fail("everything");
+
+    await deck.press(key);
+
+    expect(working.on).toBe(true);
+    expect(stateOf(key)).toBe(0);
+    expect(key.showAlert).toHaveBeenCalledOnce();
+  });
+
+  it("turns on a lamp that can't be read, unchecked, without an alert, and shows it off, since it can't read it", async () => {
+    const lamp = newLamp({ on: false });
+    plugIn(lamp);
+    const key = await deck.key(POWER, { mode: "on" });
+    lamp.fail("readSync");
+
+    await deck.press(key);
+
+    expect(lamp.on).toBe(true);
+    expect(stateOf(key)).toBe(0);
+    expect(key.showAlert).not.toHaveBeenCalled();
   });
 });
 
@@ -372,6 +399,48 @@ describe("the Scene key", () => {
       [true, LUMEN_AT_100, 6500],
     ]);
     expect(stateOf(powerKey)).toBe(0);
+  });
+
+  it("takes a lamp added later into its first group, and leaves the lamps a group added after it checks to that group (#147, #174)", async () => {
+    const [first, second, added] = [newLamp({ on: false }), newLamp({ on: false }), newLamp({ on: false })];
+    plugIn(first, second);
+    const key = await deck.key(SCENE, {
+      presetPercentage: 100,
+      presetKelvin: 6500,
+      lamps: [lampId(first.serialNumber)],
+      leftOutLamps: [],
+      addedGroups: [{ power: "on", presetPercentage: 10, presetKelvin: 2700, lamps: [lampId(second.serialNumber)] }],
+    });
+    plugIn(first, second, added);
+
+    await deck.press(key);
+
+    expect([first, second, added].map((lamp) => [lamp.on, lamp.brightnessInLumen, lamp.temperatureInKelvin])).toEqual([
+      [true, LUMEN_AT_100, 6500],
+      [true, LUMEN_AT_10, 2700],
+      [true, LUMEN_AT_100, 6500],
+    ]);
+  });
+
+  it("gives a lamp both groups check to the group added after the first, on a key that takes in no lamps added later (#174)", async () => {
+    await saveFromPage({ addNewLamps: false });
+    const [first, second, added] = [newLamp({ on: false }), newLamp({ on: false }), newLamp({ on: false })];
+    plugIn(first, second);
+    const key = await deck.key(SCENE, {
+      presetPercentage: 100,
+      presetKelvin: 6500,
+      lamps: [lampId(first.serialNumber), lampId(second.serialNumber)],
+      addedGroups: [{ power: "on", presetPercentage: 10, presetKelvin: 2700, lamps: [lampId(second.serialNumber)] }],
+    });
+    plugIn(first, second, added);
+
+    await deck.press(key);
+
+    expect([first, second, added].map((lamp) => [lamp.on, lamp.brightnessInLumen, lamp.temperatureInKelvin])).toEqual([
+      [true, LUMEN_AT_100, 6500],
+      [true, LUMEN_AT_10, 2700],
+      [false, LUMEN_AT_50, 4000],
+    ]);
   });
 });
 
@@ -574,6 +643,23 @@ describe("the lamp screens", () => {
     }
   });
 
+  it("trim the identification, count the lamp alone, and draw the power in a style of its own, as the plugin settings choose (#153, #177)", async () => {
+    const { dial } = await onFirstLampScreen();
+
+    await saveFromPage({
+      lampScreenOptions: {
+        topLeft: { identification: { first: "model", second: "id", trim: true } },
+        topRight: { counter: { count: "count" } },
+        middleRight: { power: { offStyle: "custom", offColor: "#ff0000", offWeight: "bold" } },
+      },
+    });
+    await vi.runAllTimersAsync();
+
+    // Trimmed to 10 characters, its "…" included.
+    expect(cellsOf(dial)).toMatchObject({ topLeft: `${`${MODEL} - AL-A`.slice(0, 9)}…`, topRight: "1" });
+    expect(feedbackOf(dial)).toMatchObject({ middleRight: { value: "OFF", color: "#ff0000", font: { weight: 700 } } });
+  });
+
   it("show the name a lamp was given in the plugin settings, in a cell set to show it (#177)", async () => {
     const { first, dial } = await onFirstLampScreen();
 
@@ -628,6 +714,59 @@ describe("the lamp screens", () => {
     await deck.tap(temperatureDial);
 
     expect(first.writes("power")).toEqual([0, 1]);
+  });
+
+  it.each([
+    ["Brightness", BRIGHTNESS],
+    ["Temperature", TEMPERATURE],
+  ])(
+    "blink the lamp on a %s dial's screen when its strip is held, and nothing on its main screen",
+    async (_name, manifestId) => {
+      const [first, second] = [newLamp({ serialNumber: "SERIAL-A" }), newLamp({ serialNumber: "SERIAL-B" })];
+      plugIn(second, first);
+      const dial = await deck.dial(manifestId);
+
+      await deck.hold(dial);
+
+      expect([first.writes("power"), second.writes("power")]).toEqual([[], []]);
+
+      await deck.tap(dial);
+      await deck.hold(dial);
+
+      expect([first.writes("power"), second.writes("power")]).toEqual([[0, 1], []]);
+      expect(first.on).toBe(true);
+      expect(dial.setFeedbackLayout).toHaveBeenLastCalledWith("layouts/lamp.json");
+    },
+  );
+
+  it("show an alert when the lamp on screen can't be blinked", async () => {
+    const { first, dial } = await onFirstLampScreen();
+    first.fail("readSync");
+
+    await deck.hold(dial);
+
+    expect(dial.showAlert).toHaveBeenCalledOnce();
+  });
+
+  it("show an alert on a tap when there are no lamps, and stay on the main screen", async () => {
+    plugIn();
+    const dial = await deck.dial(BRIGHTNESS);
+
+    await deck.tap(dial);
+
+    expect(dial.showAlert).toHaveBeenCalledOnce();
+    expect(dial.setFeedbackLayout).not.toHaveBeenCalledWith("layouts/lamp.json");
+  });
+
+  it("go back to the main screen once the lamps change, when the lamp on screen was unplugged", async () => {
+    const { second, dial } = await onFirstLampScreen();
+    const key = await deck.key(POWER, { mode: "toggle" });
+    connect(second);
+
+    await deck.press(key);
+
+    expect(dial.setFeedbackLayout).toHaveBeenLastCalledWith("$B1");
+    expect(feedbackOf(dial)).toMatchObject({ title: "Brightness" });
   });
 
   it.each([
@@ -713,6 +852,67 @@ describe("lamps kept apart (#145)", () => {
     await deck.turn(dial, -1);
 
     expect([dim.brightnessInLumen, bright.brightnessInLumen]).toEqual([LUMEN_AT_60, LUMEN_AT_60]);
+  });
+
+  it("step each from its own temperature on a dial and a step key, while their brightness stays together", async () => {
+    const warm = newLamp({ serialNumber: "SERIAL-A", brightnessInLumen: LUMEN_AT_50, temperatureInKelvin: 3100 });
+    const cool = newLamp({ serialNumber: "SERIAL-B", brightnessInLumen: LUMEN_AT_80, temperatureInKelvin: 4700 });
+    plugIn(cool, warm);
+    const temperatureDial = await deck.dial(TEMPERATURE, { stepKelvin: 200 });
+    const temperatureUp = await deck.key(TEMPERATURE_UP, { stepKelvin: 200 });
+    const brightnessDial = await deck.dial(BRIGHTNESS, { stepPercentage: 10 });
+    await saveFromPage({ keepTemperatureDifference: true });
+
+    await deck.turn(temperatureDial, 1);
+
+    expect([warm.temperatureInKelvin, cool.temperatureInKelvin]).toEqual([3300, 4900]);
+    // The dials and the keys show the first lamp's temperature.
+    expect(textOf(temperatureDial)).toMatchObject({ value: "3300" });
+
+    await deck.press(temperatureUp);
+
+    expect([warm.temperatureInKelvin, cool.temperatureInKelvin]).toEqual([3500, 5100]);
+    expect(titleOf(temperatureUp)).toBe("3500");
+
+    await deck.turn(brightnessDial, 1);
+
+    expect([warm.brightnessInLumen, cool.brightnessInLumen]).toEqual([LUMEN_AT_90, LUMEN_AT_90]);
+  });
+
+  it("stay apart through the end of the temperature range, and come back with their difference, on a dial", async () => {
+    const warm = newLamp({ serialNumber: "SERIAL-A", temperatureInKelvin: 6100 });
+    const cool = newLamp({ serialNumber: "SERIAL-B", temperatureInKelvin: 6300 });
+    plugIn(warm, cool);
+    const dial = await deck.dial(TEMPERATURE, { stepKelvin: 200 });
+    await saveFromPage({ keepTemperatureDifference: true });
+    const temperatures = () => [warm.temperatureInKelvin, cool.temperatureInKelvin];
+
+    await deck.turn(dial, 4);
+
+    expect(temperatures()).toEqual([6500, 6500]);
+
+    await deck.turn(dial, -1);
+
+    expect(temperatures()).toEqual([6300, 6500]);
+
+    await deck.turn(dial, -1);
+
+    expect(temperatures()).toEqual([6100, 6300]);
+  });
+
+  it("come back in sync on a temperature turn once the temperature's setting is off again", async () => {
+    const warm = newLamp({ serialNumber: "SERIAL-A", temperatureInKelvin: 3100 });
+    const cool = newLamp({ serialNumber: "SERIAL-B", temperatureInKelvin: 4700 });
+    plugIn(warm, cool);
+    const dial = await deck.dial(TEMPERATURE, { stepKelvin: 200 });
+    await saveFromPage({ keepTemperatureDifference: true });
+    await deck.turn(dial, -1);
+    await saveFromPage({ keepTemperatureDifference: false });
+
+    await deck.turn(dial, -1);
+
+    // A step down from the first lamp's 2900 K.
+    expect([warm.temperatureInKelvin, cool.temperatureInKelvin]).toEqual([2700, 2700]);
   });
 });
 
@@ -882,6 +1082,19 @@ describe("lamps picked on a key's settings page (#20)", () => {
     expect([stateOf(firstKey), stateOf(everyLamp)]).toEqual([1, 0]);
   });
 
+  it("are the ones a Power key shows the state of as soon as its page saves them", async () => {
+    await saveFromPage({ addNewLamps: false });
+    const [first, second] = [newLamp(), newLamp({ on: false })];
+    plugIn(first, second);
+    const key = await deck.key(POWER, { mode: "toggle", lamps: [picked(first)] });
+
+    expect(stateOf(key)).toBe(1);
+
+    await deck.changeSettings(key, { mode: "toggle", lamps: [picked(second)] });
+
+    expect(stateOf(key)).toBe(0);
+  });
+
   it("are the only ones a step key steps, and its title shows them", async () => {
     await saveFromPage({ addNewLamps: false });
     const [first, second] = [newLamp(), newLamp({ brightnessInLumen: LUMEN_AT_80 })];
@@ -978,5 +1191,158 @@ describe("the lamps the plugin knows (#194)", () => {
       identifyBlinkMs: 600,
       lamps: { [lampId("SERIAL-A")]: { model: MODEL, serialEnd: "AL-A" } },
     });
+  });
+
+  it("are renamed from the plugin settings, with the name trimmed, and lose their name once it's cleared (#146)", async () => {
+    const lamp = newLamp({ serialNumber: "SERIAL-A" });
+    plugIn(lamp);
+    const id = lampId(lamp.serialNumber);
+
+    sdk.sendToPlugin({ event: "rename", id, name: "  Key light  " });
+    await vi.runAllTimersAsync();
+
+    expect(await sdk.default.settings.getGlobalSettings()).toEqual({
+      lamps: { [id]: { model: MODEL, serialEnd: "AL-A", name: "Key light" } },
+    });
+
+    sdk.sendToPlugin({ event: "rename", id, name: " " });
+    await vi.runAllTimersAsync();
+
+    expect(await sdk.default.settings.getGlobalSettings()).toEqual({
+      lamps: { [id]: { model: MODEL, serialEnd: "AL-A" } },
+    });
+  });
+
+  it("are forgotten from the plugin settings, so no key acts on the lamp until Find lamps adds it again, without its name", async () => {
+    const [forgotten, kept] = [
+      newLamp({ serialNumber: "SERIAL-A", on: false }),
+      newLamp({ serialNumber: "SERIAL-B", on: false }),
+    ];
+    plugIn(forgotten, kept);
+    const key = await deck.key(POWER, { mode: "on" });
+    const id = lampId(forgotten.serialNumber);
+    sdk.sendToPlugin({ event: "rename", id, name: "Key light" });
+
+    sdk.sendToPlugin({ event: "forget", id });
+    await deck.press(key);
+
+    expect([forgotten.on, kept.on]).toEqual([false, true]);
+    expect(await sdk.default.settings.getGlobalSettings()).toEqual({
+      lamps: { [lampId(kept.serialNumber)]: { model: MODEL, serialEnd: "AL-B" } },
+    });
+
+    sdk.sendToPlugin({ event: "lamps" });
+    await deck.press(key);
+
+    expect([forgotten.on, kept.on]).toEqual([true, true]);
+    expect(await sdk.default.settings.getGlobalSettings()).toEqual({
+      lamps: {
+        [id]: { model: MODEL, serialEnd: "AL-A" },
+        [lampId(kept.serialNumber)]: { model: MODEL, serialEnd: "AL-B" },
+      },
+    });
+  });
+
+  it("are left as they are when a page renames or forgets a lamp the plugin doesn't know", async () => {
+    plugIn(newLamp({ serialNumber: "SERIAL-A" }));
+    await vi.runAllTimersAsync();
+    const before = await sdk.default.settings.getGlobalSettings();
+
+    sdk.sendToPlugin({ event: "rename", id: lampId("UNKNOWN"), name: "Key light" });
+    sdk.sendToPlugin({ event: "forget", id: lampId("UNKNOWN") });
+    await vi.runAllTimersAsync();
+
+    expect(await sdk.default.settings.getGlobalSettings()).toEqual(before);
+  });
+});
+
+describe("keys and dials whose lamps can't be reached", () => {
+  it.each([
+    ["Brightness", BRIGHTNESS],
+    ["Temperature", TEMPERATURE],
+  ])("show an alert on a %s dial pushed or turned once its lamps are unplugged", async (_name, manifestId) => {
+    plugIn(newLamp());
+    const dial = await deck.dial(manifestId);
+    connect();
+
+    await deck.push(dial);
+    await deck.turn(dial, 1);
+
+    expect(dial.showAlert).toHaveBeenCalledTimes(2);
+  });
+
+  it("show an alert on a Temperature key once its lamps are unplugged", async () => {
+    plugIn(newLamp());
+    const key = await deck.key(TEMPERATURE, { presetKelvin: 5000 });
+    connect();
+
+    await deck.press(key);
+
+    expect(key.showAlert).toHaveBeenCalledOnce();
+  });
+
+  it("show an alert on a key whose page checks no lamp, which acts on none (#20)", async () => {
+    await saveFromPage({ addNewLamps: false });
+    const lamp = newLamp({ on: false });
+    plugIn(lamp);
+    const key = await deck.key(POWER, { mode: "on", lamps: [] });
+
+    await deck.press(key);
+
+    expect(key.showAlert).toHaveBeenCalledOnce();
+    expect(lamp.on).toBe(false);
+  });
+
+  it("show an alert on a key whose page leaves out every lamp connected (#147)", async () => {
+    const [first, second] = [newLamp({ on: false }), newLamp({ on: false })];
+    plugIn(first, second);
+    const key = await deck.key(POWER, {
+      mode: "on",
+      lamps: [],
+      leftOutLamps: [lampId(first.serialNumber), lampId(second.serialNumber)],
+    });
+
+    await deck.press(key);
+
+    expect(key.showAlert).toHaveBeenCalledOnce();
+    expect([first.on, second.on]).toEqual([false, false]);
+  });
+
+  it("show an alert on a key none of whose lamps is connected, which leaves the others alone (#20)", async () => {
+    await saveFromPage({ addNewLamps: false });
+    const [unplugged, other] = [newLamp({ on: false }), newLamp({ on: false })];
+    plugIn(unplugged, other);
+    const key = await deck.key(POWER, { mode: "on", lamps: [lampId(unplugged.serialNumber)] });
+    connect(other);
+
+    await deck.press(key);
+
+    expect(key.showAlert).toHaveBeenCalledOnce();
+    expect(other.on).toBe(false);
+  });
+
+  it("show an alert when none of the lamps connected is one the plugin knows, and leave them alone (#194)", async () => {
+    const [known, unknown] = [newLamp({ on: false }), newLamp({ on: false })];
+    plugIn(known);
+    const key = await deck.key(POWER, { mode: "on" });
+    lamps.push(unknown);
+    connect(unknown);
+
+    await deck.press(key);
+
+    expect(key.showAlert).toHaveBeenCalledOnce();
+    expect(unknown.on).toBe(false);
+  });
+
+  it("show an alert when finding the lamps fails, and no value on the dials", async () => {
+    plugIn(newLamp());
+    const key = await deck.key(BRIGHTNESS, { presetPercentage: 100 });
+    const dial = await deck.dial(BRIGHTNESS);
+    failFindingLamps(new Error("Cannot list HID devices"));
+
+    await deck.press(key);
+
+    expect(key.showAlert).toHaveBeenCalledOnce();
+    expect(feedbackOf(dial)).toMatchObject({ value: "—" });
   });
 });
