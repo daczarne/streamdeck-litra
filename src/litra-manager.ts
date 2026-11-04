@@ -1,29 +1,27 @@
 import {
+  closeDevice,
   type Device,
-  DeviceType,
+  drainAck,
   findDevices,
   getAllowedTemperaturesInKelvinForDevice,
+  getBrightnessInLumenSafe,
   getMaximumBrightnessInLumenForDevice,
   getMinimumBrightnessInLumenForDevice,
   getTemperatureInKelvin,
+  identityOf,
   isOn,
+  logLabelOf,
+  plugPath,
+  readSerialNumber,
   setBrightnessInLumen,
   setTemperatureInKelvin,
   turnOff,
   turnOn,
-} from "litra";
+} from "./device";
 
-import { Lamp, type LampIdentity, lampId } from "./lamp";
+import { Lamp, lampId } from "./lamp";
 import { bySerialNumber } from "./lamp-order";
 import { logger as pluginLogger } from "./logging";
-
-type ClosableHid = {
-  write: (values: number[] | Buffer) => number;
-  readSync: () => number[];
-  readTimeout: (timeout: number) => number[];
-  close: () => void;
-  getDeviceInfo: () => { path?: string | undefined };
-};
 
 export type BroadcastResult = {
   ok: boolean;
@@ -96,34 +94,8 @@ export type LampStatus = {
 const logger = pluginLogger.createScope("Lamps");
 const DIAL_DEBOUNCE_MS = 60;
 
-// litra names each model "Logitech Litra …", too long for the touch strip.
-const MODEL_BY_DEVICE_TYPE: Record<DeviceType, string> = {
-  [DeviceType.LitraGlow]: "Glow",
-  [DeviceType.LitraBeam]: "Beam",
-  [DeviceType.LitraBeamLX]: "Beam LX",
-};
-
 // A capped lamp applies its cap within about 100 ms of a write, and until then reports the brightness it was sent.
 const BRIGHTNESS_SETTLE_MS = 250;
-
-// Reports a lamp sends unasked (ACKs, change notices, error reports) can arrive ahead of the reply to a query.
-const MAX_SKIPPED_REPORTS = 10;
-
-// HID++ 2.0's Root feature, at index 0 on every lamp, gives the index of any other feature from its id. A lamp puts its
-// features at indexes of its own, so the plugin asks rather than hard-coding them.
-const ROOT_FEATURE_INDEX = 0x00;
-const ROOT_GET_FEATURE = 0;
-// Device Information, whose function 2 gives the serial number the lamp keeps itself, in up to 12 ASCII characters,
-// which on a Beam is the one its USB descriptor gives (`scripts/probes/serial-numbers.mjs`, #170).
-const DEVICE_INFORMATION_FEATURE = 0x0003;
-const GET_SERIAL_NUMBER = 2;
-const SERIAL_NUMBER_LENGTH = 12;
-// The software id the plugin's own HID++ requests carry, as litra's queries do, which the lamp sends back in its reply.
-const SOFTWARE_ID = 0x1;
-// An error report has 0xff where the feature goes, then the feature and function it refuses, then its code.
-const ERROR_REPORT = 0xff;
-// A lamp answers a request within a few ms, so a lamp that hasn't answered by then won't.
-const REPLY_TIMEOUT_MS = 500;
 
 /**
  * The last brightness change, or blink, queued by {@link oneBrightnessChangeAtATime}, which the next one waits for.
@@ -146,12 +118,6 @@ export function useLamps(lamps: ReadonlyMap<string, Lamp>): void {
   knownLamps = lamps;
 }
 
-/** What identifies a lamp found, as the global settings would keep it. */
-function identityOf(device: Device): LampIdentity {
-  const { serialNumber } = device;
-  return { id: lampId(serialNumber), model: MODEL_BY_DEVICE_TYPE[device.type], serialEnd: serialNumber.slice(-4) };
-}
-
 /**
  * The `Lamp` of a lamp the plugin knows, which takes the lamp's whole serial number the first time it's reached. Every
  * operation acts on known lamps alone, so one it doesn't know is a bug.
@@ -159,7 +125,7 @@ function identityOf(device: Device): LampIdentity {
 function lampOf(device: Device): Lamp {
   const lamp = knownLamps.get(lampId(device.serialNumber));
   if (lamp === undefined) {
-    throw new Error(`${lampLabel(device)} isn't one of the plugin's lamps`);
+    throw new Error(`${logLabelOf(device)} isn't one of the plugin's lamps`);
   }
   if (lamp.serialNumber === undefined) {
     lamp.reachedAs(device.serialNumber);
@@ -202,123 +168,9 @@ function announced<T>(result: T): T {
   return result;
 }
 
-/**
- * A lamp as the logs name it, as its `Lamp` does, or by its model alone, followed by "…", while it has no serial number
- * to tell it by, such as a Beam LX that hasn't given it yet (#170).
- */
-function lampLabel(device: Device): string {
-  return device.serialNumber === "" ? `${MODEL_BY_DEVICE_TYPE[device.type]} …` : new Lamp(identityOf(device)).logLabel;
-}
-
 /** Logs a lamp's part in an operation failing. The other lamps carry on. */
 function logLampFailure(operation: string, device: Device, error: unknown): void {
-  logger.error(`${operation}: ${lampLabel(device)} failed: ${String(error)}`);
-}
-
-/** A lamp's HID handle with the methods node-hid has at runtime, which litra's type leaves out. */
-function asHid(device: Device): ClosableHid {
-  return device.hid as ClosableHid;
-}
-
-/**
- * Reads the ACK a write leaves on the handle, so that a read on the same handle afterwards gets its reply rather than
- * the ACK: litra's isOn and getTemperatureInKelvin take the first report that arrives. Every write gets an ACK within a
- * few ms, so the drain returns as soon as it arrives, and an ACK left on a handle is gone once the handle closes
- * (`scripts/probes/write-reports.mjs`, #96). {@link turnOnAsItWas} reads its lamp right after turning it on, on the
- * same handle.
- */
-function drainAck(device: Device): void {
-  try {
-    asHid(device).readTimeout(50);
-  } catch {
-    // nothing pending
-  }
-}
-
-/**
- * litra's Device.hid type omits close(); runtime is node-hid HID.
- */
-function closeDevice(device: Device): void {
-  try {
-    asHid(device).close();
-  } catch (error) {
-    logger.warn(`Closing ${lampLabel(device)} failed: ${String(error)}`);
-  }
-}
-
-/** Pads a report with zeros to the length a lamp expects. */
-function padRight(values: number[], length: number): number[] {
-  if (values.length >= length) {
-    return values;
-  }
-  return [...values, ...Array(length - values.length).fill(0)];
-}
-
-/**
- * Stock litra getBrightnessInLumen only returns data[5], which truncates the Beam and
- * the Beam LX above 255 lm. Mirror litra-rs / temperature parsing: data[4]*256 + data[5].
- *
- * It also takes the first report that arrives, which can be an ACK or a change notice instead of the reply, so this
- * skips every report that isn't the reply.
- */
-export function getBrightnessInLumenSafe(device: Device): number {
-  const featureIndex = device.type === DeviceType.LitraBeamLX ? 0x06 : 0x04;
-  device.hid.write(padRight([0x11, 0xff, featureIndex, 0x31], 20));
-  for (let skipped = 0; skipped <= MAX_SKIPPED_REPORTS; skipped += 1) {
-    const [, , feature, operation, high, low] = device.hid.readSync();
-    // A report too short to hold the brightness can't be the reply, whatever its header says.
-    if (feature === featureIndex && operation === 0x31 && high !== undefined && low !== undefined) {
-      return high * 256 + low;
-    }
-  }
-  throw new Error(`No brightness reply after ${MAX_SKIPPED_REPORTS} other reports`);
-}
-
-/**
- * Sends a HID++ request to a lamp, and returns the parameters of its reply, skipping the reports that aren't it, as
- * {@link getBrightnessInLumenSafe} does. Fails on the lamp's error report, or when no reply comes.
- */
-function request(device: Device, featureIndex: number, fn: number, parameters: number[] = []): number[] {
-  const hid = asHid(device);
-  const operation = (fn << 4) | SOFTWARE_ID;
-  hid.write(padRight([0x11, 0xff, featureIndex, operation, ...parameters], 20));
-  for (let skipped = 0; skipped <= MAX_SKIPPED_REPORTS; skipped += 1) {
-    const report = hid.readTimeout(REPLY_TIMEOUT_MS);
-    if (report.length === 0) {
-      throw new Error(`No reply to function ${fn} of feature index ${featureIndex}`);
-    }
-    const [, , feature, replyOperation, ...reply] = report;
-    if (feature === featureIndex && replyOperation === operation) {
-      return reply;
-    }
-    if (feature === ERROR_REPORT && replyOperation === featureIndex && reply[0] === operation) {
-      throw new Error(`Error ${reply[1]} for function ${fn} of feature index ${featureIndex}`);
-    }
-  }
-  throw new Error(
-    `No reply to function ${fn} of feature index ${featureIndex} after ${MAX_SKIPPED_REPORTS} other reports`,
-  );
-}
-
-/**
- * Asks a lamp for the serial number it keeps itself, through its Device Information feature (#170). A Beam LX needs
- * it: its USB descriptor declares a serial number, but gives none.
- */
-function readSerialNumber(device: Device): string {
-  const [index = 0] = request(device, ROOT_FEATURE_INDEX, ROOT_GET_FEATURE, [
-    DEVICE_INFORMATION_FEATURE >> 8,
-    DEVICE_INFORMATION_FEATURE & 0xff,
-  ]);
-  // Root answers index 0, its own, for a feature the lamp doesn't have.
-  if (index === ROOT_FEATURE_INDEX) {
-    throw new Error("No Device Information feature to read a serial number from");
-  }
-  const characters = request(device, index, GET_SERIAL_NUMBER).slice(0, SERIAL_NUMBER_LENGTH);
-  const serialNumber = String.fromCharCode(...characters).replace(/\0+$/, "");
-  if (serialNumber === "") {
-    throw new Error("Empty serial number");
-  }
-  return serialNumber;
+  logger.error(`${operation}: ${logLabelOf(device)} failed: ${String(error)}`);
 }
 
 /**
@@ -338,11 +190,6 @@ function hasSerialNumber(operation: string, device: Device): boolean {
     closeDevice(device);
     return false;
   }
-}
-
-/** Where a lamp is plugged in: the path the system gave it, which changes each time it's plugged in. */
-function plugPath(device: Device): string {
-  return asHid(device).getDeviceInfo().path ?? "";
 }
 
 /** The lumens to send a lamp: the ones asked for, or its cap if it has a lower one. */
@@ -632,7 +479,7 @@ export function turnLampsOn(lamps: LampSelection): BroadcastResult {
       operation,
       (device) => {
         turnOnAsItWas(operation, device);
-        logger.info(`${operation}: ${lampLabel(device)} turned on`);
+        logger.info(`${operation}: ${logLabelOf(device)} turned on`);
       },
       lamps,
     ),
@@ -648,7 +495,7 @@ export function turnLampsOff(lamps: LampSelection): BroadcastResult {
       (device) => {
         turnOff(device);
         drainAck(device);
-        logger.info(`${operation}: ${lampLabel(device)} turned off`);
+        logger.info(`${operation}: ${logLabelOf(device)} turned off`);
       },
       lamps,
     ),
@@ -693,7 +540,7 @@ export function toggleLamps(lamps: LampSelection): BroadcastResult {
           } else {
             turnOnAsItWas(operation, device);
           }
-          logger.info(`${operation}: ${lampLabel(device)} turned ${allOn ? "off" : "on"}`);
+          logger.info(`${operation}: ${logLabelOf(device)} turned ${allOn ? "off" : "on"}`);
         },
         undefined,
       );
@@ -723,7 +570,7 @@ export async function areLampsOn(lamps: LampSelection): Promise<{ ok: boolean; a
   for (const device of devices) {
     try {
       const on = isOn(device);
-      logger.debug(`${operation}: ${lampLabel(device)} is ${on ? "on" : "off"}`);
+      logger.debug(`${operation}: ${logLabelOf(device)} is ${on ? "on" : "off"}`);
       if (!on) {
         allOn = false;
       }
@@ -745,7 +592,7 @@ export async function areLampsOn(lamps: LampSelection): Promise<{ ok: boolean; a
 function ensureOn(operation: string, device: Device): void {
   if (!isOn(device)) {
     turnOnAsItWas(operation, device);
-    logger.info(`${operation}: ${lampLabel(device)} turned on`);
+    logger.info(`${operation}: ${logLabelOf(device)} turned on`);
   }
 }
 
@@ -766,7 +613,7 @@ function turnOnAsItWas(operation: string, device: Device): void {
   } catch (error) {
     turnOn(device);
     drainAck(device);
-    logger.warn(`${operation}: ${lampLabel(device)} turned on unchecked, since it can't be read: ${String(error)}`);
+    logger.warn(`${operation}: ${logLabelOf(device)} turned on unchecked, since it can't be read: ${String(error)}`);
     return;
   }
   turnOn(device);
@@ -785,7 +632,7 @@ function turnOnAsItWas(operation: string, device: Device): void {
     drainAck(device);
   }
   logger.info(
-    `${operation}: ${lampLabel(device)} turned on at ${lumenOn} lm and ${kelvinOn} K, put back to ${lumen} lm and ${kelvin} K`,
+    `${operation}: ${logLabelOf(device)} turned on at ${lumenOn} lm and ${kelvinOn} K, put back to ${lumen} lm and ${kelvin} K`,
   );
 }
 
@@ -933,7 +780,7 @@ async function sendBrightness(
     attempt(device, () => {
       const reached = getBrightnessInLumenSafe(device);
       const pct = brightnessPercentage(device, reached);
-      logger.info(`${operation}: ${lampLabel(device)} sent ${lumen} lm, reached ${reached} lm (${pct}%)`);
+      logger.info(`${operation}: ${logLabelOf(device)} sent ${lumen} lm, reached ${reached} lm (${pct}%)`);
       const lamp = lampOf(device);
       lamp.brightnessReached(operation, plugPath(device), lumen, reached, sentAt);
       // A lamp kept apart is left at its position, which any other change forgets.
@@ -978,7 +825,7 @@ async function setScene(groups: readonly SceneGroup[], settleMs: number): Promis
         if (!group.on) {
           turnOff(device);
           drainAck(device);
-          logger.info(`${operation}: ${lampLabel(device)} turned off`);
+          logger.info(`${operation}: ${logLabelOf(device)} turned off`);
           return;
         }
         ensureOn(operation, device);
@@ -1087,7 +934,7 @@ export async function readLampsBrightness(lamps: LampSelection): Promise<Broadca
     (device) => {
       const lumen = getBrightnessInLumenSafe(device);
       const pct = brightnessPercentage(device, lumen);
-      logger.debug(`${operation}: ${lampLabel(device)} at ${lumen} lm (${pct}%)`);
+      logger.debug(`${operation}: ${logLabelOf(device)} at ${lumen} lm (${pct}%)`);
       percentages.push(pct);
       if (representative === undefined || pct > representative) {
         representative = pct;
@@ -1121,7 +968,7 @@ export async function readLampStatuses(): Promise<{ ok: boolean; lamps: LampStat
       const brightnessLumen = getBrightnessInLumenSafe(device);
       const percentage = brightnessPercentage(device, brightnessLumen);
       logger.debug(
-        `${operation}: ${lampLabel(device)} is ${on ? "on" : "off"}, at ${brightnessLumen} lm (${percentage}%) ` +
+        `${operation}: ${logLabelOf(device)} is ${on ? "on" : "off"}, at ${brightnessLumen} lm (${percentage}%) ` +
           `and ${temperatureKelvin} K`,
       );
       const lamp = lampOf(device);
@@ -1188,7 +1035,7 @@ export function identifyLamp(id: string, blinkMs: number): Promise<BroadcastResu
         setPower(!wasOn);
         await new Promise((resolve) => setTimeout(resolve, blinkMs));
         setPower(wasOn);
-        logger.info(`${operation}: ${lampLabel(device)} blinked`);
+        logger.info(`${operation}: ${logLabelOf(device)} blinked`);
         return { ok: true, deviceCount: 1, failures: 0 };
       } catch (error) {
         logLampFailure(operation, device, error);
@@ -1208,7 +1055,7 @@ function setSnappedTemperature(operation: string, device: Device, kelvin: number
   setTemperatureInKelvin(device, snapped);
   drainAck(device);
   lampOf(device).leaveTemperature(undefined, snapped);
-  logger.info(`${operation}: ${lampLabel(device)} set to ${snapped} K`);
+  logger.info(`${operation}: ${logLabelOf(device)} set to ${snapped} K`);
   return snapped;
 }
 
@@ -1329,7 +1176,7 @@ function adjustTemperaturesApart(
         setTemperatureInKelvin(lamp.device, snapped);
         drainAck(lamp.device);
         lampOf(lamp.device).leaveTemperature(position, snapped);
-        logger.info(`${operation}: ${lampLabel(lamp.device)} set to ${snapped} K`);
+        logger.info(`${operation}: ${logLabelOf(lamp.device)} set to ${snapped} K`);
         if (representative === undefined) {
           representative = snapped;
           representativePercentage = temperaturePercentage(snapped, lamp.allowed);
@@ -1365,7 +1212,7 @@ export async function readLampsTemperature(lamps: LampSelection): Promise<Broadc
         return;
       }
       representative = getTemperatureInKelvin(device);
-      logger.debug(`${operation}: ${lampLabel(device)} at ${representative} K`);
+      logger.debug(`${operation}: ${logLabelOf(device)} at ${representative} K`);
       representativePercentage = temperaturePercentage(representative, getAllowedTemperaturesInKelvinForDevice(device));
     },
     lamps,

@@ -1,11 +1,11 @@
-import type { Device } from "litra";
 import { afterEach, beforeEach, describe, expect, inject, it, vi } from "vitest";
 
+import type { Device } from "./device";
 import { lampId } from "./lamp";
 import type { BroadcastResult, SceneGroup } from "./litra-manager";
 import { at } from "./test-support/at";
 import { loadOnEmulatedLamps } from "./test-support/emulated-lamps";
-import { EmulatedLitra, isIdentifying, kindOf, type LitraModel, type ReportKind } from "./test-support/emulated-litra";
+import { EmulatedLitra, isIdentifying, kindOf, type ReportKind } from "./test-support/emulated-litra";
 import type { HidCall } from "./test-support/fake-node-hid";
 
 //* Fakes
@@ -34,7 +34,6 @@ let manager: typeof import("./litra-manager");
 let Lamp: typeof import("./lamp").Lamp;
 // The lamps the plugin knows, as the global settings hold them and hand them over, keeping their Lamps.
 let known: Map<string, InstanceType<typeof Lamp>>;
-let litra: typeof import("litra");
 let hid: typeof import("./test-support/fake-node-hid");
 let logger: typeof import("./test-support/fake-logging").logger;
 
@@ -43,12 +42,11 @@ beforeEach(async () => {
   vi.useFakeTimers();
   // A fresh litra-manager for every test: no learned caps, listeners or brightness changes carried over.
   ({
-    loaded: { manager, litra, Lamp },
+    loaded: { manager, Lamp },
     hid,
     logger,
   } = await loadOnEmulatedLamps(async () => ({
     manager: await import("./litra-manager"),
-    litra: await import("litra"),
     Lamp: (await import("./lamp")).Lamp,
   })));
   known = new Map();
@@ -163,17 +161,6 @@ function drained(lamp: EmulatedLitra): Array<ReportKind | undefined> {
 /** What was written to a lamp, but the requests that identify a Beam LX (#170): what an operation asked of it. */
 function asked(lamp: EmulatedLitra): number[][] {
   return lamp.written.filter((report) => !isIdentifying(report));
-}
-
-/** Opens a lamp through litra, as litra-manager does, for a function that takes litra's device, then closes it. */
-function withDevice<T>(lamp: EmulatedLitra, use: (device: Device) => T): T {
-  connect(lamp);
-  const device = at(litra.findDevices(), 0);
-  try {
-    return use(device);
-  } finally {
-    (device.hid as unknown as { close: () => void }).close();
-  }
 }
 
 //* Pure functions
@@ -410,69 +397,6 @@ describe("createDialDebouncer", () => {
     await vi.advanceTimersByTimeAsync(60);
 
     expect(flush).toHaveBeenCalledTimes(2);
-  });
-});
-
-//* HID parsing
-
-describe("getBrightnessInLumenSafe", () => {
-  /** A notice a capped Beam sends unasked when it lowers its brightness to 244 lm. */
-  const CHANGE_NOTICE = [0x11, 0xff, 0x04, 0x40, 0x01, 0x00, 0xf4, ...Array(13).fill(0)];
-
-  it.each<[LitraModel, number]>([
-    ["Glow", 0x04],
-    ["Beam", 0x04],
-    ["Beam LX", 0x06],
-  ])("sends the brightness query for a %s as a 20-byte report", (model, featureIndex) => {
-    const lamp = new EmulatedLitra(model);
-
-    withDevice(lamp, (device) => manager.getBrightnessInLumenSafe(device));
-
-    expect(lamp.written).toEqual([[0x11, 0xff, featureIndex, 0x31, ...Array(16).fill(0)]]);
-  });
-
-  it("reads the brightness from two bytes, so values above 255 survive", () => {
-    expect(withDevice(newLamp({ brightnessInLumen: 400 }), manager.getBrightnessInLumenSafe)).toBe(400);
-    expect(withDevice(newLamp({ brightnessInLumen: 30 }), manager.getBrightnessInLumenSafe)).toBe(30);
-  });
-
-  it("skips the reports a lamp sends unasked, ahead of the reply", () => {
-    const lamp = newLamp({ brightnessInLumen: 244 });
-
-    const brightness = withDevice(lamp, (device) => {
-      // A set-brightness ACK, a change notice and an error report, as a capped Beam sends them.
-      lamp.send([0x11, 0xff, 0x04, 0x4c, ...Array(16).fill(0)]);
-      lamp.send(CHANGE_NOTICE);
-      lamp.send([0x11, 0xff, 0xff, 0x04, 0x4c, 0x02, ...Array(14).fill(0)]);
-      return manager.getBrightnessInLumenSafe(device);
-    });
-
-    expect(brightness).toBe(244);
-  });
-
-  it("skips a report too short to hold the brightness, even with the reply's header", () => {
-    const lamp = newLamp({ brightnessInLumen: 244 });
-
-    const brightness = withDevice(lamp, (device) => {
-      lamp.send([0x11, 0xff, 0x04, 0x31, 0x00]);
-      return manager.getBrightnessInLumenSafe(device);
-    });
-
-    expect(brightness).toBe(244);
-  });
-
-  it("gives up when the reply doesn't come", () => {
-    const lamp = newLamp();
-
-    expect(() =>
-      withDevice(lamp, (device) => {
-        // More reports than it skips, ahead of the reply.
-        for (let report = 0; report <= 10; report += 1) {
-          lamp.send(CHANGE_NOTICE);
-        }
-        return manager.getBrightnessInLumenSafe(device);
-      }),
-    ).toThrow("No brightness reply");
   });
 });
 

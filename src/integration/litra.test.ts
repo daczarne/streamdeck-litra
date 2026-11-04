@@ -8,15 +8,17 @@ import { EmulatedLitra, type LitraModel } from "../test-support/emulated-litra";
 
 let litra: typeof import("litra");
 let manager: typeof import("../litra-manager");
+let deviceModule: typeof import("../device");
 let connect: (...lamps: EmulatedLitra[]) => void;
 
 beforeEach(async () => {
   ({
-    loaded: { litra, manager },
+    loaded: { litra, manager, deviceModule },
     hid: { connect },
   } = await loadOnEmulatedLamps(async () => ({
     litra: await import("litra"),
     manager: await import("../litra-manager"),
+    deviceModule: await import("../device"),
   })));
 });
 
@@ -299,7 +301,7 @@ describe("what litra-manager assumes about litra", () => {
     it("getBrightnessInLumenSafe reads both bytes of the brightness, where litra reads one", () => {
       const { device } = plugIn(model, { productId, brightnessInLumen: maxLumen });
 
-      expect(manager.getBrightnessInLumenSafe(device)).toBe(maxLumen);
+      expect(deviceModule.getBrightnessInLumenSafe(device)).toBe(maxLumen);
     });
   });
 
