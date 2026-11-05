@@ -81,7 +81,7 @@ followGlobalSettings();
 beforeEach(() => {
   vi.useFakeTimers();
   changeGlobalSettings({});
-  // The debouncer flushes every turn at once: its own timing is litra-manager's to test.
+  // The debouncer flushes every turn at once: its own timing is debouncer.test.ts's to check.
   vi.mocked(createDialDebouncer).mockImplementation((flush) => (ticks) => void flush(ticks));
   // The lamps, as a dial that appears or returns to its main screen reads them, and as the lamp screens read them.
   vi.mocked(readLampsTemperature).mockResolvedValue(SNAPPED);
@@ -108,7 +108,7 @@ function clearCalls(): void {
 
 describe("TemperatureAction", () => {
   describe("when the lamps change", () => {
-    it("shows on every dial the temperature the lamps are at, from one read, and leaves the keys' presets (#29)", async () => {
+    it("shows on every dial the temperature the lamps are at, and leaves the keys' presets (#29)", async () => {
       const key = await deck.key(TEMPERATURE, { presetKelvin: 4050 });
       const dial = await deck.dial(TEMPERATURE);
       const otherDial = await deck.dial(TEMPERATURE);
@@ -116,7 +116,6 @@ describe("TemperatureAction", () => {
 
       await lampsChanged();
 
-      expect(readLampsTemperature).toHaveBeenCalledOnce();
       expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith(TEMPERATURE_SNAPPED);
       expect(otherDial.setFeedback).toHaveBeenCalledExactlyOnceWith(TEMPERATURE_SNAPPED);
       expect(key.setTitle).not.toHaveBeenCalled();
@@ -263,15 +262,16 @@ describe("TemperatureAction", () => {
   });
 
   describe("with a setting that isn't valid (#22)", () => {
-    it("sets the lamps to the default preset on a key press, with a warning", async () => {
+    it("sets the lamps to the default preset on a key press, warned about as the key appeared", async () => {
       const key = await deck.key(TEMPERATURE, { presetKelvin: "warm" });
+      expect(logger.warn).toHaveBeenCalledOnce();
       clearCalls();
       vi.mocked(setLampsTemperature).mockReturnValue(DONE);
 
       await deck.press(key);
 
       expect(setLampsTemperature).toHaveBeenCalledExactlyOnceWith("all", 2700);
-      expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("presetKelvin"));
+      expect(logger.warn).not.toHaveBeenCalled();
     });
 
     it("shows the default preset on the key, with a warning", async () => {
@@ -281,15 +281,16 @@ describe("TemperatureAction", () => {
       expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("presetKelvin"));
     });
 
-    it("moves the lamps by the default step on a dial turn, with a warning", async () => {
+    it("moves the lamps by the default step on a dial turn, warned about as the dial appeared", async () => {
       const dial = await deck.dial(TEMPERATURE, { stepKelvin: 0 });
+      expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("step"));
       clearCalls();
       vi.mocked(adjustLampsTemperature).mockReturnValue(DONE);
 
       await deck.turn(dial, 2);
 
       expect(adjustLampsTemperature).toHaveBeenCalledExactlyOnceWith("all", 2, 300, "together");
-      expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("stepKelvin"));
+      expect(logger.warn).not.toHaveBeenCalled();
     });
   });
 

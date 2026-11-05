@@ -1,32 +1,10 @@
-import {
-  action,
-  type DialDownEvent,
-  type DialRotateEvent,
-  type DidReceiveSettingsEvent,
-  type KeyAction,
-  type KeyDownEvent,
-  SingletonAction,
-  type TouchTapEvent,
-  type WillAppearEvent,
-  type WillDisappearEvent,
-} from "@elgato/streamdeck";
-import type { JsonObject } from "@elgato/utils";
+import { action } from "@elgato/streamdeck";
 import { globalSettings } from "../global-settings";
-import {
-  adjustLampsBrightness,
-  onLampsChanged,
-  readLampsBrightness,
-  setLampsBrightness,
-  toggleLamps,
-} from "../litra-manager";
+import { adjustLampsBrightness, readLampsBrightness, setLampsBrightness } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
-import { createDialDebouncer } from "./debouncer";
 import { type LampScreens, lampScreens as sharedLampScreens } from "./lamp-screens";
-import { brightnessSettings, describeLamps, parseSettings } from "./settings";
-
-const logger = pluginLogger.createScope("Brightness");
-
-type ActionRef = WillAppearEvent["action"];
+import { type Measure, MeasureAction, type Preset } from "./measure";
+import { brightnessSettings, parseSettings } from "./settings";
 
 // Where fewer lamps reach, the bar fades from white towards this grey, never as far as the bar's own background, and
 // light enough to read on the strip.
@@ -60,164 +38,45 @@ export function barFill(levels: number[]): string {
   return stops.join(",");
 }
 
+/** What a Brightness key sets its lamps to: its preset, in % of their range. */
+const PRESET: Preset = {
+  read: (settings, logger) => {
+    const { presetPercentage, lamps, leftOutLamps } = parseSettings(settings, brightnessSettings, logger);
+    return { preset: presetPercentage, lamps, leftOutLamps };
+  },
+  unit: "%",
+  set: setLampsBrightness,
+};
+
+/**
+ * What a Brightness dial steps, and shows on its main screen, in the slots of the $B1 layout: the brightest lamp's %
+ * as text, and again as the bar under it, banded by how many lamps reach each part of it, or a dash with no lamp.
+ */
+const BRIGHTNESS: Measure = {
+  name: "Brightness",
+  readStep: (settings, logger) => parseSettings(settings, brightnessSettings, logger).stepPercentage,
+  unit: "%",
+  readStepping: () => globalSettings.brightnessStepping,
+  adjust: adjustLampsBrightness,
+  readMainScreen: async () => {
+    const levels = await readLampsBrightness("all");
+    const brightest = levels.length === 0 ? undefined : Math.max(...levels);
+    return {
+      title: "Brightness",
+      value: brightest === undefined ? "—" : `${Math.round(brightest)}%`,
+      indicator: { value: brightest ?? 0, bar_fill_c: barFill(levels) },
+    };
+  },
+};
+
 /**
  * The Brightness action. On a key, it sets its lamps to the key's preset. On a dial, it steps the brightness as the
- * dial turns, toggles the lamps when pressed, and shows each lamp on its own screen when the strip is tapped. On a
- * lamp screen, turning and pushing the dial act on that lamp alone, and holding the strip blinks it (#20).
+ * dial turns, toggles the lamps when pushed, and shows each lamp on its own screen when the strip is tapped (#20).
  */
 @action({ UUID: "com.daczarne.litra.brightness" })
-export class BrightnessAction extends SingletonAction {
-  private readonly dialQueues = new Map<string, (ticks: number) => void>();
-  private readonly latestSettings = new Map<string, JsonObject>();
-
-  private readonly lampScreens: LampScreens;
-
-  /** Takes the lamp screens that every dial shares, or the tests' own, and subscribes the dials to every change. */
+export class BrightnessAction extends MeasureAction {
+  /** Takes the lamp screens that every dial shares, or the tests' own. */
   constructor(lampScreens: LampScreens = sharedLampScreens) {
-    super();
-    this.lampScreens = lampScreens;
-    // Every dial follows the lamps, whichever key or dial changed them, this action's own included.
-    onLampsChanged(() => this.syncEveryDial());
-  }
-
-  /** Shows the key's preset, or starts a dial on its main screen with the lamps' value, when the action appears. */
-  override async onWillAppear(ev: WillAppearEvent): Promise<void> {
-    this.latestSettings.set(ev.action.id, ev.payload.settings);
-    if (ev.action.isDial()) {
-      await this.lampScreens.appear(ev.action);
-    }
-    await this.refreshDisplay(ev.action, ev.payload.settings);
-  }
-
-  /** Forgets the dial's lamp screen, so the lamp screens stop redrawing a dial that isn't shown. */
-  override async onWillDisappear(ev: WillDisappearEvent): Promise<void> {
-    await this.lampScreens.disappear(ev.action.id);
-  }
-
-  /** Takes the settings changed on the settings page, and redraws the action with them. */
-  override async onDidReceiveSettings(ev: DidReceiveSettingsEvent): Promise<void> {
-    this.latestSettings.set(ev.action.id, ev.payload.settings);
-    await this.refreshDisplay(ev.action, ev.payload.settings);
-  }
-
-  /**
-   * Sets the key's lamps to its preset. The key keeps showing its preset, and the dials follow through the subscription
-   * with what the lamps reached, which is less for a lamp at its cap.
-   */
-  override async onKeyDown(ev: KeyDownEvent): Promise<void> {
-    const { presetPercentage: preset, ...saved } = parseSettings(ev.payload.settings, brightnessSettings, logger);
-    const lamps = globalSettings.actionKeyLamps(ev.action.id, saved);
-    logger.info(`Key pressed: preset ${preset}%, on ${describeLamps(lamps)}`);
-    const result = await setLampsBrightness(lamps, preset);
-    if (!result.ok) {
-      await ev.action.showAlert();
-    }
-  }
-
-  /** Toggles every lamp from the main screen, or the lamp on screen from a lamp screen. */
-  override async onDialDown(ev: DialDownEvent): Promise<void> {
-    const lamp = this.lampScreens.lampOnScreen(ev.action.id);
-    logger.info(lamp === undefined ? "Dial pressed: toggle" : "Dial pressed on a lamp screen: toggle");
-    const result = toggleLamps(lamp === undefined ? "all" : [lamp]);
-    if (!result.ok) {
-      await ev.action.showAlert();
-    }
-  }
-
-  /** Tapping the strip shows the lamps one by one, and holding it on a lamp screen blinks the lamp on screen. */
-  override async onTouchTap(ev: TouchTapEvent): Promise<void> {
-    if (ev.payload.hold) {
-      if (!this.lampScreens.isShowing(ev.action.id)) {
-        logger.info("Strip held on the main screen: nothing to do");
-        return;
-      }
-      logger.info("Strip held: identify");
-      await this.lampScreens.identify(ev.action);
-      return;
-    }
-    logger.info("Strip tapped: next screen");
-    await this.lampScreens.tap(ev.action, {
-      showMain: () => this.refreshDisplay(ev.action, ev.payload.settings),
-      adjusts: "Brightness",
-    });
-  }
-
-  /**
-   * Steps the brightness by the dial's ticks, gathered for a moment so a quick turn moves the lamps once, with the
-   * settings the dial has when they are applied. Ticks go to what the dial showed as it turned: every lamp from the main
-   * screen, together or each from its own as the global settings say (#145), or the lamp on screen, even when the strip
-   * is tapped before they are applied. The dials follow through the subscription.
-   */
-  override async onDialRotate(ev: DialRotateEvent): Promise<void> {
-    const id = ev.action.id;
-    this.latestSettings.set(id, ev.payload.settings);
-    const lamp = this.lampScreens.lampOnScreen(id);
-    // One queue for each lamp the dial can turn, so ticks gathered on one screen aren't applied to the next.
-    const queueId = `${id}/${lamp ?? "all"}`;
-    let queue = this.dialQueues.get(queueId);
-    if (!queue) {
-      queue = createDialDebouncer(async (ticks) => {
-        const settings = this.latestSettings.get(id) ?? {};
-        const { stepPercentage: step } = parseSettings(settings, brightnessSettings, logger);
-        // A lamp screen turns its lamp alone, and the main screen every lamp, together or each from its own (#145).
-        const stepping = lamp === undefined ? globalSettings.brightnessStepping : "together";
-        const screen = lamp === undefined ? "" : " on a lamp screen";
-        const each = stepping === "each" ? ", each lamp from its own" : "";
-        logger.info(`Dial turned${screen}: ${ticks} ticks of ${step}%${each}`);
-        const result = await adjustLampsBrightness(lamp === undefined ? "all" : [lamp], ticks, step, stepping);
-        if (!result.ok) {
-          await ev.action.showAlert();
-        }
-      }, logger);
-      this.dialQueues.set(queueId, queue);
-    }
-    queue(ev.payload.ticks);
-  }
-
-  /** Shows the preset on a key, or what the lamps are at on a dial. */
-  private async refreshDisplay(action: ActionRef, settings: JsonObject): Promise<void> {
-    if (action.isKey()) {
-      await this.showKeyAmount(action, parseSettings(settings, brightnessSettings, logger).presetPercentage);
-      return;
-    }
-
-    await this.showDialValue(action, await readLampsBrightness("all"));
-  }
-
-  /** Writes the preset as the key's title, which the user can replace or hide. */
-  private async showKeyAmount(action: KeyAction<JsonObject>, percentage: number): Promise<void> {
-    await action.setTitle(`${Math.round(percentage)}`);
-  }
-
-  /**
-   * Shows what the lamps are at on every visible dial of this action, from one read, since they all describe the same
-   * lamps. A lamp that can't be read is left out, and nothing is read when no dial shows the brightness.
-   */
-  private async syncEveryDial(): Promise<void> {
-    const dials = [...this.actions].filter((action) => action.isDial() && !this.lampScreens.isShowing(action.id));
-    if (dials.length === 0) {
-      return;
-    }
-    const brightnessPercentages = await readLampsBrightness("all");
-    for (const dial of dials) {
-      await this.showDialValue(dial, brightnessPercentages);
-    }
-  }
-
-  /**
-   * Fills the slots of the $B1 layout: the brightest lamp's % as text, and again as the bar under it, banded by how many
-   * lamps reach each part of it.
-   */
-  private async showDialValue(action: ActionRef, levels: number[] | undefined): Promise<void> {
-    const brightest = levels === undefined || levels.length === 0 ? undefined : Math.max(...levels);
-    const label = brightest === undefined ? "—" : `${Math.round(brightest)}%`;
-    // A dial on a lamp screen has another layout, which the lamp screens redraw.
-    if (action.isDial() && !this.lampScreens.isShowing(action.id)) {
-      await action.setFeedback({
-        title: "Brightness",
-        value: label,
-        indicator: { value: brightest ?? 0, bar_fill_c: barFill(levels ?? []) },
-      });
-    }
+    super(pluginLogger.createScope("Brightness"), PRESET, BRIGHTNESS, lampScreens);
   }
 }

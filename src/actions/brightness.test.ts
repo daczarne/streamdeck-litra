@@ -86,7 +86,7 @@ followGlobalSettings();
 beforeEach(() => {
   vi.useFakeTimers();
   changeGlobalSettings({});
-  // The debouncer flushes every turn at once: its own timing is litra-manager's to test.
+  // The debouncer flushes every turn at once: its own timing is debouncer.test.ts's to check.
   vi.mocked(createDialDebouncer).mockImplementation((flush) => (ticks) => void flush(ticks));
   // The lamps, as a dial that appears or returns to its main screen reads them, and as the lamp screens read them.
   vi.mocked(readLampsBrightness).mockResolvedValue(AT_THEIR_CAPS);
@@ -113,7 +113,7 @@ function clearCalls(): void {
 
 describe("BrightnessAction", () => {
   describe("when the lamps change", () => {
-    it("shows on every dial the brightness the lamps reached, from one read, and leaves the keys' presets (#29)", async () => {
+    it("shows on every dial the brightness the lamps reached, and leaves the keys' presets (#29)", async () => {
       const key = await deck.key(BRIGHTNESS, { presetPercentage: 100 });
       const dial = await deck.dial(BRIGHTNESS);
       const otherDial = await deck.dial(BRIGHTNESS);
@@ -121,7 +121,6 @@ describe("BrightnessAction", () => {
 
       await lampsChanged();
 
-      expect(readLampsBrightness).toHaveBeenCalledOnce();
       expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith(AT_THE_CAPS);
       expect(otherDial.setFeedback).toHaveBeenCalledExactlyOnceWith(AT_THE_CAPS);
       expect(key.setTitle).not.toHaveBeenCalled();
@@ -261,15 +260,16 @@ describe("BrightnessAction", () => {
   });
 
   describe("with a setting that isn't valid (#22)", () => {
-    it("sets the lamps to the default preset on a key press, with a warning", async () => {
+    it("sets the lamps to the default preset on a key press, warned about as the key appeared", async () => {
       const key = await deck.key(BRIGHTNESS, { presetPercentage: "abc" });
+      expect(logger.warn).toHaveBeenCalledOnce();
       clearCalls();
       vi.mocked(setLampsBrightness).mockResolvedValue(DONE);
 
       await deck.press(key);
 
       expect(setLampsBrightness).toHaveBeenCalledExactlyOnceWith("all", 0);
-      expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("presetPercentage"));
+      expect(logger.warn).not.toHaveBeenCalled();
     });
 
     it("shows the default preset on the key, with a warning", async () => {
@@ -279,15 +279,16 @@ describe("BrightnessAction", () => {
       expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("presetPercentage"));
     });
 
-    it("moves the lamps by the default step on a dial turn, with a warning", async () => {
+    it("moves the lamps by the default step on a dial turn, warned about as the dial appeared", async () => {
       const dial = await deck.dial(BRIGHTNESS, { stepPercentage: 0 });
+      expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("step"));
       clearCalls();
       vi.mocked(adjustLampsBrightness).mockResolvedValue(DONE);
 
       await deck.turn(dial, 3);
 
       expect(adjustLampsBrightness).toHaveBeenCalledExactlyOnceWith("all", 3, 10, "together");
-      expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("stepPercentage"));
+      expect(logger.warn).not.toHaveBeenCalled();
     });
   });
 

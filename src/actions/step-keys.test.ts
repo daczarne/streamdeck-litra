@@ -65,7 +65,7 @@ followGlobalSettings();
 beforeEach(() => {
   vi.useFakeTimers();
   changeGlobalSettings({});
-  // The debouncer flushes every press at once: its own timing is litra-manager's to test.
+  // The debouncer flushes every press at once: its own timing is debouncer.test.ts's to check.
   vi.mocked(createDialDebouncer).mockImplementation((flush) => (presses) => void flush(presses));
   vi.mocked(readLampsBrightness).mockResolvedValue(AT_THEIR_CAPS);
   vi.mocked(readLampsTemperature).mockResolvedValue(AT_4000_K);
