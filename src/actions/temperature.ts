@@ -14,7 +14,6 @@ import type { JsonObject } from "@elgato/utils";
 import { globalSettings } from "../global-settings";
 import {
   adjustLampsTemperature,
-  createDialDebouncer,
   onLampsChanged,
   readLampsTemperature,
   setLampsTemperature,
@@ -22,6 +21,7 @@ import {
   toggleLamps,
 } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
+import { createDialDebouncer } from "./debouncer";
 import { type LampScreens, lampScreens as sharedLampScreens } from "./lamp-screens";
 import { describeLamps, parseSettings, temperatureSettings } from "./settings";
 
@@ -137,7 +137,7 @@ export class TemperatureAction extends SingletonAction {
         if (!result.ok) {
           await ev.action.showAlert();
         }
-      });
+      }, logger);
       this.dialQueues.set(queueId, queue);
     }
     queue(ev.payload.ticks);

@@ -14,13 +14,13 @@ import type { JsonObject } from "@elgato/utils";
 import { globalSettings } from "../global-settings";
 import {
   adjustLampsBrightness,
-  createDialDebouncer,
   onLampsChanged,
   readLampsBrightness,
   setLampsBrightness,
   toggleLamps,
 } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
+import { createDialDebouncer } from "./debouncer";
 import { type LampScreens, lampScreens as sharedLampScreens } from "./lamp-screens";
 import { brightnessSettings, describeLamps, parseSettings } from "./settings";
 
@@ -168,7 +168,7 @@ export class BrightnessAction extends SingletonAction {
         if (!result.ok) {
           await ev.action.showAlert();
         }
-      });
+      }, logger);
       this.dialQueues.set(queueId, queue);
     }
     queue(ev.payload.ticks);

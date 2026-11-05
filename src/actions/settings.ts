@@ -274,9 +274,6 @@ export const sceneGroupSettings = {
   lamps: lampList(),
 };
 
-// The lamps alone, for an action that reads them apart from its other settings.
-export const lampSettings = { lamps, leftOutLamps };
-
 // What a lamp screen can show in each of its cells (#177): the lamp's model and the end of its serial number, its place
 // among the lamps, its temperature, whether it's on, its brightness in % or in lumens, or nothing.
 export const LAMP_SCREEN_ITEMS = [

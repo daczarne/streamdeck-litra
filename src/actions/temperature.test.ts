@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { followGlobalSettings } from "../global-settings";
 import {
   adjustLampsTemperature,
-  createDialDebouncer,
   identifyLamp,
   type LampStatus,
   type OperationResult,
@@ -16,6 +15,7 @@ import { logger } from "../logging";
 import { at } from "../test-support/at";
 import { FakeDeck } from "../test-support/fake-deck";
 import { changeGlobalSettings } from "../test-support/fake-stream-deck";
+import { createDialDebouncer } from "./debouncer";
 import { LampScreens } from "./lamp-screens";
 import { globalSettings } from "./settings";
 import { TemperatureAction } from "./temperature";
@@ -27,10 +27,12 @@ vi.mock("@elgato/streamdeck", () => import("../test-support/fake-stream-deck"));
 // The real logger writes to a logs/ folder.
 vi.mock("../logging", () => import("../test-support/fake-logging"));
 
+// The debouncer gathers what each test says, without the timing its own tests check.
+vi.mock("./debouncer", () => ({ createDialDebouncer: vi.fn() }));
+
 // The real litra-manager loads node-hid's native binary on import and talks to real lamps.
 vi.mock("../litra-manager", () => ({
   adjustLampsTemperature: vi.fn(),
-  createDialDebouncer: vi.fn(),
   findLamps: vi.fn(() => []),
   identifyLamp: vi.fn(),
   onLampsChanged: vi.fn(),

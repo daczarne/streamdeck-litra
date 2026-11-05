@@ -84,7 +84,6 @@ export type LampStatus = {
 };
 
 const logger = pluginLogger.createScope("Lamps");
-const DIAL_DEBOUNCE_MS = 60;
 
 // A capped lamp applies its cap within about 100 ms of a write, and until then reports the brightness it was sent.
 const BRIGHTNESS_SETTLE_MS = 250;
@@ -1016,40 +1015,4 @@ export async function readLampsTemperature(lamps: LampSelection): Promise<Temper
   return first === undefined
     ? undefined
     : { kelvin: first.state.kelvin, percentage: first.lamp.temperaturePercentage(first.state.kelvin) };
-}
-
-/**
- * Coalesce dial ticks for a short window, then flush once. A flush waits for the previous one to finish, since both
- * would use the lamps, and takes every tick received until it starts.
- */
-export function createDialDebouncer(
-  flush: (ticks: number) => void | Promise<void>,
-  delayMs = DIAL_DEBOUNCE_MS,
-): (ticks: number) => void {
-  let pending = 0;
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  let running: Promise<void> = Promise.resolve();
-
-  const run = async (): Promise<void> => {
-    const batch = pending;
-    pending = 0;
-    // A flush that was still running when this one was due has already taken these ticks.
-    if (batch === 0) {
-      return;
-    }
-    await flush(batch);
-  };
-
-  return (ticks: number) => {
-    pending += ticks;
-    if (timer !== undefined) {
-      clearTimeout(timer);
-    }
-    timer = setTimeout(() => {
-      timer = undefined;
-      running = running.then(run).catch((error: unknown) => {
-        logger.error("Dial flush failed", error);
-      });
-    }, delayMs);
-  };
 }

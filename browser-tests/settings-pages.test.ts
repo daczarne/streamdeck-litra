@@ -10,7 +10,6 @@ import {
   globalSettings,
   LAMP_SCREEN_ITEMS,
   lampScreenItemOptions,
-  lampSettings,
   parseSettings,
   powerSettings,
   sceneGroupSettings,
@@ -137,7 +136,7 @@ const PLUGIN_SETTINGS_GLOBALS = [
 // each page offers, and the pages' own defaults. A key's or dial's settings and the global ones are apart, as the
 // plugin reads them, since a name can be in both, such as `lamps`: a key's, and the ones the plugin knows (#194).
 const SCHEMAS = {
-  action: { ...powerSettings, ...brightnessSettings, ...temperatureSettings, ...sceneSettings, ...lampSettings },
+  action: { ...powerSettings, ...brightnessSettings, ...temperatureSettings, ...sceneSettings },
   global: globalSettings,
 };
 

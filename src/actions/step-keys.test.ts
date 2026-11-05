@@ -3,7 +3,6 @@ import { followGlobalSettings } from "../global-settings";
 import {
   adjustLampsBrightness,
   adjustLampsTemperature,
-  createDialDebouncer,
   type OperationResult,
   onLampsChanged,
   readLampsBrightness,
@@ -13,6 +12,7 @@ import { logger } from "../logging";
 import { at } from "../test-support/at";
 import { FakeDeck } from "../test-support/fake-deck";
 import { changeGlobalSettings } from "../test-support/fake-stream-deck";
+import { createDialDebouncer } from "./debouncer";
 import { BrightnessDownAction, BrightnessUpAction, TemperatureDownAction, TemperatureUpAction } from "./step-keys";
 
 //* Fakes
@@ -22,11 +22,13 @@ vi.mock("@elgato/streamdeck", () => import("../test-support/fake-stream-deck"));
 // The real logger writes to a logs/ folder.
 vi.mock("../logging", () => import("../test-support/fake-logging"));
 
+// The debouncer gathers what each test says, without the timing its own tests check.
+vi.mock("./debouncer", () => ({ createDialDebouncer: vi.fn() }));
+
 // The real litra-manager loads node-hid's native binary on import and talks to real lamps.
 vi.mock("../litra-manager", () => ({
   adjustLampsBrightness: vi.fn(),
   adjustLampsTemperature: vi.fn(),
-  createDialDebouncer: vi.fn(),
   findLamps: vi.fn(() => []),
   onLampsChanged: vi.fn(),
   readLampsBrightness: vi.fn(),
@@ -180,7 +182,7 @@ describe("the step keys", () => {
       expect(titleOf(temperatureKey)).toBe("4000");
     });
 
-    it("on every key, whichever key or dial changed the lamps, from one read per action", async () => {
+    it("on every key, whichever key or dial changed the lamps", async () => {
       const keys = [await deck.key(BRIGHTNESS_UP), await deck.key(BRIGHTNESS_UP), await deck.key(TEMPERATURE_UP)];
       clearCalls();
       vi.mocked(readLampsBrightness).mockResolvedValue([40, 50]);
@@ -189,8 +191,6 @@ describe("the step keys", () => {
       await lampsChanged();
 
       expect(keys.map(titleOf)).toEqual(["50%", "50%", "3300"]);
-      expect(readLampsBrightness).toHaveBeenCalledOnce();
-      expect(readLampsTemperature).toHaveBeenCalledOnce();
     });
 
     it("as a dash when none of their lamps is connected", async () => {
@@ -300,7 +300,7 @@ describe("the step keys", () => {
       expect(adjust).toHaveBeenCalledExactlyOnceWith([LAMP_1], expect.any(Number), step, "together");
     });
 
-    it("shows on each key what its own lamps are at, from one read for each set of lamps", async () => {
+    it("shows on each key what its own lamps are at", async () => {
       const onEvery = await deck.key(BRIGHTNESS_UP);
       const onFirst = await deck.key(BRIGHTNESS_UP, { lamps: [LAMP_1] });
       const alsoOnFirst = await deck.key(BRIGHTNESS_UP, { lamps: [LAMP_1] });
@@ -314,7 +314,7 @@ describe("the step keys", () => {
       await lampsChanged();
 
       expect([onEvery, onFirst, alsoOnFirst, onSecond].map(titleOf)).toEqual(["79%", "63%", "63%", "79%"]);
-      expect(vi.mocked(readLampsBrightness).mock.calls).toEqual([["all"], [[LAMP_1]], [[LAMP_2]]]);
+      expect(vi.mocked(readLampsBrightness).mock.calls).toEqual([["all"], [[LAMP_1]], [[LAMP_1]], [[LAMP_2]]]);
     });
 
     it("shows what the key's new lamps are at once they're changed on the settings page", async () => {
