@@ -14,11 +14,11 @@ import type { JsonObject } from "@elgato/utils";
 import { globalSettings } from "../global-settings";
 import {
   adjustLampsTemperature,
-  type BroadcastResult,
   createDialDebouncer,
   onLampsChanged,
   readLampsTemperature,
   setLampsTemperature,
+  type TemperatureShown,
   toggleLamps,
 } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
@@ -174,14 +174,14 @@ export class TemperatureAction extends SingletonAction {
   }
 
   /** Fills the slots of the $B1 layout: the kelvin as text, and its place in the lamp's range as the bar under it. */
-  private async showDialValue(action: ActionRef, result: BroadcastResult | undefined): Promise<void> {
-    const kelvin = result?.representativeTemperatureKelvin;
+  private async showDialValue(action: ActionRef, shown: TemperatureShown | undefined): Promise<void> {
+    const kelvin = shown?.kelvin;
     // A dial on a lamp screen has another layout, which the lamp screens redraw.
     if (action.isDial() && !this.lampScreens.isShowing(action.id)) {
       await action.setFeedback({
         title: "Temperature",
         value: kelvin === undefined ? "—" : `${Math.round(kelvin)}`,
-        indicator: result?.representativeTemperaturePercentage ?? 0,
+        indicator: shown?.percentage ?? 0,
       });
     }
   }

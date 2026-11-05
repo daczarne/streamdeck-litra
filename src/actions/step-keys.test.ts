@@ -3,8 +3,8 @@ import { followGlobalSettings } from "../global-settings";
 import {
   adjustLampsBrightness,
   adjustLampsTemperature,
-  type BroadcastResult,
   createDialDebouncer,
+  type OperationResult,
   onLampsChanged,
   readLampsBrightness,
   readLampsTemperature,
@@ -40,21 +40,14 @@ const BRIGHTNESS_DOWN = "com.daczarne.litra.brightness-down";
 const TEMPERATURE_UP = "com.daczarne.litra.temperature-up";
 const TEMPERATURE_DOWN = "com.daczarne.litra.temperature-down";
 
-/** Two Beams on a Stream Deck + XL's USB hub, which stop at 63% and 79%, both at 4000 K. */
-const LAMPS: BroadcastResult = {
-  ok: true,
-  deviceCount: 2,
-  failures: 0,
-  representativeBrightnessPercentage: 79,
-  representativeBrightnessLumen: 324,
-  brightnessPercentages: [63, 79],
-  representativeTemperatureKelvin: 4000,
-  representativeTemperaturePercentage: 34,
-};
+/** Two Beams on a Stream Deck + XL's USB hub, at 63% and 79%, both at 4000 K, as the plugin holds them. */
+const AT_THEIR_CAPS = [63, 79];
+const AT_4000_K = { kelvin: 4000, percentage: 34 };
 
-const NO_LAMP: BroadcastResult = { ok: false, deviceCount: 0, failures: 1 };
-
-const FAILED: BroadcastResult = { ...LAMPS, ok: false, failures: 1 };
+/** How an operation on the two Beams went. */
+const DONE: OperationResult = { ok: true, deviceCount: 2, failures: 0 };
+const FAILED: OperationResult = { ...DONE, ok: false, failures: 1 };
+const NO_LAMP: OperationResult = { ok: false, deviceCount: 0, failures: 1 };
 
 // Lamps as the settings page saves them, by their ids (#20, #194).
 const LAMP_1 = "lamp-1";
@@ -72,10 +65,10 @@ beforeEach(() => {
   changeGlobalSettings({});
   // The debouncer flushes every press at once: its own timing is litra-manager's to test.
   vi.mocked(createDialDebouncer).mockImplementation((flush) => (presses) => void flush(presses));
-  vi.mocked(readLampsBrightness).mockResolvedValue(LAMPS);
-  vi.mocked(readLampsTemperature).mockResolvedValue(LAMPS);
-  vi.mocked(adjustLampsBrightness).mockResolvedValue(LAMPS);
-  vi.mocked(adjustLampsTemperature).mockReturnValue(LAMPS);
+  vi.mocked(readLampsBrightness).mockResolvedValue(AT_THEIR_CAPS);
+  vi.mocked(readLampsTemperature).mockResolvedValue(AT_4000_K);
+  vi.mocked(adjustLampsBrightness).mockResolvedValue(DONE);
+  vi.mocked(adjustLampsTemperature).mockReturnValue(DONE);
   const actions = [
     new BrightnessUpAction(),
     new BrightnessDownAction(),
@@ -190,14 +183,8 @@ describe("the step keys", () => {
     it("on every key, whichever key or dial changed the lamps, from one read per action", async () => {
       const keys = [await deck.key(BRIGHTNESS_UP), await deck.key(BRIGHTNESS_UP), await deck.key(TEMPERATURE_UP)];
       clearCalls();
-      vi.mocked(readLampsBrightness).mockResolvedValue({
-        ...LAMPS,
-        brightnessPercentages: [40, 50],
-      });
-      vi.mocked(readLampsTemperature).mockResolvedValue({
-        ...LAMPS,
-        representativeTemperatureKelvin: 3300,
-      });
+      vi.mocked(readLampsBrightness).mockResolvedValue([40, 50]);
+      vi.mocked(readLampsTemperature).mockResolvedValue({ kelvin: 3300, percentage: 16 });
 
       await lampsChanged();
 
@@ -206,18 +193,9 @@ describe("the step keys", () => {
       expect(readLampsTemperature).toHaveBeenCalledOnce();
     });
 
-    it("from the lamps that could be read, when one can't be", async () => {
-      const key = await deck.key(BRIGHTNESS_DOWN);
-      vi.mocked(readLampsBrightness).mockResolvedValue({ ...FAILED, brightnessPercentages: [63] });
-
-      await lampsChanged();
-
-      expect(titleOf(key)).toBe("63%");
-    });
-
-    it("as a dash when no lamp can be read", async () => {
-      vi.mocked(readLampsBrightness).mockResolvedValue(NO_LAMP);
-      vi.mocked(readLampsTemperature).mockResolvedValue(NO_LAMP);
+    it("as a dash when none of their lamps is connected", async () => {
+      vi.mocked(readLampsBrightness).mockResolvedValue([]);
+      vi.mocked(readLampsTemperature).mockResolvedValue(undefined);
       const brightnessKey = await deck.key(BRIGHTNESS_UP);
       const temperatureKey = await deck.key(TEMPERATURE_UP);
 
@@ -329,10 +307,9 @@ describe("the step keys", () => {
       const onSecond = await deck.key(BRIGHTNESS_UP, { lamps: [LAMP_2] });
       clearCalls();
       // Lamp 1 at 63%, lamp 2 at 79%.
-      vi.mocked(readLampsBrightness).mockImplementation(async (lamps) => ({
-        ...LAMPS,
-        brightnessPercentages: Array.isArray(lamps) ? lamps.map((id) => (id === LAMP_1 ? 63 : 79)) : [63, 79],
-      }));
+      vi.mocked(readLampsBrightness).mockImplementation(async (lamps) =>
+        Array.isArray(lamps) ? lamps.map((id) => (id === LAMP_1 ? 63 : 79)) : [63, 79],
+      );
 
       await lampsChanged();
 
@@ -343,7 +320,7 @@ describe("the step keys", () => {
     it("shows what the key's new lamps are at once they're changed on the settings page", async () => {
       const key = await deck.key(TEMPERATURE_UP);
       clearCalls();
-      vi.mocked(readLampsTemperature).mockResolvedValue({ ...LAMPS, representativeTemperatureKelvin: 6500 });
+      vi.mocked(readLampsTemperature).mockResolvedValue({ kelvin: 6500, percentage: 100 });
 
       await deck.changeSettings(key, { lamps: [LAMP_2] });
 

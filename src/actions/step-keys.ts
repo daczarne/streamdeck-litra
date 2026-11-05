@@ -11,9 +11,9 @@ import { globalSettings } from "../global-settings";
 import {
   adjustLampsBrightness,
   adjustLampsTemperature,
-  type BroadcastResult,
   createDialDebouncer,
   type LampSelection,
+  type OperationResult,
   onLampsChanged,
   readLampsBrightness,
   readLampsTemperature,
@@ -41,7 +41,7 @@ type Stepped = {
     ticks: number,
     step: number,
     stepping: Stepping,
-  ) => BroadcastResult | Promise<BroadcastResult>;
+  ) => OperationResult | Promise<OperationResult>;
   readTitle: (lamps: LampSelection) => Promise<string>;
 };
 
@@ -52,7 +52,7 @@ const BRIGHTNESS: Stepped = {
   unit: "%",
   adjust: adjustLampsBrightness,
   readTitle: async (lamps) => {
-    const levels = (await readLampsBrightness(lamps)).brightnessPercentages ?? [];
+    const levels = await readLampsBrightness(lamps);
     return levels.length === 0 ? "—" : `${Math.round(Math.max(...levels))}%`;
   },
 };
@@ -64,7 +64,7 @@ const TEMPERATURE: Stepped = {
   unit: " K",
   adjust: adjustLampsTemperature,
   readTitle: async (lamps) => {
-    const kelvin = (await readLampsTemperature(lamps)).representativeTemperatureKelvin;
+    const kelvin = (await readLampsTemperature(lamps))?.kelvin;
     return kelvin === undefined ? "—" : `${Math.round(kelvin)}`;
   },
 };

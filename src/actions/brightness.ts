@@ -181,7 +181,7 @@ export class BrightnessAction extends SingletonAction {
       return;
     }
 
-    await this.showDialValue(action, (await readLampsBrightness("all")).brightnessPercentages);
+    await this.showDialValue(action, await readLampsBrightness("all"));
   }
 
   /** Writes the preset as the key's title, which the user can replace or hide. */
@@ -198,7 +198,7 @@ export class BrightnessAction extends SingletonAction {
     if (dials.length === 0) {
       return;
     }
-    const { brightnessPercentages } = await readLampsBrightness("all");
+    const brightnessPercentages = await readLampsBrightness("all");
     for (const dial of dials) {
       await this.showDialValue(dial, brightnessPercentages);
     }
