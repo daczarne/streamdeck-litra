@@ -402,6 +402,21 @@
     return picker;
   }
 
+  /**
+   * Shows a color in a color picker from sdpi-components, as well as giving it the color. The picker draws its color as
+   * its input's `defaultValue`, which an input the user already changed no longer shows, so a color a script gives it,
+   * such as a Reset's, would be saved, but the picker would go on showing the user's.
+   * @param {HTMLElement} picker The `sdpi-color`.
+   * @param {string | null} color The color to show.
+   * @returns {void}
+   */
+  function showColor(picker, color) {
+    const input = picker.shadowRoot?.querySelector('input[type="color"]');
+    if (input instanceof HTMLInputElement && color !== null) {
+      input.value = color;
+    }
+  }
+
   /** A list from sdpi-components that reads and saves a global setting itself, with its options as [value, text]. */
   function globalSelect(setting, options, fallback) {
     const select = document.createElement("sdpi-select");
@@ -551,6 +566,7 @@
       for (const control of controls) {
         control.value = control.getAttribute("default");
       }
+      showColor(colorPicker, colorPicker.getAttribute("default"));
     });
     reset.className = "fields-reset";
     reset.dataset.style = setting;

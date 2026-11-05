@@ -928,6 +928,37 @@ describe("settings pages", () => {
     },
   );
 
+  it("a text style's Reset shows the default color in its picker, after the user picked another (#153)", async () => {
+    const { page, uuid } = await openPanel(at(PANELS, 0));
+    await page.evaluate(`SDPIComponents.useGlobalSettings("lampScreenPrimaryColor")[0]()`);
+    await clickInPluginSettings(page, "Plugin settings");
+    const shownColor = () =>
+      page.evaluate(`(async () => {
+        const host = document.querySelector('sdpi-color[setting="lampScreenPrimaryColor"]');
+        await host.updateComplete;
+        return host.shadowRoot.querySelector('input[type="color"]').value;
+      })()`);
+    // A color picked as the user picks one, which leaves the input changed.
+    await page.evaluate(`(async () => {
+      const host = document.querySelector('sdpi-color[setting="lampScreenPrimaryColor"]');
+      await host.updateComplete;
+      const input = host.shadowRoot.querySelector('input[type="color"]');
+      input.value = "#ff8800";
+      input.dispatchEvent(new Event("change", { bubbles: true, composed: true }));
+    })()`);
+    await streamDeck.waitFor((m) => m.event === "setGlobalSettings" && m.context === uuid);
+
+    await page.evaluate(`(async () => {
+      const host = document.querySelector('sdpi-button[data-style="lampScreenPrimary"]');
+      await host.updateComplete;
+      host.shadowRoot.querySelector("button").click();
+    })()`);
+
+    await expect.poll(shownColor).toBe(TEXT_STYLES.lampScreenPrimary.color);
+    await page.close();
+    streamDeck.globalSettings = {};
+  });
+
   // The editor of each cell's options, which Configure shows in place of the plugin settings (#177).
   describe("the lamp screens' cell editor in the plugin settings on ui/power.html", () => {
     const panel = at(PANELS, 0);
