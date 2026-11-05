@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, inject, it, vi } from "vitest";
 
-import type { Device } from "./device";
 import { lampId } from "./lamp-identity";
 import type { BroadcastResult, SceneGroup } from "./litra-manager";
 import { at } from "./test-support/at";
@@ -367,19 +366,22 @@ describe("createDialDebouncer", () => {
 
 //* Broadcasting to lamps
 
-describe("forEachDevice", () => {
+/** A lamp an operation reached, as {@link manager.forEachLamp} gives it to each step. */
+type Reached = Parameters<Parameters<typeof import("./litra-manager").forEachLamp>[1]>[0];
+
+describe("forEachLamp", () => {
   /** An operation that fails on one lamp, by its serial number, as a lamp failing mid-operation would. */
   function failingOn(lamp: EmulatedLitra) {
-    return vi.fn((device: Device) => {
-      if (device.serialNumber === lamp.serialNumber) {
+    return vi.fn((reached: Reached) => {
+      if (reached.lamp.serialNumber === lamp.serialNumber) {
         throw new Error("HID write failed");
       }
     });
   }
 
   /** The serial numbers of the lamps an operation ran on, in order. */
-  function ranOn(operation: ReturnType<typeof vi.fn>): string[] {
-    return operation.mock.calls.map(([device]) => (device as Device).serialNumber);
+  function ranOn(operation: ReturnType<typeof vi.fn>): (string | undefined)[] {
+    return operation.mock.calls.map(([reached]) => (reached as Reached).lamp.serialNumber);
   }
 
   it("goes through the lamps in the order of their serial numbers, whatever order they're found in", () => {
@@ -387,7 +389,7 @@ describe("forEachDevice", () => {
     connect(later, earlier);
     const operation = vi.fn();
 
-    manager.forEachDevice("test", operation, "all");
+    manager.forEachLamp("test", operation, "all");
 
     expect(ranOn(operation)).toEqual([earlier.serialNumber, later.serialNumber]);
   });
@@ -400,7 +402,7 @@ describe("forEachDevice", () => {
     connect(startsEarlier, endsEarlier);
     const operation = vi.fn();
 
-    manager.forEachDevice("test", operation, "all");
+    manager.forEachLamp("test", operation, "all");
 
     expect(ranOn(operation)).toEqual([endsEarlier.serialNumber, startsEarlier.serialNumber]);
   });
@@ -410,7 +412,7 @@ describe("forEachDevice", () => {
     connect(later, earlier);
     const operation = vi.fn();
 
-    manager.forEachDevice("test", operation, "all");
+    manager.forEachLamp("test", operation, "all");
 
     expect(ranOn(operation)).toEqual([earlier.serialNumber, later.serialNumber]);
   });
@@ -418,7 +420,7 @@ describe("forEachDevice", () => {
   it("fails without running the operation when no lamp is connected", () => {
     const operation = vi.fn();
 
-    expect(manager.forEachDevice("test", operation, "all")).toEqual({ ok: false, deviceCount: 0, failures: 1 });
+    expect(manager.forEachLamp("test", operation, "all")).toEqual({ ok: false, deviceCount: 0, failures: 1 });
     expect(operation).not.toHaveBeenCalled();
   });
 
@@ -427,7 +429,7 @@ describe("forEachDevice", () => {
     hid.failFindingLamps(new Error("HID enumeration failed"));
     const operation = vi.fn();
 
-    expect(manager.forEachDevice("test", operation, "all")).toEqual({ ok: false, deviceCount: 0, failures: 1 });
+    expect(manager.forEachLamp("test", operation, "all")).toEqual({ ok: false, deviceCount: 0, failures: 1 });
     expect(operation).not.toHaveBeenCalled();
   });
 
@@ -436,7 +438,7 @@ describe("forEachDevice", () => {
     connect(first, second);
     const operation = vi.fn();
 
-    expect(manager.forEachDevice("test", operation, "all")).toEqual({ ok: true, deviceCount: 2, failures: 0 });
+    expect(manager.forEachLamp("test", operation, "all")).toEqual({ ok: true, deviceCount: 2, failures: 0 });
     expect(ranOn(operation)).toEqual([first.serialNumber, second.serialNumber]);
   });
 
@@ -445,25 +447,17 @@ describe("forEachDevice", () => {
     connect(first, second);
     const operation = failingOn(first);
 
-    expect(manager.forEachDevice("test", operation, "all")).toEqual({ ok: false, deviceCount: 2, failures: 1 });
+    expect(manager.forEachLamp("test", operation, "all")).toEqual({ ok: false, deviceCount: 2, failures: 1 });
     expect(ranOn(operation)).toEqual([first.serialNumber, second.serialNumber]);
   });
 
-  it("closes every lamp's handle after its operation, including a failed one", () => {
+  it("closes every lamp's handle once the operation is done, a failed one's included", () => {
     const [first, second] = [newLamp(), newLamp()];
     connect(first, second);
-    // Where the calls on the lamps had got to when the operation ran on each lamp.
-    const reached: number[] = [];
-    const failing = failingOn(first);
-    const operation = vi.fn((device: Device) => {
-      reached.push(hid.hidEvents().length);
-      failing(device);
-    });
 
-    manager.forEachDevice("test", operation, "all");
+    manager.forEachLamp("test", failingOn(first), "all");
 
     expect([closes(first), closes(second)]).toEqual([1, 1]);
-    expect(at(positions(first, "close"), 0)).toBeLessThan(at(reached, 1));
   });
 
   it("ignores a handle that fails to close", () => {
@@ -472,7 +466,7 @@ describe("forEachDevice", () => {
     connect(first, second);
     const operation = vi.fn();
 
-    expect(manager.forEachDevice("test", operation, "all")).toEqual({ ok: true, deviceCount: 2, failures: 0 });
+    expect(manager.forEachLamp("test", operation, "all")).toEqual({ ok: true, deviceCount: 2, failures: 0 });
     expect(ranOn(operation)).toEqual([first.serialNumber, second.serialNumber]);
   });
 });
@@ -483,12 +477,14 @@ describe("a selection of lamps (#20)", () => {
     connect(other, selected);
     const operation = vi.fn();
 
-    expect(manager.forEachDevice("test", operation, [lampId(selected.serialNumber)])).toEqual({
+    expect(manager.forEachLamp("test", operation, [lampId(selected.serialNumber)])).toEqual({
       ok: true,
       deviceCount: 1,
       failures: 0,
     });
-    expect(operation.mock.calls.map(([device]) => (device as Device).serialNumber)).toEqual([selected.serialNumber]);
+    expect(operation.mock.calls.map(([reached]) => (reached as Reached).lamp.serialNumber)).toEqual([
+      selected.serialNumber,
+    ]);
     expect([closes(selected), closes(other)]).toEqual([1, 1]);
     expect(asked(other)).toEqual([]);
   });

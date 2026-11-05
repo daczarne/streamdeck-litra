@@ -6,7 +6,6 @@ import {
   identityOf,
   type LampHandle,
   logLabelOf,
-  plugPath,
   readSerialNumber,
 } from "./device";
 
@@ -123,26 +122,6 @@ function lampOf(device: Device): Lamp {
   return lamp;
 }
 
-/** The lamps an operation has reached, with the handle each was lent, by the device the operation opened. */
-const reached = new WeakMap<Device, { lamp: Lamp; handle: LampHandle }>();
-
-/**
- * The `Lamp` of a lamp an operation opened, with the handle it acts on its lamp through, once it has reached the lamp,
- * which reads it the first time, and at another path (#198). An operation reaches each lamp once, however many times it
- * goes through it, and a lamp that can't be read when it's reached fails the operation's part for it.
- */
-function reach(operation: string, device: Device): { lamp: Lamp; handle: LampHandle } {
-  let lent = reached.get(device);
-  if (lent === undefined) {
-    const lamp = lampOf(device);
-    const handle = handleOf(device);
-    lamp.reach(operation, handle);
-    lent = { lamp, handle };
-    reached.set(device, lent);
-  }
-  return lent;
-}
-
 /**
  * Registers a listener called after every operation that writes to the lamps, whichever action asked for it, so that
  * everything the Deck shows about the lamps can follow (#57). A brightness change calls it once it has settled and left
@@ -200,11 +179,6 @@ function hasSerialNumber(operation: string, device: Device): boolean {
     closeDevice(device);
     return false;
   }
-}
-
-/** The lumens to send a lamp: the ones asked for, or its cap if it has a lower one. */
-function withinCap(operation: string, device: Device, lumen: number): number {
-  return lampOf(device).withinBrightnessCap(operation, plugPath(device), lumen);
 }
 
 /**
@@ -309,27 +283,17 @@ function selects(lamps: LampSelection, id: string): boolean {
  */
 type Opened<T> = { devices: T; unidentified: number };
 
-/**
- * Opens the lamps an operation acts on, named in the logs: every connected lamp the plugin knows, the selected ones, or
- * every one but the left out ones, closing the others. A selected lamp that isn't known or connected is logged, and so
- * is a selection of none, or every lamp left out. Opens none when no lamp is selected or connected, none of the
- * selected ones is, every one is left out, or finding them fails.
- */
-function openDevices(operation: string, lamps: LampSelection): Opened<Device[]> {
-  const { devices, unidentified } = openGroups(operation, [{ lamps }]);
-  return { devices: [...devices.keys()], unidentified };
-}
-
 /** Opens every connected lamp, the ones the plugin doesn't know included, to find them. */
 function openEveryDevice(operation: string): Device[] {
   return [...openGroups(operation, [{ lamps: "all" }], { onlyKnown: false }).devices.keys()];
 }
 
 /**
- * Opens the lamps of several groups, as {@link openDevices} opens one group's, each with the first group that selects
- * it, so a lamp two groups select takes the first one's part. A selection of none is logged only when every group
- * selects none, since a group may lose its lamps to another. A connected lamp the plugin doesn't know is closed unused,
- * unless `onlyKnown` is false.
+ * Opens the lamps an operation acts on, named in the logs, for each of its groups: every connected lamp the plugin
+ * knows, the selected ones, or every one but the left out ones, closing the others, each lamp with the first group that
+ * selects it, so a lamp two groups select takes the first one's part. A selection of none is logged only when every
+ * group selects none, since a group may lose its lamps to another. A connected lamp the plugin doesn't know is closed
+ * unused, unless `onlyKnown` is false.
  *
  * A lamp whose serial number can't be read is left out, since it can't be told from another (#170), but counted, when
  * a group takes in every lamp, or every lamp but some, which it could be one of: a Beam that fails counts as a failed
@@ -494,29 +458,109 @@ function outcome(deviceCount: number, failures: number, unidentified: number): B
   return { ok: failed === 0, deviceCount: deviceCount + unidentified, failures: failed };
 }
 
-/**
- * Open the selected devices, run fn per device, always close handles. Zero devices = failure. The operation names the
- * call in the logs, and fn logs what it did to each lamp.
- */
-export function forEachDevice(operation: string, fn: (device: Device) => void, lamps: LampSelection): BroadcastResult {
-  const { devices, unidentified } = openDevices(operation, lamps);
-  if (devices.length === 0) {
-    return { ok: false, deviceCount: 0, failures: 1 };
-  }
+/** What an operation that opened no lamp did: it failed. */
+const NO_LAMP: BroadcastResult = { ok: false, deviceCount: 0, failures: 1 };
 
-  let failures = 0;
-  for (const device of devices) {
+/** A lamp an operation opened and reached: its `Lamp`, the handle it acts on its lamp through, and its group. */
+type ReachedLamp<G> = { readonly lamp: Lamp; readonly handle: LampHandle; readonly group: G };
+
+/** The lamps an operation opened, as {@link openLamps} gives them. */
+type OpenedLamps<G> = {
+  /** The lamps it reached, in the order of their serial numbers, each with its group. */
+  readonly lamps: readonly ReachedLamp<G>[];
+  /** How many lamps the operation's selection could take in that it couldn't tell apart (see {@link openGroups}). */
+  readonly unidentified: number;
+  /** How many lamps failed so far, the ones that couldn't be reached included. */
+  readonly failures: number;
+  /** Runs a step on a lamp, unless it failed already, and counts and logs it once when it fails. */
+  attempt(lamp: Lamp, step: () => void): void;
+  /** Counts and logs a lamp's failure, once. */
+  fail(lamp: Lamp, error: unknown): void;
+  /** What the operation did. */
+  outcome(): BroadcastResult;
+  /** Closes every lamp the operation opened, which it always does once it's done. */
+  close(): void;
+};
+
+/**
+ * Opens the lamps of an operation's groups, as {@link openGroups} does, and reaches each one, lending its `Lamp` a
+ * handle, which reads the lamp the first time, and at another path (#198). A lamp that can't be reached counts as
+ * failed, and is left out of the lamps the operation goes through. Gives undefined when it opens no lamp, which fails
+ * the operation. The operation closes them once it's done.
+ */
+function openLamps<G extends { readonly lamps: LampSelection }>(
+  operation: string,
+  groups: readonly G[],
+): OpenedLamps<G> | undefined {
+  const { devices, unidentified } = openGroups(operation, groups);
+  if (devices.size === 0) {
+    return undefined;
+  }
+  const failed = new Set<Lamp>();
+  const fail = (lamp: Lamp, error: unknown): void => {
+    if (!failed.has(lamp)) {
+      failed.add(lamp);
+      logger.error(`${operation}: ${lamp.logLabel} failed: ${String(error)}`);
+    }
+  };
+  const lamps: ReachedLamp<G>[] = [];
+  for (const [device, group] of devices) {
+    const lamp = lampOf(device);
     try {
-      fn(device);
+      const handle = handleOf(device);
+      lamp.reach(operation, handle);
+      lamps.push({ lamp, handle, group });
     } catch (error) {
-      failures += 1;
-      logLampFailure(operation, device, error);
-    } finally {
-      closeDevice(device);
+      fail(lamp, error);
     }
   }
+  return {
+    lamps,
+    unidentified,
+    get failures() {
+      return failed.size;
+    },
+    attempt(lamp, step) {
+      if (failed.has(lamp)) {
+        return;
+      }
+      try {
+        step();
+      } catch (error) {
+        fail(lamp, error);
+      }
+    },
+    fail,
+    outcome: () => outcome(devices.size, failed.size, unidentified),
+    close() {
+      for (const device of devices.keys()) {
+        closeDevice(device);
+      }
+    },
+  };
+}
 
-  return outcome(devices.length, failures, unidentified);
+/**
+ * Opens the selected lamps, reaches them, runs `step` on each, and closes them. A lamp whose step fails is logged, and
+ * the others go on. Opening none fails. The operation names the call in the logs, and the `Lamp`s log what they did.
+ */
+export function forEachLamp(
+  operation: string,
+  step: (reached: ReachedLamp<{ lamps: LampSelection }>) => void,
+  lamps: LampSelection,
+): BroadcastResult {
+  const opened = openLamps(operation, [{ lamps }]);
+  if (opened === undefined) {
+    return NO_LAMP;
+  }
+  try {
+    for (const reached of opened.lamps) {
+      opened.attempt(reached.lamp, () => step(reached));
+    }
+    return opened.outcome();
+  } finally {
+    opened.close();
+  }
 }
 
 /**
@@ -524,92 +568,41 @@ export function forEachDevice(operation: string, fn: (device: Device) => void, l
  * holds the lamps as they are before any key or dial changes them. Tells every key and dial once they're read.
  */
 export function reachEveryLamp(): BroadcastResult {
-  const operation = "start";
-  return announced(
-    forEachDevice(
-      operation,
-      (device) => {
-        reach(operation, device);
-      },
-      "all",
-    ),
-  );
+  return announced(forEachLamp("start", () => {}, "all"));
 }
 
 /** Turns the selected lamps on. */
 export function turnLampsOn(lamps: LampSelection): BroadcastResult {
   const operation = "turn on";
-  return announced(
-    forEachDevice(
-      operation,
-      (device) => {
-        const { lamp, handle } = reach(operation, device);
-        lamp.setPower(operation, handle, true);
-      },
-      lamps,
-    ),
-  );
+  return announced(forEachLamp(operation, ({ lamp, handle }) => lamp.setPower(operation, handle, true), lamps));
 }
 
 /** Turns the selected lamps off. */
 export function turnLampsOff(lamps: LampSelection): BroadcastResult {
   const operation = "turn off";
-  return announced(
-    forEachDevice(
-      operation,
-      (device) => {
-        const { lamp, handle } = reach(operation, device);
-        lamp.setPower(operation, handle, false);
-      },
-      lamps,
-    ),
-  );
+  return announced(forEachLamp(operation, ({ lamp, handle }) => lamp.setPower(operation, handle, false), lamps));
 }
 
 /**
- * Turns the selected lamps off if every one is on, and on otherwise, so lamps out of sync end up in sync (#23). That's
- * the opposite of what {@link areLampsOn} reports, which the Power key shows. A lamp that can't be read counts as off,
- * as in {@link areLampsOn}, and is still sent the command.
+ * Turns the selected lamps off if every one is on, as the plugin holds them, and on otherwise, so lamps out of sync end
+ * up in sync (#23). That's the opposite of what {@link areLampsOn} reports, which the Power key shows. A lamp that
+ * couldn't be reached, or told apart, counts as off.
  */
 export function toggleLamps(lamps: LampSelection): BroadcastResult {
   const operation = "toggle";
-  const { devices, unidentified } = openDevices(operation, lamps);
-  if (devices.length === 0) {
-    return announced({ ok: false, deviceCount: 0, failures: 1 });
+  const opened = openLamps(operation, [{ lamps }]);
+  if (opened === undefined) {
+    return announced(NO_LAMP);
   }
-
-  // A lamp that fails both stages is counted once.
-  const failed = new Set<Device>();
-  const attempt = <T>(device: Device, fn: () => T, fallback: T): T => {
-    try {
-      return fn();
-    } catch (error) {
-      failed.add(device);
-      logLampFailure(operation, device, error);
-      return fallback;
-    }
-  };
-
   try {
-    // A lamp that couldn't be told apart couldn't be read either, so it counts as off.
     const allOn =
-      devices.map((device) => attempt(device, () => stateOf(reach(operation, device).lamp).on, false)).every(Boolean) &&
-      unidentified === 0;
-    for (const device of devices) {
-      attempt(
-        device,
-        () => {
-          const { lamp, handle } = reach(operation, device);
-          lamp.setPower(operation, handle, !allOn);
-        },
-        undefined,
-      );
+      opened.lamps.every(({ lamp }) => stateOf(lamp).on) && opened.failures === 0 && opened.unidentified === 0;
+    for (const { lamp, handle } of opened.lamps) {
+      opened.attempt(lamp, () => lamp.setPower(operation, handle, !allOn));
     }
-    return announced(outcome(devices.length, failed.size, unidentified));
+    return announced(opened.outcome());
   } finally {
-    for (const device of devices) {
-      closeDevice(device);
-    }
+    opened.close();
   }
 }
 
@@ -627,9 +620,8 @@ export async function areLampsOn(lamps: LampSelection): Promise<{ ok: boolean; a
   };
 }
 
-/** Ensure the device is powered on before a brightness change is visible. */
-function ensureOn(operation: string, device: Device): void {
-  const { lamp, handle } = reach(operation, device);
+/** Ensures a lamp is on before a brightness change, which only shows on a lit lamp. */
+function ensureOn(operation: string, { lamp, handle }: ReachedLamp<unknown>): void {
   if (!stateOf(lamp).on) {
     lamp.setPower(operation, handle, true);
   }
@@ -690,26 +682,6 @@ function oneBrightnessChangeAtATime(change: () => Promise<BroadcastResult>): Pro
 }
 
 /**
- * Runs an operation's stages on each lamp: a lamp that fails one stage is logged, left out of the next ones and counted
- * once in `failed`.
- */
-function inStages(operation: string): { failed: Set<Device>; attempt: (device: Device, fn: () => void) => void } {
-  const failed = new Set<Device>();
-  const attempt = (device: Device, fn: () => void): void => {
-    if (failed.has(device)) {
-      return;
-    }
-    try {
-      fn();
-    } catch (error) {
-      failed.add(device);
-      logLampFailure(operation, device, error);
-    }
-  };
-  return { failed, attempt };
-}
-
-/**
  * Waits, right after a lamp's cap was learned, until no lamp can go back to its cap (see
  * {@link Lamp.brightnessCapReversalEndsAt}), so a change that asks for less isn't undone.
  */
@@ -730,9 +702,9 @@ async function waitForCapReversal(operation: string): Promise<void> {
  */
 async function sendBrightness(
   operation: string,
-  targets: Map<Device, number>,
-  asked: Map<Device, number>,
-  attempt: (device: Device, fn: () => void) => void,
+  targets: ReadonlyMap<ReachedLamp<unknown>, number>,
+  asked: ReadonlyMap<Lamp, number>,
+  attempt: (lamp: Lamp, step: () => void) => void,
   settleMs: number,
 ): Promise<
   Pick<
@@ -740,13 +712,13 @@ async function sendBrightness(
     "representativeBrightnessPercentage" | "representativeBrightnessLumen" | "brightnessPercentages"
   >
 > {
-  const sent = new Map<Device, number>();
+  const sent = new Map<ReachedLamp<unknown>, number>();
   const sentAt = Date.now();
   if (targets.size > 0) {
-    for (const [device, pct] of targets) {
-      attempt(device, () => {
-        const { lamp, handle } = reach(operation, device);
-        sent.set(device, lamp.sendBrightness(operation, handle, lamp.lumenAt(pct)));
+    for (const [reached, pct] of targets) {
+      const { lamp, handle } = reached;
+      attempt(lamp, () => {
+        sent.set(reached, lamp.sendBrightness(operation, handle, lamp.lumenAt(pct)));
       });
     }
     await new Promise((resolve) => setTimeout(resolve, settleMs));
@@ -755,13 +727,12 @@ async function sendBrightness(
   let representative: number | undefined;
   let representativeLumen: number | undefined;
   const percentages: number[] = [];
-  for (const [device, lumen] of sent) {
-    attempt(device, () => {
-      const { lamp, handle } = reach(operation, device);
+  for (const [{ lamp, handle }, lumen] of sent) {
+    attempt(lamp, () => {
       const lumenReached = lamp.readBackBrightness(operation, handle, lumen, sentAt);
       const pct = lamp.brightnessPercentage(lumenReached);
       // A lamp kept apart takes what it was asked for, which any other change forgets.
-      lamp.brightnessAsked = asked.get(device);
+      lamp.brightnessAsked = asked.get(lamp);
       percentages.push(pct);
       if (representative === undefined || pct > representative) {
         representative = pct;
@@ -788,42 +759,37 @@ async function setScene(groups: readonly SceneGroup[], settleMs: number): Promis
   const operation = "set scene";
   await waitForCapReversal(operation);
 
-  const { devices, unidentified } = openGroups(operation, groups);
-  if (devices.size === 0) {
-    return { ok: false, deviceCount: 0, failures: 1 };
+  const opened = openLamps(operation, groups);
+  if (opened === undefined) {
+    return NO_LAMP;
   }
-
-  const { failed, attempt } = inStages(operation);
-
   try {
-    const targets = new Map<Device, number>();
-    for (const [device, group] of devices) {
-      attempt(device, () => {
+    const targets = new Map<ReachedLamp<unknown>, number>();
+    for (const reached of opened.lamps) {
+      const { lamp, handle, group } = reached;
+      opened.attempt(lamp, () => {
         if (!group.on) {
-          const { lamp, handle } = reach(operation, device);
           lamp.setPower(operation, handle, false);
           return;
         }
-        ensureOn(operation, device);
-        setSnappedTemperature(operation, device, group.kelvin);
-        targets.set(device, Math.max(0, Math.min(100, group.percentage)));
+        ensureOn(operation, reached);
+        setSnappedTemperature(operation, reached, group.kelvin);
+        targets.set(reached, Math.max(0, Math.min(100, group.percentage)));
       });
     }
-    const brightness = await sendBrightness(operation, targets, new Map(), attempt, settleMs);
-    return { ...outcome(devices.size, failed.size, unidentified), ...brightness };
+    const brightness = await sendBrightness(operation, targets, new Map(), opened.attempt, settleMs);
+    return { ...opened.outcome(), ...brightness };
   } finally {
-    for (const device of devices.keys()) {
-      closeDevice(device);
-    }
+    opened.close();
   }
 }
 
 /**
  * Moves the selected lamps to their target and reports the brightest once they've settled. The target is a percentage,
- * or a step from the brightest selected lamp's percentage or from each lamp's own, which are then read first. Each
- * lamp is sent the target as {@link sendBrightness} sends it, caps included. Right after a lamp's cap is learned, the
- * next change waits until the lamp can no longer go back to its cap. The lamps stay open from the first read to the
- * last, so calls mustn't overlap: they go through {@link oneBrightnessChangeAtATime}.
+ * or a step from the brightest selected lamp's percentage or from each lamp's own, as the plugin holds them. Each lamp
+ * is sent the target as {@link sendBrightness} sends it, caps included. Right after a lamp's cap is learned, the next
+ * change waits until the lamp can no longer go back to its cap. The lamps stay open from the first step to the last,
+ * so calls mustn't overlap: they go through {@link oneBrightnessChangeAtATime}.
  */
 async function moveLampsBrightness(
   operation: string,
@@ -833,68 +799,61 @@ async function moveLampsBrightness(
 ): Promise<BroadcastResult> {
   await waitForCapReversal(operation);
 
-  const { devices, unidentified } = openDevices(operation, lamps);
-  if (devices.length === 0) {
-    return { ok: false, deviceCount: 0, failures: 1 };
+  const opened = openLamps(operation, [{ lamps }]);
+  if (opened === undefined) {
+    return NO_LAMP;
   }
-
-  const { failed, attempt } = inStages(operation);
-
   try {
-    // Each lamp's brightness in lumens before the change, read only when the target steps from it.
-    const before = new Map<Device, number>();
-    for (const device of devices) {
-      attempt(device, () => {
-        ensureOn(operation, device);
-        if (typeof target !== "number") {
-          before.set(device, stateOf(reach(operation, device).lamp).lumen);
-        }
+    // The lamps turned on, ready for their brightness, each with its brightness in lumens before the change.
+    const before = new Map<ReachedLamp<unknown>, number>();
+    for (const reached of opened.lamps) {
+      opened.attempt(reached.lamp, () => {
+        ensureOn(operation, reached);
+        before.set(reached, stateOf(reached.lamp).lumen);
       });
     }
 
-    // The percentage to send each lamp. A lamp that couldn't be read gets none when the target steps, and when none
-    // could, nothing is sent. Lamps kept apart also get what they're asked for.
-    const targets = new Map<Device, number>();
-    const asked = new Map<Device, number>();
+    // The percentage to send each lamp. Lamps kept apart also get what they're asked for.
+    const targets = new Map<ReachedLamp<unknown>, number>();
+    const asked = new Map<Lamp, number>();
     const clamp = (percentage: number): number => Math.max(0, Math.min(100, percentage));
     if (typeof target === "number") {
-      for (const device of devices) {
-        targets.set(device, clamp(target));
+      for (const reached of before.keys()) {
+        targets.set(reached, clamp(target));
       }
     } else if (target.stepping === "together") {
-      const levels = [...before].map(([device, lumen]) => lampOf(device).brightnessPercentage(lumen));
+      const levels = [...before].map(([{ lamp }, lumen]) => lamp.brightnessPercentage(lumen));
       if (levels.length > 0) {
         const stepped = stepOnGrid(Math.max(...levels), target.ticks, target.step, 0, 100);
-        for (const device of devices) {
-          targets.set(device, stepped);
+        for (const reached of before.keys()) {
+          targets.set(reached, stepped);
         }
       }
     } else {
-      const apart = [...before].map(([device, lumen]) => {
-        const lamp = lampOf(device);
+      const apart = [...before].map(([reached, lumen]) => {
+        const { lamp, handle } = reached;
         return {
-          device,
+          reached,
           asked: lamp.brightnessAsked ?? lamp.brightnessPercentage(lumen),
           value: lumen,
-          reach: (percentage: number) => withinCap(operation, device, lamp.lumenAt(clamp(percentage))),
+          reach: (percentage: number) =>
+            lamp.withinBrightnessCap(operation, handle.path, lamp.lumenAt(clamp(percentage))),
           origin: 0,
           span: 100,
         };
       });
       const stepped = stepApart(apart, target.ticks, target.step);
-      apart.forEach(({ device }, index) => {
+      apart.forEach(({ reached }, index) => {
         const percentage = stepped[index] ?? 0;
-        asked.set(device, percentage);
-        targets.set(device, clamp(percentage));
+        asked.set(reached.lamp, percentage);
+        targets.set(reached, clamp(percentage));
       });
     }
 
-    const brightness = await sendBrightness(operation, targets, asked, attempt, settleMs);
-    return { ...outcome(devices.length, failed.size, unidentified), ...brightness };
+    const brightness = await sendBrightness(operation, targets, asked, opened.attempt, settleMs);
+    return { ...opened.outcome(), ...brightness };
   } finally {
-    for (const device of devices) {
-      closeDevice(device);
-    }
+    opened.close();
   }
 }
 
@@ -928,13 +887,7 @@ export async function readLampsBrightness(lamps: LampSelection): Promise<Broadca
 export async function readLampStatuses(): Promise<{ ok: boolean; lamps: LampStatus[] }> {
   await brightnessChanges;
   const operation = "read lamp status";
-  const result = forEachDevice(
-    operation,
-    (device) => {
-      reach(operation, device);
-    },
-    "all",
-  );
+  const result = forEachLamp(operation, () => {}, "all");
   const lamps = heldLamps("all").map(({ lamp, state, serialNumber }) => ({
     id: lamp.id,
     serialNumber,
@@ -969,38 +922,35 @@ export function findLamps(): FoundLamp[] {
 }
 
 /**
- * Blinks one lamp, by its id, so the user can tell which one it is (#48): switches it off and back on, or on and back
- * off when it's off, `blinkMs` later (#171). A blink writes no brightness, so it shows at any brightness and leaves
+ * Blinks one lamp, by its id, so the user can tell which one it is (#48): switches it the other way from the power the
+ * plugin holds, and back `blinkMs` later (#171). A blink writes no brightness, so it shows at any brightness and leaves
  * learned caps alone, and the lamp ends as it started. Fails when the lamp isn't connected.
  */
 export function identifyLamp(id: string, blinkMs: number): Promise<BroadcastResult> {
   return oneBrightnessChangeAtATime(async () => {
     const operation = "identify";
-    const { devices } = openDevices(operation, [id]);
+    const opened = openLamps(operation, [{ lamps: [id] }]);
+    if (opened === undefined) {
+      return NO_LAMP;
+    }
     try {
-      const device = devices[0];
-      if (device === undefined) {
-        return { ok: false, deviceCount: 0, failures: 1 };
+      const reached = opened.lamps[0];
+      if (reached !== undefined) {
+        try {
+          await reached.lamp.blink(operation, reached.handle, blinkMs);
+        } catch (error) {
+          opened.fail(reached.lamp, error);
+        }
       }
-      try {
-        const { lamp, handle } = reach(operation, device);
-        await lamp.blink(operation, handle, blinkMs);
-        return { ok: true, deviceCount: 1, failures: 0 };
-      } catch (error) {
-        logLampFailure(operation, device, error);
-        return { ok: false, deviceCount: 1, failures: 1 };
-      }
+      return opened.outcome();
     } finally {
-      for (const device of devices) {
-        closeDevice(device);
-      }
+      opened.close();
     }
   });
 }
 
-/** Sets a lamp to the temperature it allows nearest to `kelvin`, and returns that temperature. */
-function setSnappedTemperature(operation: string, device: Device, kelvin: number): number {
-  const { lamp, handle } = reach(operation, device);
+/** Sets a lamp to the temperature it allows nearest to `kelvin`, and returns the one it reached. */
+function setSnappedTemperature(operation: string, { lamp, handle }: ReachedLamp<unknown>, kelvin: number): number {
   const kelvinReached = lamp.setTemperature(operation, handle, lamp.snapKelvin(kelvin));
   lamp.temperatureAsked = undefined;
   return kelvinReached;
@@ -1011,13 +961,13 @@ export function setLampsTemperature(lamps: LampSelection, kelvin: number): Broad
   let representative: number | undefined;
   let representativePercentage: number | undefined;
   const operation = "set temperature";
-  const result = forEachDevice(
+  const result = forEachLamp(
     operation,
-    (device) => {
-      const snapped = setSnappedTemperature(operation, device, kelvin);
+    (reached) => {
+      const snapped = setSnappedTemperature(operation, reached, kelvin);
       if (representative === undefined) {
         representative = snapped;
-        representativePercentage = lampOf(device).temperaturePercentage(snapped);
+        representativePercentage = reached.lamp.temperaturePercentage(snapped);
       }
     },
     lamps,
@@ -1048,12 +998,12 @@ export function adjustLampsTemperature(
   let target: number | undefined;
   let representative: number | undefined;
   let representativePercentage: number | undefined;
-  const result = forEachDevice(
+  const result = forEachLamp(
     operation,
-    (device) => {
-      const { lamp } = reach(operation, device);
+    (reached) => {
+      const { lamp } = reached;
       target ??= stepOnGrid(stateOf(lamp).kelvin, ticks, stepKelvin, lamp.lowestKelvin, lamp.highestKelvin);
-      const snapped = setSnappedTemperature(operation, device, target);
+      const snapped = setSnappedTemperature(operation, reached, target);
       if (representative === undefined) {
         representative = snapped;
         representativePercentage = lamp.temperaturePercentage(snapped);
@@ -1070,8 +1020,7 @@ export function adjustLampsTemperature(
 
 /**
  * Steps each selected lamp's temperature from its own, as {@link stepApart} plans it, and each lamp takes what it was
- * asked for.
- * Reads every lamp before it sets any, since a tick counts only while a lamp still moves.
+ * asked for. Plans every lamp before it sets any, since a tick counts only while a lamp still moves.
  */
 function adjustTemperaturesApart(
   operation: string,
@@ -1079,20 +1028,19 @@ function adjustTemperaturesApart(
   ticks: number,
   stepKelvin: number,
 ): BroadcastResult {
-  const { devices, unidentified } = openDevices(operation, lamps);
-  if (devices.length === 0) {
-    return { ok: false, deviceCount: 0, failures: 1 };
+  const opened = openLamps(operation, [{ lamps }]);
+  if (opened === undefined) {
+    return NO_LAMP;
   }
-  const { failed, attempt } = inStages(operation);
   try {
-    const apart: Array<ApartLamp & { device: Device }> = [];
-    for (const device of devices) {
-      attempt(device, () => {
-        const { lamp } = reach(operation, device);
+    const apart: Array<ApartLamp & { reached: ReachedLamp<unknown> }> = [];
+    for (const reached of opened.lamps) {
+      const { lamp } = reached;
+      opened.attempt(lamp, () => {
         const kelvin = stateOf(lamp).kelvin;
         const { lowestKelvin: lowest, highestKelvin: highest } = lamp;
         apart.push({
-          device,
+          reached,
           asked: lamp.temperatureAsked ?? kelvin,
           value: kelvin,
           reach: (askedKelvin) => lamp.snapKelvin(Math.max(lowest, Math.min(highest, askedKelvin))),
@@ -1105,28 +1053,26 @@ function adjustTemperaturesApart(
     const stepped = stepApart(apart, ticks, stepKelvin);
     let representative: number | undefined;
     let representativePercentage: number | undefined;
-    apart.forEach((lamp, index) => {
-      attempt(lamp.device, () => {
-        const askedKelvin = stepped[index] ?? lamp.asked;
-        const reached = reach(operation, lamp.device);
-        const kelvinReached = reached.lamp.setTemperature(operation, reached.handle, lamp.reach(askedKelvin));
-        reached.lamp.temperatureAsked = askedKelvin;
+    apart.forEach((planned, index) => {
+      const { lamp, handle } = planned.reached;
+      opened.attempt(lamp, () => {
+        const askedKelvin = stepped[index] ?? planned.asked;
+        const kelvinReached = lamp.setTemperature(operation, handle, planned.reach(askedKelvin));
+        lamp.temperatureAsked = askedKelvin;
         if (representative === undefined) {
           representative = kelvinReached;
-          representativePercentage = reached.lamp.temperaturePercentage(kelvinReached);
+          representativePercentage = lamp.temperaturePercentage(kelvinReached);
         }
       });
     });
 
     return {
-      ...outcome(devices.length, failed.size, unidentified),
+      ...opened.outcome(),
       representativeTemperatureKelvin: representative,
       representativeTemperaturePercentage: representativePercentage,
     };
   } finally {
-    for (const device of devices) {
-      closeDevice(device);
-    }
+    opened.close();
   }
 }
 
