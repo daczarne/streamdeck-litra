@@ -67,7 +67,7 @@ followGlobalSettings();
 
 describe("PowerAction", () => {
   describe("when the lamps change", () => {
-    it("shows the lamps' state on every Power key, not only the one pressed, from one read (#57)", async () => {
+    it("shows the lamps' state on every Power key, not only the one pressed (#57)", async () => {
       const key = await deck.key(POWER);
       const otherKey = await deck.key(POWER);
       clearCalls();
@@ -77,7 +77,6 @@ describe("PowerAction", () => {
 
       expect(key.setState).toHaveBeenCalledExactlyOnceWith(1);
       expect(otherKey.setState).toHaveBeenCalledExactlyOnceWith(1);
-      expect(areLampsOn).toHaveBeenCalledOnce();
     });
 
     it("shows off when only some lamps are on", async () => {
@@ -119,15 +118,18 @@ describe("PowerAction", () => {
       expect(key.showAlert).not.toHaveBeenCalled();
     });
 
-    it("toggles the lamps in a mode that isn't valid, with a warning (#22)", async () => {
+    it("toggles the lamps in a mode that isn't valid, with a warning as the key appears, not at every press (#22)", async () => {
       const key = await deck.key(POWER, { mode: "blink" });
+
+      expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("mode"));
+
       clearCalls();
       vi.mocked(toggleLamps).mockReturnValue(SWITCHED);
 
       await deck.press(key);
 
       expect(toggleLamps).toHaveBeenCalledOnce();
-      expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("mode"));
+      expect(logger.warn).not.toHaveBeenCalled();
     });
 
     it("shows an alert when a lamp fails, once the notice has redrawn the key's state, so the state doesn't cover it (#132)", async () => {
@@ -214,7 +216,7 @@ describe("PowerAction", () => {
       expect(toggleLamps).toHaveBeenCalledExactlyOnceWith("all");
     });
 
-    it("shows each key the state of its own lamps, from one read for each set of lamps", async () => {
+    it("shows each key the state of its own lamps", async () => {
       const onEvery = await deck.key(POWER);
       const onFirst = await deck.key(POWER, { lamps: [LAMP_1] });
       const alsoOnFirst = await deck.key(POWER, { lamps: [LAMP_1] });
@@ -235,7 +237,7 @@ describe("PowerAction", () => {
         [1],
         [0],
       ]);
-      expect(vi.mocked(areLampsOn).mock.calls).toEqual([["all"], [[LAMP_1]], [[LAMP_2]]]);
+      expect(vi.mocked(areLampsOn).mock.calls).toEqual([["all"], [[LAMP_1]], [[LAMP_1]], [[LAMP_2]]]);
     });
 
     it("shows the state of the key's new lamps once they're changed on the settings page", async () => {

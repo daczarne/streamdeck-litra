@@ -1,106 +1,85 @@
-import {
-  action,
-  type DidReceiveSettingsEvent,
-  type KeyDownEvent,
-  SingletonAction,
-  type WillAppearEvent,
-} from "@elgato/streamdeck";
+import { action, type KeyAction } from "@elgato/streamdeck";
 import type { JsonObject } from "@elgato/utils";
 import { globalSettings } from "../global-settings";
-import {
-  areLampsOn,
-  type LampSelection,
-  onLampsChanged,
-  toggleLamps,
-  turnLampsOff,
-  turnLampsOn,
-} from "../litra-manager";
+import { areLampsOn, type LampSelection, toggleLamps, turnLampsOff, turnLampsOn } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
-import { describeLamps, lampSettings, parseSettings, powerSettings } from "./settings";
+import { ActionInstance, type DeckControl, RoutingAction } from "./action-instance";
+import { describeLamps, type Parsed, parseSettings, powerSettings } from "./settings";
 
 const logger = pluginLogger.createScope("Power");
 
-/** The Power key: turns its lamps on or off, or toggles them, and shows whether they are all on. */
+/** The Power action, which gives each Power key its {@link PowerKey}. */
 @action({ UUID: "com.daczarne.litra.power" })
-export class PowerAction extends SingletonAction {
-  // The keys whose press failed, which show their alert once their state is redrawn.
-  private readonly owedAlerts = new Set<string>();
-  private readonly latestSettings = new Map<string, JsonObject>();
+export class PowerAction extends RoutingAction<PowerKey> {
+  /** A Power key, for a key: the manifest places the action on keys alone. */
+  protected override create(control: DeckControl, settings: JsonObject): PowerKey | undefined {
+    return control.isKey() ? new PowerKey(control, settings) : undefined;
+  }
+}
 
-  /** Subscribes the keys to every change made to the lamps, and to the global settings, which choose their lamps. */
-  constructor() {
-    super();
-    // Every Power key follows the lamps, whichever key or dial changed them, this one included (#57), and whether it
-    // adds new lamps (#147).
-    onLampsChanged(() => this.syncEveryKey());
-    globalSettings.onChanged(() => this.syncEveryKey());
+/**
+ * A Power key: turns its lamps on or off, or toggles them, and shows whether they're all on. Every Power key follows
+ * the lamps, whichever key or dial changed them, this one included (#57), and the global settings, which say whether it
+ * takes in lamps added later (#147).
+ */
+class PowerKey extends ActionInstance<Parsed<typeof powerSettings>, KeyAction<JsonObject>> {
+  // Whether the key's last press failed, which shows its alert once its state is redrawn.
+  private owesAlert = false;
+
+  /** Takes the key and its settings. */
+  constructor(control: KeyAction<JsonObject>, settings: JsonObject) {
+    super(control, settings, (saved) => parseSettings(saved, powerSettings, logger));
   }
 
-  /** Shows its lamps' state on a key as soon as it is placed or shown. */
-  override async onWillAppear(ev: WillAppearEvent): Promise<void> {
-    this.latestSettings.set(ev.action.id, ev.payload.settings);
-    if (ev.action.isKey()) {
-      await ev.action.setState(await this.readState(this.lampsOf(ev.action.id)));
+  /** Shows its lamps' state as soon as the key is placed or shown. */
+  override appear(): Promise<void> {
+    return this.showState();
+  }
+
+  /** Shows the state of the lamps the key now has. */
+  override settingsChanged(): Promise<void> {
+    return this.showState();
+  }
+
+  /** Shows its lamps' state, then the alert the key owes, if any. */
+  override async lampsChanged(): Promise<void> {
+    await this.showState();
+    if (this.owesAlert) {
+      this.owesAlert = false;
+      await this.control.showAlert();
     }
   }
 
-  /** Takes the settings changed on the settings page, and shows the state of the lamps the key now has. */
-  override async onDidReceiveSettings(ev: DidReceiveSettingsEvent): Promise<void> {
-    this.latestSettings.set(ev.action.id, ev.payload.settings);
-    if (ev.action.isKey()) {
-      await ev.action.setState(await this.readState(this.lampsOf(ev.action.id)));
-    }
+  /** Shows the state of the lamps the key now has, which may take in lamps it didn't before. */
+  override globalSettingsChanged(): Promise<void> {
+    return this.showState();
   }
 
   /**
-   * Turns the key's lamps on or off, or toggles them, as its mode says. The keys follow through the subscription. When a
-   * lamp fails, the key's alert waits for that redraw (#132): a state set right after an alert covers it, while an alert
-   * shown after the state stays. Every operation calls the subscription, the failed ones included.
+   * Turns the key's lamps on or off, or toggles them, as its mode says. The key follows through litra-manager's notice.
+   * When a lamp fails, the key's alert waits for that redraw (#132): a state set right after an alert covers it, while
+   * an alert shown after the state stays. Every operation sends the notice, the failed ones included.
    */
-  override onKeyDown(ev: KeyDownEvent): void {
-    this.latestSettings.set(ev.action.id, ev.payload.settings);
-    const { mode, ...saved } = parseSettings(ev.payload.settings, powerSettings, logger);
-    const lamps = globalSettings.actionKeyLamps(ev.action.id, saved);
+  override keyDown(): void {
+    const { mode } = this.config;
+    const lamps = this.lamps();
     logger.info(`Key pressed: ${mode}, on ${describeLamps(lamps)}`);
     const result = mode === "on" ? turnLampsOn(lamps) : mode === "off" ? turnLampsOff(lamps) : toggleLamps(lamps);
 
-    // Before the subscription runs, which litra-manager calls once the operation has returned.
+    // Before the notice, which litra-manager sends once the operation has returned.
     if (!result.ok) {
-      this.owedAlerts.add(ev.action.id);
+      this.owesAlert = true;
     }
   }
 
-  /**
-   * Shows its lamps' state on every visible Power key, from one read for each set of lamps the keys have, then the alert
-   * a key owes, if any.
-   */
-  private async syncEveryKey(): Promise<void> {
-    const states = new Map<string, 0 | 1>();
-    for (const action of this.actions) {
-      if (action.isKey()) {
-        const lamps = this.lampsOf(action.id);
-        const selection = JSON.stringify(lamps);
-        let state = states.get(selection);
-        if (state === undefined) {
-          state = await this.readState(lamps);
-          states.set(selection, state);
-        }
-        await action.setState(state);
-        if (this.owedAlerts.delete(action.id)) {
-          await action.showAlert();
-        }
-      }
-    }
+  /** The lamps the key acts on. */
+  private lamps(): LampSelection {
+    return globalSettings.actionKeyLamps(this.control.id, this.config);
   }
 
-  /** The lamps a key acts on, from the settings it was last seen with. */
-  private lampsOf(id: string): LampSelection {
-    return globalSettings.actionKeyLamps(id, parseSettings(this.latestSettings.get(id) ?? {}, lampSettings, logger));
-  }
-
-  /** A key's state: on (1) only if there is a lamp among its own and every one is on. */
-  private async readState(lamps: LampSelection): Promise<0 | 1> {
-    const { allOn, deviceCount } = await areLampsOn(lamps);
-    return deviceCount > 0 && allOn ? 1 : 0;
+  /** Shows the key's state: on (1) only if there is a lamp among its own and every one is on. */
+  private async showState(): Promise<void> {
+    const { allOn, deviceCount } = await areLampsOn(this.lamps());
+    await this.control.setState(deviceCount > 0 && allOn ? 1 : 0);
   }
 }

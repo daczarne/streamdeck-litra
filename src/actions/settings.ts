@@ -15,7 +15,8 @@ type Setting<T> = {
 
 type Schema = Record<string, Setting<unknown>>;
 
-type Parsed<S extends Schema> = { [Name in keyof S]: S[Name] extends Setting<infer T> ? T : never };
+/** Settings as {@link parseSettings} reads them against their schema: each one valid, or its default. */
+export type Parsed<S extends Schema> = { [Name in keyof S]: S[Name] extends Setting<infer T> ? T : never };
 
 /**
  * A number, or text that is one, since a select on a settings page saves its value as text. Anything else is refused,
