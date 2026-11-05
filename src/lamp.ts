@@ -13,12 +13,6 @@ export const READ_AGAIN_MS = 10;
  */
 export const BRIGHTNESS_CAP_REVERSAL_WINDOW_MS = 1500;
 
-/**
- * Where a lamp kept apart would be if no end of its range or cap had stopped it, with the value it was left at (#145):
- * in % and lumens for the brightness, in kelvin for the temperature.
- */
-type Position = { position: number; left: number };
-
 /** A lamp's power, its brightness in lumens and its temperature in kelvin, as the plugin holds them (#198). */
 export type LampState = { readonly on: boolean; readonly lumen: number; readonly kelvin: number };
 
@@ -47,11 +41,11 @@ function pause(ms: number): void {
 }
 
 /**
- * One lamp, and what the plugin remembers about it between operations (#198): who it is, as the global settings keep
- * it, its whole serial number once an operation has reached it, the brightness it can reach on a low-power supply, its
- * brightness cap (#55), when it may still go back to that cap, and where it would be if it's kept apart from the others
- * and an end stopped it (#145). It sends its lamp nothing: the operations do, and tell it what they learn. It forgets
- * all but who it is when the plugin restarts.
+ * One lamp the plugin knows, and what the plugin holds of it (#198): who it is, as the global settings keep it, its
+ * whole serial number once an operation has reached it, its state, as the plugin last set it and the lamp reported it,
+ * the brightness it can reach on a low-power supply, its brightness cap (#55), when it may still go back to that cap,
+ * and what it was last asked for when it's kept apart from the others (#145). It changes its lamp through the handle an
+ * operation lends it, and acts on its own lamp alone. It forgets all but who it is when the plugin restarts.
  */
 export class Lamp {
   /** The lamp's id, from its serial number, as the settings and the pages name it. */
@@ -66,8 +60,9 @@ export class Lamp {
   // plugged in again, which gives it a new path, so a cap learned at another path is forgotten.
   private brightnessCap: { path: string; lumen: number } | undefined;
   private brightnessCapReversalEnd = 0;
-  private brightnessPosition: Position | undefined;
-  private temperaturePosition: Position | undefined;
+  // What a step of lamps kept apart last asked of the lamp (#145).
+  private brightnessAskedFor: number | undefined;
+  private temperatureAskedFor: number | undefined;
   // What the plugin holds of the lamp: its state, once read, the path it was last reached at, its range, and whether
   // the last operation that looked found it.
   private heldState: LampState | undefined;
@@ -171,34 +166,31 @@ export class Lamp {
   }
 
   /**
-   * Where the lamp steps its brightness from when it's kept apart: the position it was left at, in %, while it's still
-   * at the lumens it was left at, or else `fallback`.
+   * The brightness, in %, a step of lamps kept apart last asked of the lamp (#145), which can be past an end of its
+   * range or its cap, where it stopped. Its next step goes on from there, so it keeps its difference with the others.
+   * Undefined until such a step, and once any other change sets the lamp's brightness.
    */
-  brightnessPositionAt(lumen: number, fallback: number): number {
-    return Lamp.positionAt(this.brightnessPosition, lumen, fallback);
+  get brightnessAsked(): number | undefined {
+    return this.brightnessAskedFor;
   }
 
-  /** Leaves the lamp at a brightness position, in %, at `lumen`, or forgets its position when there's none. */
-  leaveBrightness(position: number | undefined, lumen: number): void {
-    this.brightnessPosition = position === undefined ? undefined : { position, left: lumen };
+  /** Takes what a step of lamps kept apart asked of the lamp, or undefined when another change set its brightness. */
+  set brightnessAsked(percentage: number | undefined) {
+    this.brightnessAskedFor = percentage;
   }
 
   /**
-   * Where the lamp steps its temperature from when it's kept apart: the position it was left at, in kelvin, while it's
-   * still at the temperature it was left at, or else `fallback`.
+   * The temperature, in kelvin, a step of lamps kept apart last asked of the lamp (#145), which can be past an end of
+   * its range. Its next step goes on from there. Undefined until such a step, and once any other change sets the lamp's
+   * temperature.
    */
-  temperaturePositionAt(kelvin: number, fallback: number): number {
-    return Lamp.positionAt(this.temperaturePosition, kelvin, fallback);
+  get temperatureAsked(): number | undefined {
+    return this.temperatureAskedFor;
   }
 
-  /** Leaves the lamp at a temperature position at `kelvin`, or forgets its position when there's none. */
-  leaveTemperature(position: number | undefined, kelvin: number): void {
-    this.temperaturePosition = position === undefined ? undefined : { position, left: kelvin };
-  }
-
-  /** A position, while its lamp is still at the value it was left at, or else `fallback`. */
-  private static positionAt(remembered: Position | undefined, value: number, fallback: number): number {
-    return remembered !== undefined && remembered.left === value ? remembered.position : fallback;
+  /** Takes what a step of lamps kept apart asked of the lamp, or undefined when another change set its temperature. */
+  set temperatureAsked(kelvin: number | undefined) {
+    this.temperatureAskedFor = kelvin;
   }
 
   /**

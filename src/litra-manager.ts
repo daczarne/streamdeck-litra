@@ -235,12 +235,12 @@ function stepAlongGrid(value: number, ticks: number, step: number, origin: numbe
 
 /** A lamp kept apart, as {@link stepApart} plans its steps. */
 type ApartLamp = {
-  /** Where the lamp would be if no end had stopped it. */
-  position: number;
+  /** What the lamp was last asked for, which can be past an end of its range or its cap, where it stopped (#145). */
+  asked: number;
   /** What the lamp is at, in what it's sent. */
   value: number;
-  /** What the lamp is sent for a position: the value within its range, and its cap. */
-  reach: (position: number) => number;
+  /** What the lamp is sent for what it's asked for: the value within its range, and its cap. */
+  reach: (asked: number) => number;
   /** Where the lamp's grid starts: the bottom of its range. */
   origin: number;
   /** How far the lamp's range goes from its origin, which bounds the search for its ends. */
@@ -248,25 +248,26 @@ type ApartLamp = {
 };
 
 /**
- * How many steps a lamp's position is past its end in a direction: how far it can go back and still be held there. A
+ * How many steps what a lamp was asked for is past its end in a direction: how far it can go back and still be held
+ * there. A
  * lamp can get there when a turn was planned before its cap was learned.
  */
 function stepsPastEnd(lamp: ApartLamp, step: number, direction: 1 | -1): number {
   const end = lamp.reach(direction * Infinity);
-  const bound = Math.ceil((Math.abs(lamp.position - lamp.origin) + lamp.span) / step);
+  const bound = Math.ceil((Math.abs(lamp.asked - lamp.origin) + lamp.span) / step);
   let steps = 0;
-  while (steps < bound && lamp.reach(lamp.position - direction * (steps + 1) * step) === end) {
+  while (steps < bound && lamp.reach(lamp.asked - direction * (steps + 1) * step) === end) {
     steps += 1;
   }
-  return lamp.reach(lamp.position) === end ? steps : 0;
+  return lamp.reach(lamp.asked) === end ? steps : 0;
 }
 
 /**
- * Plans the steps of lamps kept apart (#145), a tick at a time. Every lamp's position moves along the grid, and the
- * lamp goes as far towards it as it can, so one stopped by an end of its range or its cap stays there while the others
- * keep going, and comes back with them once they've retraced the way. A tick counts only while a lamp still moves, so
- * turning on once every lamp is at its end does nothing, rather than piling up steps to undo, and steps piled up while
- * a cap wasn't known yet are dropped before the next turn. Returns each lamp's new position.
+ * Plans the steps of lamps kept apart (#145), a tick at a time. What every lamp is asked for moves along the grid, and
+ * the lamp goes as far towards it as it can, so one stopped by an end of its range or its cap stays there while the
+ * others keep going, and comes back with them once they've retraced the way. A tick counts only while a lamp still
+ * moves, so turning on once every lamp is at its end does nothing, rather than piling up steps to undo, and steps piled
+ * up while a cap wasn't known yet are dropped before the next turn. Returns what each lamp is asked for next.
  */
 function stepApart<T extends ApartLamp>(lamps: T[], ticks: number, step: number): number[] {
   let state = lamps;
@@ -277,16 +278,16 @@ function stepApart<T extends ApartLamp>(lamps: T[], ticks: number, step: number)
     for (const end of [1, -1] as const) {
       const past = Math.min(...state.map((lamp) => stepsPastEnd(lamp, step, end)));
       if (past > 0) {
-        state = state.map((lamp) => ({ ...lamp, position: lamp.position - end * past * step }));
+        state = state.map((lamp) => ({ ...lamp, asked: lamp.asked - end * past * step }));
       }
     }
     for (let tick = 0; tick < Math.abs(ticks); tick++) {
       let moved = false;
       const next = state.map((lamp) => {
-        const position = stepAlongGrid(lamp.position, direction, step, lamp.origin);
-        const value = lamp.reach(position);
+        const asked = stepAlongGrid(lamp.asked, direction, step, lamp.origin);
+        const value = lamp.reach(asked);
         moved ||= (value - lamp.value) * direction > 0;
-        return { ...lamp, position, value };
+        return { ...lamp, asked, value };
       });
       if (!moved) {
         break;
@@ -294,7 +295,7 @@ function stepApart<T extends ApartLamp>(lamps: T[], ticks: number, step: number)
       state = next;
     }
   }
-  return state.map((lamp) => lamp.position);
+  return state.map((lamp) => lamp.asked);
 }
 
 /** The allowed temperature nearest to a value, or the value itself when none is allowed. */
@@ -768,14 +769,14 @@ async function waitForCapReversal(operation: string): Promise<void> {
 
 /**
  * Sends each lamp its percentage, or its cap, whichever is lower, lets them settle, and reads them back. A lamp that
- * reaches less than it was sent has its cap learned. A lamp given a position is left at it, which any other change
- * forgets. Reports the brightest, and every lamp's percentage. Sends nothing, and doesn't wait, when no lamp has a
- * percentage.
+ * reaches less than it was sent has its cap learned. A lamp kept apart takes what it was asked for, which any other
+ * change forgets. Reports the brightest, and every lamp's percentage. Sends nothing, and doesn't wait, when no lamp has
+ * a percentage.
  */
 async function sendBrightness(
   operation: string,
   targets: Map<Device, number>,
-  positions: Map<Device, number>,
+  asked: Map<Device, number>,
   attempt: (device: Device, fn: () => void) => void,
   settleMs: number,
 ): Promise<
@@ -804,8 +805,8 @@ async function sendBrightness(
       const { lamp, handle } = reach(operation, device);
       const lumenReached = lamp.readBackBrightness(operation, handle, lumen, sentAt);
       const pct = brightnessPercentage(device, lumenReached);
-      // A lamp kept apart is left at its position, which any other change forgets.
-      lamp.leaveBrightness(positions.get(device), lumenReached);
+      // A lamp kept apart takes what it was asked for, which any other change forgets.
+      lamp.brightnessAsked = asked.get(device);
       percentages.push(pct);
       if (representative === undefined || pct > representative) {
         representative = pct;
@@ -897,9 +898,9 @@ async function moveLampsBrightness(
     }
 
     // The percentage to send each lamp. A lamp that couldn't be read gets none when the target steps, and when none
-    // could, nothing is sent. Lamps kept apart also get their new positions.
+    // could, nothing is sent. Lamps kept apart also get what they're asked for.
     const targets = new Map<Device, number>();
-    const positions = new Map<Device, number>();
+    const asked = new Map<Device, number>();
     const clamp = (percentage: number): number => Math.max(0, Math.min(100, percentage));
     if (typeof target === "number") {
       for (const device of devices) {
@@ -916,21 +917,21 @@ async function moveLampsBrightness(
     } else {
       const apart = [...before].map(([device, lumen]) => ({
         device,
-        position: lampOf(device).brightnessPositionAt(lumen, brightnessPercentage(device, lumen)),
+        asked: lampOf(device).brightnessAsked ?? brightnessPercentage(device, lumen),
         value: lumen,
-        reach: (position: number) => withinCap(operation, device, brightnessLumen(device, clamp(position))),
+        reach: (percentage: number) => withinCap(operation, device, brightnessLumen(device, clamp(percentage))),
         origin: 0,
         span: 100,
       }));
       const stepped = stepApart(apart, target.ticks, target.step);
       apart.forEach(({ device }, index) => {
-        const position = stepped[index] ?? 0;
-        positions.set(device, position);
-        targets.set(device, clamp(position));
+        const percentage = stepped[index] ?? 0;
+        asked.set(device, percentage);
+        targets.set(device, clamp(percentage));
       });
     }
 
-    const brightness = await sendBrightness(operation, targets, positions, attempt, settleMs);
+    const brightness = await sendBrightness(operation, targets, asked, attempt, settleMs);
     return { ...outcome(devices.length, failed.size, unidentified), ...brightness };
   } finally {
     for (const device of devices) {
@@ -1044,7 +1045,7 @@ function setSnappedTemperature(operation: string, device: Device, kelvin: number
   const snapped = snapKelvin(kelvin, getAllowedTemperaturesInKelvinForDevice(device));
   const { lamp, handle } = reach(operation, device);
   const kelvinReached = lamp.setTemperature(operation, handle, snapped);
-  lamp.leaveTemperature(undefined, kelvinReached);
+  lamp.temperatureAsked = undefined;
   return kelvinReached;
 }
 
@@ -1123,7 +1124,8 @@ function temperatureRange(device: Device): { allowed: number[]; lowest: number; 
 }
 
 /**
- * Steps each selected lamp's temperature from its own, as {@link stepApart} plans it, and leaves each at its position.
+ * Steps each selected lamp's temperature from its own, as {@link stepApart} plans it, and each lamp takes what it was
+ * asked for.
  * Reads every lamp before it sets any, since a tick counts only while a lamp still moves.
  */
 function adjustTemperaturesApart(
@@ -1146,9 +1148,9 @@ function adjustTemperaturesApart(
         apart.push({
           device,
           allowed,
-          position: lampOf(device).temperaturePositionAt(kelvin, kelvin),
+          asked: lampOf(device).temperatureAsked ?? kelvin,
           value: kelvin,
-          reach: (position) => snapKelvin(Math.max(lowest, Math.min(highest, position)), allowed),
+          reach: (askedKelvin) => snapKelvin(Math.max(lowest, Math.min(highest, askedKelvin)), allowed),
           origin: lowest,
           span: highest - lowest,
         });
@@ -1160,10 +1162,10 @@ function adjustTemperaturesApart(
     let representativePercentage: number | undefined;
     apart.forEach((lamp, index) => {
       attempt(lamp.device, () => {
-        const position = stepped[index] ?? lamp.position;
+        const askedKelvin = stepped[index] ?? lamp.asked;
         const reached = reach(operation, lamp.device);
-        const kelvinReached = reached.lamp.setTemperature(operation, reached.handle, lamp.reach(position));
-        reached.lamp.leaveTemperature(position, kelvinReached);
+        const kelvinReached = reached.lamp.setTemperature(operation, reached.handle, lamp.reach(askedKelvin));
+        reached.lamp.temperatureAsked = askedKelvin;
         if (representative === undefined) {
           representative = kelvinReached;
           representativePercentage = temperaturePercentage(kelvinReached, lamp.allowed);

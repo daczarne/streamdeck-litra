@@ -398,13 +398,15 @@ describe("the lamps the plugin knows (#194)", () => {
   it("keep each lamp's Lamp, and what it remembers, across reads, with the name a page's save gives it (#198)", () => {
     globalSettings.read({ lamps: { "lamp-1": { model: "Beam", serialEnd: "1111" } } });
     const lamp = globalSettings.lamps.get("lamp-1");
-    lamp?.leaveBrightness(70, 252);
+    if (lamp !== undefined) {
+      lamp.brightnessAsked = 70;
+    }
 
     globalSettings.read({ lamps: { "lamp-1": { model: "Beam", serialEnd: "1111", name: "Key light" } } });
 
     expect(globalSettings.lamps.get("lamp-1")).toBe(lamp);
     expect(lamp?.name).toBe("Key light");
-    expect(lamp?.brightnessPositionAt(252, 0)).toBe(70);
+    expect(lamp?.brightnessAsked).toBe(70);
   });
 
   it("drop a lamp's Lamp once it's no longer among them, and give it a new one when it comes back (#198)", () => {

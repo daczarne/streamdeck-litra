@@ -158,47 +158,38 @@ describe("when a capped lamp may go back to its cap (#55)", () => {
 });
 
 describe.each([
-  ["brightness", "brightnessPositionAt", "leaveBrightness"],
-  ["temperature", "temperaturePositionAt", "leaveTemperature"],
-] as const)("a lamp kept apart, on its %s (#145)", (_value, positionAt, leave) => {
-  it("steps from the fallback until it's left at a position", () => {
-    const lamp = reachedLamp();
-
-    expect(lamp[positionAt](300, 70)).toBe(70);
+  ["brightness", "brightnessAsked", 110],
+  ["temperature", "temperatureAsked", 6700],
+] as const)("what a lamp kept apart was last asked for, on its %s (#145)", (_value, asked, pastTheEnd) => {
+  it("is nothing until a step asks it of the lamp", () => {
+    expect(reachedLamp()[asked]).toBeUndefined();
   });
 
-  it("steps from the position it was left at, while it's still at the value it was left at", () => {
+  it("is what the step asked, even past an end of the lamp's range, whatever the lamp is at", () => {
     const lamp = reachedLamp();
 
-    lamp[leave](120, 300);
+    lamp[asked] = pastTheEnd;
 
-    expect(lamp[positionAt](300, 70)).toBe(120);
+    expect(lamp[asked]).toBe(pastTheEnd);
   });
 
-  it("steps from the fallback once it's at another value, set by anything else", () => {
+  it("is forgotten once another change sets the lamp", () => {
     const lamp = reachedLamp();
-    lamp[leave](120, 300);
+    lamp[asked] = pastTheEnd;
 
-    expect(lamp[positionAt](250, 70)).toBe(70);
-  });
+    lamp[asked] = undefined;
 
-  it("forgets its position when it's left without one", () => {
-    const lamp = reachedLamp();
-    lamp[leave](120, 300);
-
-    lamp[leave](undefined, 300);
-
-    expect(lamp[positionAt](300, 70)).toBe(70);
+    expect(lamp[asked]).toBeUndefined();
   });
 });
 
-describe("a lamp kept apart (#145)", () => {
-  it("keeps its brightness's and its temperature's positions apart", () => {
+describe("what a lamp kept apart was last asked for (#145)", () => {
+  it("is kept apart for its brightness and its temperature", () => {
     const lamp = reachedLamp();
 
-    lamp.leaveBrightness(120, 300);
+    lamp.brightnessAsked = 110;
 
-    expect(lamp.temperaturePositionAt(300, 70)).toBe(70);
+    expect(lamp.temperatureAsked).toBeUndefined();
   });
 });
 
