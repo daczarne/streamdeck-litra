@@ -1330,6 +1330,7 @@ describe("settings pages", () => {
           { label: SECOND.label, checked: true },
         ],
         all: true,
+        allDisabled: false,
         notes: [],
         buttons: [],
       });
@@ -1456,7 +1457,13 @@ describe("settings pages", () => {
     it("says so when the plugin knows no lamp", async () => {
       const { page } = await openPicker([]);
 
-      expect(await pickerOf(page)).toEqual({ lamps: [], all: true, notes: ["No lamps found"], buttons: [] });
+      expect(await pickerOf(page)).toEqual({
+        lamps: [],
+        all: true,
+        allDisabled: false,
+        notes: ["No lamps found"],
+        buttons: [],
+      });
       await page.close();
     });
 
@@ -1837,23 +1844,24 @@ describe("settings pages", () => {
       await page.close();
     });
 
-    it("keeps what the first group saved for a lamp a group holds, and All covers the others", async () => {
-      const { page, uuid } = await openScene({ addedGroups: [{ ...NEW_GROUP, lamps: [savedLamp(FIRST)] }] });
-      await expect.poll(async () => (await pickerOf(page)).all).toBe(true);
+    it("unchecks and greys out All in the first group's picker once a group holds a lamp, which it can't have", async () => {
+      const { page } = await openScene({ addedGroups: [{ ...NEW_GROUP, lamps: [savedLamp(FIRST)] }] });
 
-      const after = streamDeck.messages.length;
-      await clickInPicker(page, "All");
-      const saves = () =>
-        streamDeck.messages.filter(
-          (m) => m.event === "setSettings" && m.context === uuid && streamDeck.messages.indexOf(m) >= after,
-        );
-      await expect.poll(() => saves().length).toBeGreaterThanOrEqual(2);
-      const payload = at(saves(), -1).payload ?? {};
+      await expect
+        .poll(async () => pickerOf(page))
+        .toMatchObject({ lamps: [{ checked: false }, { checked: true }], all: false, allDisabled: true });
+      await page.close();
+    });
 
-      expect({ lamps: payload.lamps, leftOutLamps: payload.leftOutLamps }).toEqual({
-        lamps: [savedLamp(FIRST)],
-        leftOutLamps: [savedLamp(SECOND)],
-      });
+    it("checks All again once no group holds a lamp, for a first group that has every lamp", async () => {
+      const { page } = await openScene({ addedGroups: [{ ...NEW_GROUP, lamps: [savedLamp(FIRST)] }] });
+      await expect.poll(async () => (await pickerOf(page)).allDisabled).toBe(true);
+
+      await clickInGroups(page, FIRST.label, 2);
+
+      await expect
+        .poll(async () => pickerOf(page))
+        .toMatchObject({ lamps: [{ checked: true }, { checked: true }], all: true, allDisabled: false });
       await page.close();
     });
 
@@ -2390,9 +2398,13 @@ function isLampsRequest(message: { event: string; context?: string; payload?: Re
 type PickerLamp = { label: string | null; checked: boolean };
 
 /** What the lamp picker shows: each lamp's row, the All checkbox, if shown yet, its notes and its buttons. */
-function pickerOf(
-  page: Page,
-): Promise<{ lamps: PickerLamp[]; all: boolean | undefined; notes: string[]; buttons: string[] }> {
+function pickerOf(page: Page): Promise<{
+  lamps: PickerLamp[];
+  all: boolean | undefined;
+  allDisabled: boolean | undefined;
+  notes: string[];
+  buttons: string[];
+}> {
   return page.evaluate(`(() => {
     const picker = document.getElementById("lamp-picker");
     const lamps = [...picker.querySelectorAll(".lamp")].map((row) => ({
@@ -2403,6 +2415,7 @@ function pickerOf(
     return {
       lamps,
       all: all === undefined ? undefined : all.value === true,
+      allDisabled: all === undefined ? undefined : all.disabled === true,
       notes: [...picker.querySelectorAll(":scope > .note")].map((note) => note.textContent),
       buttons: [...picker.querySelectorAll("sdpi-button")].map((button) => button.textContent),
     };

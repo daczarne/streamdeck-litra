@@ -7,7 +7,8 @@
 // left out ones, so a lamp it hasn't listed yet shows checked, and one that doesn't acts on the checked ones alone
 // (#147). Whether it adds them comes from plugin-settings.js, which shows that choice. On a Scene key's page, a lamp a
 // group added after the first holds is greyed out, and says which group holds it (scene-groups.js, #174), while the key
-// keeps what it saved for it, which applies again once no group holds it. The lamps the key acts on, its scene's first
+// keeps what it saved for it, which applies again once no group holds it. All is then greyed out too, since it means
+// every lamp the plugin knows, which the first group no longer can have. The lamps the key acts on, its scene's first
 // group, are told to scene-groups.js, through an event on the document.
 // `lamps` is "all" for a key saved before lamps could be picked, or never saved, which acts on every lamp. A file rather
 // than an inline script, so the pages' Content-Security-Policy doesn't have to allow inline scripts.
@@ -200,13 +201,11 @@
       rows.push(note("No lamps found"));
     }
     rows.push(...lamps.map(lampRow));
-    // All covers the lamps no scene group holds, and keeps what the key saved for the others.
+    // All is every lamp the plugin knows, so on a Scene key's page, it's unchecked and greyed out once a group added
+    // after the first holds a lamp, which the first group can't have.
     const free = (lamp) => held[lamp.id] === undefined;
-    rows.push(
-      checkbox("All", lamps.filter(free).every(isChecked), (value) =>
-        store((lamp) => (free(lamp) ? value : isChecked(lamp))),
-      ),
-    );
+    const someHeld = !lamps.every(free);
+    rows.push(checkbox("All", !someHeld && lamps.every(isChecked), (value) => store(() => value), someHeld));
     const own = lamps.filter((lamp) => free(lamp) && isChecked(lamp)).map(({ id }) => id);
     document.dispatchEvent(new CustomEvent("litra:first-group-lamps", { detail: own }));
     picker.replaceChildren(...rows);
