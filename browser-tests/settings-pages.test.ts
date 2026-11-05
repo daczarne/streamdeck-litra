@@ -2066,6 +2066,7 @@ describe("settings pages", () => {
     afterEach(() => {
       streamDeck.lamps = [];
       streamDeck.globalSettings = {};
+      streamDeck.connected = undefined;
     });
 
     /**
@@ -2241,6 +2242,38 @@ describe("settings pages", () => {
       expect(await identifyWidth()).toBe(before);
       // Only on Find lamps.
       expect(streamDeck.messages.filter((m) => isLampsRequest(m, uuid))).toHaveLength(1);
+      await page.close();
+    });
+
+    it("mark the lamps the plugin last didn't find as they open, without Find lamps (#198)", async () => {
+      streamDeck.connected = [SECOND.id];
+      const { page, uuid } = await openPluginSettings({ [FIRST.id]: known(FIRST), [SECOND.id]: known(SECOND) });
+
+      await expect
+        .poll(async () =>
+          (await pluginSettingsOf(page)).lamps.map(({ serialEnd, missing }) => ({ serialEnd, missing })),
+        )
+        .toEqual([
+          { serialEnd: FIRST.serialEnd, missing: true },
+          { serialEnd: SECOND.serialEnd, missing: false },
+        ]);
+      expect(sentToPlugin(uuid, "connected")).toHaveLength(1);
+      expect(streamDeck.messages.filter((m) => isLampsRequest(m, uuid))).toHaveLength(0);
+      await page.close();
+    });
+
+    it("follow the plugin as it tells of a lamp unplugged and plugged in again (#198)", async () => {
+      const { page } = await openPluginSettings({ [FIRST.id]: known(FIRST), [SECOND.id]: known(SECOND) });
+      const missing = async () => (await pluginSettingsOf(page)).lamps.map((lamp) => lamp.missing);
+      await expect.poll(missing).toEqual([false, false]);
+
+      streamDeck.tellConnected([FIRST.id]);
+
+      await expect.poll(missing).toEqual([false, true]);
+
+      streamDeck.tellConnected([FIRST.id, SECOND.id]);
+
+      await expect.poll(missing).toEqual([false, false]);
       await page.close();
     });
 

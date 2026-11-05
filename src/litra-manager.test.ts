@@ -586,6 +586,65 @@ describe("a selection of lamps (#20)", () => {
   });
 });
 
+describe("the lamps connected (#198)", () => {
+  it("are the lamps the plugin knows that the last operation found", () => {
+    const [first, second] = [newLamp(), newLamp()];
+    connect(first, second);
+    hid.connect(first);
+
+    manager.turnLampsOn("all");
+
+    expect(manager.connectedLamps()).toEqual([lampId(first.serialNumber)]);
+  });
+
+  it("are told to the listeners when an operation finds a lamp unplugged, and again once it's plugged back in", async () => {
+    const [first, second] = [newLamp(), newLamp()];
+    connect(first, second);
+    const listener = vi.fn();
+    manager.onConnectedChanged(listener);
+
+    hid.connect(first);
+    manager.turnLampsOn("all");
+    await vi.waitFor(() => expect(listener).toHaveBeenCalledOnce());
+    hid.connect(first, second);
+    manager.turnLampsOn("all");
+    await vi.waitFor(() => expect(listener).toHaveBeenCalledTimes(2));
+
+    expect(listener.mock.calls).toEqual([
+      [[lampId(first.serialNumber)]],
+      [[lampId(first.serialNumber), lampId(second.serialNumber)]],
+    ]);
+  });
+
+  it("are logged as an operation finds a lamp unplugged, and plugged back in", () => {
+    const [first, second] = [newLamp(), newLamp()];
+    connect(first, second);
+
+    hid.connect(first);
+    manager.turnLampsOn("all");
+    hid.connect(first, second);
+    manager.turnLampsOff("all");
+
+    const label = `${MODEL} …${second.serialNumber.slice(-4)}`;
+    const found = logger.info.mock.calls
+      .map(([message]: unknown[]) => String(message))
+      .filter((m) => m.endsWith("found"));
+    expect(found).toEqual([`turn on: ${label} no longer found`, `turn off: ${label} found`]);
+  });
+
+  it("aren't told to the listeners when nothing changed", async () => {
+    connect(newLamp());
+    const listener = vi.fn();
+    manager.onConnectedChanged(listener);
+
+    manager.turnLampsOn("all");
+    manager.turnLampsOff("all");
+    await vi.runAllTimersAsync();
+
+    expect(listener).not.toHaveBeenCalled();
+  });
+});
+
 describe("the lamps the plugin knows (#194)", () => {
   /** Plugs these lamps in, and makes the plugin know only the ones in `known`. */
   function connectKnowing(knownLamps: readonly EmulatedLitra[], ...lamps: EmulatedLitra[]): void {

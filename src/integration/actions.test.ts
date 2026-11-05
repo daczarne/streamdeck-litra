@@ -963,6 +963,25 @@ describe("the plugin's state is the lamps' state (#198)", () => {
     expect(stateOf(key)).toBe(0);
   });
 
+  it("tells a page which lamps are connected when it asks, and when a press finds one unplugged", async () => {
+    const [first, second] = [newLamp(), newLamp()];
+    plugIn(first, second);
+    const key = await deck.key(POWER, { mode: "on" });
+
+    sdk.sendToPlugin({ event: "connected" });
+    await vi.runAllTimersAsync();
+
+    expect(at(sdk.sentToPropertyInspector(), -1)).toEqual({
+      event: "connected",
+      ids: [lampId(first.serialNumber), lampId(second.serialNumber)],
+    });
+
+    connect(first);
+    await deck.press(key);
+
+    expect(at(sdk.sentToPropertyInspector(), -1)).toEqual({ event: "connected", ids: [lampId(first.serialNumber)] });
+  });
+
   it("reads a lamp again once it's plugged in again, which may come back in another state", async () => {
     const lamp = newLamp({ serialNumber: "SERIAL-A" });
     plugIn(lamp);

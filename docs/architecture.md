@@ -167,7 +167,7 @@ The settings pages run in Stream Deck's browser, apart from the plugin, and shar
 - Each key's and dial's settings, which its own page saves, and its object reads as its `config`.
 - The messages a page sends the plugin, through Stream Deck, which `src/actions/lamp-picker.ts` answers for every page: find the lamps, blink one, rename one and forget one. An answer reaches only the page shown (see [the SDK notes on the settings pages][property-inspector]).
 
-The only thing added is which lamps are connected, which the global settings don't keep, since it's the plugin's to know and changes while it runs. The plugin settings ask for it as they open, and the plugin sends it to the page shown whenever an operation changes it, so the table marks a lamp "Not found" from what the plugin last found, not only from the page's last Find lamps.
+The only thing added is which lamps are connected, which the global settings don't keep, since it's the plugin's to know and changes while it runs. The plugin settings ask for it as they open, with a `connected` message, and the plugin sends the same message to the page shown whenever an operation changes it (`onConnectedChanged`), so the table marks a lamp "Not found" from what the plugin last found, not only from the page's last Find lamps.
 
 ## Turning a dial
 

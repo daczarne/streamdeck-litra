@@ -98,6 +98,7 @@ const BRIGHTNESS_SETTLE_MS = 250;
 let brightnessChanges: Promise<unknown> = Promise.resolve();
 
 const lampsChangedListeners: Array<() => void | Promise<void>> = [];
+const connectedListeners: Array<(ids: string[]) => void | Promise<void>> = [];
 
 /**
  * The lamps the plugin knows, by id, the only ones an operation acts on (#194), as the global settings hold them, or
@@ -377,12 +378,12 @@ function openGroups<G extends { readonly lamps: LampSelection }>(
   } catch (error) {
     logger.error(`${operation}: finding the lamps failed: ${String(error)}`);
     // It found none, so none is connected as far as the plugin can tell (#198).
-    markFound([]);
+    markFound(operation, []);
     return { devices: opened, unidentified: 0 };
   }
   if (found.length === 0) {
     logger.warn(`${operation}: no lamps found`);
-    markFound([]);
+    markFound(operation, []);
     return { devices: opened, unidentified: 0 };
   }
   // In the order of their serial numbers, since litra finds them in an order that changes from one call to the next.
@@ -392,7 +393,10 @@ function openGroups<G extends { readonly lamps: LampSelection }>(
     .filter((device) => hasSerialNumber(operation, device))
     .sort((a, b) => bySerialNumber(a.serialNumber, b.serialNumber));
   // Each lamp left out is logged already.
-  markFound(devices.map(({ serialNumber }) => lampId(serialNumber)));
+  markFound(
+    operation,
+    devices.map(({ serialNumber }) => lampId(serialNumber)),
+  );
   const takesInAny = onlyKnown && groups.some(({ lamps }) => !Array.isArray(lamps));
   const unidentified = takesInAny ? found.length - devices.length : 0;
   if (devices.length === 0) {
@@ -470,12 +474,41 @@ function heldLamps(lamps: LampSelection): HeldLamp[] {
 
 /**
  * Marks each lamp the plugin knows as connected when its id is among the ones found, and as not connected otherwise
- * (#198), from what an operation found, before it reads or changes any of them.
+ * (#198), from what an operation found, before it reads or changes any of them, and logs each lamp that changes.
  */
-function markFound(foundIds: readonly string[]): void {
+function markFound(operation: string, foundIds: readonly string[]): void {
+  let changed = false;
   for (const lamp of knownLamps.values()) {
-    lamp.setFound(foundIds.includes(lamp.id));
+    const found = foundIds.includes(lamp.id);
+    if (lamp.isConnected !== found) {
+      changed = true;
+      logger.info(`${operation}: ${lamp.logLabel} ${found ? "found" : "no longer found"}`);
+    }
+    lamp.setFound(found);
   }
+  if (changed) {
+    const ids = connectedLamps();
+    for (const listener of [...connectedListeners]) {
+      Promise.resolve()
+        .then(() => listener(ids))
+        .catch((error: unknown) => {
+          logger.error("Connected lamps listener failed", error);
+        });
+    }
+  }
+}
+
+/** The ids of the lamps the plugin knows that the last operation found (#198), as the settings pages mark them. */
+export function connectedLamps(): string[] {
+  return [...knownLamps.values()].filter((lamp) => lamp.isConnected).map(({ id }) => id);
+}
+
+/**
+ * Registers a listener called with the ids of the lamps connected whenever an operation finds that one of the lamps the
+ * plugin knows was plugged in or unplugged (#198), so the settings pages can mark it.
+ */
+export function onConnectedChanged(listener: (ids: string[]) => void | Promise<void>): void {
+  connectedListeners.push(listener);
 }
 
 /**

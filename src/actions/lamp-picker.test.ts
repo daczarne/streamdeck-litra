@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { globalSettings as pluginSettings } from "../global-settings";
-import { findLamps, identifyLamp, reachEveryLamp } from "../litra-manager";
+import { connectedLamps, findLamps, identifyLamp, onConnectedChanged, reachEveryLamp } from "../litra-manager";
 import { logger } from "../logging";
 import { at } from "../test-support/at";
 import { answer, answerLampPickers } from "./lamp-picker";
@@ -22,8 +22,10 @@ vi.mock("../logging", () => import("../test-support/fake-logging"));
 
 // The real litra-manager loads node-hid's native binary on import and talks to real lamps.
 vi.mock("../litra-manager", () => ({
+  connectedLamps: vi.fn(),
   findLamps: vi.fn(),
   identifyLamp: vi.fn(),
+  onConnectedChanged: vi.fn(),
   reachEveryLamp: vi.fn(),
 }));
 
@@ -151,5 +153,24 @@ describe("the lamp picker's answers (#20)", () => {
       expect.any(String),
       expect.objectContaining({ message: "Stream Deck is gone" }),
     );
+  });
+});
+
+describe("which lamps are connected (#198)", () => {
+  it("are told to a page that asks, as the plugin last found them", async () => {
+    vi.mocked(connectedLamps).mockReturnValue(["lamp-1"]);
+
+    await answer({ event: "connected" });
+
+    expect(ui.sendToPropertyInspector).toHaveBeenCalledExactlyOnceWith({ event: "connected", ids: ["lamp-1"] });
+  });
+
+  it("are told to the page shown whenever an operation finds a lamp plugged in or unplugged", async () => {
+    answerLampPickers();
+    const [listener] = at(vi.mocked(onConnectedChanged).mock.calls, 0);
+
+    await listener(["lamp-2"]);
+
+    expect(ui.sendToPropertyInspector).toHaveBeenCalledExactlyOnceWith({ event: "connected", ids: ["lamp-2"] });
   });
 });
