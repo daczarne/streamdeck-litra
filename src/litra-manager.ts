@@ -2,9 +2,6 @@ import {
   closeDevice,
   type Device,
   findDevices,
-  getAllowedTemperaturesInKelvinForDevice,
-  getMaximumBrightnessInLumenForDevice,
-  getMinimumBrightnessInLumenForDevice,
   handleOf,
   identityOf,
   type LampHandle,
@@ -13,7 +10,7 @@ import {
   readSerialNumber,
 } from "./device";
 
-import { type Lamp, type LampState, percentageInRange, percentageToLumen } from "./lamp";
+import type { Lamp, LampState } from "./lamp";
 import { lampId, lampLabel } from "./lamp-identity";
 import { bySerialNumber } from "./lamp-order";
 import { logger as pluginLogger } from "./logging";
@@ -296,30 +293,6 @@ function stepApart<T extends ApartLamp>(lamps: T[], ticks: number, step: number)
     }
   }
   return state.map((lamp) => lamp.asked);
-}
-
-/** The allowed temperature nearest to a value, or the value itself when none is allowed. */
-export function snapKelvin(value: number, allowed: number[]): number {
-  let best = value;
-  let bestDelta = Infinity;
-  for (const candidate of allowed) {
-    const delta = Math.abs(value - candidate);
-    if (delta < bestDelta) {
-      best = candidate;
-      bestDelta = delta;
-    }
-  }
-  return best;
-}
-
-/** Where a temperature sits between the lowest and the highest allowed for a lamp, from 0 to 100. */
-function temperaturePercentage(kelvin: number, allowed: readonly number[]): number {
-  const lowest = allowed[0];
-  const highest = allowed.at(-1);
-  if (lowest === undefined || highest === undefined) {
-    return 0;
-  }
-  return percentageInRange(kelvin, lowest, highest);
 }
 
 /** Whether a selection takes in the lamp with this id. */
@@ -662,24 +635,6 @@ function ensureOn(operation: string, device: Device): void {
   }
 }
 
-/** Where a brightness in lumens sits in a lamp's range, from 0 to 100. */
-function brightnessPercentage(device: Device, lumen: number): number {
-  return percentageInRange(
-    lumen,
-    getMinimumBrightnessInLumenForDevice(device),
-    getMaximumBrightnessInLumenForDevice(device),
-  );
-}
-
-/** The lumens litra sends a lamp for a percentage of its range. */
-function brightnessLumen(device: Device, percentage: number): number {
-  return percentageToLumen(
-    percentage,
-    getMinimumBrightnessInLumenForDevice(device),
-    getMaximumBrightnessInLumenForDevice(device),
-  );
-}
-
 /**
  * Sets the selected lamps to the percentage, and reports the brightest once they've settled, as
  * {@link moveLampsBrightness} does. A lamp at its cap stays there, so the report can be lower than the percentage.
@@ -791,7 +746,7 @@ async function sendBrightness(
     for (const [device, pct] of targets) {
       attempt(device, () => {
         const { lamp, handle } = reach(operation, device);
-        sent.set(device, lamp.sendBrightness(operation, handle, brightnessLumen(device, pct)));
+        sent.set(device, lamp.sendBrightness(operation, handle, lamp.lumenAt(pct)));
       });
     }
     await new Promise((resolve) => setTimeout(resolve, settleMs));
@@ -804,7 +759,7 @@ async function sendBrightness(
     attempt(device, () => {
       const { lamp, handle } = reach(operation, device);
       const lumenReached = lamp.readBackBrightness(operation, handle, lumen, sentAt);
-      const pct = brightnessPercentage(device, lumenReached);
+      const pct = lamp.brightnessPercentage(lumenReached);
       // A lamp kept apart takes what it was asked for, which any other change forgets.
       lamp.brightnessAsked = asked.get(device);
       percentages.push(pct);
@@ -907,7 +862,7 @@ async function moveLampsBrightness(
         targets.set(device, clamp(target));
       }
     } else if (target.stepping === "together") {
-      const levels = [...before].map(([device, lumen]) => brightnessPercentage(device, lumen));
+      const levels = [...before].map(([device, lumen]) => lampOf(device).brightnessPercentage(lumen));
       if (levels.length > 0) {
         const stepped = stepOnGrid(Math.max(...levels), target.ticks, target.step, 0, 100);
         for (const device of devices) {
@@ -915,14 +870,17 @@ async function moveLampsBrightness(
         }
       }
     } else {
-      const apart = [...before].map(([device, lumen]) => ({
-        device,
-        asked: lampOf(device).brightnessAsked ?? brightnessPercentage(device, lumen),
-        value: lumen,
-        reach: (percentage: number) => withinCap(operation, device, brightnessLumen(device, clamp(percentage))),
-        origin: 0,
-        span: 100,
-      }));
+      const apart = [...before].map(([device, lumen]) => {
+        const lamp = lampOf(device);
+        return {
+          device,
+          asked: lamp.brightnessAsked ?? lamp.brightnessPercentage(lumen),
+          value: lumen,
+          reach: (percentage: number) => withinCap(operation, device, lamp.lumenAt(clamp(percentage))),
+          origin: 0,
+          span: 100,
+        };
+      });
       const stepped = stepApart(apart, target.ticks, target.step);
       apart.forEach(({ device }, index) => {
         const percentage = stepped[index] ?? 0;
@@ -1042,9 +1000,8 @@ export function identifyLamp(id: string, blinkMs: number): Promise<BroadcastResu
 
 /** Sets a lamp to the temperature it allows nearest to `kelvin`, and returns that temperature. */
 function setSnappedTemperature(operation: string, device: Device, kelvin: number): number {
-  const snapped = snapKelvin(kelvin, getAllowedTemperaturesInKelvinForDevice(device));
   const { lamp, handle } = reach(operation, device);
-  const kelvinReached = lamp.setTemperature(operation, handle, snapped);
+  const kelvinReached = lamp.setTemperature(operation, handle, lamp.snapKelvin(kelvin));
   lamp.temperatureAsked = undefined;
   return kelvinReached;
 }
@@ -1057,11 +1014,10 @@ export function setLampsTemperature(lamps: LampSelection, kelvin: number): Broad
   const result = forEachDevice(
     operation,
     (device) => {
-      const allowed = getAllowedTemperaturesInKelvinForDevice(device);
       const snapped = setSnappedTemperature(operation, device, kelvin);
       if (representative === undefined) {
         representative = snapped;
-        representativePercentage = temperaturePercentage(snapped, allowed);
+        representativePercentage = lampOf(device).temperaturePercentage(snapped);
       }
     },
     lamps,
@@ -1095,12 +1051,12 @@ export function adjustLampsTemperature(
   const result = forEachDevice(
     operation,
     (device) => {
-      const { allowed, lowest, highest } = temperatureRange(device);
-      target ??= stepOnGrid(stateOf(reach(operation, device).lamp).kelvin, ticks, stepKelvin, lowest, highest);
+      const { lamp } = reach(operation, device);
+      target ??= stepOnGrid(stateOf(lamp).kelvin, ticks, stepKelvin, lamp.lowestKelvin, lamp.highestKelvin);
       const snapped = setSnappedTemperature(operation, device, target);
       if (representative === undefined) {
         representative = snapped;
-        representativePercentage = temperaturePercentage(snapped, allowed);
+        representativePercentage = lamp.temperaturePercentage(snapped);
       }
     },
     lamps,
@@ -1110,17 +1066,6 @@ export function adjustLampsTemperature(
     representativeTemperatureKelvin: representative,
     representativeTemperaturePercentage: representativePercentage,
   });
-}
-
-/** The temperatures a lamp allows, and the lowest and highest of them. Throws when it reports none. */
-function temperatureRange(device: Device): { allowed: number[]; lowest: number; highest: number } {
-  const allowed = getAllowedTemperaturesInKelvinForDevice(device);
-  const lowest = allowed[0];
-  const highest = allowed.at(-1);
-  if (lowest === undefined || highest === undefined) {
-    throw new Error("Lamp reports no allowed temperatures");
-  }
-  return { allowed, lowest, highest };
 }
 
 /**
@@ -1140,17 +1085,17 @@ function adjustTemperaturesApart(
   }
   const { failed, attempt } = inStages(operation);
   try {
-    const apart: Array<ApartLamp & { device: Device; allowed: number[] }> = [];
+    const apart: Array<ApartLamp & { device: Device }> = [];
     for (const device of devices) {
       attempt(device, () => {
-        const { allowed, lowest, highest } = temperatureRange(device);
-        const kelvin = stateOf(reach(operation, device).lamp).kelvin;
+        const { lamp } = reach(operation, device);
+        const kelvin = stateOf(lamp).kelvin;
+        const { lowestKelvin: lowest, highestKelvin: highest } = lamp;
         apart.push({
           device,
-          allowed,
-          asked: lampOf(device).temperatureAsked ?? kelvin,
+          asked: lamp.temperatureAsked ?? kelvin,
           value: kelvin,
-          reach: (askedKelvin) => snapKelvin(Math.max(lowest, Math.min(highest, askedKelvin)), allowed),
+          reach: (askedKelvin) => lamp.snapKelvin(Math.max(lowest, Math.min(highest, askedKelvin))),
           origin: lowest,
           span: highest - lowest,
         });
@@ -1168,7 +1113,7 @@ function adjustTemperaturesApart(
         reached.lamp.temperatureAsked = askedKelvin;
         if (representative === undefined) {
           representative = kelvinReached;
-          representativePercentage = temperaturePercentage(kelvinReached, lamp.allowed);
+          representativePercentage = reached.lamp.temperaturePercentage(kelvinReached);
         }
       });
     });
@@ -1199,9 +1144,7 @@ export async function readLampsTemperature(lamps: LampSelection): Promise<Broadc
     failures: first === undefined ? 1 : 0,
     representativeTemperatureKelvin: first?.state.kelvin,
     representativeTemperaturePercentage:
-      first === undefined
-        ? undefined
-        : temperaturePercentage(first.state.kelvin, first.lamp.range?.allowedKelvin ?? []),
+      first === undefined ? undefined : first.lamp.temperaturePercentage(first.state.kelvin),
   };
 }
 

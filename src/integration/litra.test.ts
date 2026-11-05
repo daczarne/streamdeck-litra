@@ -288,13 +288,15 @@ describe("litra", () => {
 //* What the plugin takes for granted
 
 describe("what litra-manager assumes about litra", () => {
-  describe.each(MODELS)("on a $name", ({ model, productId, minLumen, maxLumen }) => {
-    it("percentageToLumen gives the lumens litra sends for every percentage", () => {
+  describe.each(MODELS)("on a $name", ({ model, productId, maxLumen }) => {
+    it("a Lamp's lumenAt gives the lumens litra sends for every percentage", () => {
       const { lamp, device } = plugIn(model, { productId });
+      const known = new lampModule.Lamp(deviceModule.identityOf(device));
+      known.reach("test", deviceModule.handleOf(device));
 
       for (let percentage = 0; percentage <= 100; percentage += 1) {
         litra.setBrightnessPercentage(device, percentage);
-        expect(lamp.brightnessInLumen).toBe(lampModule.percentageToLumen(percentage, minLumen, maxLumen));
+        expect(lamp.brightnessInLumen).toBe(known.lumenAt(percentage));
       }
     });
 

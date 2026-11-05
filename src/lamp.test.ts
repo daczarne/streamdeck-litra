@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { LampHandle, LampRange } from "./device";
-import { BRIGHTNESS_CAP_REVERSAL_WINDOW_MS, Lamp, percentageInRange, percentageToLumen } from "./lamp";
+import { BRIGHTNESS_CAP_REVERSAL_WINDOW_MS, Lamp } from "./lamp";
 import { lampId } from "./lamp-identity";
 import { logger } from "./test-support/fake-logging";
 
@@ -190,46 +190,6 @@ describe("what a lamp kept apart was last asked for (#145)", () => {
     lamp.brightnessAsked = 110;
 
     expect(lamp.temperatureAsked).toBeUndefined();
-  });
-});
-
-describe("percentageInRange", () => {
-  it("maps the ends of the range to 0 and 100", () => {
-    expect(percentageInRange(30, 30, 400)).toBe(0);
-    expect(percentageInRange(400, 30, 400)).toBe(100);
-  });
-
-  it("maps a value inside the range proportionally, rounded to an integer", () => {
-    expect(percentageInRange(215, 30, 400)).toBe(50);
-    expect(percentageInRange(100, 30, 400)).toBe(19); // 18.92
-    expect(percentageInRange(102, 30, 400)).toBe(19); // 19.46
-  });
-
-  it("clamps values outside the range", () => {
-    expect(percentageInRange(20, 30, 400)).toBe(0);
-    expect(percentageInRange(500, 30, 400)).toBe(100);
-  });
-
-  it("returns 0 when the range is empty or inverted", () => {
-    expect(percentageInRange(50, 50, 50)).toBe(0);
-    expect(percentageInRange(50, 100, 20)).toBe(0);
-  });
-});
-
-describe("percentageToLumen", () => {
-  it("maps 0 and 100 to the ends of the range", () => {
-    expect(percentageToLumen(0, 30, 400)).toBe(30);
-    expect(percentageToLumen(100, 30, 400)).toBe(400);
-  });
-
-  it("rounds up, like litra", () => {
-    expect(percentageToLumen(70, 30, 400)).toBe(289);
-    expect(percentageToLumen(33, 30, 400)).toBe(153);
-  });
-
-  it("uses the range it's given", () => {
-    // A Litra Glow's range.
-    expect(percentageToLumen(50, 20, 250)).toBe(135);
   });
 });
 
@@ -512,5 +472,127 @@ describe("a lamp's brightness as a percentage", () => {
     lamp.reach("test", new FakeHandle());
 
     expect(lamp.brightnessPercentage(215)).toBe(50);
+  });
+});
+
+describe("a lamp's range (#198)", () => {
+  it("gives the lumens for a percentage of its brightness, as litra sends them", () => {
+    const { lamp } = reached();
+
+    expect([lamp.lumenAt(0), lamp.lumenAt(50), lamp.lumenAt(100)]).toEqual([30, 215, 400]);
+  });
+
+  it("gives the lowest and highest temperatures it allows, and snaps to the nearest one", () => {
+    const { lamp } = reached();
+
+    expect([lamp.lowestKelvin, lamp.highestKelvin, lamp.snapKelvin(4230), lamp.snapKelvin(9000)]).toEqual([
+      2700, 6500, 4200, 6500,
+    ]);
+  });
+
+  it("places a temperature between the lowest and highest it allows", () => {
+    const { lamp } = reached();
+
+    expect([
+      lamp.temperaturePercentage(2700),
+      lamp.temperaturePercentage(4600),
+      lamp.temperaturePercentage(6500),
+    ]).toEqual([0, 50, 100]);
+  });
+
+  it("isn't known before the lamp is reached", () => {
+    const lamp = new Lamp({ id: lampId(SERIAL), model: "Beam", serialEnd: "7K98" });
+
+    expect(() => lamp.lumenAt(50)).toThrow("Beam …7K98 has no range before it's reached");
+    expect(() => lamp.lowestKelvin).toThrow("Beam …7K98 has no range before it's reached");
+  });
+
+  it("can't place a temperature for a lamp that allows none", () => {
+    const { lamp } = reached(Object.assign(new FakeHandle(), { range: { ...RANGE, allowedKelvin: [] } }));
+
+    expect(() => lamp.temperaturePercentage(4000)).toThrow("Beam …7K98 reports no allowed temperatures");
+  });
+});
+
+/** A lamp reached through a handle of this range. */
+function inRange(range: Partial<LampRange>): Lamp {
+  return reached(Object.assign(new FakeHandle(), { range: { ...RANGE, ...range } })).lamp;
+}
+
+describe("a lamp's brightness as a percentage of its range", () => {
+  it("maps the ends of the range to 0 and 100", () => {
+    const lamp = inRange({});
+
+    expect([lamp.brightnessPercentage(30), lamp.brightnessPercentage(400)]).toEqual([0, 100]);
+  });
+
+  it("maps a value inside the range proportionally, rounded to an integer", () => {
+    const lamp = inRange({});
+
+    // 18.92 and 19.46.
+    expect([lamp.brightnessPercentage(215), lamp.brightnessPercentage(100), lamp.brightnessPercentage(102)]).toEqual([
+      50, 19, 19,
+    ]);
+  });
+
+  it("clamps values outside the range", () => {
+    const lamp = inRange({});
+
+    expect([lamp.brightnessPercentage(20), lamp.brightnessPercentage(500)]).toEqual([0, 100]);
+  });
+
+  it("is 0 when the range is empty or inverted", () => {
+    expect(inRange({ minLumen: 50, maxLumen: 50 }).brightnessPercentage(50)).toBe(0);
+    expect(inRange({ minLumen: 100, maxLumen: 20 }).brightnessPercentage(50)).toBe(0);
+  });
+});
+
+describe("the lumens a lamp is sent for a percentage", () => {
+  it("are the ends of the range at 0 and 100", () => {
+    const lamp = inRange({});
+
+    expect([lamp.lumenAt(0), lamp.lumenAt(100)]).toEqual([30, 400]);
+  });
+
+  it("are rounded up, like litra's", () => {
+    const lamp = inRange({});
+
+    expect([lamp.lumenAt(70), lamp.lumenAt(33)]).toEqual([289, 153]);
+  });
+
+  it("follow the lamp's own range", () => {
+    // A Litra Glow's range.
+    expect(inRange({ minLumen: 20, maxLumen: 250 }).lumenAt(50)).toBe(135);
+  });
+});
+
+describe("the temperature a lamp allows nearest to another", () => {
+  it("is the temperature itself when it's allowed", () => {
+    expect(inRange({}).snapKelvin(3000)).toBe(3000);
+  });
+
+  it("is the nearest allowed one", () => {
+    const lamp = inRange({});
+
+    expect([lamp.snapKelvin(3140), lamp.snapKelvin(3160)]).toEqual([3100, 3200]);
+  });
+
+  it("is the one the lamp lists first on a tie", () => {
+    expect(inRange({}).snapKelvin(3150)).toBe(3100);
+    expect(inRange({ allowedKelvin: [...RANGE.allowedKelvin].reverse() }).snapKelvin(3150)).toBe(3200);
+  });
+
+  it("is an end of the range for a temperature outside it", () => {
+    const lamp = inRange({});
+
+    expect([lamp.snapKelvin(1000), lamp.snapKelvin(9000)]).toEqual([2700, 6500]);
+  });
+
+  it("is found in a list that isn't sorted", () => {
+    expect(inRange({ allowedKelvin: [6500, 2700, 4000] }).snapKelvin(2800)).toBe(2700);
+  });
+
+  it("can't be found for a lamp that allows none", () => {
+    expect(() => inRange({ allowedKelvin: [] }).snapKelvin(3123)).toThrow("Beam …7K98 reports no allowed temperatures");
   });
 });

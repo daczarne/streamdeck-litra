@@ -16,22 +16,6 @@ export const BRIGHTNESS_CAP_REVERSAL_WINDOW_MS = 1500;
 /** A lamp's power, its brightness in lumens and its temperature in kelvin, as the plugin holds them (#198). */
 export type LampState = { readonly on: boolean; readonly lumen: number; readonly kelvin: number };
 
-/** Where a value sits in a lamp's range, from 0 to 100, such as a brightness in lumens or a temperature in kelvin. */
-export function percentageInRange(value: number, min: number, max: number): number {
-  if (max <= min) {
-    return 0;
-  }
-  return Math.max(0, Math.min(100, Math.round(((value - min) / (max - min)) * 100)));
-}
-
-/**
- * The lumens litra's setBrightnessPercentage sends for a percentage. Mirrors litra's percentageWithinRange, which
- * isn't exported.
- */
-export function percentageToLumen(percentage: number, min: number, max: number): number {
-  return Math.ceil((percentage / 100) * (max - min) + min);
-}
-
 /**
  * Waits, holding the thread, since the writes it follows are synchronous. Only a read that just failed waits, and only
  * for {@link READ_AGAIN_MS}.
@@ -215,7 +199,67 @@ export class Lamp {
   brightnessPercentage(lumen: number): number {
     return this.lampRange === undefined
       ? 0
-      : percentageInRange(lumen, this.lampRange.minLumen, this.lampRange.maxLumen);
+      : Lamp.percentageInRange(lumen, this.lampRange.minLumen, this.lampRange.maxLumen);
+  }
+
+  /** The lumens the lamp is sent for a percentage of its range, as litra's setBrightnessPercentage sends them. */
+  lumenAt(percentage: number): number {
+    const { minLumen, maxLumen } = this.reachedRange();
+    return Lamp.percentageToLumen(percentage, minLumen, maxLumen);
+  }
+
+  /** The lowest temperature the lamp allows, in kelvin, where its steps are counted from. */
+  get lowestKelvin(): number {
+    return this.temperatureLimits().lowest;
+  }
+
+  /** The highest temperature the lamp allows, in kelvin. */
+  get highestKelvin(): number {
+    return this.temperatureLimits().highest;
+  }
+
+  /**
+   * The temperature the lamp allows nearest to `kelvin`, the one it lists first on a tie. Throws when it allows none.
+   */
+  snapKelvin(kelvin: number): number {
+    let nearest: number | undefined;
+    let nearestDelta = Infinity;
+    for (const allowed of this.reachedRange().allowedKelvin) {
+      const delta = Math.abs(kelvin - allowed);
+      if (delta < nearestDelta) {
+        nearest = allowed;
+        nearestDelta = delta;
+      }
+    }
+    if (nearest === undefined) {
+      throw new Error(`${this.logLabel} reports no allowed temperatures`);
+    }
+    return nearest;
+  }
+
+  /** Where a temperature sits between the lowest and the highest the lamp allows, from 0 to 100. */
+  temperaturePercentage(kelvin: number): number {
+    const { lowest, highest } = this.temperatureLimits();
+    return Lamp.percentageInRange(kelvin, lowest, highest);
+  }
+
+  /** The lamp's range, which an operation learns when it reaches the lamp, so it's known before any change. */
+  private reachedRange(): LampRange {
+    if (this.lampRange === undefined) {
+      throw new Error(`${this.logLabel} has no range before it's reached`);
+    }
+    return this.lampRange;
+  }
+
+  /** The lowest and the highest temperature the lamp allows. Throws when it reports none. */
+  private temperatureLimits(): { lowest: number; highest: number } {
+    const { allowedKelvin } = this.reachedRange();
+    const lowest = allowedKelvin[0];
+    const highest = allowedKelvin.at(-1);
+    if (lowest === undefined || highest === undefined) {
+      throw new Error(`${this.logLabel} reports no allowed temperatures`);
+    }
+    return { lowest, highest };
   }
 
   /**
@@ -380,5 +424,21 @@ export class Lamp {
       throw new Error(`${this.logLabel} was changed before it was reached`);
     }
     return this.heldState;
+  }
+
+  /** Where a value sits in a range, from 0 to 100, such as a brightness in lumens or a temperature in kelvin. */
+  private static percentageInRange(value: number, min: number, max: number): number {
+    if (max <= min) {
+      return 0;
+    }
+    return Math.max(0, Math.min(100, Math.round(((value - min) / (max - min)) * 100)));
+  }
+
+  /**
+   * The lumens litra's setBrightnessPercentage sends for a percentage. Mirrors litra's percentageWithinRange, which
+   * isn't exported.
+   */
+  private static percentageToLumen(percentage: number, min: number, max: number): number {
+    return Math.ceil((percentage / 100) * (max - min) + min);
   }
 }

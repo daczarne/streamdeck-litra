@@ -18,10 +18,6 @@ const MAX_LUMEN = 400;
 const MIN_KELVIN = 2700;
 const MAX_KELVIN = 6500;
 const KELVIN_STEP = 100;
-const ALLOWED_KELVIN = Array.from(
-  { length: (MAX_KELVIN - MIN_KELVIN) / KELVIN_STEP + 1 },
-  (_, index) => MIN_KELVIN + index * KELVIN_STEP,
-);
 
 // The id of a lamp the plugin knows that isn't plugged in.
 const MISSING_LAMP = "0123456789abcdef";
@@ -202,35 +198,6 @@ function asked(lamp: EmulatedLitra): number[][] {
 }
 
 //* Pure functions
-
-describe("snapKelvin", () => {
-  it("keeps an allowed value", () => {
-    expect(manager.snapKelvin(3000, ALLOWED_KELVIN)).toBe(3000);
-  });
-
-  it("snaps to the nearest allowed value", () => {
-    expect(manager.snapKelvin(3140, ALLOWED_KELVIN)).toBe(3100);
-    expect(manager.snapKelvin(3160, ALLOWED_KELVIN)).toBe(3200);
-  });
-
-  it("snaps a tie to the value listed first", () => {
-    expect(manager.snapKelvin(3150, ALLOWED_KELVIN)).toBe(3100);
-    expect(manager.snapKelvin(3150, ALLOWED_KELVIN.toReversed())).toBe(3200);
-  });
-
-  it("snaps values outside the range to its ends", () => {
-    expect(manager.snapKelvin(1000, ALLOWED_KELVIN)).toBe(MIN_KELVIN);
-    expect(manager.snapKelvin(9000, ALLOWED_KELVIN)).toBe(MAX_KELVIN);
-  });
-
-  it("accepts an unsorted list", () => {
-    expect(manager.snapKelvin(2800, [6500, 2700, 4000])).toBe(2700);
-  });
-
-  it("returns the value unchanged when nothing is allowed", () => {
-    expect(manager.snapKelvin(3123, [])).toBe(3123);
-  });
-});
 
 describe("stepOnGrid", () => {
   it("moves a value on the grid by whole steps, either way", () => {
