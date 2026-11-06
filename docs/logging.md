@@ -23,7 +23,7 @@ The log tells, in order, what was pressed or turned on the Deck, what each lamp 
 ### Levels
 
 - `error`: something failed. The lamps couldn't be listed, a lamp's part in an operation failed, or the plugin hit a bug.
-- `warn`: something expected was missing or wrong, such as a lamp, a handle that wouldn't close, or an action's setting that isn't valid.
+- `warn`: something expected was missing or wrong, such as a lamp, a connection that wouldn't close, or an action's setting that isn't valid.
 - `info`: what the user did, every change made to a lamp, and every lamp read into the plugin's state, when it starts, or when it first reaches a lamp, or reaches one plugged in again.
 - `debug`: what a lamp answered when the plugin read back a power or a temperature it set, the second trip of every value (see [the architecture][two-trips]). It's what was sent unless something failed, which is logged at `warn`, so logging it at `info` would about double the log and add nothing to finding the cause of an alert. A brightness's second trip is the exception, logged at `info` with what was sent, since a capped lamp reaches less. To see them, set the level in `src/logging.ts` to `debug`, rebuild and restart.
 
