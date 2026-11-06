@@ -20,14 +20,11 @@
 - [The settings pages](#the-settings-pages)
 - [Turning a dial](#turning-a-dial)
 
-> [!WARNING]
-> On the `refactoring` branch, this document describes the plugin as it will be once [#198] is done, not the code as it is. Each step of the refactor changes it where the design doesn't work out. This note comes out before the branch is merged into `main`.
-
 This document describes how the plugin's parts fit together, and why they're built the way they are. The code's comments say how each part works, and [the contributing guide][contributing] holds the design rules that hold across the plugin, such as managing the lamps as one group by default.
 
 ## From a press to the lamps
 
-Stream Deck starts the plugin as a Node process (`src/plugin.ts`). The plugin registers the actions and connects to Stream Deck. A press, a turn or a tap reaches the action it belongs to, in `src/actions/`, which hands it to the object that stands for that key or dial (see [Keys and dials](#keys-and-dials)). The key or dial reads its settings against their schema (`src/actions/settings.ts`), logs what was asked for, and asks `src/litra-manager.ts` for it. `litra-manager` finds the lamps, picks the ones the key or dial acts on, and tells each one's `Lamp` what to change. The `Lamp` sends its lamp what it takes, through `src/device.ts`, which writes HID++ reports through the [`litra`][litra] library and `node-hid`, and reads back what the lamp did (see [Two trips for every value](#two-trips-for-every-value)). Once the lamps are changed, `litra-manager` tells every key and dial, which redraws from the `Lamp`s, without reading the lamps.
+Stream Deck starts the plugin as a Node process (`src/plugin.ts`). The plugin registers the actions and connects to Stream Deck. A press, a turn or a tap reaches the action it belongs to, in `src/actions/`, which hands it to the object that stands for that key or dial (see [Keys and dials](#keys-and-dials)). The key or dial, which holds its settings as read against their schema (`src/actions/settings.ts`), logs what was asked for, and asks `src/litra-manager.ts` for it. `litra-manager` finds the lamps, picks the ones the key or dial acts on, and tells each one's `Lamp` what to change. The `Lamp` sends its lamp what it takes, through `src/device.ts`, which writes HID++ reports through the [`litra`][litra] library and `node-hid`, and reads back what the lamp did (see [Two trips for every value](#two-trips-for-every-value)). Once the lamps are changed, `litra-manager` tells every key and dial, which redraws from the `Lamp`s, without reading the lamps.
 
 The settings pages talk to the plugin too: the plugin settings ask it to find the lamps, which it adds to the lamps it knows, to blink one, and to rename or forget one, and which lamps are connected, which `src/actions/lamp-picker.ts` answers for every page (see [The settings pages](#the-settings-pages)).
 
@@ -39,7 +36,7 @@ A Beam LX doesn't turn on at the setting it has, but at the one it saved a few h
 
 The plugin is for managing the lamps through the plugin. A lamp's power, brightness and temperature are what its `Lamp` holds: what the lamp reported after the plugin last set them, and what the Deck shows. A change made another way, with the lamp's own buttons, Logitech's software or a CLI, isn't followed: the plugin's state goes stale by the user's choice, and comes back in step at the next change made through the plugin ([#198]). For example, a lamp the plugin set to 10% and brought to 20% with its own button stays at 10% in the plugin. Turning the dial to 20% then sends the lamp 20%, which it's already at, so the request changes nothing on the lamp.
 
-The lamps can't tell the plugin of a change, so this is the only state the plugin can hold consistently. Reading every lamp before showing it, as the plugin once did, would follow some changes made another way, but only when something else made the plugin read, and at the cost of a read for every key and dial on every change. The plugin settings' button to read every lamp again ([#214]) is the way back in step after a failure.
+The lamps can't tell the plugin of a change, so this is the only state the plugin can hold consistently. Reading every lamp before showing it, as the plugin once did, would follow some changes made another way, but only when something else made the plugin read, and at the cost of a read for every key and dial on every change. Until the plugin settings have a button to read every lamp again ([#214]), the next change made through the plugin is the way back in step after a failure.
 
 ### Two trips for every value
 
@@ -76,7 +73,7 @@ A `Lamp` (`src/lamp.ts`) stands for one lamp the plugin knows. It holds:
 - Its state: its power, brightness and temperature, as described in [The plugin's state is the lamps' state](#the-plugins-state-is-the-lamps-state), and whether it's connected.
 - What the plugin remembers about it (see [What a lamp remembers](#what-a-lamp-remembers)).
 
-Its methods change its lamp and its state together: `setPower`, `setBrightness`, `setTemperature` and `blink` each send the lamp what it takes, read back what it did, and hold that. They're given the lamp's open handle by `litra-manager`, which opens it for the length of an operation (see [Finding the lamps on every operation](#finding-the-lamps-on-every-operation)), and the brightness's two trips are two methods, one that sends and one that reads back, so `litra-manager` can send every lamp its brightness before letting them all settle at once. A `Lamp` acts on its own lamp alone: what spans several lamps is `litra-manager`'s.
+Its methods change its lamp and its state together: `setPower`, `setTemperature` and `blink` each send the lamp what it takes, read back what it did, and hold that, and so do `sendBrightness` and `readBackBrightness` between them. They're given the lamp's open handle by `litra-manager`, which opens it for the length of an operation (see [Finding the lamps on every operation](#finding-the-lamps-on-every-operation)), and the brightness's two trips are two methods, one that sends and one that reads back, so `litra-manager` can send every lamp its brightness before letting them all settle at once. A `Lamp` acts on its own lamp alone: what spans several lamps is `litra-manager`'s.
 
 ### GlobalSettings
 

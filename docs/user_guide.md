@@ -20,9 +20,6 @@
   - [Dials](#dials-1)
 - [When something doesn't work](#when-something-doesnt-work)
 
-> [!WARNING]
-> On the `refactoring` branch, this guide describes the plugin as it will be once [#198] is done, not the code as it is. Each step of the refactor changes it where the design doesn't work out. This note comes out before the branch is merged into `main`.
-
 This guide describes how to use the plugin once it's installed (see [the README][installing]): what each action does on a key or a dial, which lamps it controls, and the settings the actions share.
 
 ## The lamps the plugin controls
@@ -151,7 +148,6 @@ If something else doesn't work, [an issue][issues] with the plugin's log helps. 
 
 They hold your lamps' serial numbers, so remove those before posting.
 
-[#198]: https://github.com/daczarne/streamdeck-litra/issues/198
 [hardware]: ../README.md#supported-hardware
 [installing]: ../README.md#installing
 [issues]: https://github.com/daczarne/streamdeck-litra/issues

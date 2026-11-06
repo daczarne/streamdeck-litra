@@ -4,9 +4,6 @@
 - [Setup](#setup)
 - [Checks](#checks)
 
-> [!WARNING]
-> On the `refactoring` branch, these checks describe the plugin as it will be once [#198] is done, not the code as it is. Each step of the refactor changes them where the design doesn't work out. This note comes out before the branch is merged into `main`.
-
 The unit tests check against emulated lamps how a toggle chooses one state for every lamp: off if every lamp is on, on otherwise ([#23]). The integration tests check against emulated lamps and a fake Stream Deck that a Brightness dial reaches that toggle, and that the plugin sets the new state on every Power key, whichever key or dial changed the lamps ([#57]). They also check that a failed press shows its alert after the key's state, never before it, since a state set right after an alert covers it. The checks below cover what they take for granted: that the lamps report their state and follow the command, and that Stream Deck shows the state the plugin sets, in a look that tells on from off. The keys here act on every connected lamp, as one group: picking a key's lamps is checked in [`lamp_picker.md`][lamp-picker].
 
 ## When to run these checks
