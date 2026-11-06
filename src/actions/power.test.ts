@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-import { areLampsOn, onLampsChanged, toggleLamps, turnLampsOff, turnLampsOn } from "../litra-manager";
+import { followGlobalSettings } from "../global-settings";
+import { onLampsChanged, toggleLamps, turnLampsOff, turnLampsOn } from "../litra-manager";
 import { logger } from "../logging";
 import { at } from "../test-support/at";
 import { FakeDeck } from "../test-support/fake-deck";
 import { changeGlobalSettings } from "../test-support/fake-stream-deck";
-import { followGlobalSettings } from "./global-settings";
 import { PowerAction } from "./power";
+import { areLampsOn } from "./shown";
 
 //* Fakes
 
@@ -15,12 +15,15 @@ vi.mock("@elgato/streamdeck", () => import("../test-support/fake-stream-deck"));
 // The real logger writes to a logs/ folder.
 vi.mock("../logging", () => import("../test-support/fake-logging"));
 
+// What the keys and dials show of the lamps, which each test sets.
+vi.mock("./shown", () => ({ areLampsOn: vi.fn() }));
+
 // The real litra-manager loads node-hid's native binary on import and talks to real lamps.
 vi.mock("../litra-manager", () => ({
-  areLampsOn: vi.fn(),
   findLamps: vi.fn(() => []),
   onLampsChanged: vi.fn(),
-  setKnownLamps: vi.fn(),
+  reachEveryLamp: vi.fn(),
+  useLamps: vi.fn(),
   toggleLamps: vi.fn(),
   turnLampsOff: vi.fn(),
   turnLampsOn: vi.fn(),
@@ -41,7 +44,7 @@ let lampsChanged: () => Promise<void>;
 beforeEach(() => {
   vi.useFakeTimers();
   // The lamps as a key that appears reads them, unless a test says otherwise: some on, some off.
-  vi.mocked(areLampsOn).mockResolvedValue({ ok: true, allOn: false, deviceCount: 2 });
+  vi.mocked(areLampsOn).mockResolvedValue(false);
   const power = new PowerAction();
   const listener = vi.mocked(onLampsChanged).mock.lastCall?.[0];
   if (listener === undefined) {
@@ -67,23 +70,22 @@ followGlobalSettings();
 
 describe("PowerAction", () => {
   describe("when the lamps change", () => {
-    it("shows the lamps' state on every Power key, not only the one pressed, from one read (#57)", async () => {
+    it("shows the lamps' state on every Power key, not only the one pressed (#57)", async () => {
       const key = await deck.key(POWER);
       const otherKey = await deck.key(POWER);
       clearCalls();
-      vi.mocked(areLampsOn).mockResolvedValue({ ok: true, allOn: true, deviceCount: 2 });
+      vi.mocked(areLampsOn).mockResolvedValue(true);
 
       await lampsChanged();
 
       expect(key.setState).toHaveBeenCalledExactlyOnceWith(1);
       expect(otherKey.setState).toHaveBeenCalledExactlyOnceWith(1);
-      expect(areLampsOn).toHaveBeenCalledOnce();
     });
 
     it("shows off when only some lamps are on", async () => {
       const key = await deck.key(POWER);
       clearCalls();
-      vi.mocked(areLampsOn).mockResolvedValue({ ok: true, allOn: false, deviceCount: 2 });
+      vi.mocked(areLampsOn).mockResolvedValue(false);
 
       await lampsChanged();
 
@@ -93,7 +95,7 @@ describe("PowerAction", () => {
     it("shows off when no lamp is connected", async () => {
       const key = await deck.key(POWER);
       clearCalls();
-      vi.mocked(areLampsOn).mockResolvedValue({ ok: false, allOn: false, deviceCount: 0 });
+      vi.mocked(areLampsOn).mockResolvedValue(false);
 
       await lampsChanged();
 
@@ -119,15 +121,18 @@ describe("PowerAction", () => {
       expect(key.showAlert).not.toHaveBeenCalled();
     });
 
-    it("toggles the lamps in a mode that isn't valid, with a warning (#22)", async () => {
+    it("toggles the lamps in a mode that isn't valid, with a warning as the key appears, not at every press (#22)", async () => {
       const key = await deck.key(POWER, { mode: "blink" });
+
+      expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("mode"));
+
       clearCalls();
       vi.mocked(toggleLamps).mockReturnValue(SWITCHED);
 
       await deck.press(key);
 
       expect(toggleLamps).toHaveBeenCalledOnce();
-      expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("mode"));
+      expect(logger.warn).not.toHaveBeenCalled();
     });
 
     it("shows an alert when a lamp fails, once the notice has redrawn the key's state, so the state doesn't cover it (#132)", async () => {
@@ -177,7 +182,7 @@ describe("PowerAction", () => {
   });
 
   it("shows the lamps' state on a key that appears", async () => {
-    vi.mocked(areLampsOn).mockResolvedValue({ ok: true, allOn: true, deviceCount: 2 });
+    vi.mocked(areLampsOn).mockResolvedValue(true);
 
     const key = await deck.key(POWER);
 
@@ -214,18 +219,16 @@ describe("PowerAction", () => {
       expect(toggleLamps).toHaveBeenCalledExactlyOnceWith("all");
     });
 
-    it("shows each key the state of its own lamps, from one read for each set of lamps", async () => {
+    it("shows each key the state of its own lamps", async () => {
       const onEvery = await deck.key(POWER);
       const onFirst = await deck.key(POWER, { lamps: [LAMP_1] });
       const alsoOnFirst = await deck.key(POWER, { lamps: [LAMP_1] });
       const onSecond = await deck.key(POWER, { lamps: [LAMP_2] });
       clearCalls();
       // Lamp 1 is on, lamp 2 off.
-      vi.mocked(areLampsOn).mockImplementation(async (lamps) => ({
-        ok: true,
-        allOn: Array.isArray(lamps) && lamps.every((id) => id === LAMP_1),
-        deviceCount: Array.isArray(lamps) ? lamps.length : 2,
-      }));
+      vi.mocked(areLampsOn).mockImplementation(
+        async (lamps) => Array.isArray(lamps) && lamps.every((id) => id === LAMP_1),
+      );
 
       await lampsChanged();
 
@@ -235,13 +238,13 @@ describe("PowerAction", () => {
         [1],
         [0],
       ]);
-      expect(vi.mocked(areLampsOn).mock.calls).toEqual([["all"], [[LAMP_1]], [[LAMP_2]]]);
+      expect(vi.mocked(areLampsOn).mock.calls).toEqual([["all"], [[LAMP_1]], [[LAMP_1]], [[LAMP_2]]]);
     });
 
     it("shows the state of the key's new lamps once they're changed on the settings page", async () => {
       const key = await deck.key(POWER);
       clearCalls();
-      vi.mocked(areLampsOn).mockResolvedValue({ ok: true, allOn: true, deviceCount: 1 });
+      vi.mocked(areLampsOn).mockResolvedValue(true);
 
       await deck.changeSettings(key, { lamps: [LAMP_2] });
 

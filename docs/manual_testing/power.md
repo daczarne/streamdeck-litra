@@ -22,21 +22,23 @@ npx streamdeck restart com.daczarne.litra
 
 In VS Code, the `Build and restart` task runs both.
 
-To put the lamps out of sync, turn one Beam off with its own power button. The plugin doesn't notice a lamp's own button, so the Power keys keep showing what they showed before until the plugin changes the lamps.
+To put the lamps out of sync, turn one Beam off on its lamp screen: tap the Brightness dial's strip until it shows that lamp, press the dial, and tap the strip until the dial is back on its main screen. A lamp's own power button won't do: the plugin doesn't follow it, by design ([#198]).
 
 ## Checks
 
-1. **The key brings lamps out of sync together.** Turn both lamps on, then one off with its button. Press the Power key: both lamps turn on, and the key shows on.
+1. **The key brings lamps out of sync together.** Turn both lamps on, then one off on its lamp screen. Press the Power key: both lamps turn on, and the key shows on.
 2. **The key turns lamps in sync off.** Press the Power key again: both lamps turn off, and the key shows off. Press it once more: both turn on.
-3. **A dial press brings lamps out of sync together.** Turn one lamp off with its button. With both dials on their main screen, press the Brightness dial: both lamps turn on. Turn one off again and press the Temperature dial: both lamps turn on.
+3. **A dial press brings lamps out of sync together.** Turn one lamp off on its lamp screen. With both dials on their main screen, press the Brightness dial: both lamps turn on. Turn one off again, on the Temperature dial's lamp screen, and press the Temperature dial on its main screen: both lamps turn on.
 4. **A dial press turns lamps in sync off.** With both lamps on, press either dial on its main screen: both lamps turn off. Press it again: both turn on.
 5. **Every Power key follows a Power key.** Press one Power key: both lamps change, and both Power keys show the new state.
 6. **Every Power key follows a dial press.** Press either dial: both lamps change, and both Power keys show the new state.
 7. **Every Power key follows a Brightness key.** With both lamps off, press the Brightness key: both lamps turn on at its preset, and both Power keys show on. Turn the lamps off again and turn the Brightness dial: the same happens.
 8. **An alert shows when no lamp answers.** With both lamps on, unplug them, then press a Power key: it shows off, then Stream Deck's alert over it ([#132]). The other Power key shows off, without an alert.
-9. **The keys show their state in color.** A Power key shows an orange power symbol when the lamps are on and a grey one when they're off, with nothing drawn behind it, like the transparent icons around it. A key given a custom image keeps it.
+9. **A lamp's own button isn't followed.** With both lamps on, turn one off with its own power button: both Power keys still show on. Press a Power key: the plugin turns both lamps off, the one already off staying off, and both keys show off. Press it again: both turn on.
+10. **The keys show their state in color.** A Power key shows an orange power symbol when the lamps are on and a grey one when they're off, with nothing drawn behind it, like the transparent icons around it. A key given a custom image keeps it.
 
 [#23]: https://github.com/daczarne/streamdeck-litra/issues/23
 [#57]: https://github.com/daczarne/streamdeck-litra/issues/57
 [#132]: https://github.com/daczarne/streamdeck-litra/issues/132
+[#198]: https://github.com/daczarne/streamdeck-litra/issues/198
 [lamp-picker]: lamp_picker.md

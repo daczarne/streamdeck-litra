@@ -1,17 +1,18 @@
 import streamDeck from "@elgato/streamdeck";
 import type { JsonValue } from "@elgato/utils";
 
-import { findLamps, identifyLamp } from "../litra-manager";
+import { globalSettings } from "../global-settings";
+import { connectedLamps, findLamps, identifyLamp, onConnectedChanged, reachEveryLamp } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
-import { addLamps, forgetLamp, identifyBlinkMs, renameLamp } from "./global-settings";
 
 const logger = pluginLogger.createScope("Lamp picker");
 
 /**
  * Answers the plugin settings on every page (#146, `ui/plugin-settings.js`), whichever action's page they're on: the
  * connected lamps when Find lamps asks for them, which the plugin adds to the ones it knows (#194), a blink of one when
- * its Identify button is pressed, and a lamp renamed (#146) or forgotten (#194), which only the plugin saves. The keys'
- * lamp pickers (#20, `ui/lamp-picker.js`) ask for nothing: they list the lamps the plugin knows, from its global
+ * its Identify button is pressed, a lamp renamed (#146) or forgotten (#194), which only the plugin saves, and which of
+ * the lamps it knows are connected (#198), which it also tells the page shown whenever an operation finds a lamp
+ * plugged in or unplugged. The keys' lamp pickers (#20, `ui/lamp-picker.js`) ask for nothing: they list the lamps the plugin knows, from its global
  * settings.
  */
 export function answerLampPickers(): void {
@@ -20,6 +21,8 @@ export function answerLampPickers(): void {
       logger.error("Answering a settings page failed", error);
     });
   });
+  // Stream Deck passes it on only while a page of the plugin's is shown.
+  onConnectedChanged((ids) => streamDeck.ui.sendToPropertyInspector({ event: "connected", ids }));
 }
 
 /** Answers one message from a settings page. Messages the picker doesn't send are ignored. */
@@ -30,16 +33,21 @@ export async function answer(payload: JsonValue): Promise<void> {
   if (payload.event === "lamps") {
     logger.info("Settings page asked for the lamps");
     const lamps = findLamps();
-    await addLamps(lamps);
+    await globalSettings.addLamps(lamps);
+    // The lamps just added are read, as when the plugin starts, so the keys and dials show them (#198).
+    reachEveryLamp();
     await streamDeck.ui.sendToPropertyInspector({ event: "lamps", lamps });
+  } else if (payload.event === "connected") {
+    logger.debug("Settings page asked which lamps are connected");
+    await streamDeck.ui.sendToPropertyInspector({ event: "connected", ids: connectedLamps() });
   } else if (payload.event === "identify" && typeof payload.id === "string") {
     logger.info("Identify pressed on a settings page");
     // The page has no alert to show: litra-manager logs a lamp it can't find or blink.
-    await identifyLamp(payload.id, identifyBlinkMs());
+    await identifyLamp(payload.id, globalSettings.identifyBlinkMs);
   } else if (payload.event === "rename" && typeof payload.id === "string" && typeof payload.name === "string") {
-    await renameLamp(payload.id, payload.name);
+    await globalSettings.renameLamp(payload.id, payload.name);
   } else if (payload.event === "forget" && typeof payload.id === "string") {
     logger.info("Forget pressed on a settings page");
-    await forgetLamp(payload.id);
+    await globalSettings.forgetLamp(payload.id);
   }
 }

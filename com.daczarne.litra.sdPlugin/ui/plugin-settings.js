@@ -24,8 +24,18 @@
   let editing;
   // The lamps the plugin knows, by id, each with its model, the end of its serial number, and its name, if any.
   let lamps = {};
-  // The ids of the lamps the last Find lamps found, or undefined before one, when none is marked as not found.
+  // The ids of the lamps the plugin found the last time it looked (#198): what it answers as the plugin settings open,
+  // and tells of every change since, and what the last Find lamps found. Undefined before either, when none is marked as
+  // not found.
   let found;
+
+  // The plugin tells the page shown which lamps are connected whenever an operation finds one plugged in or unplugged.
+  client.sendToPropertyInspector.subscribe((message) => {
+    if (message.payload?.event === "connected" && Array.isArray(message.payload.ids)) {
+      found = message.payload.ids;
+      render();
+    }
+  });
 
   const style = document.createElement("style");
   style.textContent = `
@@ -327,7 +337,7 @@
 
   /**
    * Shows the plugin settings, with the lamps the plugin knows, or the action's settings again, or the plugin settings
-   * again from a cell's options. Opening them looks for no lamps.
+   * again from a cell's options. Opening them looks for no lamps: it asks the plugin which ones it last found (#198).
    */
   async function toggle() {
     if (editing !== undefined) {
@@ -339,6 +349,8 @@
     document.body.classList.toggle("plugin-settings-open", open);
     render();
     if (open) {
+      // The answer arrives as the plugin tells of a change, which marks the lamps it didn't find.
+      client.send("sendToPlugin", { event: "connected" }).catch(showError);
       lamps = validLamps(await readLamps());
       render();
     }
@@ -388,6 +400,21 @@
     picker.setAttribute("global", "");
     picker.setAttribute("default", fallback);
     return picker;
+  }
+
+  /**
+   * Shows a color in a color picker from sdpi-components, as well as giving it the color. The picker draws its color as
+   * its input's `defaultValue`, which an input the user already changed no longer shows, so a color a script gives it,
+   * such as a Reset's, would be saved, but the picker would go on showing the user's.
+   * @param {HTMLElement} picker The `sdpi-color`.
+   * @param {string | null} color The color to show.
+   * @returns {void}
+   */
+  function showColor(picker, color) {
+    const input = picker.shadowRoot?.querySelector('input[type="color"]');
+    if (input instanceof HTMLInputElement && color !== null) {
+      input.value = color;
+    }
   }
 
   /** A list from sdpi-components that reads and saves a global setting itself, with its options as [value, text]. */
@@ -539,6 +566,7 @@
       for (const control of controls) {
         control.value = control.getAttribute("default");
       }
+      showColor(colorPicker, colorPicker.getAttribute("default"));
     });
     reset.className = "fields-reset";
     reset.dataset.style = setting;
@@ -765,7 +793,8 @@
 
   /**
    * A lamp's row: the end of its serial number, its model, its name, a button that blinks it, and one that forgets it.
-   * A lamp the last Find lamps didn't find is greyed out, with "Not found" in place of its Identify button.
+   * A lamp the plugin didn't find the last time it looked is greyed out, with "Not found" in place of its Identify
+   * button (#198).
    */
   function lampRow([id, lamp]) {
     const label = `${lamp.model} - ${lamp.serialEnd}`;

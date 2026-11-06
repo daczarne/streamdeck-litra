@@ -2,13 +2,15 @@ import { brightnessGlyph, svgDoc, temperatureGlyph } from "@daczarne/streamdeck-
 import type { JsonObject } from "@elgato/utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { identifyLamp, type LampStatus, onLampsChanged, readLampStatuses } from "../litra-manager";
+import { followGlobalSettings } from "../global-settings";
+import type { LampStatus } from "../lamps-shown";
+import { identifyLamp } from "../litra-manager";
 import { logger } from "../logging";
 import { at } from "../test-support/at";
 import { changeGlobalSettings, createFakeDial } from "../test-support/fake-stream-deck";
-import { followGlobalSettings, onGlobalSettingsChanged } from "./global-settings";
-import { type DialOwner, LampScreens, MAIN_LAYOUT } from "./lamp-screens";
+import { LampScreen, MAIN_LAYOUT } from "./lamp-screens";
 import { globalSettings } from "./settings";
+import { findLampStatuses, readLampStatuses } from "./shown";
 
 //* Fakes
 
@@ -18,20 +20,15 @@ vi.mock("@elgato/streamdeck", () => import("../test-support/fake-stream-deck"));
 // The real logger writes to a logs/ folder.
 vi.mock("../logging", () => import("../test-support/fake-logging"));
 
-// The global settings are the real ones, followed from the fake SDK, but the listeners each instance registers are
-// kept by the mock, so the instances of earlier tests don't redraw.
-vi.mock("./global-settings", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("./global-settings")>()),
-  onGlobalSettingsChanged: vi.fn(),
-}));
+// What the keys and dials show of the lamps, which each test sets.
+vi.mock("./shown", () => ({ findLampStatuses: vi.fn(), readLampStatuses: vi.fn() }));
 
 // The real litra-manager loads node-hid's native binary on import and talks to real lamps.
 vi.mock("../litra-manager", () => ({
   findLamps: vi.fn(() => []),
   identifyLamp: vi.fn(),
-  onLampsChanged: vi.fn(),
-  readLampStatuses: vi.fn(),
-  setKnownLamps: vi.fn(),
+  reachEveryLamp: vi.fn(),
+  useLamps: vi.fn(),
 }));
 
 const LAMP_LAYOUT = "layouts/lamp.json";
@@ -56,7 +53,7 @@ function beam(serialNumber: string, overrides: Partial<LampStatus> = {}): LampSt
 
 /** Connects the lamps, which readLampStatuses reports sorted by serial number. */
 function connect(...lamps: LampStatus[]): void {
-  vi.mocked(readLampStatuses).mockResolvedValue({ ok: lamps.length > 0, lamps });
+  vi.mocked(readLampStatuses).mockResolvedValue(lamps);
 }
 
 // The looks every text on a lamp screen is given, and how a slot left out of its cell is hidden (#177).
@@ -113,29 +110,49 @@ const A = beam("A1");
 const B = beam("B2", { on: false, brightnessLumen: 30, brightnessPercentage: 0, temperatureKelvin: 6500 });
 const C = beam("C3");
 
-let screens: LampScreens;
+type Dial = ReturnType<typeof createFakeDial>;
+
+// The lamp screen of each dial a test made, as each Brightness and Temperature dial makes its own.
+let screens: Map<Dial, LampScreen>;
 let showMain: () => Promise<void>;
-let owner: DialOwner;
+
+/** A dial's lamp screen, made the first time it's asked for, for a dial that adjusts the brightness. */
+function screenOf(dial: Dial): LampScreen {
+  let screen = screens.get(dial);
+  if (screen === undefined) {
+    screen = new LampScreen(dial, { showMain, adjusts: "Brightness" });
+    screens.set(dial, screen);
+  }
+  return screen;
+}
+
+/** Redraws every dial's lamp screen, as each dial does when the lamps change. */
+async function refreshAll(): Promise<void> {
+  for (const screen of screens.values()) {
+    await screen.refresh();
+  }
+}
 
 // The blink of the lamp screens is a global setting, which the tests change as a settings page does (#144).
 followGlobalSettings();
 
 beforeEach(() => {
   changeGlobalSettings({});
-  screens = new LampScreens();
+  screens = new Map();
   showMain = vi.fn(async () => {});
-  owner = { showMain, adjusts: "Brightness" };
   connect(A, B);
+  // A tap finds the lamps, then shows what the plugin holds of them, which each test sets as readLampStatuses.
+  vi.mocked(findLampStatuses).mockImplementation(() => readLampStatuses());
 });
 
 //* Tests
 
-describe("LampScreens", () => {
+describe("LampScreen", () => {
   describe("on a tap", () => {
     it("shows the first lamp from the main screen, on the lamp layout", async () => {
       const dial = createFakeDial();
 
-      await screens.tap(dial, owner);
+      await screenOf(dial).tap();
 
       expect(dial.setFeedbackLayout).toHaveBeenCalledExactlyOnceWith(LAMP_LAYOUT);
       expect(dial.setTriggerDescription).toHaveBeenCalledExactlyOnceWith({
@@ -145,8 +162,8 @@ describe("LampScreens", () => {
         longTouch: "Identify",
       });
       expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith(lampScreenOf(A, 1, 2));
-      expect(screens.isShowing(dial.id)).toBe(true);
-      expect(screens.lampOnScreen(dial.id)).toBe(A.id);
+      expect(screenOf(dial).isShowing).toBe(true);
+      expect(screenOf(dial).lamp).toBe(A.id);
       // The blink is off by default (#144).
       expect(identifyLamp).not.toHaveBeenCalled();
     });
@@ -154,20 +171,20 @@ describe("LampScreens", () => {
     it("goes through every lamp, then back to the main screen", async () => {
       const dial = createFakeDial();
 
-      await screens.tap(dial, owner);
-      await screens.tap(dial, owner);
+      await screenOf(dial).tap();
+      await screenOf(dial).tap();
 
       // The layout only changes when the dial leaves the main screen.
       expect(dial.setFeedbackLayout).toHaveBeenCalledOnce();
       expect(dial.setFeedback).toHaveBeenLastCalledWith(lampScreenOf(B, 2, 2));
 
-      await screens.tap(dial, owner);
+      await screenOf(dial).tap();
 
       expect(dial.setFeedbackLayout).toHaveBeenLastCalledWith(MAIN_LAYOUT);
       expect(dial.setTriggerDescription).toHaveBeenLastCalledWith();
       expect(showMain).toHaveBeenCalledOnce();
-      expect(screens.isShowing(dial.id)).toBe(false);
-      expect(screens.lampOnScreen(dial.id)).toBeUndefined();
+      expect(screenOf(dial).isShowing).toBe(false);
+      expect(screenOf(dial).lamp).toBeUndefined();
     });
 
     /** A Beam with a whole serial number, labeled by its last 4 characters, as the plugin labels it. */
@@ -182,14 +199,14 @@ describe("LampScreens", () => {
       connect(...lamps);
 
       for (const [place, lamp] of lamps.entries()) {
-        await screens.tap(dial, owner);
+        await screenOf(dial).tap();
 
-        expect(screens.lampOnScreen(dial.id)).toBe(lamp.id);
+        expect(screenOf(dial).lamp).toBe(lamp.id);
         expect(dial.setFeedback).toHaveBeenLastCalledWith(lampScreenOf(lamp, place + 1, 3));
       }
-      await screens.tap(dial, owner);
+      await screenOf(dial).tap();
 
-      expect(screens.isShowing(dial.id)).toBe(false);
+      expect(screenOf(dial).isShowing).toBe(false);
     });
 
     it("skips a lamp unplugged since the last tap, in the order the lamps come in", async () => {
@@ -200,34 +217,34 @@ describe("LampScreens", () => {
         beamWithSerial("2419AB03CCCC"),
       ];
       connect(first, second, third);
-      await screens.tap(dial, owner);
-      await screens.tap(dial, owner);
+      await screenOf(dial).tap();
+      await screenOf(dial).tap();
       connect(first, third);
 
-      await screens.tap(dial, owner);
+      await screenOf(dial).tap();
 
-      expect(screens.lampOnScreen(dial.id)).toBe(third.id);
+      expect(screenOf(dial).lamp).toBe(third.id);
     });
 
     it("skips a lamp unplugged since the last tap", async () => {
       const dial = createFakeDial();
       connect(A, B, C);
-      await screens.tap(dial, owner);
-      await screens.tap(dial, owner);
+      await screenOf(dial).tap();
+      await screenOf(dial).tap();
       connect(A, C);
 
-      await screens.tap(dial, owner);
+      await screenOf(dial).tap();
 
       expect(dial.setFeedback).toHaveBeenLastCalledWith(lampScreenOf(C, 2, 2));
     });
 
     it("goes back to the main screen when no lamp comes after the one unplugged", async () => {
       const dial = createFakeDial();
-      await screens.tap(dial, owner);
-      await screens.tap(dial, owner);
+      await screenOf(dial).tap();
+      await screenOf(dial).tap();
       connect(A);
 
-      await screens.tap(dial, owner);
+      await screenOf(dial).tap();
 
       expect(dial.setFeedbackLayout).toHaveBeenLastCalledWith(MAIN_LAYOUT);
       expect(showMain).toHaveBeenCalledOnce();
@@ -237,17 +254,17 @@ describe("LampScreens", () => {
       const dial = createFakeDial();
       connect();
 
-      await screens.tap(dial, owner);
+      await screenOf(dial).tap();
 
       expect(dial.showAlert).toHaveBeenCalledOnce();
       expect(dial.setFeedbackLayout).not.toHaveBeenCalled();
-      expect(screens.isShowing(dial.id)).toBe(false);
+      expect(screenOf(dial).isShowing).toBe(false);
     });
 
     it("handles quick taps one at a time, in order", async () => {
       const dial = createFakeDial();
 
-      await Promise.all([screens.tap(dial, owner), screens.tap(dial, owner)]);
+      await Promise.all([screenOf(dial).tap(), screenOf(dial).tap()]);
 
       expect(dial.setFeedback.mock.calls).toEqual([[lampScreenOf(A, 1, 2)], [lampScreenOf(B, 2, 2)]]);
     });
@@ -256,8 +273,8 @@ describe("LampScreens", () => {
       const dial = createFakeDial();
       vi.mocked(readLampStatuses).mockRejectedValueOnce(new Error("HID read failed"));
 
-      await screens.tap(dial, owner);
-      await screens.tap(dial, owner);
+      await screenOf(dial).tap();
+      await screenOf(dial).tap();
 
       expect(logger.error).toHaveBeenCalledOnce();
       // A failure doesn't hold up the next tap.
@@ -268,9 +285,9 @@ describe("LampScreens", () => {
       const dial = createFakeDial();
       const otherDial = createFakeDial();
 
-      await screens.tap(dial, owner);
+      await screenOf(dial).tap();
 
-      expect(screens.isShowing(otherDial.id)).toBe(false);
+      expect(screenOf(otherDial).isShowing).toBe(false);
       expect(otherDial.setFeedback).not.toHaveBeenCalled();
     });
   });
@@ -287,7 +304,7 @@ describe("LampScreens", () => {
         lampScreenBottomRight: "identification",
       });
 
-      await screens.tap(dial, owner);
+      await screenOf(dial).tap();
 
       expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith({
         ...cell("topLeft", shown("ON")),
@@ -303,20 +320,19 @@ describe("LampScreens", () => {
       const dial = createFakeDial();
       changeGlobalSettings({ lampScreenTopLeft: "counter", lampScreenTopRight: "counter" });
 
-      await screens.tap(dial, owner);
+      await screenOf(dial).tap();
 
       expect(dial.setFeedback).toHaveBeenCalledWith(
         expect.objectContaining({ topLeft: shown("1 of 2"), topRight: shown("1 of 2") }),
       );
     });
 
-    it("redraws the lamp screens on show when they change", async () => {
+    it("redraws the lamp on screen with the cells as they are now", async () => {
       const dial = createFakeDial();
-      await screens.tap(dial, owner);
+      await screenOf(dial).tap();
 
       changeGlobalSettings({ lampScreenBottomRight: "none" });
-      const globalSettingsChanged = vi.mocked(onGlobalSettingsChanged).mock.lastCall?.[0];
-      await globalSettingsChanged?.();
+      await screenOf(dial).refresh();
 
       expect(dial.setFeedback).toHaveBeenLastCalledWith({ ...lampScreenOf(A, 1, 2), ...cell("bottomRight") });
     });
@@ -327,7 +343,7 @@ describe("LampScreens", () => {
     async function topLeftOf(item: string, options: JsonObject, others: JsonObject = {}) {
       const dial = createFakeDial();
       changeGlobalSettings({ lampScreenTopLeft: item, lampScreenOptions: { topLeft: { [item]: options } }, ...others });
-      await screens.tap(dial, owner);
+      await screenOf(dial).tap();
       return dial;
     }
 
@@ -382,7 +398,7 @@ describe("LampScreens", () => {
 
       expect(topLeft(dial)).toEqual(cell("topLeft", shown("Studio ke…")));
 
-      await screens.tap(dial, owner);
+      await screenOf(dial).tap();
 
       expect(topLeft(dial)).toEqual(cell("topLeft", shown("Key light")));
     });
@@ -402,11 +418,11 @@ describe("LampScreens", () => {
       const lx = beam("C3", { model: "Beam LX" });
       connect(A, B, lx);
       const dial = await topLeftOf("counter", { count: "countByModel" });
-      await screens.tap(dial, owner);
+      await screenOf(dial).tap();
 
       expect(topLeft(dial)).toEqual(cell("topLeft", shown("2 of 2")));
 
-      await screens.tap(dial, owner);
+      await screenOf(dial).tap();
 
       expect(topLeft(dial)).toEqual(cell("topLeft", shown("1 of 1")));
     });
@@ -438,7 +454,7 @@ describe("LampScreens", () => {
 
       expect(topLeft(dial)).toEqual(cell("topLeft", shown("●", { color: "#ff8800", font: { size: 18, weight: 700 } })));
 
-      await screens.tap(dial, owner);
+      await screenOf(dial).tap();
 
       expect(topLeft(dial)).toEqual(cell("topLeft", shown("O", { color: "#00aaff", font: { size: 18, weight: 400 } })));
     });
@@ -446,7 +462,7 @@ describe("LampScreens", () => {
     it("draws every text in the Primary style, and the power's OFF in the Secondary style (#153)", async () => {
       const dial = createFakeDial();
       changeGlobalSettings(STYLES);
-      await screens.tap(dial, owner);
+      await screenOf(dial).tap();
 
       expect(dial.setFeedback).toHaveBeenLastCalledWith(
         expect.objectContaining({
@@ -457,7 +473,7 @@ describe("LampScreens", () => {
         }),
       );
 
-      await screens.tap(dial, owner);
+      await screenOf(dial).tap();
 
       expect(dial.setFeedback).toHaveBeenLastCalledWith(
         expect.objectContaining({ middleRight: shown("OFF", SECONDARY) }),
@@ -489,7 +505,7 @@ describe("LampScreens", () => {
 
       expect(topLeft(dial)).toEqual(cell("topLeft", shown("ON", SECONDARY)));
 
-      await screens.tap(dial, owner);
+      await screenOf(dial).tap();
 
       expect(topLeft(dial)).toEqual(cell("topLeft", shown("OFF", PRIMARY)));
     });
@@ -505,7 +521,7 @@ describe("LampScreens", () => {
     it("keeps each item's options apart, so a cell's options for another item don't change how it shows this one", async () => {
       const dial = createFakeDial();
       changeGlobalSettings({ lampScreenOptions: { topLeft: { counter: { count: "count" } } } });
-      await screens.tap(dial, owner);
+      await screenOf(dial).tap();
 
       expect(topLeft(dial)).toEqual(cell("topLeft", shown(A.label)));
     });
@@ -516,7 +532,7 @@ describe("LampScreens", () => {
         lampScreenTopLeft: "counter",
         lampScreenOptions: { topLeft: { counter: { count: "count" } } },
       });
-      await screens.tap(dial, owner);
+      await screenOf(dial).tap();
 
       expect(dial.setFeedback).toHaveBeenLastCalledWith(
         expect.objectContaining({ topLeft: shown("1"), topRight: shown("1 of 2") }),
@@ -528,10 +544,10 @@ describe("LampScreens", () => {
     it("blinks the lamp on the dial's screen", async () => {
       const dial = createFakeDial();
       vi.mocked(identifyLamp).mockResolvedValue({ ok: true, deviceCount: 1, failures: 0 });
-      await screens.tap(dial, owner);
-      await screens.tap(dial, owner);
+      await screenOf(dial).tap();
+      await screenOf(dial).tap();
 
-      await screens.identify(dial);
+      await screenOf(dial).identify();
 
       expect(identifyLamp).toHaveBeenCalledExactlyOnceWith(B.id, BLINK_MS);
       expect(dial.showAlert).not.toHaveBeenCalled();
@@ -541,9 +557,9 @@ describe("LampScreens", () => {
       const dial = createFakeDial();
       vi.mocked(identifyLamp).mockResolvedValue({ ok: true, deviceCount: 1, failures: 0 });
       changeGlobalSettings({ identifyBlinkMs: 1000 });
-      await screens.tap(dial, owner);
+      await screenOf(dial).tap();
 
-      await screens.identify(dial);
+      await screenOf(dial).identify();
 
       expect(identifyLamp).toHaveBeenCalledExactlyOnceWith(A.id, 1000);
     });
@@ -551,9 +567,9 @@ describe("LampScreens", () => {
     it("shows an alert when the lamp can't be blinked", async () => {
       const dial = createFakeDial();
       vi.mocked(identifyLamp).mockResolvedValue({ ok: false, deviceCount: 0, failures: 1 });
-      await screens.tap(dial, owner);
+      await screenOf(dial).tap();
 
-      await screens.identify(dial);
+      await screenOf(dial).identify();
 
       expect(dial.showAlert).toHaveBeenCalledOnce();
     });
@@ -561,7 +577,7 @@ describe("LampScreens", () => {
     it("does nothing on the main screen", async () => {
       const dial = createFakeDial();
 
-      await screens.identify(dial);
+      await screenOf(dial).identify();
 
       expect(identifyLamp).not.toHaveBeenCalled();
     });
@@ -576,15 +592,15 @@ describe("LampScreens", () => {
     it("blinks each lamp a tap shows, once its screen is drawn, and nothing on the way back to the main screen", async () => {
       const dial = createFakeDial();
 
-      await screens.tap(dial, owner);
+      await screenOf(dial).tap();
 
       expect(identifyLamp).toHaveBeenCalledExactlyOnceWith(A.id, BLINK_MS);
       expect(at(dial.setFeedback.mock.invocationCallOrder, 0)).toBeLessThan(
         at(vi.mocked(identifyLamp).mock.invocationCallOrder, 0),
       );
 
-      await screens.tap(dial, owner);
-      await screens.tap(dial, owner);
+      await screenOf(dial).tap();
+      await screenOf(dial).tap();
 
       expect(vi.mocked(identifyLamp).mock.calls).toEqual([
         [A.id, BLINK_MS],
@@ -603,8 +619,8 @@ describe("LampScreens", () => {
           }),
       );
 
-      const first = screens.tap(dial, owner);
-      const second = screens.tap(dial, owner);
+      const first = screenOf(dial).tap();
+      const second = screenOf(dial).tap();
       await vi.waitFor(() => expect(identifyLamp).toHaveBeenCalledOnce());
 
       expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith(lampScreenOf(A, 1, 2));
@@ -623,17 +639,17 @@ describe("LampScreens", () => {
       const dial = createFakeDial();
       vi.mocked(identifyLamp).mockResolvedValue({ ok: false, deviceCount: 0, failures: 1 });
 
-      await screens.tap(dial, owner);
+      await screenOf(dial).tap();
 
       expect(dial.showAlert).toHaveBeenCalledOnce();
-      expect(screens.lampOnScreen(dial.id)).toBe(A.id);
+      expect(screenOf(dial).lamp).toBe(A.id);
     });
 
     it("blinks nothing when a lamp screen is redrawn", async () => {
       const dial = createFakeDial();
-      await screens.tap(dial, owner);
+      await screenOf(dial).tap();
 
-      await screens.refresh();
+      await refreshAll();
 
       expect(identifyLamp).toHaveBeenCalledOnce();
     });
@@ -642,8 +658,8 @@ describe("LampScreens", () => {
       const [dial, other] = [createFakeDial(), createFakeDial()];
       changeGlobalSettings({ blinkOnLampScreen: true, blinkOnLampScreenExceptions: [dial.id] });
 
-      await screens.tap(dial, owner);
-      await screens.tap(other, owner);
+      await screenOf(dial).tap();
+      await screenOf(other).tap();
 
       expect(identifyLamp).toHaveBeenCalledExactlyOnceWith(A.id, BLINK_MS);
     });
@@ -652,17 +668,17 @@ describe("LampScreens", () => {
       const dial = createFakeDial();
       changeGlobalSettings({ blinkOnLampScreen: true, identifyBlinkMs: 1000 });
 
-      await screens.tap(dial, owner);
+      await screenOf(dial).tap();
 
       expect(identifyLamp).toHaveBeenCalledExactlyOnceWith(A.id, 1000);
     });
 
     it("stops blinking once turned off", async () => {
       const dial = createFakeDial();
-      await screens.tap(dial, owner);
+      await screenOf(dial).tap();
 
       changeGlobalSettings({ blinkOnLampScreen: false });
-      await screens.tap(dial, owner);
+      await screenOf(dial).tap();
 
       expect(identifyLamp).toHaveBeenCalledExactlyOnceWith(A.id, BLINK_MS);
     });
@@ -672,103 +688,103 @@ describe("LampScreens", () => {
     it("doesn't happen on its own", async () => {
       vi.useFakeTimers();
       const dial = createFakeDial();
-      await screens.tap(dial, owner);
+      await screenOf(dial).tap();
 
       await vi.advanceTimersByTimeAsync(60_000);
       vi.useRealTimers();
 
-      expect(screens.isShowing(dial.id)).toBe(true);
+      expect(screenOf(dial).isShowing).toBe(true);
       expect(showMain).not.toHaveBeenCalled();
     });
   });
 
   describe("on a refresh", () => {
-    it("redraws every lamp screen from a fresh read, and leaves the main screens alone", async () => {
+    it("redraws the lamp on each dial's screen from a fresh read, and leaves a main screen alone", async () => {
       const onA = createFakeDial();
       const onB = createFakeDial();
       const onMain = createFakeDial();
-      await screens.tap(onA, owner);
-      await screens.tap(onB, owner);
-      await screens.tap(onB, owner);
+      await screenOf(onA).tap();
+      await screenOf(onB).tap();
+      await screenOf(onB).tap();
       const dimmedA = { ...A, brightnessLumen: 30, brightnessPercentage: 0 };
       const turnedOnB = { ...B, on: true };
       connect(dimmedA, turnedOnB);
 
-      await screens.refresh();
+      await refreshAll();
+      await screenOf(onMain).refresh();
 
       expect(onA.setFeedback).toHaveBeenLastCalledWith(lampScreenOf(dimmedA, 1, 2));
       expect(onB.setFeedback).toHaveBeenLastCalledWith(lampScreenOf(turnedOnB, 2, 2));
       expect(onMain.setFeedback).not.toHaveBeenCalled();
     });
 
-    it("happens whenever the lamps change, whichever action changed them", async () => {
-      const dial = createFakeDial();
-      await screens.tap(dial, owner);
-      const lampsChanged = vi.mocked(onLampsChanged).mock.lastCall?.[0];
-      const turnedOffA = { ...A, on: false };
-      connect(turnedOffA, B);
-
-      await lampsChanged?.();
-
-      expect(dial.setFeedback).toHaveBeenLastCalledWith(lampScreenOf(turnedOffA, 1, 2));
-    });
-
     it("shows the power of a lamp turned off in dark grey, and in white again once it's on", async () => {
       const dial = createFakeDial();
-      await screens.tap(dial, owner);
+      await screenOf(dial).tap();
 
       connect({ ...A, on: false }, B);
-      await screens.refresh();
+      await refreshAll();
 
       expect(dial.setFeedback).toHaveBeenLastCalledWith(
         expect.objectContaining({ topLeft: shown(A.label), middleRight: shown("OFF", OFF_POWER) }),
       );
 
       connect(A, B);
-      await screens.refresh();
+      await refreshAll();
 
       expect(dial.setFeedback).toHaveBeenLastCalledWith(expect.objectContaining({ middleRight: shown("ON") }));
     });
 
-    it("doesn't read the lamps when no dial shows a lamp screen", async () => {
-      await screens.refresh();
+    it("shows what the plugin holds of the lamps, while a tap finds them first (#198)", async () => {
+      const dial = createFakeDial();
+      await screenOf(dial).tap();
+
+      expect(findLampStatuses).toHaveBeenCalledOnce();
+
+      vi.mocked(findLampStatuses).mockClear();
+      await screenOf(dial).refresh();
+
+      expect(findLampStatuses).not.toHaveBeenCalled();
+      expect(dial.setFeedback).toHaveBeenLastCalledWith(lampScreenOf(A, 1, 2));
+    });
+
+    it("doesn't read the lamps on the main screen, which the dial draws", async () => {
+      await screenOf(createFakeDial()).refresh();
 
       expect(readLampStatuses).not.toHaveBeenCalled();
+      expect(showMain).not.toHaveBeenCalled();
     });
 
     it("sends a dial back to the main screen when its lamp is gone", async () => {
       const dial = createFakeDial();
-      await screens.tap(dial, owner);
+      await screenOf(dial).tap();
       connect(B);
 
-      await screens.refresh();
+      await refreshAll();
 
       expect(dial.setFeedbackLayout).toHaveBeenLastCalledWith(MAIN_LAYOUT);
       expect(showMain).toHaveBeenCalledOnce();
     });
   });
 
-  describe("when a dial appears or disappears", () => {
-    it("starts a dial that appears on the main screen, with the manifest's descriptions", async () => {
+  describe("when a dial appears", () => {
+    it("starts it on the main screen, with the manifest's descriptions", async () => {
       const dial = createFakeDial();
 
-      await screens.appear(dial);
+      await screenOf(dial).appear();
 
       expect(dial.setFeedbackLayout).toHaveBeenCalledExactlyOnceWith(MAIN_LAYOUT);
       expect(dial.setTriggerDescription).toHaveBeenCalledExactlyOnceWith();
     });
 
-    it.each([
-      ["appears again", (dial: ReturnType<typeof createFakeDial>) => screens.appear(dial)],
-      ["disappears", (dial: ReturnType<typeof createFakeDial>) => screens.disappear(dial.id)],
-    ])("forgets the lamp screen of a dial that %s", async (_, event) => {
+    it("forgets the lamp it showed, which a refresh then leaves alone", async () => {
       const dial = createFakeDial();
-      await screens.tap(dial, owner);
+      await screenOf(dial).tap();
 
-      await event(dial);
-      await screens.refresh();
+      await screenOf(dial).appear();
+      await screenOf(dial).refresh();
 
-      expect(screens.isShowing(dial.id)).toBe(false);
+      expect(screenOf(dial).isShowing).toBe(false);
       // The refresh had no lamp screen left to redraw.
       expect(readLampStatuses).toHaveBeenCalledOnce();
     });

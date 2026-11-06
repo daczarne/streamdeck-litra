@@ -7,16 +7,18 @@ import { EmulatedLitra, type LitraModel } from "../test-support/emulated-litra";
 //* Fakes
 
 let litra: typeof import("litra");
-let manager: typeof import("../litra-manager");
+let deviceModule: typeof import("../device");
+let lampModule: typeof import("../lamp");
 let connect: (...lamps: EmulatedLitra[]) => void;
 
 beforeEach(async () => {
   ({
-    loaded: { litra, manager },
+    loaded: { litra, deviceModule, lampModule },
     hid: { connect },
   } = await loadOnEmulatedLamps(async () => ({
     litra: await import("litra"),
-    manager: await import("../litra-manager"),
+    deviceModule: await import("../device"),
+    lampModule: await import("../lamp"),
   })));
 });
 
@@ -286,20 +288,22 @@ describe("litra", () => {
 //* What the plugin takes for granted
 
 describe("what litra-manager assumes about litra", () => {
-  describe.each(MODELS)("on a $name", ({ model, productId, minLumen, maxLumen }) => {
-    it("percentageToLumen gives the lumens litra sends for every percentage", () => {
+  describe.each(MODELS)("on a $name", ({ model, productId, maxLumen }) => {
+    it("a Lamp's lumenAt gives the lumens litra sends for every percentage", () => {
       const { lamp, device } = plugIn(model, { productId });
+      const known = new lampModule.Lamp(deviceModule.identityOf(device));
+      known.reach("test", deviceModule.handleOf(device));
 
       for (let percentage = 0; percentage <= 100; percentage += 1) {
         litra.setBrightnessPercentage(device, percentage);
-        expect(lamp.brightnessInLumen).toBe(manager.percentageToLumen(percentage, minLumen, maxLumen));
+        expect(lamp.brightnessInLumen).toBe(known.lumenAt(percentage));
       }
     });
 
     it("getBrightnessInLumenSafe reads both bytes of the brightness, where litra reads one", () => {
       const { device } = plugIn(model, { productId, brightnessInLumen: maxLumen });
 
-      expect(manager.getBrightnessInLumenSafe(device)).toBe(maxLumen);
+      expect(deviceModule.getBrightnessInLumenSafe(device)).toBe(maxLumen);
     });
   });
 

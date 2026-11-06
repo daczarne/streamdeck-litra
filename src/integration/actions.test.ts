@@ -4,6 +4,7 @@ import type { JsonObject } from "@elgato/utils";
 import { afterEach, beforeEach, describe, expect, inject, it, vi } from "vitest";
 
 import { LAMP_SCREEN_CELLS } from "../actions/settings";
+import { lampId } from "../lamp-identity";
 import { at } from "../test-support/at";
 import { loadOnEmulatedLamps } from "../test-support/emulated-lamps";
 import { EmulatedLitra } from "../test-support/emulated-litra";
@@ -26,6 +27,7 @@ const MODEL = inject("model");
 // A lamp's brightness in lumens at a percentage of its range (30–400 lm, a Beam's and a Beam LX's), as litra rounds it.
 const LUMEN_AT_0 = 30;
 const LUMEN_AT_10 = 67;
+const LUMEN_AT_20 = 104;
 const LUMEN_AT_50 = 215;
 const LUMEN_AT_60 = 252;
 const LUMEN_AT_80 = 326;
@@ -37,7 +39,6 @@ let failFindingLamps: (error: Error) => void;
 let deck: FakeDeck;
 // The fake SDK plugin.ts registered with, which carries the messages of the settings pages.
 let sdk: typeof import("../test-support/fake-stream-deck");
-let lampId: (serialNumber: string) => string;
 // Every lamp plugged in during the test, whose handles have to be closed by its end.
 let lamps: EmulatedLitra[];
 
@@ -46,7 +47,7 @@ beforeEach(async () => {
   // A fresh plugin for every test, started as Stream Deck starts it, which registers its actions with the fake SDK
   // that the fake Deck sends events through.
   ({
-    loaded: { deck, sdk, lampId },
+    loaded: { deck, sdk },
     hid: { connect, failFindingLamps },
   } = await loadOnEmulatedLamps(
     async () => {
@@ -55,7 +56,6 @@ beforeEach(async () => {
       return {
         deck: new FakeDeck(),
         sdk: await import("../test-support/fake-stream-deck"),
-        lampId: (await import("../litra-manager")).lampId,
       };
     },
     { streamDeck: true },
@@ -192,7 +192,7 @@ describe("the Power key", () => {
     expect(stateOf(powerKey)).toBe(0);
   });
 
-  it("toggles the lamps on when one can't be read, which counts as off, and shows an alert", async () => {
+  it("toggles the lamps from the power it holds, and shows an alert for a lamp it can't change (#198)", async () => {
     const [failing, working] = [newLamp(), newLamp()];
     plugIn(failing, working);
     const key = await deck.key(POWER, { mode: "toggle" });
@@ -200,12 +200,13 @@ describe("the Power key", () => {
 
     await deck.press(key);
 
-    expect(working.on).toBe(true);
+    // Both lamps are on as the plugin holds them, so the toggle turns them off, and the one it can't change stays on.
+    expect([failing.on, working.on]).toEqual([true, false]);
     expect(stateOf(key)).toBe(0);
     expect(key.showAlert).toHaveBeenCalledOnce();
   });
 
-  it("turns on a lamp that can't be read, unchecked, without an alert, and shows it off, since it can't read it", async () => {
+  it("turns on a lamp that takes the command but can't report back, and shows it on, as asked, without an alert (#198)", async () => {
     const lamp = newLamp({ on: false });
     plugIn(lamp);
     const key = await deck.key(POWER, { mode: "on" });
@@ -214,7 +215,7 @@ describe("the Power key", () => {
     await deck.press(key);
 
     expect(lamp.on).toBe(true);
-    expect(stateOf(key)).toBe(0);
+    expect(stateOf(key)).toBe(1);
     expect(key.showAlert).not.toHaveBeenCalled();
   });
 });
@@ -741,7 +742,7 @@ describe("the lamp screens", () => {
 
   it("show an alert when the lamp on screen can't be blinked", async () => {
     const { first, dial } = await onFirstLampScreen();
-    first.fail("readSync");
+    first.fail("everything");
 
     await deck.hold(dial);
 
@@ -913,6 +914,86 @@ describe("lamps kept apart (#145)", () => {
 
     // A step down from the first lamp's 2900 K.
     expect([warm.temperatureInKelvin, cool.temperatureInKelvin]).toEqual([2700, 2700]);
+  });
+});
+
+describe("the plugin's state is the lamps' state (#198)", () => {
+  it("shows what the plugin last set, not a change made with a lamp's own buttons", async () => {
+    const lamp = newLamp();
+    plugIn(lamp);
+    const dial = await deck.dial(BRIGHTNESS);
+    const powerKey = await deck.key(POWER, { mode: "toggle" });
+    const temperatureKey = await deck.key(TEMPERATURE, { presetKelvin: 5000 });
+    // The lamp's own buttons turn it off and brighten it, which the plugin doesn't see.
+    lamp.on = false;
+    lamp.brightnessInLumen = LUMEN_AT_80;
+
+    // Another change made through the plugin redraws every key and dial.
+    await deck.press(temperatureKey);
+
+    expect(feedbackOf(dial)).toMatchObject({ value: "50%" });
+    expect(stateOf(powerKey)).toBe(1);
+  });
+
+  it("steps from what it last set: a lamp set to 10%, brought to 20% with its button, goes to 20% a step up", async () => {
+    const lamp = newLamp();
+    plugIn(lamp);
+    const key = await deck.key(BRIGHTNESS, { presetPercentage: 10 });
+    const dial = await deck.dial(BRIGHTNESS, { stepPercentage: 10 });
+    await deck.press(key);
+    lamp.brightnessInLumen = LUMEN_AT_20;
+
+    await deck.turn(dial, 1);
+
+    // The plugin held 10%, so a step up sends 20%, which the lamp is already at.
+    expect(lamp.writes("brightness")).toEqual([LUMEN_AT_10, LUMEN_AT_20]);
+    expect(lamp.brightnessInLumen).toBe(LUMEN_AT_20);
+    expect(feedbackOf(dial)).toMatchObject({ value: "20%" });
+  });
+
+  it("toggles from the power it holds, so a lamp turned off with its own button is turned off again", async () => {
+    const lamp = newLamp();
+    plugIn(lamp);
+    const key = await deck.key(POWER, { mode: "toggle" });
+    lamp.on = false;
+
+    await deck.press(key);
+
+    expect(lamp.writes("power")).toEqual([0]);
+    expect(stateOf(key)).toBe(0);
+  });
+
+  it("tells a page which lamps are connected when it asks, and when a press finds one unplugged", async () => {
+    const [first, second] = [newLamp(), newLamp()];
+    plugIn(first, second);
+    const key = await deck.key(POWER, { mode: "on" });
+
+    sdk.sendToPlugin({ event: "connected" });
+    await vi.runAllTimersAsync();
+
+    expect(at(sdk.sentToPropertyInspector(), -1)).toEqual({
+      event: "connected",
+      ids: [lampId(first.serialNumber), lampId(second.serialNumber)],
+    });
+
+    connect(first);
+    await deck.press(key);
+
+    expect(at(sdk.sentToPropertyInspector(), -1)).toEqual({ event: "connected", ids: [lampId(first.serialNumber)] });
+  });
+
+  it("reads a lamp again once it's plugged in again, which may come back in another state", async () => {
+    const lamp = newLamp({ serialNumber: "SERIAL-A" });
+    plugIn(lamp);
+    const dial = await deck.dial(BRIGHTNESS);
+    const temperatureKey = await deck.key(TEMPERATURE, { presetKelvin: 5000 });
+    const pluggedInAgain = newLamp({ serialNumber: "SERIAL-A", brightnessInLumen: LUMEN_AT_80 });
+    lamps.push(pluggedInAgain);
+    connect(pluggedInAgain);
+
+    await deck.press(temperatureKey);
+
+    expect(feedbackOf(dial)).toMatchObject({ value: "80%" });
   });
 });
 

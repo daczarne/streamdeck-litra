@@ -1,7 +1,7 @@
 import type { JsonObject, JsonValue } from "@elgato/utils";
 import type { Logger } from "@elgato/utils/logging";
 
-import type { LampSelection } from "../litra-manager";
+import type { LampSelection } from "../lamp-selection";
 
 /**
  * A setting an action reads: the value it takes when the setting is missing or invalid, what a valid value is, and how
@@ -15,7 +15,8 @@ type Setting<T> = {
 
 type Schema = Record<string, Setting<unknown>>;
 
-type Parsed<S extends Schema> = { [Name in keyof S]: S[Name] extends Setting<infer T> ? T : never };
+/** Settings as {@link parseSettings} reads them against their schema: each one valid, or its default. */
+export type Parsed<S extends Schema> = { [Name in keyof S]: S[Name] extends Setting<infer T> ? T : never };
 
 /**
  * A number, or text that is one, since a select on a settings page saves its value as text. Anything else is refused,
@@ -272,9 +273,6 @@ export const sceneGroupSettings = {
   presetKelvin: temperatureSettings.presetKelvin,
   lamps: lampList(),
 };
-
-// The lamps alone, for an action that reads them apart from its other settings.
-export const lampSettings = { lamps, leftOutLamps };
 
 // What a lamp screen can show in each of its cells (#177): the lamp's model and the end of its serial number, its place
 // among the lamps, its temperature, whether it's on, its brightness in % or in lumens, or nothing.

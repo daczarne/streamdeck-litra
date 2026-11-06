@@ -22,8 +22,8 @@ export type KnownLamp = { model: string; serialEnd: string; name?: string };
  * Stands in for the WebSocket that Stream Deck opens for a settings page: it accepts the page's connection and
  * records the messages the page sends. It keeps the plugin's global settings, which it answers a page that asks for
  * them with, as Stream Deck does. It also stands in for the plugin behind it, answering a page that asks for the lamps
- * with {@link lamps}, which it adds to the lamps the plugin knows, and renaming and forgetting a lamp, as the plugin
- * does: it saves them in the global settings, and passes them on to the page, as Stream Deck passes on the plugin's
+ * with {@link lamps}, which it adds to the lamps the plugin knows, a page that asks which lamps are connected with
+ * {@link connected}, and renaming and forgetting a lamp, as the plugin does: it saves them in the global settings, and passes them on to the page, as Stream Deck passes on the plugin's
  * save (#194). Node has a WebSocket client but no server, so this decodes the frames
  * itself, as far as the pages need: text frames from the client, and its close frame, and sends text frames back.
  */
@@ -33,6 +33,11 @@ export class FakeStreamDeck {
   lamps: ListedLamp[] = [];
   /** The plugin's global settings, which a test sets before it opens a page, and a page saves. */
   globalSettings: Record<string, unknown> = {};
+  /**
+   * The ids of the lamps the plugin found the last time it looked (#198), which it answers a page that asks which are
+   * connected with: every lamp it knows, unless a test says otherwise.
+   */
+  connected: string[] | undefined;
   private readonly sockets = new Set<Socket>();
   private readonly waiters = new Set<() => void>();
 
@@ -93,6 +98,17 @@ export class FakeStreamDeck {
     for (const socket of this.sockets) this.send(socket, { event: "didReceiveSettings", payload: { settings } });
   }
 
+  /**
+   * Tells every page which lamps are connected, as the plugin does when an operation finds a lamp plugged in or
+   * unplugged (#198).
+   */
+  tellConnected(ids: string[]): void {
+    this.connected = ids;
+    for (const socket of this.sockets) {
+      this.send(socket, { event: "sendToPropertyInspector", payload: { event: "connected", ids } });
+    }
+  }
+
   /** Drops every page's connection and stops listening. */
   async close(): Promise<void> {
     for (const socket of this.sockets) socket.destroy();
@@ -137,6 +153,12 @@ export class FakeStreamDeck {
         event: "sendToPropertyInspector",
         ...(message.context === undefined ? {} : { context: message.context }),
         payload: { event: "lamps", lamps: this.lamps },
+      });
+    } else if (message.event === "sendToPlugin" && message.payload?.event === "connected") {
+      this.send(socket, {
+        event: "sendToPropertyInspector",
+        ...(message.context === undefined ? {} : { context: message.context }),
+        payload: { event: "connected", ids: this.connected ?? Object.keys(this.known) },
       });
     } else if (message.event === "sendToPlugin" && message.payload?.event === "rename") {
       const { id, name } = message.payload as { id: string; name: string };

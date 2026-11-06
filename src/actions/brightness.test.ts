@@ -1,14 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
+import { followGlobalSettings } from "../global-settings";
+import type { LampStatus } from "../lamps-shown";
 import {
   adjustLampsBrightness,
-  type BroadcastResult,
-  createDialDebouncer,
   identifyLamp,
-  type LampStatus,
+  type OperationResult,
   onLampsChanged,
-  readLampStatuses,
-  readLampsBrightness,
   setLampsBrightness,
   toggleLamps,
 } from "../litra-manager";
@@ -17,9 +14,9 @@ import { at } from "../test-support/at";
 import { FakeDeck } from "../test-support/fake-deck";
 import { changeGlobalSettings } from "../test-support/fake-stream-deck";
 import { BrightnessAction, barFill } from "./brightness";
-import { followGlobalSettings } from "./global-settings";
-import { LampScreens } from "./lamp-screens";
+import { createDialDebouncer } from "./debouncer";
 import { globalSettings } from "./settings";
+import { findLampStatuses, readLampStatuses, readLampsBrightness } from "./shown";
 
 //* Fakes
 
@@ -28,35 +25,35 @@ vi.mock("@elgato/streamdeck", () => import("../test-support/fake-stream-deck"));
 // The real logger writes to a logs/ folder.
 vi.mock("../logging", () => import("../test-support/fake-logging"));
 
+// The debouncer gathers what each test says, without the timing its own tests check.
+vi.mock("./debouncer", () => ({ createDialDebouncer: vi.fn() }));
+
+// What the keys and dials show of the lamps, which each test sets.
+vi.mock("./shown", () => ({ findLampStatuses: vi.fn(), readLampStatuses: vi.fn(), readLampsBrightness: vi.fn() }));
+
 // The real litra-manager loads node-hid's native binary on import and talks to real lamps.
 vi.mock("../litra-manager", () => ({
   adjustLampsBrightness: vi.fn(),
-  createDialDebouncer: vi.fn(),
   findLamps: vi.fn(() => []),
   identifyLamp: vi.fn(),
   onLampsChanged: vi.fn(),
-  readLampsBrightness: vi.fn(),
-  readLampStatuses: vi.fn(),
-  setKnownLamps: vi.fn(),
+  reachEveryLamp: vi.fn(),
+  useLamps: vi.fn(),
   setLampsBrightness: vi.fn(),
   toggleLamps: vi.fn(),
 }));
 
 const BRIGHTNESS = "com.daczarne.litra.brightness";
 
-/** Two Beams on a Stream Deck + XL's USB hub, which stop at 63% and 79%. */
-const REACHED_AT_CAP: BroadcastResult = {
-  ok: true,
-  deviceCount: 2,
-  failures: 0,
-  representativeBrightnessPercentage: 79,
-  representativeBrightnessLumen: 324,
-  brightnessPercentages: [63, 79],
-};
+/** Two Beams on a Stream Deck + XL's USB hub, which stopped at 63% and 79%, as the plugin holds them. */
+const AT_THEIR_CAPS = [63, 79];
 
-const NO_LAMP: BroadcastResult = { ok: false, deviceCount: 0, failures: 1 };
+/** How an operation on the two Beams went. */
+const DONE: OperationResult = { ok: true, deviceCount: 2, failures: 0 };
+const FAILED: OperationResult = { ...DONE, ok: false, failures: 1 };
+const NO_LAMP: OperationResult = { ok: false, deviceCount: 0, failures: 1 };
 
-/** What a dial shows of {@link REACHED_AT_CAP}: 79%, with the bar fainter from 63%, which only one lamp passes. */
+/** What a dial shows of {@link AT_THEIR_CAPS}: 79%, with the bar fainter from 63%, which only one lamp passes. */
 const AT_THE_CAPS = {
   title: "Brightness",
   value: "79%",
@@ -88,12 +85,14 @@ followGlobalSettings();
 beforeEach(() => {
   vi.useFakeTimers();
   changeGlobalSettings({});
-  // The debouncer flushes every turn at once: its own timing is litra-manager's to test.
+  // The debouncer flushes every turn at once: its own timing is debouncer.test.ts's to check.
   vi.mocked(createDialDebouncer).mockImplementation((flush) => (ticks) => void flush(ticks));
   // The lamps, as a dial that appears or returns to its main screen reads them, and as the lamp screens read them.
-  vi.mocked(readLampsBrightness).mockResolvedValue(REACHED_AT_CAP);
-  vi.mocked(readLampStatuses).mockResolvedValue({ ok: true, lamps: [BEAM] });
-  const brightness = new BrightnessAction(new LampScreens());
+  vi.mocked(readLampsBrightness).mockResolvedValue(AT_THEIR_CAPS);
+  vi.mocked(readLampStatuses).mockResolvedValue([BEAM]);
+  // A tap finds the lamps, then shows what the plugin holds of them, which each test sets as readLampStatuses.
+  vi.mocked(findLampStatuses).mockImplementation(() => readLampStatuses());
+  const brightness = new BrightnessAction();
   const listener = vi.mocked(onLampsChanged).mock.lastCall?.[0];
   if (listener === undefined) {
     throw new Error("BrightnessAction didn't listen for lamp changes");
@@ -115,7 +114,7 @@ function clearCalls(): void {
 
 describe("BrightnessAction", () => {
   describe("when the lamps change", () => {
-    it("shows on every dial the brightness the lamps reached, from one read, and leaves the keys' presets (#29)", async () => {
+    it("shows on every dial the brightness the lamps reached, and leaves the keys' presets (#29)", async () => {
       const key = await deck.key(BRIGHTNESS, { presetPercentage: 100 });
       const dial = await deck.dial(BRIGHTNESS);
       const otherDial = await deck.dial(BRIGHTNESS);
@@ -123,30 +122,15 @@ describe("BrightnessAction", () => {
 
       await lampsChanged();
 
-      expect(readLampsBrightness).toHaveBeenCalledOnce();
       expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith(AT_THE_CAPS);
       expect(otherDial.setFeedback).toHaveBeenCalledExactlyOnceWith(AT_THE_CAPS);
       expect(key.setTitle).not.toHaveBeenCalled();
     });
 
-    it("shows the brightness of the lamps it could read when one can't be read", async () => {
+    it("shows no brightness when no lamp is connected", async () => {
       const dial = await deck.dial(BRIGHTNESS);
       clearCalls();
-      vi.mocked(readLampsBrightness).mockResolvedValue({
-        ...REACHED_AT_CAP,
-        ok: false,
-        failures: 1,
-      });
-
-      await lampsChanged();
-
-      expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith(AT_THE_CAPS);
-    });
-
-    it("shows no brightness when no lamp can be read", async () => {
-      const dial = await deck.dial(BRIGHTNESS);
-      clearCalls();
-      vi.mocked(readLampsBrightness).mockResolvedValue(NO_LAMP);
+      vi.mocked(readLampsBrightness).mockResolvedValue([]);
 
       await lampsChanged();
 
@@ -173,7 +157,7 @@ describe("BrightnessAction", () => {
       const lamps = ["lamp-1"];
       const key = await deck.key(BRIGHTNESS, { presetPercentage: 100, lamps });
       clearCalls();
-      vi.mocked(setLampsBrightness).mockResolvedValue(REACHED_AT_CAP);
+      vi.mocked(setLampsBrightness).mockResolvedValue(DONE);
 
       await deck.press(key);
 
@@ -185,7 +169,7 @@ describe("BrightnessAction", () => {
       const key = await deck.key(BRIGHTNESS, { presetPercentage: 100 });
       const dial = await deck.dial(BRIGHTNESS);
       clearCalls();
-      vi.mocked(setLampsBrightness).mockResolvedValue(REACHED_AT_CAP);
+      vi.mocked(setLampsBrightness).mockResolvedValue(DONE);
 
       await deck.press(key);
 
@@ -195,7 +179,7 @@ describe("BrightnessAction", () => {
     });
 
     it.each([
-      ["a lamp fails", { ...REACHED_AT_CAP, ok: false, failures: 1 }],
+      ["a lamp fails", FAILED],
       ["no lamp is connected", NO_LAMP],
     ])("shows an alert when %s", async (_when, result) => {
       const key = await deck.key(BRIGHTNESS, { presetPercentage: 100 });
@@ -211,7 +195,7 @@ describe("BrightnessAction", () => {
     it("moves the lamps by the dial's step, and leaves showing the result to the notice", async () => {
       const dial = await deck.dial(BRIGHTNESS, { stepPercentage: 5 });
       clearCalls();
-      vi.mocked(adjustLampsBrightness).mockResolvedValue(REACHED_AT_CAP);
+      vi.mocked(adjustLampsBrightness).mockResolvedValue(DONE);
 
       await deck.turn(dial, 3);
 
@@ -222,7 +206,7 @@ describe("BrightnessAction", () => {
     it("shows an alert on the dial turned when a lamp fails", async () => {
       const turned = await deck.dial(BRIGHTNESS, { stepPercentage: 5 });
       const otherDial = await deck.dial(BRIGHTNESS);
-      vi.mocked(adjustLampsBrightness).mockResolvedValue({ ...REACHED_AT_CAP, ok: false, failures: 1 });
+      vi.mocked(adjustLampsBrightness).mockResolvedValue(FAILED);
 
       await deck.turn(turned, 3);
 
@@ -237,20 +221,12 @@ describe("BrightnessAction", () => {
     expect(key.setTitle).toHaveBeenCalledExactlyOnceWith("40");
   });
 
-  it("shows no brightness on a dial that appears while no lamp can be read", async () => {
-    vi.mocked(readLampsBrightness).mockResolvedValue(NO_LAMP);
+  it("shows no brightness on a dial that appears while no lamp is connected", async () => {
+    vi.mocked(readLampsBrightness).mockResolvedValue([]);
 
     const dial = await deck.dial(BRIGHTNESS);
 
     expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith(UNKNOWN_BRIGHTNESS);
-  });
-
-  it("shows the brightness of the lamps it could read on a dial that appears while one can't be read", async () => {
-    vi.mocked(readLampsBrightness).mockResolvedValue({ ...REACHED_AT_CAP, ok: false, failures: 1 });
-
-    const dial = await deck.dial(BRIGHTNESS);
-
-    expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith(AT_THE_CAPS);
   });
 
   describe("when the settings page changes a setting", () => {
@@ -285,15 +261,16 @@ describe("BrightnessAction", () => {
   });
 
   describe("with a setting that isn't valid (#22)", () => {
-    it("sets the lamps to the default preset on a key press, with a warning", async () => {
+    it("sets the lamps to the default preset on a key press, warned about as the key appeared", async () => {
       const key = await deck.key(BRIGHTNESS, { presetPercentage: "abc" });
+      expect(logger.warn).toHaveBeenCalledOnce();
       clearCalls();
-      vi.mocked(setLampsBrightness).mockResolvedValue(REACHED_AT_CAP);
+      vi.mocked(setLampsBrightness).mockResolvedValue(DONE);
 
       await deck.press(key);
 
       expect(setLampsBrightness).toHaveBeenCalledExactlyOnceWith("all", 0);
-      expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("presetPercentage"));
+      expect(logger.warn).not.toHaveBeenCalled();
     });
 
     it("shows the default preset on the key, with a warning", async () => {
@@ -303,22 +280,23 @@ describe("BrightnessAction", () => {
       expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("presetPercentage"));
     });
 
-    it("moves the lamps by the default step on a dial turn, with a warning", async () => {
+    it("moves the lamps by the default step on a dial turn, warned about as the dial appeared", async () => {
       const dial = await deck.dial(BRIGHTNESS, { stepPercentage: 0 });
+      expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("step"));
       clearCalls();
-      vi.mocked(adjustLampsBrightness).mockResolvedValue(REACHED_AT_CAP);
+      vi.mocked(adjustLampsBrightness).mockResolvedValue(DONE);
 
       await deck.turn(dial, 3);
 
       expect(adjustLampsBrightness).toHaveBeenCalledExactlyOnceWith("all", 3, 10, "together");
-      expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("stepPercentage"));
+      expect(logger.warn).not.toHaveBeenCalled();
     });
   });
 
   describe("with the brightness difference kept (#145)", () => {
     beforeEach(() => {
       changeGlobalSettings({ keepBrightnessDifference: true });
-      vi.mocked(adjustLampsBrightness).mockResolvedValue(REACHED_AT_CAP);
+      vi.mocked(adjustLampsBrightness).mockResolvedValue(DONE);
     });
 
     it("steps each lamp from its own brightness on a turn on the main screen, and logs it", async () => {
@@ -409,7 +387,7 @@ describe("BrightnessAction", () => {
     it("moves only the lamp on screen when the dial is turned on a lamp screen (#20)", async () => {
       const dial = await deck.dial(BRIGHTNESS, { stepPercentage: 5 });
       await deck.tap(dial);
-      vi.mocked(adjustLampsBrightness).mockResolvedValue(REACHED_AT_CAP);
+      vi.mocked(adjustLampsBrightness).mockResolvedValue(DONE);
 
       await deck.turn(dial, 3);
 
@@ -422,8 +400,8 @@ describe("BrightnessAction", () => {
       vi.mocked(createDialDebouncer).mockImplementation((flush) => (ticks) => {
         waiting.push(() => flush(ticks));
       });
-      vi.mocked(readLampStatuses).mockResolvedValue({ ok: true, lamps: [BEAM, OTHER_BEAM] });
-      vi.mocked(adjustLampsBrightness).mockResolvedValue(REACHED_AT_CAP);
+      vi.mocked(readLampStatuses).mockResolvedValue([BEAM, OTHER_BEAM]);
+      vi.mocked(adjustLampsBrightness).mockResolvedValue(DONE);
       const dial = await deck.dial(BRIGHTNESS, { stepPercentage: 5 });
 
       await deck.turn(dial, 1);
@@ -442,7 +420,7 @@ describe("BrightnessAction", () => {
       ]);
     });
 
-    it("doesn't show the brightness on a dial that shows a lamp screen", async () => {
+    it("redraws the lamp on screen when the lamps change, not the brightness of every lamp", async () => {
       const onLamp = await deck.dial(BRIGHTNESS);
       const onMain = await deck.dial(BRIGHTNESS);
       await deck.tap(onLamp);
@@ -450,15 +428,53 @@ describe("BrightnessAction", () => {
 
       await lampsChanged();
 
-      expect(onLamp.setFeedback).not.toHaveBeenCalled();
+      expect(readLampStatuses).toHaveBeenCalledOnce();
+      expect(onLamp.setFeedback).toHaveBeenCalledOnce();
+      expect(onLamp.setFeedback).not.toHaveBeenCalledWith(AT_THE_CAPS);
       expect(onMain.setFeedback).toHaveBeenCalledExactlyOnceWith(AT_THE_CAPS);
+    });
+
+    it("goes back to the main screen when the lamp on screen is no longer connected", async () => {
+      const dial = await deck.dial(BRIGHTNESS);
+      await deck.tap(dial);
+      vi.mocked(readLampStatuses).mockResolvedValue([OTHER_BEAM]);
+
+      await lampsChanged();
+
+      expect(dial.setFeedbackLayout).toHaveBeenLastCalledWith("$B1");
+      expect(dial.setFeedback).toHaveBeenLastCalledWith(AT_THE_CAPS);
+    });
+
+    it("redraws the lamp on screen when the global settings change, and leaves the main screens", async () => {
+      const onLamp = await deck.dial(BRIGHTNESS);
+      const onMain = await deck.dial(BRIGHTNESS);
+      await deck.tap(onLamp);
+      clearCalls();
+
+      changeGlobalSettings({ lampScreenBottomRight: "none" });
+      await vi.runAllTimersAsync();
+
+      expect(onLamp.setFeedback).toHaveBeenCalledOnce();
+      expect(onMain.setFeedback).not.toHaveBeenCalled();
+    });
+
+    it("no longer redraws a dial that disappeared", async () => {
+      const dial = await deck.dial(BRIGHTNESS);
+      await deck.tap(dial);
+      await deck.remove(dial);
+      clearCalls();
+
+      await lampsChanged();
+
+      expect(dial.setFeedback).not.toHaveBeenCalled();
+      expect(readLampStatuses).not.toHaveBeenCalled();
     });
 
     it("keeps a lamp screen drawn when the dial's settings change on it, and turns its lamp by the new step", async () => {
       const dial = await deck.dial(BRIGHTNESS, { stepPercentage: 5 });
       await deck.tap(dial);
       clearCalls();
-      vi.mocked(adjustLampsBrightness).mockResolvedValue(REACHED_AT_CAP);
+      vi.mocked(adjustLampsBrightness).mockResolvedValue(DONE);
 
       await deck.changeSettings(dial, { stepPercentage: 10 });
 
@@ -486,7 +502,7 @@ describe("BrightnessAction", () => {
 
     it("a key press, with the key's preset, before changing the lamps", async () => {
       const key = await deck.key(BRIGHTNESS, { presetPercentage: 80 });
-      vi.mocked(setLampsBrightness).mockResolvedValue(REACHED_AT_CAP);
+      vi.mocked(setLampsBrightness).mockResolvedValue(DONE);
 
       await deck.press(key);
 
@@ -498,7 +514,7 @@ describe("BrightnessAction", () => {
 
     it("a dial turn, with its ticks and the dial's step", async () => {
       const dial = await deck.dial(BRIGHTNESS, { stepPercentage: 5 });
-      vi.mocked(adjustLampsBrightness).mockResolvedValue(REACHED_AT_CAP);
+      vi.mocked(adjustLampsBrightness).mockResolvedValue(DONE);
 
       await deck.turn(dial, 3);
 
@@ -511,7 +527,7 @@ describe("BrightnessAction", () => {
       const dial = await deck.dial(BRIGHTNESS, { stepPercentage: 5 });
       await deck.tap(dial);
       vi.mocked(logger.info).mockClear();
-      vi.mocked(adjustLampsBrightness).mockResolvedValue(REACHED_AT_CAP);
+      vi.mocked(adjustLampsBrightness).mockResolvedValue(DONE);
 
       await deck.turn(dial, 3);
 

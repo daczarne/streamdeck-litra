@@ -36,6 +36,11 @@ export function hidEvents(): readonly HidEvent[] {
   return events;
 }
 
+/** Forgets the calls made so far, so a test sees only the ones that follow. */
+export function forgetEvents(): void {
+  events.length = 0;
+}
+
 /** The HID devices plugged in, as node-hid lists them. */
 export function devices(): HidDeviceInfo[] {
   if (devicesError !== undefined) {

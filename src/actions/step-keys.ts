@@ -1,40 +1,30 @@
-import {
-  action,
-  type DidReceiveSettingsEvent,
-  type KeyDownEvent,
-  SingletonAction,
-  type WillAppearEvent,
-} from "@elgato/streamdeck";
+import { action, type KeyAction } from "@elgato/streamdeck";
 import type { JsonObject } from "@elgato/utils";
 import type { Logger } from "@elgato/utils/logging";
-
-import {
-  adjustLampsBrightness,
-  adjustLampsTemperature,
-  type BroadcastResult,
-  createDialDebouncer,
-  type LampSelection,
-  onLampsChanged,
-  readLampsBrightness,
-  readLampsTemperature,
-  type Stepping,
-} from "../litra-manager";
+import { globalSettings } from "../global-settings";
+import type { LampSelection } from "../lamp-selection";
+import { adjustLampsBrightness, adjustLampsTemperature, type OperationResult, type Stepping } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
-import { brightnessStepping, keyLamps, onGlobalSettingsChanged, temperatureStepping } from "./global-settings";
+import { ActionInstance, type DeckControl, RoutingAction } from "./action-instance";
+import { createDialDebouncer } from "./debouncer";
 import {
   brightnessStepSettings,
+  type CheckedLamps,
   describeLamps,
-  lampSettings,
   parseSettings,
   temperatureStepSettings,
 } from "./settings";
+import { readLampsBrightness, readLampsTemperature } from "./shown";
+
+/** A step key's settings: its step, and its lamps. */
+type StepConfig = { step: number; lamps: CheckedLamps; leftOutLamps: readonly string[] };
 
 /**
- * What a step key moves: how it reads its step, and how the global settings step several lamps (#145), moves the lamps
- * by it, and reads what they're at for its title.
+ * What a step key moves: how it reads its settings, and how the global settings step several lamps (#145), moves the
+ * lamps by its step, and reads what they're at for its title.
  */
 type Stepped = {
-  readStep: (settings: JsonObject, logger: Logger) => number;
+  read: (settings: JsonObject, logger: Logger) => StepConfig;
   readStepping: () => Stepping;
   unit: string;
   adjust: (
@@ -42,123 +32,132 @@ type Stepped = {
     ticks: number,
     step: number,
     stepping: Stepping,
-  ) => BroadcastResult | Promise<BroadcastResult>;
+  ) => OperationResult | Promise<OperationResult>;
   readTitle: (lamps: LampSelection) => Promise<string>;
 };
 
 /** The brightness, which a key shows as the dials do: the brightest lamp's %, or "—" when no lamp can be read. */
 const BRIGHTNESS: Stepped = {
-  readStep: (settings, logger) => parseSettings(settings, brightnessStepSettings, logger).stepPercentage,
-  readStepping: brightnessStepping,
+  read: (settings, logger) => {
+    const { stepPercentage, ...lamps } = parseSettings(settings, brightnessStepSettings, logger);
+    return { step: stepPercentage, ...lamps };
+  },
+  readStepping: () => globalSettings.brightnessStepping,
   unit: "%",
   adjust: adjustLampsBrightness,
   readTitle: async (lamps) => {
-    const levels = (await readLampsBrightness(lamps)).brightnessPercentages ?? [];
+    const levels = await readLampsBrightness(lamps);
     return levels.length === 0 ? "—" : `${Math.round(Math.max(...levels))}%`;
   },
 };
 
 /** The temperature, which a key shows as the dials do: the first lamp that answers, in kelvin, or "—" without one. */
 const TEMPERATURE: Stepped = {
-  readStep: (settings, logger) => parseSettings(settings, temperatureStepSettings, logger).stepKelvin,
-  readStepping: temperatureStepping,
+  read: (settings, logger) => {
+    const { stepKelvin, ...lamps } = parseSettings(settings, temperatureStepSettings, logger);
+    return { step: stepKelvin, ...lamps };
+  },
+  readStepping: () => globalSettings.temperatureStepping,
   unit: " K",
   adjust: adjustLampsTemperature,
   readTitle: async (lamps) => {
-    const kelvin = (await readLampsTemperature(lamps)).representativeTemperatureKelvin;
+    const kelvin = (await readLampsTemperature(lamps))?.kelvin;
     return kelvin === undefined ? "—" : `${Math.round(kelvin)}`;
   },
 };
 
 /**
- * A key that steps the brightness or the temperature up or down by its step, for decks without dials (#129). A press is
- * a dial's tick: it goes through the same operation, so the lamps stop on the same values and caps work the same, and
- * presses as quick as a dial's ticks are gathered into one move. Every key shows what its lamps are at as its title, and follows every change
- * through litra-manager's notice.
+ * The action of a step key, which gives each of its keys a {@link StepKey} that steps what it steps, in its direction.
  */
-abstract class StepKeyAction extends SingletonAction {
-  private readonly queues = new Map<string, (presses: number) => void>();
-  private readonly latestSettings = new Map<string, JsonObject>();
-
-  /**
-   * Takes what the key steps and which way, and subscribes the keys to every change made to the lamps, and to the global
-   * settings, which choose their lamps (#147).
-   */
+abstract class StepKeyAction extends RoutingAction<StepKey> {
+  /** Takes what the keys step and which way. */
   constructor(
     private readonly logger: Logger,
     private readonly stepped: Stepped,
     private readonly direction: 1 | -1,
   ) {
     super();
-    onLampsChanged(() => this.syncEveryKey());
-    onGlobalSettingsChanged(() => this.syncEveryKey());
+  }
+
+  /** A step key, for a key: the manifest places the action on keys alone. */
+  protected override create(control: DeckControl, settings: JsonObject): StepKey | undefined {
+    return control.isKey() ? new StepKey(control, settings, this.logger, this.stepped, this.direction) : undefined;
+  }
+}
+
+/**
+ * A key that steps the brightness or the temperature up or down by its step, for decks without dials (#129). A press is
+ * a dial's tick: it goes through the same operation, so the lamps stop on the same values and caps work the same, and
+ * presses as quick as a dial's ticks are gathered into one move. Every key shows what its lamps are at as its title, and
+ * follows every change through litra-manager's notice, and the global settings, which choose its lamps (#147).
+ */
+class StepKey extends ActionInstance<StepConfig, KeyAction<JsonObject>> {
+  /** The presses gathered for a moment, so quick ones move the lamps once. */
+  private readonly presses: (presses: number) => void;
+
+  /** Takes the key and its settings, what it steps and which way. */
+  constructor(
+    control: KeyAction<JsonObject>,
+    settings: JsonObject,
+    private readonly logger: Logger,
+    private readonly stepped: Stepped,
+    private readonly direction: 1 | -1,
+  ) {
+    super(control, settings, (saved) => stepped.read(saved, logger));
+    this.presses = createDialDebouncer((presses) => this.step(presses), logger);
   }
 
   /** Shows what its lamps are at as soon as the key is placed or shown. */
-  override async onWillAppear(ev: WillAppearEvent): Promise<void> {
-    this.latestSettings.set(ev.action.id, ev.payload.settings);
-    if (ev.action.isKey()) {
-      await ev.action.setTitle(await this.stepped.readTitle(this.lampsOf(ev.action.id)));
-    }
+  override appear(): Promise<void> {
+    return this.showTitle();
   }
 
-  /** Takes the step and the lamps changed on the settings page, and shows what the key's lamps are now at. */
-  override async onDidReceiveSettings(ev: DidReceiveSettingsEvent): Promise<void> {
-    this.latestSettings.set(ev.action.id, ev.payload.settings);
-    if (ev.action.isKey()) {
-      await ev.action.setTitle(await this.stepped.readTitle(this.lampsOf(ev.action.id)));
-    }
+  /** Shows what the key's lamps are at, with the lamps it now has. */
+  override settingsChanged(): Promise<void> {
+    return this.showTitle();
   }
 
-  /**
-   * Steps the lamps once, gathering quick presses for a moment so they move the lamps once, by the step the key has
-   * when they're applied, together or each from its own as the global settings say then (#145). The keys follow through the subscription, and the key pressed shows an alert when a lamp fails.
-   */
-  override onKeyDown(ev: KeyDownEvent): void {
-    const id = ev.action.id;
-    this.latestSettings.set(id, ev.payload.settings);
-    let queue = this.queues.get(id);
-    if (!queue) {
-      queue = createDialDebouncer(async (presses) => {
-        const step = this.stepped.readStep(this.latestSettings.get(id) ?? {}, this.logger);
-        const stepping = this.stepped.readStepping();
-        const lamps = this.lampsOf(id);
-        const steps = `${presses} ${presses === 1 ? "step" : "steps"} of ${step}${this.stepped.unit}`;
-        const each = stepping === "each" ? ", each lamp from its own" : "";
-        this.logger.info(`Key pressed: ${steps}, on ${describeLamps(lamps)}${each}`);
-        const result = await this.stepped.adjust(lamps, this.direction * presses, step, stepping);
-        if (!result.ok) {
-          await ev.action.showAlert();
-        }
-      });
-      this.queues.set(id, queue);
-    }
-    queue(1);
+  /** Shows what its lamps are at, whichever key or dial changed them. */
+  override lampsChanged(): Promise<void> {
+    return this.showTitle();
+  }
+
+  /** Shows what the lamps it now has are at, which may take in lamps it didn't before. */
+  override globalSettingsChanged(): Promise<void> {
+    return this.showTitle();
+  }
+
+  /** Gathers the press with the ones just before it. */
+  override keyDown(): void {
+    this.presses(1);
   }
 
   /**
-   * Shows what its lamps are at on every visible key of this action, from one read for each set of lamps the keys have,
-   * and reads nothing without a key.
+   * Steps the lamps by the presses gathered, by the step the key has when they're applied, together or each from its
+   * own as the global settings say then (#145). The keys follow through the notice, and the key shows an alert when a
+   * lamp fails.
    */
-  private async syncEveryKey(): Promise<void> {
-    const titles = new Map<string, string>();
-    for (const key of this.actions) {
-      if (key.isKey()) {
-        const lamps = this.lampsOf(key.id);
-        const selection = JSON.stringify(lamps);
-        let title = titles.get(selection);
-        if (title === undefined) {
-          title = await this.stepped.readTitle(lamps);
-          titles.set(selection, title);
-        }
-        await key.setTitle(title);
-      }
+  private async step(presses: number): Promise<void> {
+    const { step } = this.config;
+    const stepping = this.stepped.readStepping();
+    const lamps = this.lamps();
+    const steps = `${presses} ${presses === 1 ? "step" : "steps"} of ${step}${this.stepped.unit}`;
+    const each = stepping === "each" ? ", each lamp from its own" : "";
+    this.logger.info(`Key pressed: ${steps}, on ${describeLamps(lamps)}${each}`);
+    const result = await this.stepped.adjust(lamps, this.direction * presses, step, stepping);
+    if (!result.ok) {
+      await this.control.showAlert();
     }
   }
 
-  /** The lamps a key acts on, from the settings it was last seen with. */
-  private lampsOf(id: string): LampSelection {
-    return keyLamps(id, parseSettings(this.latestSettings.get(id) ?? {}, lampSettings, this.logger));
+  /** The lamps the key acts on. */
+  private lamps(): LampSelection {
+    return globalSettings.actionKeyLamps(this.control.id, this.config);
+  }
+
+  /** Shows what the key's lamps are at as its title. */
+  private async showTitle(): Promise<void> {
+    await this.control.setTitle(await this.stepped.readTitle(this.lamps()));
   }
 }
 

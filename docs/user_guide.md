@@ -28,7 +28,9 @@ When the plugin starts knowing no lamps, as it does the first time, it finds the
 
 Each key acts on the lamps picked on its settings page: every lamp the plugin knows, unless others are picked (see [Picking a key's lamps](#picking-a-keys-lamps)). A dial's main screen acts on every lamp, and its lamp screens on one lamp at a time (see [Lamp screens](#lamp-screens)). Wherever the plugin lists the lamps, it lists them in the order of the plugin settings' table.
 
-Every Power key, Up and Down key, dial and lamp screen follows changes made by any key or dial. Changes made with a lamp's own buttons show at the next change made through the plugin.
+Every Power key, Up and Down key, dial and lamp screen follows changes made by any key or dial. When the plugin starts, it reads every lamp it knows that's connected, and so does Find lamps with the lamps it adds, and from then on, the keys and dials show what the plugin last set each lamp to, as the lamp reported it.
+
+The plugin is made for controlling the lamps through it, and through it alone. A change made another way, with a lamp's own buttons, Logitech's software or a CLI, isn't followed: the Deck goes on showing what the plugin last set, and the lamp comes back in step at the next change made through the plugin. For example, a lamp the plugin set to 10%, and brought to 20% with its own button, still shows 10%. Turning a dial one step up from there, by 10%, sets the lamp to 20%, which it's already at. A lamp unplugged and plugged in again is read again the next time the plugin reaches it.
 
 A brightness change, from a key or a dial, turns a lamp that's off on first, while a temperature change leaves it off, at the temperature it'll turn on at.
 
@@ -38,7 +40,7 @@ A lamp on a power supply too weak for it, such as a Stream Deck + XL's hub, stop
 
 ### Power
 
-A Power key turns its lamps on, turns them off, or toggles them. In its toggle mode, it turns its lamps off when every one of them is on, and on otherwise. It shows on only when every one of its lamps is on.
+A Power key turns its lamps on, turns them off, or toggles them. In its toggle mode, it turns its lamps off when every one of them is on, and on otherwise. It shows on only when every one of its lamps that's connected is on, and off when none is connected.
 
 ### Brightness and Temperature
 
@@ -48,13 +50,13 @@ Brightness and Temperature keys set their lamps to the preset in their settings.
 
 A Scene key sets its lamps in one press, so one key goes to a setup and another comes back: it turns them on, then sets their temperature and brightness, or turns them off, as its Power switch says. A group's power, temperature and brightness sit on one row.
 
-**Add a group**, on its settings page, adds a group of lamps with its own power, brightness and temperature, such as a key light brighter than a fill light, and **Remove group** takes it away. A lamp is in one group at most: the other groups show it greyed out, with the group that holds it, and it moves once it's unchecked there. The first group picks its lamps as every key does, lamps added later included (see [Picking a key's lamps](#picking-a-keys-lamps)), and a lamp no group holds is left as it is.
+**Add a group**, on its settings page, adds a group of lamps with its own power, brightness and temperature, such as a key light brighter than a fill light, and **Remove group** takes it away. A lamp is in one group at most: the other groups show it greyed out, with the group that holds it, and it moves once it's unchecked there. The first group picks its lamps as every key does, lamps added later included (see [Picking a key's lamps](#picking-a-keys-lamps)), and a lamp no group holds is left as it is. Its All means every lamp the plugin knows, so it's unchecked and greyed out while another group holds a lamp.
 
 A Scene key shows only its image: a title typed in its settings shows at the bottom.
 
 ### Brightness and Temperature Up and Down
 
-Brightness and Temperature Up and Down keys step their lamps by the step in their settings, as one tick of a dial, for decks without dials (see [Steps](#steps)). They show what their lamps are at, as the dials do: the brightest lamp's %, or the first lamp's temperature in Kelvin, the first in the plugin settings' list of lamps, as on the lamp screens, and a dash when no lamp answers. A title typed in the key's settings replaces it.
+Brightness and Temperature Up and Down keys step their lamps by the step in their settings, as one tick of a dial, for decks without dials (see [Steps](#steps)). They show what their lamps are at, as the dials do: the brightest lamp's %, or the first lamp's temperature in Kelvin, the first in the plugin settings' list of lamps, as on the lamp screens, and a dash when none of their lamps is connected. A title typed in the key's settings replaces it.
 
 ### Picking a key's lamps
 
@@ -68,11 +70,11 @@ By default, a key also takes in lamps added later: it acts on every lamp but the
 
 Dials look like Stream Deck's own volume dials: the value, with a bar under it. The keys, and the dials' pictures in the Stream Deck app, show the same line icon as the strip, smaller, at the size of the Icon Library's Litra icons. The temperature bar runs from the lamp's warmest setting (empty) to its coolest (full). The brightness bar is white up to the dimmest lamp's level, and a lighter grey from there to the brightest lamp's, the part only some lamps reach. Their title says what they control ("Brightness", "Temperature"), and can be replaced or hidden like a key's.
 
-Rotating adjusts every lamp (see [Steps](#steps)), and pressing toggles every lamp, as a Power key in its toggle mode does (see [Power](#power)). A Brightness dial shows the brightest lamp's %, and a Temperature dial the first lamp's temperature, the first in the plugin settings' list of lamps, and a dash when no lamp answers. Holding the strip does nothing on the main screen.
+Rotating adjusts every lamp (see [Steps](#steps)), and pressing toggles every lamp, as a Power key in its toggle mode does (see [Power](#power)). A Brightness dial shows the brightest lamp's %, and a Temperature dial the first lamp's temperature, the first in the plugin settings' list of lamps, and a dash when no lamp is connected. Holding the strip does nothing on the main screen.
 
 ### Lamp screens
 
-Tapping a dial's part of the strip shows one screen per lamp. Each tap shows the next lamp, in the order of the plugin settings' list, and the dial's own screen after the last. The dial stays on a lamp screen until it's tapped past the last lamp, a change made through the plugin finds its lamp unplugged, or the Deck shows another page. Tapped after its lamp is unplugged, it shows the next lamp connected.
+Tapping a dial's part of the strip shows one screen per lamp. Each tap shows the next lamp, in the order of the plugin settings' list, and the dial's own screen after the last. The dial stays on a lamp screen until it's tapped past the last lamp, a press, turn or tap finds its lamp unplugged, or the Deck shows another page. Tapped after its lamp is unplugged, it shows the next lamp connected.
 
 On a lamp screen, the dial controls that lamp alone: turning it changes the lamp's brightness or temperature, and pressing it turns the lamp on or off. Holding the strip blinks the lamp once, to show which one it is. A turn on the dial's own screen sets every lamp to the same value again, unless the lamps keep their difference (see [Lamps together or apart](#lamps-together-or-apart)).
 
@@ -101,7 +103,7 @@ A dial turns, and an Up or Down key steps, by the step in its settings, and stop
 
 By default, a turn on a dial's own screen, and a press of an Up or Down key, set every lamp to the same value, stepped from the one the dial or key shows.
 
-With "Each lamp steps from its own brightness" checked under "Lamps" in the plugin settings, each lamp steps from its own brightness instead, so lamps set apart on their lamp screens stay apart. A lamp that reaches 0%, 100% or its cap stays there, while the others keep going, and the plugin remembers how far the lamp would have gone, so it comes back with them and the lamps keep their difference. Once every lamp is at its end, turning further does nothing. Setting a lamp any other way, or restarting the plugin, forgets how far it would have gone. Lamps that keep their difference each step along the multiples of the step, so their difference can change by up to a step on the first turn.
+With "Each lamp steps from its own brightness" checked under "Lamps" in the plugin settings, each lamp steps from its own brightness instead, so lamps set apart on their lamp screens stay apart. A lamp that reaches 0%, 100% or its cap stays there, while the others keep going, and the plugin remembers how far the lamp would have gone, so it comes back with them and the lamps keep their difference. Once every lamp is at its end, turning further does nothing. Setting a lamp any other way through the plugin, or restarting the plugin, forgets how far it would have gone. Lamps that keep their difference each step along the multiples of the step, so their difference can change by up to a step on the first turn.
 
 Every Brightness dial and key shares that setting, and the Temperature dials and keys share one of their own, so the lamps can keep their brightness apart while their temperature stays matched.
 
@@ -113,7 +115,7 @@ Every settings page, on a key or a dial, starts with a **Plugin settings** butto
 
 "Lamps" lists the lamps the plugin knows, in the order of the last 4 characters of their serial numbers, each by those 4 characters and its model, with a field for its name, up to 24 characters, an Identify button that blinks it, and a trash can that forgets it.
 
-**Find lamps** adds the lamps connected that the plugin doesn't know yet (see [The lamps the plugin controls](#the-lamps-the-plugin-controls)), and greys out the lamps it didn't find, with "Not found" in place of Identify. A lamp's trash can takes its name too, until Find lamps finds it again. A name is the lamp's, not a key's: every key shows it. Emptying the field takes it away.
+**Find lamps** adds the lamps connected that the plugin doesn't know yet (see [The lamps the plugin controls](#the-lamps-the-plugin-controls)). The table greys out the lamps the plugin didn't find the last time it looked, with "Not found" in place of Identify: at the last Find lamps, or the last press, turn or tap that reached the lamps. A lamp's trash can takes its name too, until Find lamps finds it again. A name is the lamp's, not a key's: every key shows it. Emptying the field takes it away.
 
 Under the lamps come how each lamp steps, for its brightness and its temperature (see [Lamps together or apart](#lamps-together-or-apart)), and "Blink length", how long a blink lasts, for Identify and on the lamp screens, from 300 ms to 1.5 s. Its default, 400 ms, suits dim lamps: a lamp fades as it goes off, so a bright lamp among others that stay on needs a longer blink to show.
 
@@ -135,7 +137,9 @@ A key or a dial shows Stream Deck's alert indicator when it can't do all it was 
 - A Beam LX doesn't give its serial number, on a key that acts on every lamp, or on every lamp but some, since it could be one of them.
 - On a lamp screen, a tap with no lamp connected, a hold whose lamp can't be blinked, or a turn or a push once its lamp is unplugged.
 
-A Power key shows the alert once it has redrawn its state, which would cover the alert otherwise (see [Stream Deck keys][keys]). With no lamp answering, a Power key shows off, and the dials and the Up and Down keys show a dash.
+A Power key shows the alert once it has redrawn its state, which would cover the alert otherwise (see [Stream Deck keys][keys]). With none of their lamps connected, a Power key shows off, and the dials and the Up and Down keys show a dash.
+
+When a lamp takes a change but doesn't answer what it did, such as on a USB error, the plugin asks again, and when the lamp still doesn't answer, it shows what was asked for. The lamp may then be elsewhere until the next change made through the plugin.
 
 If something else doesn't work, [an issue][issues] with the plugin's log helps. The logs are in the plugin's folder, newest in `litra.log`:
 
