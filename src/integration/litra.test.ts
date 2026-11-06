@@ -226,7 +226,7 @@ describe("litra", () => {
         expect(lamp.written).toEqual([]);
       });
 
-      // A bug in litra, which the plugin works around with getBrightnessInLumenSafe. This test states what litra does,
+      // A bug in litra, which the plugin works around in its own brightness read. This test states what litra does,
       // not what it should do, so it starts failing when an upgrade of litra fixes the bug. When it does, check that
       // the fix reads both bytes, then decide whether the plugin still needs its own read, and rewrite this test.
       it("reads only the low byte of the brightness, so it is wrong above 255 lm", () => {
@@ -291,8 +291,10 @@ describe("what litra-manager assumes about litra", () => {
   describe.each(MODELS)("on a $name", ({ model, productId, maxLumen }) => {
     it("a Lamp's lumenAt gives the lumens litra sends for every percentage", () => {
       const { lamp, device } = plugIn(model, { productId });
-      const known = new lampModule.Lamp(deviceModule.identityOf(device));
-      known.reach("test", deviceModule.handleOf(device));
+      const connection = new deviceModule.LampConnection(device);
+      connection.identify();
+      const known = new lampModule.Lamp(connection);
+      known.reach("test", connection);
 
       for (let percentage = 0; percentage <= 100; percentage += 1) {
         litra.setBrightnessPercentage(device, percentage);
@@ -300,10 +302,10 @@ describe("what litra-manager assumes about litra", () => {
       }
     });
 
-    it("getBrightnessInLumenSafe reads both bytes of the brightness, where litra reads one", () => {
+    it("a connection reads both bytes of the brightness, where litra reads one", () => {
       const { device } = plugIn(model, { productId, brightnessInLumen: maxLumen });
 
-      expect(deviceModule.getBrightnessInLumenSafe(device)).toBe(maxLumen);
+      expect(new deviceModule.LampConnection(device).readBrightness()).toBe(maxLumen);
     });
   });
 

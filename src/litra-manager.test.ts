@@ -28,8 +28,8 @@ const BLINK_MS = 400;
 let manager: typeof import("./litra-manager");
 // The Lamp class loaded with litra-manager, whose cap logs reach the fake logger.
 let Lamp: typeof import("./lamp").Lamp;
-// The device module loaded with litra-manager, which reaches the lamps as the plugin does when it starts.
-let device: typeof import("./device");
+// The connections loaded with litra-manager, which reach the lamps as the plugin does when it starts.
+let LampConnection: typeof import("./device").LampConnection;
 // The lamps the plugin knows, as the global settings hold them and hand them over, keeping their Lamps.
 let known: Map<string, InstanceType<typeof Lamp>>;
 let hid: typeof import("./test-support/fake-node-hid");
@@ -40,13 +40,13 @@ beforeEach(async () => {
   vi.useFakeTimers();
   // A fresh litra-manager for every test: no learned caps, listeners or brightness changes carried over.
   ({
-    loaded: { manager, Lamp, device },
+    loaded: { manager, Lamp, LampConnection },
     hid,
     logger,
   } = await loadOnEmulatedLamps(async () => ({
     manager: await import("./litra-manager"),
     Lamp: (await import("./lamp")).Lamp,
-    device: await import("./device"),
+    LampConnection: (await import("./device")).LampConnection,
   })));
   known = new Map();
   manager.useLamps(known);
@@ -122,19 +122,17 @@ function reachKnown(lamps: readonly EmulatedLitra[]): void {
   if (first.length === 0) {
     return;
   }
-  for (const found of device.findDevices()) {
+  for (const found of LampConnection.findAll()) {
     try {
-      if (found.serialNumber === "") {
-        found.serialNumber = device.readSerialNumber(found);
-      }
-      const lamp = known.get(Lamp.idOf(found.serialNumber));
+      found.identify();
+      const lamp = known.get(found.id);
       if (lamp?.state === undefined) {
-        lamp?.reach("start", device.handleOf(found));
+        lamp?.reach("start", found);
       }
     } catch {
       // A lamp a test makes fail is reached by the operation, which the test checks.
     } finally {
-      device.closeDevice(found);
+      found.close();
     }
   }
   hid.forgetEvents();
