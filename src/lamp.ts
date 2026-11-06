@@ -14,7 +14,11 @@ export const READ_AGAIN_MS = 10;
 export const BRIGHTNESS_CAP_REVERSAL_WINDOW_MS = 1500;
 
 /** A lamp's power, its brightness in lumens and its temperature in kelvin, as the plugin holds them (#198). */
-export type LampState = { readonly on: boolean; readonly lumen: number; readonly kelvin: number };
+export type LampState = {
+  readonly on: boolean;
+  readonly lumen: number;
+  readonly kelvin: number;
+};
 
 /**
  * Waits, holding the thread, since the writes it follows are synchronous. Only a read that just failed waits, and only
