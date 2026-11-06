@@ -5,7 +5,7 @@ import { globalSettings } from "../global-settings";
 import { type LampSelection, type OperationResult, type Stepping, toggleLamps } from "../litra-manager";
 import { ActionInstance, type DeckControl, RoutingAction } from "./action-instance";
 import { createDialDebouncer } from "./debouncer";
-import type { LampScreens } from "./lamp-screens";
+import { LampScreen } from "./lamp-screens";
 import { type CheckedLamps, describeLamps } from "./settings";
 
 /**
@@ -42,15 +42,14 @@ export type Measure = {
 
 /**
  * The Brightness or the Temperature action, which gives each key a {@link PresetKey} and each dial a
- * {@link MeasureDial}, sharing the lamp screens of every dial.
+ * {@link MeasureDial}.
  */
 export abstract class MeasureAction extends RoutingAction<PresetKey | MeasureDial> {
-  /** Takes the action's logger, what its keys set and its dials step, and the lamp screens every dial shares. */
+  /** Takes the action's logger, and what its keys set and its dials step. */
   constructor(
     private readonly logger: Logger,
     private readonly preset: Preset,
     private readonly measure: Measure,
-    private readonly lampScreens: LampScreens,
   ) {
     super();
   }
@@ -60,9 +59,7 @@ export abstract class MeasureAction extends RoutingAction<PresetKey | MeasureDia
     if (control.isKey()) {
       return new PresetKey(control, settings, this.logger, this.preset);
     }
-    return control.isDial()
-      ? new MeasureDial(control, settings, this.logger, this.measure, this.lampScreens)
-      : undefined;
+    return control.isDial() ? new MeasureDial(control, settings, this.logger, this.measure) : undefined;
   }
 }
 
@@ -114,32 +111,30 @@ class PresetKey extends ActionInstance<ReturnType<Preset["read"]>, KeyAction<Jso
 /**
  * A Brightness or Temperature dial. On its main screen, it steps every lamp as it turns, toggles them when pushed, and
  * shows what they're at. Tapping its strip shows each lamp on its own screen, where turning and pushing it act on that
- * lamp alone, and holding the strip blinks it (#20). The lamp screens draw it there.
+ * lamp alone, and holding the strip blinks it (#20). Its {@link LampScreen} draws it there, and tells which lamp it
+ * shows.
  */
 class MeasureDial extends ActionInstance<{ step: number }, DialAction<JsonObject>> {
   /** The ticks gathered for each lamp the dial turns, by its id, or "all" for its main screen. */
   private readonly queues = new Map<string, (ticks: number) => void>();
+  /** The dial's lamp screens, which tell which lamp it shows, if any. */
+  private readonly screen: LampScreen;
 
-  /** Takes the dial, its settings, the action's logger, what it steps, and the lamp screens it shares. */
+  /** Takes the dial, its settings, the action's logger, and what it steps. */
   constructor(
     control: DialAction<JsonObject>,
     settings: JsonObject,
     private readonly logger: Logger,
     private readonly measure: Measure,
-    private readonly lampScreens: LampScreens,
   ) {
     super(control, settings, (saved) => ({ step: measure.readStep(saved, logger) }));
+    this.screen = new LampScreen(control, { showMain: () => this.showMainScreen(), adjusts: measure.name });
   }
 
   /** Starts the dial on its main screen, with what the lamps are at. */
   override async appear(): Promise<void> {
-    await this.lampScreens.appear(this.control);
+    await this.screen.appear();
     await this.showMainScreen();
-  }
-
-  /** Forgets the dial's lamp screen, so the lamp screens stop redrawing a dial that isn't shown. */
-  override disappear(): Promise<void> {
-    return this.lampScreens.disappear(this.control.id);
   }
 
   /** Redraws the main screen, which the new step doesn't change, and leaves a lamp screen as it is. */
@@ -147,14 +142,22 @@ class MeasureDial extends ActionInstance<{ step: number }, DialAction<JsonObject
     return this.showMainScreen();
   }
 
-  /** Shows what the lamps are at on the main screen, whichever key or dial changed them. */
+  /**
+   * Shows what the lamps are at, whichever key or dial changed them: every lamp on the main screen, or the lamp on
+   * screen, which goes back to the main screen once it's no longer connected.
+   */
   override lampsChanged(): Promise<void> {
-    return this.showMainScreen();
+    return this.screen.isShowing ? this.screen.refresh() : this.showMainScreen();
+  }
+
+  /** Redraws the lamp on screen, if any, whose cells and text styles are global settings (#153, #177). */
+  override globalSettingsChanged(): Promise<void> {
+    return this.screen.refresh();
   }
 
   /** Toggles every lamp from the main screen, or the lamp on screen from a lamp screen. */
   override async dialDown(): Promise<void> {
-    const lamp = this.lampScreens.lampOnScreen(this.control.id);
+    const lamp = this.screen.lamp;
     this.logger.info(lamp === undefined ? "Dial pressed: toggle" : "Dial pressed on a lamp screen: toggle");
     const result = toggleLamps(lamp === undefined ? "all" : [lamp]);
     if (!result.ok) {
@@ -165,16 +168,16 @@ class MeasureDial extends ActionInstance<{ step: number }, DialAction<JsonObject
   /** Tapping the strip shows the lamps one by one, and holding it on a lamp screen blinks the lamp on screen. */
   override async touchTap(hold: boolean): Promise<void> {
     if (hold) {
-      if (!this.lampScreens.isShowing(this.control.id)) {
+      if (!this.screen.isShowing) {
         this.logger.info("Strip held on the main screen: nothing to do");
         return;
       }
       this.logger.info("Strip held: identify");
-      await this.lampScreens.identify(this.control);
+      await this.screen.identify();
       return;
     }
     this.logger.info("Strip tapped: next screen");
-    await this.lampScreens.tap(this.control, { showMain: () => this.showMainScreen(), adjusts: this.measure.name });
+    await this.screen.tap();
   }
 
   /**
@@ -184,7 +187,7 @@ class MeasureDial extends ActionInstance<{ step: number }, DialAction<JsonObject
    * they're applied, since each lamp gets its own queue. The dials follow through litra-manager's notice.
    */
   override dialRotate(ticks: number): void {
-    const lamp = this.lampScreens.lampOnScreen(this.control.id);
+    const lamp = this.screen.lamp;
     const queueId = lamp ?? "all";
     let queue = this.queues.get(queueId);
     if (queue === undefined) {
@@ -210,15 +213,15 @@ class MeasureDial extends ActionInstance<{ step: number }, DialAction<JsonObject
 
   /**
    * Fills the main screen's layout with what the lamps are at, unless the dial shows a lamp screen, which has another
-   * layout, which the lamp screens draw. Nothing is read then.
+   * layout, which its lamp screen draws. Nothing is read then.
    */
   private async showMainScreen(): Promise<void> {
-    if (this.lampScreens.isShowing(this.control.id)) {
+    if (this.screen.isShowing) {
       return;
     }
     const feedback = await this.measure.readMainScreen();
     // A tap may have shown a lamp screen during the read.
-    if (!this.lampScreens.isShowing(this.control.id)) {
+    if (!this.screen.isShowing) {
       await this.control.setFeedback(feedback);
     }
   }

@@ -9,11 +9,11 @@ import {
   type TextStyles,
 } from "../global-settings";
 import { bySerialNumber } from "../lamp-order";
-import { identifyLamp, type LampStatus, onLampsChanged, readLampStatuses } from "../litra-manager";
+import { identifyLamp, type LampStatus, readLampStatuses } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
 import { LAMP_SCREEN_CELLS, type LampScreenCell, type LampScreenItem, type LampScreenItemOptions } from "./settings";
 
-/** What the lamp screens use of a dial, whichever action it belongs to. */
+/** What a lamp screen uses of its dial, whichever action it belongs to. */
 export type LampScreenDial = Pick<
   TouchTapEvent["action"],
   "id" | "setFeedback" | "setFeedbackLayout" | "setTriggerDescription" | "showAlert"
@@ -26,13 +26,8 @@ export type DialOwner = {
   adjusts: string;
 };
 
-type Screen = {
-  dial: LampScreenDial;
-  serialNumber: string;
-  /** The lamp's id, which the operations on it take. */
-  id: string;
-  owner: DialOwner;
-};
+/** The lamp a lamp screen shows: its serial number, which places it among the lamps, and its id. */
+type OnScreen = { serialNumber: string; id: string };
 
 const logger = pluginLogger.createScope("Lamp screens");
 
@@ -43,51 +38,50 @@ const LAMP_LAYOUT = "layouts/lamp.json";
 const LAMP_TRIGGER_DESCRIPTIONS = { push: "Power", touch: "Next lamp", longTouch: "Identify" };
 
 /**
- * The lamp screens of every Brightness and Temperature dial (#48). Tapping a dial's strip shows each lamp in turn, in
- * the order of their serial numbers, then the dial's main screen again. A dial stays on a lamp screen until it's tapped
- * past the last lamp, and while it's there, its action turns and toggles that lamp alone (#20). Each dial remembers the
- * serial of the lamp it shows rather than its position, so a lamp unplugged mid-cycle is skipped and "n of m" counts
- * the lamps connected at that moment.
+ * The lamp screens of one Brightness or Temperature dial (#48), which the dial creates and drops with itself (#198).
+ * Tapping the dial's strip shows each lamp in turn, in the order of their serial numbers, then the dial's main screen
+ * again. The dial stays on a lamp screen until it's tapped past the last lamp, and while it's there, the dial turns and
+ * toggles that lamp alone (#20). It remembers the serial of the lamp it shows rather than its position, so a lamp
+ * unplugged mid-cycle is skipped and "n of m" counts the lamps connected at that moment.
  *
  * With the blink on, which the dials share as a global setting, a tap that shows a lamp also blinks it, so tapping
- * through the lamps shows which one the dial is about to adjust (#144).
+ * through the lamps shows which one the dial is about to adjust (#144). What each of a lamp screen's six cells shows is
+ * a global setting, the same on every dial (#177).
  *
- * What each of a lamp screen's six cells shows is a global setting, the same on every dial (#177).
- *
- * Every dial shares one instance, which redraws every lamp screen whenever the lamps change, whichever action changed
- * them, and whenever the global settings do. Operations run one at a time, since each reads the lamps and changes what a dial shows, and never reject:
- * failures are logged. A blink is part of the operation that asked for it, so a tap during a blink waits for it to end.
+ * Its dial redraws it whenever the lamps change, whichever action changed them, and whenever the global settings do.
+ * Operations run one at a time, since each reads the lamps and changes what the dial shows, and never reject: failures
+ * are logged. A blink is part of the operation that asked for it, so a tap during a blink waits for it to end.
  */
-export class LampScreens {
-  private readonly screens = new Map<string, Screen>();
+export class LampScreen {
+  private shown: OnScreen | undefined;
   private queue: Promise<void> = Promise.resolve();
 
-  /** Subscribes to every change made to the lamps, and to the global settings, to redraw the lamp screens. */
-  constructor() {
-    onLampsChanged(() => this.refresh());
-    globalSettings.onChanged(() => this.refresh());
+  /** Takes the dial, and what only the dial knows: how to draw its main screen, and what turning it adjusts. */
+  constructor(
+    private readonly dial: LampScreenDial,
+    private readonly owner: DialOwner,
+  ) {}
+
+  /** Whether the dial is on a lamp screen rather than its main screen. */
+  get isShowing(): boolean {
+    return this.shown !== undefined;
   }
 
-  /** Whether a dial is on a lamp screen rather than its main screen. */
-  isShowing(dialId: string): boolean {
-    return this.screens.has(dialId);
-  }
-
-  /** The id of the lamp on a dial's screen, or undefined on its main screen. */
-  lampOnScreen(dialId: string): string | undefined {
-    return this.screens.get(dialId)?.id;
+  /** The id of the lamp on the dial's screen, or undefined on its main screen. */
+  get lamp(): string | undefined {
+    return this.shown?.id;
   }
 
   /**
    * Shows the lamp after the one on screen, the first lamp from the main screen, and the main screen after the last.
    * With the blink on for the dial, the lamp shown blinks once it's drawn.
    */
-  tap(dial: LampScreenDial, owner: DialOwner): Promise<void> {
+  tap(): Promise<void> {
     return this.enqueue(async () => {
       const { lamps } = await readLampStatuses();
-      const current = this.screens.get(dial.id)?.serialNumber;
+      const current = this.shown?.serialNumber;
       if (current === undefined && lamps.length === 0) {
-        await dial.showAlert();
+        await this.dial.showAlert();
         return;
       }
       // The lamp after the one on screen in the order the lamps come in, which also finds the one after a lamp
@@ -95,61 +89,54 @@ export class LampScreens {
       const next =
         current === undefined ? lamps[0] : lamps.find((lamp) => bySerialNumber(lamp.serialNumber, current) > 0);
       if (next === undefined) {
-        await this.backToMain(dial.id);
+        await this.backToMain();
         return;
       }
-      await this.show(dial, next, lamps, owner);
-      if (globalSettings.blinksOnLampScreen(dial.id)) {
-        await blink(dial, next.id);
+      await this.show(next, lamps);
+      if (globalSettings.blinksOnLampScreen(this.dial.id)) {
+        await blink(this.dial, next.id);
       }
     });
   }
 
-  /** Blinks the lamp on a dial's screen, so the user can tell which one it is. */
-  identify(dial: LampScreenDial): Promise<void> {
+  /** Blinks the lamp on the dial's screen, so the user can tell which one it is. Does nothing on the main screen. */
+  identify(): Promise<void> {
     return this.enqueue(async () => {
-      const screen = this.screens.get(dial.id);
-      if (screen === undefined) {
-        return;
-      }
-      await blink(dial, screen.id);
-    });
-  }
-
-  /** Redraws every lamp screen from a fresh read. */
-  refresh(): Promise<void> {
-    return this.enqueue(async () => {
-      if (this.screens.size === 0) {
-        return;
-      }
-      const { lamps } = await readLampStatuses();
-      for (const [dialId, screen] of [...this.screens]) {
-        const lamp = lamps.find((candidate) => candidate.serialNumber === screen.serialNumber);
-        if (lamp === undefined) {
-          await this.backToMain(dialId);
-        } else {
-          await draw(screen.dial, lamp, lamps);
-        }
+      if (this.shown !== undefined) {
+        await blink(this.dial, this.shown.id);
       }
     });
   }
 
   /**
-   * Starts a dial that appears on the main screen. Stream Deck may keep the layout a dial had when it disappeared, or
-   * when the plugin stopped.
+   * Redraws the lamp on screen from a fresh read, or goes back to the main screen when it's no longer connected. Does
+   * nothing on the main screen, which the dial draws.
    */
-  appear(dial: LampScreenDial): Promise<void> {
+  refresh(): Promise<void> {
     return this.enqueue(async () => {
-      this.screens.delete(dial.id);
-      await dial.setFeedbackLayout(MAIN_LAYOUT);
-      await dial.setTriggerDescription();
+      const shown = this.shown;
+      if (shown === undefined) {
+        return;
+      }
+      const { lamps } = await readLampStatuses();
+      const lamp = lamps.find((candidate) => candidate.serialNumber === shown.serialNumber);
+      if (lamp === undefined) {
+        await this.backToMain();
+      } else {
+        await draw(this.dial, lamp, lamps);
+      }
     });
   }
 
-  /** Forgets a dial that is no longer shown, so it isn't redrawn. */
-  disappear(dialId: string): Promise<void> {
+  /**
+   * Starts the dial on the main screen as it appears. Stream Deck may keep the layout a dial had when it disappeared,
+   * or when the plugin stopped.
+   */
+  appear(): Promise<void> {
     return this.enqueue(async () => {
-      this.screens.delete(dialId);
+      this.shown = undefined;
+      await this.dial.setFeedbackLayout(MAIN_LAYOUT);
+      await this.dial.setTriggerDescription();
     });
   }
 
@@ -161,27 +148,23 @@ export class LampScreens {
     return this.queue;
   }
 
-  /** Draws a lamp on a dial, switching it to the lamp layout first if it was on its main screen. */
-  private async show(dial: LampScreenDial, lamp: LampStatus, lamps: LampStatus[], owner: DialOwner): Promise<void> {
-    const wasShowing = this.screens.has(dial.id);
-    this.screens.set(dial.id, { dial, serialNumber: lamp.serialNumber, id: lamp.id, owner });
+  /** Draws a lamp, switching the dial to the lamp layout first if it was on its main screen. */
+  private async show(lamp: LampStatus, lamps: LampStatus[]): Promise<void> {
+    const wasShowing = this.shown !== undefined;
+    this.shown = { serialNumber: lamp.serialNumber, id: lamp.id };
     if (!wasShowing) {
-      await dial.setFeedbackLayout(LAMP_LAYOUT);
-      await dial.setTriggerDescription({ rotate: owner.adjusts, ...LAMP_TRIGGER_DESCRIPTIONS });
+      await this.dial.setFeedbackLayout(LAMP_LAYOUT);
+      await this.dial.setTriggerDescription({ rotate: this.owner.adjusts, ...LAMP_TRIGGER_DESCRIPTIONS });
     }
-    await draw(dial, lamp, lamps);
+    await draw(this.dial, lamp, lamps);
   }
 
-  /** Switches a dial back to the main layout and lets its action draw it. Does nothing on the main screen. */
-  private async backToMain(dialId: string): Promise<void> {
-    const screen = this.screens.get(dialId);
-    if (screen === undefined) {
-      return;
-    }
-    this.screens.delete(dialId);
-    await screen.dial.setFeedbackLayout(MAIN_LAYOUT);
-    await screen.dial.setTriggerDescription();
-    await screen.owner.showMain();
+  /** Switches the dial back to the main layout and lets it draw its main screen. */
+  private async backToMain(): Promise<void> {
+    this.shown = undefined;
+    await this.dial.setFeedbackLayout(MAIN_LAYOUT);
+    await this.dial.setTriggerDescription();
+    await this.owner.showMain();
   }
 }
 
@@ -344,6 +327,3 @@ async function draw(dial: LampScreenDial, lamp: LampStatus, lamps: LampStatus[])
     Object.assign({}, ...LAMP_SCREEN_CELLS.map((cell) => cellSlots(cell, shownIn(cells[cell], lamp, lamps, styles)))),
   );
 }
-
-/** The lamp screens every action shares. */
-export const lampScreens = new LampScreens();

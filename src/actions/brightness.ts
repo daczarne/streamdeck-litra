@@ -2,7 +2,6 @@ import { action } from "@elgato/streamdeck";
 import { globalSettings } from "../global-settings";
 import { adjustLampsBrightness, readLampsBrightness, setLampsBrightness } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
-import { type LampScreens, lampScreens as sharedLampScreens } from "./lamp-screens";
 import { type Measure, MeasureAction, type Preset } from "./measure";
 import { brightnessSettings, parseSettings } from "./settings";
 
@@ -75,8 +74,8 @@ const BRIGHTNESS: Measure = {
  */
 @action({ UUID: "com.daczarne.litra.brightness" })
 export class BrightnessAction extends MeasureAction {
-  /** Takes the lamp screens that every dial shares, or the tests' own. */
-  constructor(lampScreens: LampScreens = sharedLampScreens) {
-    super(pluginLogger.createScope("Brightness"), PRESET, BRIGHTNESS, lampScreens);
+  /** Steps and sets the brightness. */
+  constructor() {
+    super(pluginLogger.createScope("Brightness"), PRESET, BRIGHTNESS);
   }
 }

@@ -17,7 +17,6 @@ import { FakeDeck } from "../test-support/fake-deck";
 import { changeGlobalSettings } from "../test-support/fake-stream-deck";
 import { BrightnessAction, barFill } from "./brightness";
 import { createDialDebouncer } from "./debouncer";
-import { LampScreens } from "./lamp-screens";
 import { globalSettings } from "./settings";
 
 //* Fakes
@@ -91,7 +90,7 @@ beforeEach(() => {
   // The lamps, as a dial that appears or returns to its main screen reads them, and as the lamp screens read them.
   vi.mocked(readLampsBrightness).mockResolvedValue(AT_THEIR_CAPS);
   vi.mocked(readLampStatuses).mockResolvedValue({ ok: true, lamps: [BEAM] });
-  const brightness = new BrightnessAction(new LampScreens());
+  const brightness = new BrightnessAction();
   const listener = vi.mocked(onLampsChanged).mock.lastCall?.[0];
   if (listener === undefined) {
     throw new Error("BrightnessAction didn't listen for lamp changes");
@@ -419,7 +418,7 @@ describe("BrightnessAction", () => {
       ]);
     });
 
-    it("doesn't show the brightness on a dial that shows a lamp screen", async () => {
+    it("redraws the lamp on screen when the lamps change, not the brightness of every lamp", async () => {
       const onLamp = await deck.dial(BRIGHTNESS);
       const onMain = await deck.dial(BRIGHTNESS);
       await deck.tap(onLamp);
@@ -427,8 +426,46 @@ describe("BrightnessAction", () => {
 
       await lampsChanged();
 
-      expect(onLamp.setFeedback).not.toHaveBeenCalled();
+      expect(readLampStatuses).toHaveBeenCalledOnce();
+      expect(onLamp.setFeedback).toHaveBeenCalledOnce();
+      expect(onLamp.setFeedback).not.toHaveBeenCalledWith(AT_THE_CAPS);
       expect(onMain.setFeedback).toHaveBeenCalledExactlyOnceWith(AT_THE_CAPS);
+    });
+
+    it("goes back to the main screen when the lamp on screen is no longer connected", async () => {
+      const dial = await deck.dial(BRIGHTNESS);
+      await deck.tap(dial);
+      vi.mocked(readLampStatuses).mockResolvedValue({ ok: true, lamps: [OTHER_BEAM] });
+
+      await lampsChanged();
+
+      expect(dial.setFeedbackLayout).toHaveBeenLastCalledWith("$B1");
+      expect(dial.setFeedback).toHaveBeenLastCalledWith(AT_THE_CAPS);
+    });
+
+    it("redraws the lamp on screen when the global settings change, and leaves the main screens", async () => {
+      const onLamp = await deck.dial(BRIGHTNESS);
+      const onMain = await deck.dial(BRIGHTNESS);
+      await deck.tap(onLamp);
+      clearCalls();
+
+      changeGlobalSettings({ lampScreenBottomRight: "none" });
+      await vi.runAllTimersAsync();
+
+      expect(onLamp.setFeedback).toHaveBeenCalledOnce();
+      expect(onMain.setFeedback).not.toHaveBeenCalled();
+    });
+
+    it("no longer redraws a dial that disappeared", async () => {
+      const dial = await deck.dial(BRIGHTNESS);
+      await deck.tap(dial);
+      await deck.remove(dial);
+      clearCalls();
+
+      await lampsChanged();
+
+      expect(dial.setFeedback).not.toHaveBeenCalled();
+      expect(readLampStatuses).not.toHaveBeenCalled();
     });
 
     it("keeps a lamp screen drawn when the dial's settings change on it, and turns its lamp by the new step", async () => {

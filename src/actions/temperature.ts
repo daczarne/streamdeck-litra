@@ -2,7 +2,6 @@ import { action } from "@elgato/streamdeck";
 import { globalSettings } from "../global-settings";
 import { adjustLampsTemperature, readLampsTemperature, setLampsTemperature } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
-import { type LampScreens, lampScreens as sharedLampScreens } from "./lamp-screens";
 import { type Measure, MeasureAction, type Preset } from "./measure";
 import { parseSettings, temperatureSettings } from "./settings";
 
@@ -42,8 +41,8 @@ const TEMPERATURE: Measure = {
  */
 @action({ UUID: "com.daczarne.litra.temperature" })
 export class TemperatureAction extends MeasureAction {
-  /** Takes the lamp screens that every dial shares, or the tests' own. */
-  constructor(lampScreens: LampScreens = sharedLampScreens) {
-    super(pluginLogger.createScope("Temperature"), PRESET, TEMPERATURE, lampScreens);
+  /** Steps and sets the temperature. */
+  constructor() {
+    super(pluginLogger.createScope("Temperature"), PRESET, TEMPERATURE);
   }
 }

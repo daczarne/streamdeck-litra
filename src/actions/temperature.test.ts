@@ -16,7 +16,6 @@ import { at } from "../test-support/at";
 import { FakeDeck } from "../test-support/fake-deck";
 import { changeGlobalSettings } from "../test-support/fake-stream-deck";
 import { createDialDebouncer } from "./debouncer";
-import { LampScreens } from "./lamp-screens";
 import { globalSettings } from "./settings";
 import { TemperatureAction } from "./temperature";
 
@@ -86,7 +85,7 @@ beforeEach(() => {
   // The lamps, as a dial that appears or returns to its main screen reads them, and as the lamp screens read them.
   vi.mocked(readLampsTemperature).mockResolvedValue(SNAPPED);
   vi.mocked(readLampStatuses).mockResolvedValue({ ok: true, lamps: [BEAM] });
-  const temperature = new TemperatureAction(new LampScreens());
+  const temperature = new TemperatureAction();
   const listener = vi.mocked(onLampsChanged).mock.lastCall?.[0];
   if (listener === undefined) {
     throw new Error("TemperatureAction didn't listen for lamp changes");
@@ -420,7 +419,7 @@ describe("TemperatureAction", () => {
       ]);
     });
 
-    it("doesn't show the temperature on a dial that shows a lamp screen", async () => {
+    it("redraws the lamp on screen when the lamps change, not the temperature of every lamp", async () => {
       const onLamp = await deck.dial(TEMPERATURE);
       const onMain = await deck.dial(TEMPERATURE);
       await deck.tap(onLamp);
@@ -428,8 +427,46 @@ describe("TemperatureAction", () => {
 
       await lampsChanged();
 
-      expect(onLamp.setFeedback).not.toHaveBeenCalled();
+      expect(readLampStatuses).toHaveBeenCalledOnce();
+      expect(onLamp.setFeedback).toHaveBeenCalledOnce();
+      expect(onLamp.setFeedback).not.toHaveBeenCalledWith(TEMPERATURE_SNAPPED);
       expect(onMain.setFeedback).toHaveBeenCalledExactlyOnceWith(TEMPERATURE_SNAPPED);
+    });
+
+    it("goes back to the main screen when the lamp on screen is no longer connected", async () => {
+      const dial = await deck.dial(TEMPERATURE);
+      await deck.tap(dial);
+      vi.mocked(readLampStatuses).mockResolvedValue({ ok: true, lamps: [OTHER_BEAM] });
+
+      await lampsChanged();
+
+      expect(dial.setFeedbackLayout).toHaveBeenLastCalledWith("$B1");
+      expect(dial.setFeedback).toHaveBeenLastCalledWith(TEMPERATURE_SNAPPED);
+    });
+
+    it("redraws the lamp on screen when the global settings change, and leaves the main screens", async () => {
+      const onLamp = await deck.dial(TEMPERATURE);
+      const onMain = await deck.dial(TEMPERATURE);
+      await deck.tap(onLamp);
+      clearCalls();
+
+      changeGlobalSettings({ lampScreenBottomRight: "none" });
+      await vi.runAllTimersAsync();
+
+      expect(onLamp.setFeedback).toHaveBeenCalledOnce();
+      expect(onMain.setFeedback).not.toHaveBeenCalled();
+    });
+
+    it("no longer redraws a dial that disappeared", async () => {
+      const dial = await deck.dial(TEMPERATURE);
+      await deck.tap(dial);
+      await deck.remove(dial);
+      clearCalls();
+
+      await lampsChanged();
+
+      expect(dial.setFeedback).not.toHaveBeenCalled();
+      expect(readLampStatuses).not.toHaveBeenCalled();
     });
 
     it("keeps a lamp screen drawn when the dial's settings change on it, and turns its lamp by the new step", async () => {
