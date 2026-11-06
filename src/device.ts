@@ -19,7 +19,7 @@ import {
   turnOn,
 } from "litra";
 
-import { type LampIdentity, lampId, lampLogLabel } from "./lamp-identity";
+import { Lamp } from "./lamp";
 import { logger as pluginLogger } from "./logging";
 
 export {
@@ -99,9 +99,9 @@ function modelOf(device: Device): string {
 }
 
 /** What identifies a lamp found, as the global settings would keep it. */
-export function identityOf(device: Device): LampIdentity {
+export function identityOf(device: Device): Pick<Lamp, "id" | "model" | "serialEnd"> {
   const { serialNumber } = device;
-  return { id: lampId(serialNumber), model: modelOf(device), serialEnd: serialNumber.slice(-4) };
+  return { id: Lamp.idOf(serialNumber), model: modelOf(device), serialEnd: serialNumber.slice(-4) };
 }
 
 /**
@@ -109,7 +109,7 @@ export function identityOf(device: Device): LampIdentity {
  * number to tell it by, such as a Beam LX that hasn't given it yet (#170).
  */
 export function logLabelOf(device: Device): string {
-  return device.serialNumber === "" ? `${modelOf(device)} …` : lampLogLabel(identityOf(device));
+  return device.serialNumber === "" ? `${modelOf(device)} …` : Lamp.logLabelOf(identityOf(device));
 }
 
 /** A lamp's HID handle with the methods node-hid has at runtime, which litra's type leaves out. */

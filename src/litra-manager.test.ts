@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, inject, it, vi } from "vitest";
 
-import { lampId } from "./lamp-identity";
 import type { LampSelection } from "./lamp-selection";
 import { allLampsOn, brightnessPercentages, lampStatuses, temperatureShown } from "./lamps-shown";
 import type { OperationResult, SceneGroup } from "./litra-manager";
@@ -119,7 +118,7 @@ function connect(...lamps: EmulatedLitra[]): void {
  * does. A lamp plugged in again is left for the operation to reach, as on the Deck.
  */
 function reachKnown(lamps: readonly EmulatedLitra[]): void {
-  const first = lamps.filter((lamp) => known.get(lampId(lamp.serialNumber))?.state === undefined);
+  const first = lamps.filter((lamp) => known.get(Lamp.idOf(lamp.serialNumber))?.state === undefined);
   if (first.length === 0) {
     return;
   }
@@ -128,7 +127,7 @@ function reachKnown(lamps: readonly EmulatedLitra[]): void {
       if (found.serialNumber === "") {
         found.serialNumber = device.readSerialNumber(found);
       }
-      const lamp = known.get(lampId(found.serialNumber));
+      const lamp = known.get(Lamp.idOf(found.serialNumber));
       if (lamp?.state === undefined) {
         lamp?.reach("start", device.handleOf(found));
       }
@@ -149,7 +148,7 @@ function reachKnown(lamps: readonly EmulatedLitra[]): void {
 
 /** What the global settings keep of an emulated lamp. */
 function identityOf(lamp: EmulatedLitra) {
-  return { id: lampId(lamp.serialNumber), model: lamp.model, serialEnd: lamp.serialNumber.slice(-4) };
+  return { id: Lamp.idOf(lamp.serialNumber), model: lamp.model, serialEnd: lamp.serialNumber.slice(-4) };
 }
 
 /**
@@ -185,7 +184,7 @@ function heldTemperature(lamp: EmulatedLitra): { kelvin: number; percentage: num
 
 /** The `Lamp` of an emulated lamp the plugin knows. */
 function knownLamp(lamp: EmulatedLitra) {
-  return known.get(lampId(lamp.serialNumber));
+  return known.get(Lamp.idOf(lamp.serialNumber));
 }
 
 /** Brightness in lumen at the given percentage of the lamps' range. */
@@ -413,7 +412,7 @@ describe("a selection of lamps (#20)", () => {
     connect(other, selected);
     const operation = vi.fn();
 
-    expect(manager.forEachLamp("test", operation, [lampId(selected.serialNumber)])).toEqual({
+    expect(manager.forEachLamp("test", operation, [Lamp.idOf(selected.serialNumber)])).toEqual({
       ok: true,
       deviceCount: 1,
       failures: 0,
@@ -429,7 +428,7 @@ describe("a selection of lamps (#20)", () => {
     const [selected, other] = [newLamp({ on: true }), newLamp({ on: false })];
     connect(selected, other);
 
-    expect(manager.toggleLamps([lampId(selected.serialNumber)])).toEqual({
+    expect(manager.toggleLamps([Lamp.idOf(selected.serialNumber)])).toEqual({
       ok: true,
       deviceCount: 1,
       failures: 0,
@@ -445,7 +444,7 @@ describe("a selection of lamps (#20)", () => {
     ];
     connect(selected, other);
 
-    const result = await settled(manager.adjustLampsBrightness([lampId(selected.serialNumber)], 2, 5));
+    const result = await settled(manager.adjustLampsBrightness([Lamp.idOf(selected.serialNumber)], 2, 5));
 
     expect(result).toMatchObject({ ok: true, deviceCount: 1 });
     expect(heldBrightness(selected)).toBe(30);
@@ -456,7 +455,7 @@ describe("a selection of lamps (#20)", () => {
     const [other, selected] = [newLamp({ temperatureInKelvin: 3100 }), newLamp({ temperatureInKelvin: 5000 })];
     connect(other, selected);
 
-    expect(manager.adjustLampsTemperature([lampId(selected.serialNumber)], 1, 200)).toMatchObject({
+    expect(manager.adjustLampsTemperature([Lamp.idOf(selected.serialNumber)], 1, 200)).toMatchObject({
       ok: true,
       deviceCount: 1,
     });
@@ -476,7 +475,7 @@ describe("a selection of lamps (#20)", () => {
     const selected = newLamp({ on: true });
     connect(selected);
 
-    expect(manager.toggleLamps([lampId(selected.serialNumber), "GONE"])).toEqual({
+    expect(manager.toggleLamps([Lamp.idOf(selected.serialNumber), "GONE"])).toEqual({
       ok: true,
       deviceCount: 1,
       failures: 0,
@@ -493,7 +492,7 @@ describe("the lamps connected (#198)", () => {
 
     manager.turnLampsOn("all");
 
-    expect(manager.connectedLamps()).toEqual([lampId(first.serialNumber)]);
+    expect(manager.connectedLamps()).toEqual([Lamp.idOf(first.serialNumber)]);
   });
 
   it("are told to the listeners when an operation finds a lamp unplugged, and again once it's plugged back in", async () => {
@@ -510,8 +509,8 @@ describe("the lamps connected (#198)", () => {
     await vi.waitFor(() => expect(listener).toHaveBeenCalledTimes(2));
 
     expect(listener.mock.calls).toEqual([
-      [[lampId(first.serialNumber)]],
-      [[lampId(first.serialNumber), lampId(second.serialNumber)]],
+      [[Lamp.idOf(first.serialNumber)]],
+      [[Lamp.idOf(first.serialNumber), Lamp.idOf(second.serialNumber)]],
     ]);
   });
 
@@ -565,7 +564,7 @@ describe("the lamps the plugin knows (#194)", () => {
     const [known, leftOut, unknown] = [newLamp({ on: true }), newLamp({ on: true }), newLamp({ on: true })];
     connectKnowing([known, leftOut], known, leftOut, unknown);
 
-    manager.turnLampsOff({ except: [lampId(leftOut.serialNumber)] });
+    manager.turnLampsOff({ except: [Lamp.idOf(leftOut.serialNumber)] });
 
     expect([known.on, leftOut.on, unknown.on]).toEqual([false, true, true]);
   });
@@ -573,9 +572,9 @@ describe("the lamps the plugin knows (#194)", () => {
   it("leave alone a lamp selected by id that the plugin doesn't know, and log it", () => {
     const [known, unknown] = [newLamp({ on: true }), newLamp({ on: true })];
     connectKnowing([known], known, unknown);
-    const unknownId = lampId(unknown.serialNumber);
+    const unknownId = Lamp.idOf(unknown.serialNumber);
 
-    manager.turnLampsOff([lampId(known.serialNumber), unknownId]);
+    manager.turnLampsOff([Lamp.idOf(known.serialNumber), unknownId]);
 
     expect([known.on, unknown.on]).toEqual([false, true]);
     expect(logger.warn).toHaveBeenCalledExactlyOnceWith(`turn off: lamp ${unknownId} isn't one of the plugin's lamps`);
@@ -586,7 +585,7 @@ describe("the lamps the plugin knows (#194)", () => {
     connectKnowing([first, second], first, second);
 
     const result = manager.turnLampsOff({
-      except: [lampId(first.serialNumber), lampId(second.serialNumber)],
+      except: [Lamp.idOf(first.serialNumber), Lamp.idOf(second.serialNumber)],
     });
 
     expect(result).toEqual({ ok: false, deviceCount: 0, failures: 1 });
@@ -688,11 +687,11 @@ describe("a lamp without a serial number in its USB descriptor (#170)", () => {
 
     expect([first.info.serialNumber, second.info.serialNumber]).toEqual(["", ""]);
     expect(manager.findLamps().map(({ id, serialEnd }) => ({ id, serialEnd }))).toEqual([
-      { id: lampId("2541AB01C1T8"), serialEnd: "C1T8" },
-      { id: lampId("2541AB02D2T9"), serialEnd: "D2T9" },
+      { id: Lamp.idOf("2541AB01C1T8"), serialEnd: "C1T8" },
+      { id: Lamp.idOf("2541AB02D2T9"), serialEnd: "D2T9" },
     ]);
 
-    manager.turnLampsOn([lampId("2541AB02D2T9")]);
+    manager.turnLampsOn([Lamp.idOf("2541AB02D2T9")]);
 
     expect([first.on, second.on]).toEqual([false, true]);
   });
@@ -767,7 +766,7 @@ describe("a lamp without a serial number in its USB descriptor (#170)", () => {
     it("is left out unnoticed by an operation on given lamps, which can't tell whether it was one of them", () => {
       const { other } = unidentifiedWithBeam();
 
-      expect(manager.turnLampsOff([lampId(other.serialNumber)])).toEqual({
+      expect(manager.turnLampsOff([Lamp.idOf(other.serialNumber)])).toEqual({
         ok: true,
         deviceCount: 1,
         failures: 0,
@@ -777,7 +776,7 @@ describe("a lamp without a serial number in its USB descriptor (#170)", () => {
     it("is left out unnoticed when the plugin finds the lamps, which lists the others", () => {
       const { other } = unidentifiedWithBeam();
 
-      expect(manager.findLamps().map(({ id }) => id)).toEqual([lampId(other.serialNumber)]);
+      expect(manager.findLamps().map(({ id }) => id)).toEqual([Lamp.idOf(other.serialNumber)]);
     });
   });
 
@@ -819,7 +818,7 @@ describe("a lamp that turns on at the setting it saved once switched off (#100)"
     return new EmulatedLitra("Beam LX", { serialNumber: "2541AB01C1T8", on: true, ...options });
   }
 
-  const identify = (lamp: EmulatedLitra) => settled(manager.identifyLamp(lampId(lamp.serialNumber), BLINK_MS));
+  const identify = (lamp: EmulatedLitra) => settled(manager.identifyLamp(Lamp.idOf(lamp.serialNumber), BLINK_MS));
 
   it("comes back from a blink shorter than it takes to save its setting at the setting it had, and logs it", async () => {
     const lamp = beamLx();
@@ -889,7 +888,7 @@ describe("a lamp that turns on at the setting it saved once switched off (#100)"
     expect(manager.turnLampsOn("all")).toEqual({ ok: true, deviceCount: 1, failures: 0 });
 
     expect(lamp.on).toBe(true);
-    expect(known.get(lampId(lamp.serialNumber))?.state?.on).toBe(true);
+    expect(known.get(Lamp.idOf(lamp.serialNumber))?.state?.on).toBe(true);
     expect(logger.warn).toHaveBeenCalledWith(
       `turn on: Beam …${lamp.serialNumber.slice(-4)} didn't report its power again, so it holds the power asked for, ` +
         "true: Error: Cannot read from hid device",
@@ -956,7 +955,7 @@ describe("toggleLamps", () => {
 
     expect(manager.toggleLamps("all")).toEqual({ ok: true, deviceCount: 2, failures: 0 });
     expect([first.on, second.on]).toEqual([false, false]);
-    expect(known.get(lampId(first.serialNumber))?.state?.on).toBe(false);
+    expect(known.get(Lamp.idOf(first.serialNumber))?.state?.on).toBe(false);
   });
 
   it("counts a lamp once when it can't be read nor written", () => {
@@ -1749,7 +1748,7 @@ describe("setLampsScene", () => {
   });
 
   describe("with groups (#174)", () => {
-    const id = (lamp: EmulatedLitra) => lampId(lamp.serialNumber);
+    const id = (lamp: EmulatedLitra) => Lamp.idOf(lamp.serialNumber);
 
     it("sets each group's lamps to the group's own brightness and temperature, in one pass", async () => {
       const [left, center, right] = [newLamp(), newLamp(), newLamp()];
@@ -2012,8 +2011,8 @@ describe("findLamps", () => {
     connect(second, first);
 
     expect(manager.findLamps()).toEqual([
-      { id: lampId("2325FE01AAAA"), label: "Beam LX - AAAA", model: "Beam LX", serialEnd: "AAAA" },
-      { id: lampId("2325FE02BBBB"), label: "Beam - BBBB", model: "Beam", serialEnd: "BBBB" },
+      { id: Lamp.idOf("2325FE01AAAA"), label: "Beam LX - AAAA", model: "Beam LX", serialEnd: "AAAA" },
+      { id: Lamp.idOf("2325FE02BBBB"), label: "Beam - BBBB", model: "Beam", serialEnd: "BBBB" },
     ]);
   });
 
@@ -2052,7 +2051,7 @@ describe("reachLampsForLampScreen", () => {
       ok: true,
       lamps: [
         {
-          id: lampId("A1"),
+          id: Lamp.idOf("A1"),
           serialNumber: "A1",
           model: "Beam LX",
           label: "Beam LX - A1",
@@ -2062,7 +2061,7 @@ describe("reachLampsForLampScreen", () => {
           temperatureKelvin: 2700,
         },
         {
-          id: lampId("B2"),
+          id: Lamp.idOf("B2"),
           serialNumber: "B2",
           model: "Beam",
           label: "Beam - B2",
@@ -2101,7 +2100,7 @@ describe("reachLampsForLampScreen", () => {
 });
 
 describe("identifyLamp", () => {
-  const identify = (serialNumber: string) => settled(manager.identifyLamp(lampId(serialNumber), BLINK_MS));
+  const identify = (serialNumber: string) => settled(manager.identifyLamp(Lamp.idOf(serialNumber), BLINK_MS));
 
   it("switches a lamp that is on off and back on, and leaves the other lamps alone", async () => {
     const [target, other] = [newLamp({ on: true }), newLamp()];
@@ -2128,7 +2127,7 @@ describe("identifyLamp", () => {
     const lamp = newLamp({ on: true });
     connect(lamp);
 
-    const blinked = manager.identifyLamp(lampId(lamp.serialNumber), 1000);
+    const blinked = manager.identifyLamp(Lamp.idOf(lamp.serialNumber), 1000);
     await vi.advanceTimersByTimeAsync(999);
 
     expect(lamp.writes("power")).toEqual([0]);
@@ -2171,7 +2170,10 @@ describe("identifyLamp", () => {
     connect(lamp);
 
     await settled(
-      Promise.all([manager.setLampsBrightness("all", 100), manager.identifyLamp(lampId(lamp.serialNumber), BLINK_MS)]),
+      Promise.all([
+        manager.setLampsBrightness("all", 100),
+        manager.identifyLamp(Lamp.idOf(lamp.serialNumber), BLINK_MS),
+      ]),
     );
 
     // The change reads its lamp back before the blink starts.
@@ -2310,7 +2312,7 @@ describe("logs", () => {
     connect(lamp);
     lamp.failWrites("power");
 
-    await run(() => manager.identifyLamp(lampId(lamp.serialNumber), BLINK_MS));
+    await run(() => manager.identifyLamp(Lamp.idOf(lamp.serialNumber), BLINK_MS));
 
     const message = onlyMessage("error");
     expect(message).toContain("identify");
@@ -2403,7 +2405,7 @@ describe("logs", () => {
     const lamp = newLamp();
     connect(lamp);
 
-    await run(() => manager.identifyLamp(lampId(lamp.serialNumber), BLINK_MS));
+    await run(() => manager.identifyLamp(Lamp.idOf(lamp.serialNumber), BLINK_MS));
 
     const message = onlyMessage("info");
     expect(message).toContain("identify");

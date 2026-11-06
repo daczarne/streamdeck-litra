@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { LampHandle, LampRange } from "./device";
 import { BRIGHTNESS_CAP_REVERSAL_WINDOW_MS, Lamp } from "./lamp";
-import { lampId } from "./lamp-identity";
 import { logger } from "./test-support/fake-logging";
 
 vi.mock("./logging", () => import("./test-support/fake-logging"));
@@ -13,40 +12,52 @@ const OTHER_PATH = "path-2";
 
 /** A lamp the plugin knows, of a model, and reached as an operation reaches it, with its whole serial number. */
 function reachedLamp(model = "Beam"): Lamp {
-  const lamp = new Lamp({ id: lampId(SERIAL), model, serialEnd: "7K98" });
+  const lamp = new Lamp({ id: Lamp.idOf(SERIAL), model, serialEnd: "7K98" });
   lamp.reachedAs(SERIAL);
   return lamp;
 }
 
 describe("a lamp's identity", () => {
-  it("is what the global settings keep: its id, model, the end of its serial number, and its name", () => {
-    const lamp = new Lamp({ id: lampId(SERIAL), model: "Beam", serialEnd: "7K98", name: "Key light" });
+  it("is what the global settings keep: its id, model and the end of its serial number", () => {
+    const lamp = new Lamp({ id: Lamp.idOf(SERIAL), model: "Beam", serialEnd: "7K98" });
 
-    expect([lamp.id, lamp.model, lamp.serialEnd, lamp.name]).toEqual([lampId(SERIAL), "Beam", "7K98", "Key light"]);
+    expect([lamp.id, lamp.model, lamp.serialEnd]).toEqual([Lamp.idOf(SERIAL), "Beam", "7K98"]);
   });
 
-  it("has no name unless it was given one, and takes a new one, or loses it (#146)", () => {
-    const lamp = new Lamp({ id: lampId(SERIAL), model: "Beam", serialEnd: "7K98" });
+  it("has no name until it's given one, and takes a new one, or loses it (#146)", () => {
+    const lamp = new Lamp({ id: Lamp.idOf(SERIAL), model: "Beam", serialEnd: "7K98" });
 
     expect(lamp.name).toBeUndefined();
 
-    lamp.rename("Key light");
+    lamp.name = "Key light";
 
     expect(lamp.name).toBe("Key light");
 
-    lamp.rename(undefined);
+    lamp.name = undefined;
 
     expect(lamp.name).toBeUndefined();
   });
 
+  it("has an id that is the first 16 hex characters of its serial number's SHA-256, which tells lamps apart", () => {
+    // printf '%s' 2325FE01ABCD | shasum -a 256
+    expect(Lamp.idOf("2325FE01ABCD")).toBe("912c77c6cebad870");
+    expect(Lamp.idOf("2541AB017K98")).not.toBe(Lamp.idOf("2541AB027K99"));
+  });
+
   it("names itself by its model and the end of its serial number, for the logs and for the pages", () => {
-    const lamp = new Lamp({ id: lampId(SERIAL), model: "Beam LX", serialEnd: "7K98" });
+    const lamp = new Lamp({ id: Lamp.idOf(SERIAL), model: "Beam LX", serialEnd: "7K98" });
 
     expect([lamp.logLabel, lamp.label]).toEqual(["Beam LX …7K98", "Beam LX - 7K98"]);
   });
 
+  it("names a lamp found that has no Lamp yet the same way", () => {
+    const found = { model: "Beam LX", serialEnd: "7K98" };
+
+    expect([Lamp.logLabelOf(found), Lamp.labelOf(found)]).toEqual(["Beam LX …7K98", "Beam LX - 7K98"]);
+  });
+
   it("learns its whole serial number once an operation reaches it", () => {
-    const lamp = new Lamp({ id: lampId(SERIAL), model: "Beam", serialEnd: "7K98" });
+    const lamp = new Lamp({ id: Lamp.idOf(SERIAL), model: "Beam", serialEnd: "7K98" });
 
     expect(lamp.serialNumber).toBeUndefined();
 
@@ -56,7 +67,7 @@ describe("a lamp's identity", () => {
   });
 
   it("refuses a serial number that isn't its own, without the whole serial number in the error", () => {
-    const lamp = new Lamp({ id: lampId(SERIAL), model: "Beam", serialEnd: "7K98" });
+    const lamp = new Lamp({ id: Lamp.idOf(SERIAL), model: "Beam", serialEnd: "7K98" });
 
     expect(() => lamp.reachedAs("2541AB027K99")).toThrow(/^Serial number …7K99 isn't lamp [0-9a-f]{16}'s$/);
     expect(lamp.serialNumber).toBeUndefined();
@@ -268,7 +279,7 @@ class FakeHandle implements LampHandle {
 
 /** A lamp the plugin knows, reached through a handle, as an operation reaches it before it changes it. */
 function reached(handle = new FakeHandle()): { lamp: Lamp; handle: FakeHandle } {
-  const lamp = new Lamp({ id: lampId(SERIAL), model: "Beam", serialEnd: "7K98" });
+  const lamp = new Lamp({ id: Lamp.idOf(SERIAL), model: "Beam", serialEnd: "7K98" });
   lamp.reach("test", handle);
   vi.clearAllMocks();
   return { lamp, handle };
@@ -281,7 +292,7 @@ function logged(level: "info" | "warn" | "debug"): unknown[] {
 
 describe("a lamp reached by an operation (#198)", () => {
   it("is read the first time, and holds its state, its range, and that it's connected", () => {
-    const lamp = new Lamp({ id: lampId(SERIAL), model: "Beam", serialEnd: "7K98" });
+    const lamp = new Lamp({ id: Lamp.idOf(SERIAL), model: "Beam", serialEnd: "7K98" });
 
     expect([lamp.state, lamp.isConnected]).toEqual([undefined, false]);
 
@@ -337,7 +348,7 @@ describe("a lamp reached by an operation (#198)", () => {
   });
 
   it("can't be changed before it's reached, since the plugin holds nothing of it yet", () => {
-    const lamp = new Lamp({ id: lampId(SERIAL), model: "Beam", serialEnd: "7K98" });
+    const lamp = new Lamp({ id: Lamp.idOf(SERIAL), model: "Beam", serialEnd: "7K98" });
 
     expect(() => lamp.setPower("turn on", new FakeHandle(), true)).toThrow(
       "Beam …7K98 was changed before it was reached",
@@ -465,7 +476,7 @@ describe("a lamp's blink (#48)", () => {
 
 describe("a lamp's brightness as a percentage", () => {
   it("sits in the lamp's range once it's reached, and is 0 before", () => {
-    const lamp = new Lamp({ id: lampId(SERIAL), model: "Beam", serialEnd: "7K98" });
+    const lamp = new Lamp({ id: Lamp.idOf(SERIAL), model: "Beam", serialEnd: "7K98" });
 
     expect(lamp.brightnessPercentage(215)).toBe(0);
 
@@ -501,7 +512,7 @@ describe("a lamp's range (#198)", () => {
   });
 
   it("isn't known before the lamp is reached", () => {
-    const lamp = new Lamp({ id: lampId(SERIAL), model: "Beam", serialEnd: "7K98" });
+    const lamp = new Lamp({ id: Lamp.idOf(SERIAL), model: "Beam", serialEnd: "7K98" });
 
     expect(() => lamp.lumenAt(50)).toThrow("Beam …7K98 has no range before it's reached");
     expect(() => lamp.lowestKelvin).toThrow("Beam …7K98 has no range before it's reached");
