@@ -31,43 +31,43 @@ The log tells, in order, what was pressed or turned on the Deck, what each lamp 
 
 - Each line names its source as a scope: `Lamps` for `src/litra-manager.ts`, `src/lamp.ts` and `src/device.ts`, `Global settings` for `src/global-settings.ts`, and the action's name for the others (`Power`, `Brightness`, `Temperature`, `Scene`, `Brightness Up`, `Brightness Down`, `Temperature Up`, `Temperature Down`, `Lamp screens`, `Lamp picker`).
 - A message from `Lamps` starts with the operation (`turn on`, `set brightness`, `lamp screen`, …), so searching for `set brightness:` finds every step of a brightness change.
-- A lamp is named by its model and the last 4 characters of its id, after `…`. That's enough to tell lamps apart, and writes nothing of their serial numbers to a file that may end up in an issue. The examples below write those characters as `<id1>` for one lamp and `<id2>` for the other. A lamp an operation was asked for but didn't find is named by its id, since that's all the plugin knows of it. A lamp whose serial number can't be read, such as a Beam LX that doesn't answer when asked for it ([#170]), is named by its model alone, followed by `…`.
+- A lamp is named by its model and the last 4 characters of its id, joined by ` - `, as the Deck and the settings pages name it. That's enough to tell lamps apart, and writes nothing of their serial numbers to a file that may end up in an issue. The examples below write those characters as `<id1>` for one lamp and `<id2>` for the other. A lamp an operation was asked for but didn't find is named by its id, since that's all the plugin knows of it. A lamp whose serial number can't be read, such as a Beam LX that doesn't answer when asked for it ([#170]), is named by its model alone.
 - An error from a lamp is written as its message alone, since its stack only points inside `node-hid`. An error that means a bug in the plugin is written with its stack.
 
 A press of a Brightness key with one lamp at its cap and the other failing reads:
 
 ```text
 2026-10-13T15:04:05.123Z INFO  Brightness: Key pressed: preset 100%, on every lamp
-2026-10-13T15:04:05.130Z ERROR Lamps: set brightness: Beam …<id1> failed: Error: could not read from HID device
-2026-10-13T15:04:05.395Z INFO  Lamps: set brightness: Beam …<id2> sent 400 lm, reached 250 lm (59%)
-2026-10-13T15:04:05.395Z INFO  Lamps: set brightness: Beam …<id2> capped at 250 lm
+2026-10-13T15:04:05.130Z ERROR Lamps: set brightness: Beam - <id1> failed: Error: could not read from HID device
+2026-10-13T15:04:05.395Z INFO  Lamps: set brightness: Beam - <id2> sent 400 lm, reached 250 lm (59%)
+2026-10-13T15:04:05.395Z INFO  Lamps: set brightness: Beam - <id2> capped at 250 lm
 ```
 
 A run that presses a 100% key with both lamps plugged into a hub, again once lamp 1 is plugged into the computer, and again once it's plugged back into a hub, reads:
 
 ```text
 2026-10-16T21:07:22.384Z INFO  Plugin started
-2026-10-16T21:07:22.512Z INFO  Lamps: start: Beam …<id1> read, since it was first reached: off at 215 lm (50%) and 4000 K
-2026-10-16T21:07:22.515Z INFO  Lamps: start: Beam …<id2> read, since it was first reached: off at 215 lm (50%) and 4000 K
+2026-10-16T21:07:22.512Z INFO  Lamps: start: Beam - <id1> read, since it was first reached: off at 215 lm (50%) and 4000 K
+2026-10-16T21:07:22.515Z INFO  Lamps: start: Beam - <id2> read, since it was first reached: off at 215 lm (50%) and 4000 K
 2026-10-16T21:07:25.269Z INFO  Brightness: Key pressed: preset 100%, on every lamp
-2026-10-16T21:07:25.287Z INFO  Lamps: set brightness: Beam …<id1> turned on
-2026-10-16T21:07:25.291Z INFO  Lamps: set brightness: Beam …<id2> turned on
-2026-10-16T21:07:25.549Z INFO  Lamps: set brightness: Beam …<id1> sent 400 lm, reached 324 lm (79%)
-2026-10-16T21:07:25.550Z INFO  Lamps: set brightness: Beam …<id1> capped at 324 lm
-2026-10-16T21:07:25.552Z INFO  Lamps: set brightness: Beam …<id2> sent 400 lm, reached 244 lm (58%)
-2026-10-16T21:07:25.553Z INFO  Lamps: set brightness: Beam …<id2> capped at 244 lm
+2026-10-16T21:07:25.287Z INFO  Lamps: set brightness: Beam - <id1> turned on
+2026-10-16T21:07:25.291Z INFO  Lamps: set brightness: Beam - <id2> turned on
+2026-10-16T21:07:25.549Z INFO  Lamps: set brightness: Beam - <id1> sent 400 lm, reached 324 lm (79%)
+2026-10-16T21:07:25.550Z INFO  Lamps: set brightness: Beam - <id1> capped at 324 lm
+2026-10-16T21:07:25.552Z INFO  Lamps: set brightness: Beam - <id2> sent 400 lm, reached 244 lm (58%)
+2026-10-16T21:07:25.553Z INFO  Lamps: set brightness: Beam - <id2> capped at 244 lm
 2026-10-16T21:07:45.328Z INFO  Brightness: Key pressed: preset 100%, on every lamp
-2026-10-16T21:07:45.341Z INFO  Lamps: set brightness: Beam …<id1> was plugged in again, its cap of 324 lm is forgotten
-2026-10-16T21:07:45.344Z INFO  Lamps: set brightness: Beam …<id1> read, since it was plugged in again: off at 324 lm (79%) and 4000 K
-2026-10-16T21:07:45.347Z INFO  Lamps: set brightness: Beam …<id1> turned on
-2026-10-16T21:07:45.606Z INFO  Lamps: set brightness: Beam …<id2> sent 244 lm, reached 244 lm (58%)
-2026-10-16T21:07:45.609Z INFO  Lamps: set brightness: Beam …<id1> sent 400 lm, reached 400 lm (100%)
+2026-10-16T21:07:45.341Z INFO  Lamps: set brightness: Beam - <id1> was plugged in again, its cap of 324 lm is forgotten
+2026-10-16T21:07:45.344Z INFO  Lamps: set brightness: Beam - <id1> read, since it was plugged in again: off at 324 lm (79%) and 4000 K
+2026-10-16T21:07:45.347Z INFO  Lamps: set brightness: Beam - <id1> turned on
+2026-10-16T21:07:45.606Z INFO  Lamps: set brightness: Beam - <id2> sent 244 lm, reached 244 lm (58%)
+2026-10-16T21:07:45.609Z INFO  Lamps: set brightness: Beam - <id1> sent 400 lm, reached 400 lm (100%)
 2026-10-16T21:08:02.633Z INFO  Brightness: Key pressed: preset 100%, on every lamp
-2026-10-16T21:08:02.648Z INFO  Lamps: set brightness: Beam …<id1> read, since it was plugged in again: off at 400 lm (100%) and 4000 K
-2026-10-16T21:08:02.651Z INFO  Lamps: set brightness: Beam …<id1> turned on
-2026-10-16T21:08:02.909Z INFO  Lamps: set brightness: Beam …<id2> sent 244 lm, reached 244 lm (58%)
-2026-10-16T21:08:02.911Z INFO  Lamps: set brightness: Beam …<id1> sent 400 lm, reached 320 lm (78%)
-2026-10-16T21:08:02.912Z INFO  Lamps: set brightness: Beam …<id1> capped at 320 lm
+2026-10-16T21:08:02.648Z INFO  Lamps: set brightness: Beam - <id1> read, since it was plugged in again: off at 400 lm (100%) and 4000 K
+2026-10-16T21:08:02.651Z INFO  Lamps: set brightness: Beam - <id1> turned on
+2026-10-16T21:08:02.909Z INFO  Lamps: set brightness: Beam - <id2> sent 244 lm, reached 244 lm (58%)
+2026-10-16T21:08:02.911Z INFO  Lamps: set brightness: Beam - <id1> sent 400 lm, reached 320 lm (78%)
+2026-10-16T21:08:02.912Z INFO  Lamps: set brightness: Beam - <id1> capped at 320 lm
 ```
 
 The plugin reads both lamps as it starts. A lamp plugged in again is at another path, so it's read before it's changed, and it starts off, so it's turned on first. Back on a hub, lamp 1 has no cap to forget, since it never fell short on the computer.

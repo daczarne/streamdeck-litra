@@ -80,16 +80,8 @@ export class Lamp {
   }
 
   /**
-   * A lamp as the logs name it, such as "Beam …c870": its model and the end of its id (#41). It names a lamp found
-   * that has no `Lamp` yet as well.
-   */
-  static logLabelOf({ model, id }: Pick<Lamp, "model" | "id">): string {
-    return `${model} …${Lamp.idEndOf(id)}`;
-  }
-
-  /**
-   * A lamp as the Deck and the settings pages name it, such as "Beam - c870", with a hyphen rather than the logs' "…",
-   * which reads poorly there (#20). It names a lamp found that has no `Lamp` yet as well.
+   * A lamp as the Deck, the settings pages and the logs name it, such as "Beam - c870": its model and the end of its id
+   * (#20, #41). It names a lamp found that has no `Lamp` yet as well.
    */
   static labelOf({ model, id }: Pick<Lamp, "model" | "id">): string {
     return `${model} - ${Lamp.idEndOf(id)}`;
@@ -105,12 +97,7 @@ export class Lamp {
     this.lampName = name;
   }
 
-  /** The lamp as the logs name it, such as "Beam …c870" (see {@link Lamp.logLabelOf}). */
-  get logLabel(): string {
-    return Lamp.logLabelOf(this);
-  }
-
-  /** The lamp as the Deck and the settings pages name it, such as "Beam - c870" (see {@link Lamp.labelOf}). */
+  /** The lamp as the Deck, the settings pages and the logs name it, such as "Beam - c870" (see {@link Lamp.labelOf}). */
   get label(): string {
     return Lamp.labelOf(this);
   }
@@ -125,7 +112,7 @@ export class Lamp {
     }
     if (this.brightnessCap.path !== path) {
       logger.info(
-        `${operation}: ${this.logLabel} was plugged in again, its cap of ${this.brightnessCap.lumen} lm is forgotten`,
+        `${operation}: ${this.label} was plugged in again, its cap of ${this.brightnessCap.lumen} lm is forgotten`,
       );
       this.brightnessCap = undefined;
       return undefined;
@@ -149,7 +136,7 @@ export class Lamp {
     }
     this.brightnessCap = { path, lumen: reached };
     this.brightnessCapReversalEnd = Math.max(this.brightnessCapReversalEnd, sentAt + BRIGHTNESS_CAP_REVERSAL_WINDOW_MS);
-    logger.info(`${operation}: ${this.logLabel} capped at ${reached} lm`);
+    logger.info(`${operation}: ${this.label} capped at ${reached} lm`);
   }
 
   /**
@@ -243,7 +230,7 @@ export class Lamp {
       }
     }
     if (nearest === undefined) {
-      throw new Error(`${this.logLabel} reports no allowed temperatures`);
+      throw new Error(`${this.label} reports no allowed temperatures`);
     }
     return nearest;
   }
@@ -257,7 +244,7 @@ export class Lamp {
   /** The lamp's range, which an operation learns when it reaches the lamp, so it's known before any change. */
   private reachedRange(): LampRange {
     if (this.lampRange === undefined) {
-      throw new Error(`${this.logLabel} has no range before it's reached`);
+      throw new Error(`${this.label} has no range before it's reached`);
     }
     return this.lampRange;
   }
@@ -268,7 +255,7 @@ export class Lamp {
     const lowest = allowedKelvin[0];
     const highest = allowedKelvin.at(-1);
     if (lowest === undefined || highest === undefined) {
-      throw new Error(`${this.logLabel} reports no allowed temperatures`);
+      throw new Error(`${this.label} reports no allowed temperatures`);
     }
     return { lowest, highest };
   }
@@ -303,7 +290,7 @@ export class Lamp {
     const state = { on: handle.isOn(), lumen: handle.readBrightness(), kelvin: handle.readTemperature() };
     this.heldState = state;
     logger.info(
-      `${operation}: ${this.logLabel} read, since ${reason}: ${state.on ? "on" : "off"} at ${state.lumen} lm ` +
+      `${operation}: ${this.label} read, since ${reason}: ${state.on ? "on" : "off"} at ${state.lumen} lm ` +
         `(${this.brightnessPercentage(state.lumen)}%) and ${state.kelvin} K`,
     );
   }
@@ -315,7 +302,7 @@ export class Lamp {
    */
   setPower(operation: string, handle: LampHandle, on: boolean): void {
     this.switchPower(operation, handle, on);
-    logger.info(`${operation}: ${this.logLabel} turned ${on ? "on" : "off"}`);
+    logger.info(`${operation}: ${this.label} turned ${on ? "on" : "off"}`);
   }
 
   /**
@@ -335,7 +322,7 @@ export class Lamp {
   readBackBrightness(operation: string, handle: LampHandle, sent: number, sentAt: number): number {
     const reached = this.readBack(operation, "brightness", () => handle.readBrightness(), sent);
     logger.info(
-      `${operation}: ${this.logLabel} sent ${sent} lm, reached ${reached} lm (${this.brightnessPercentage(reached)}%)`,
+      `${operation}: ${this.label} sent ${sent} lm, reached ${reached} lm (${this.brightnessPercentage(reached)}%)`,
     );
     this.brightnessReached(operation, handle.path, sent, reached, sentAt);
     this.heldState = { ...this.held(), lumen: reached };
@@ -346,9 +333,9 @@ export class Lamp {
   setTemperature(operation: string, handle: LampHandle, kelvin: number): number {
     handle.writeTemperature(kelvin);
     const reached = this.readBack(operation, "temperature", () => handle.readTemperature(), kelvin);
-    logger.debug(`${operation}: ${this.logLabel} at ${reached} K`);
+    logger.debug(`${operation}: ${this.label} at ${reached} K`);
     this.heldState = { ...this.held(), kelvin: reached };
-    logger.info(`${operation}: ${this.logLabel} set to ${kelvin} K`);
+    logger.info(`${operation}: ${this.label} set to ${kelvin} K`);
     return reached;
   }
 
@@ -361,7 +348,7 @@ export class Lamp {
     this.switchPower(operation, handle, !on);
     await new Promise((resolve) => setTimeout(resolve, blinkMs));
     this.switchPower(operation, handle, on);
-    logger.info(`${operation}: ${this.logLabel} blinked`);
+    logger.info(`${operation}: ${this.label} blinked`);
   }
 
   /** Switches the lamp, holds the power it then reports, and puts back the setting a lamp turned on lost. */
@@ -369,7 +356,7 @@ export class Lamp {
     const held = this.held();
     handle.switchPower(on);
     const reached = this.readBack(operation, "power", () => handle.isOn(), on);
-    logger.debug(`${operation}: ${this.logLabel} is ${reached ? "on" : "off"}`);
+    logger.debug(`${operation}: ${this.label} is ${reached ? "on" : "off"}`);
     this.heldState = { ...held, on: reached };
     if (on) {
       this.putBackSetting(operation, handle, held);
@@ -393,7 +380,7 @@ export class Lamp {
       handle.writeBrightness(held.lumen);
     }
     logger.info(
-      `${operation}: ${this.logLabel} turned on at ${lumen} lm and ${kelvin} K, put back to ${held.lumen} lm and ` +
+      `${operation}: ${this.label} turned on at ${lumen} lm and ${kelvin} K, put back to ${held.lumen} lm and ` +
         `${held.kelvin} K`,
     );
     this.heldState = {
@@ -412,14 +399,14 @@ export class Lamp {
     try {
       return read();
     } catch (error) {
-      logger.warn(`${operation}: ${this.logLabel} didn't report its ${what}, so it's read again: ${String(error)}`);
+      logger.warn(`${operation}: ${this.label} didn't report its ${what}, so it's read again: ${String(error)}`);
     }
     pause(READ_AGAIN_MS);
     try {
       return read();
     } catch (error) {
       logger.warn(
-        `${operation}: ${this.logLabel} didn't report its ${what} again, so it holds the ${what} asked for, ` +
+        `${operation}: ${this.label} didn't report its ${what} again, so it holds the ${what} asked for, ` +
           `${String(asked)}: ${String(error)}`,
       );
       return asked;
@@ -429,7 +416,7 @@ export class Lamp {
   /** The state the plugin holds, which an operation reads by reaching the lamp before it changes it. */
   private held(): LampState {
     if (this.heldState === undefined) {
-      throw new Error(`${this.logLabel} was changed before it was reached`);
+      throw new Error(`${this.label} was changed before it was reached`);
     }
     return this.heldState;
   }

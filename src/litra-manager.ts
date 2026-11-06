@@ -5,7 +5,7 @@ import {
   handleOf,
   identityOf,
   type LampHandle,
-  logLabelOf,
+  labelOf,
   readSerialNumber,
 } from "./device";
 
@@ -92,7 +92,7 @@ export function useLamps(lamps: ReadonlyMap<string, Lamp>): void {
 function lampOf(device: Device): Lamp {
   const lamp = knownLamps.get(Lamp.idOf(device.serialNumber));
   if (lamp === undefined) {
-    throw new Error(`${logLabelOf(device)} isn't one of the plugin's lamps`);
+    throw new Error(`${labelOf(device)} isn't one of the plugin's lamps`);
   }
   return lamp;
 }
@@ -134,7 +134,7 @@ function announced<T>(result: T): T {
 
 /** Logs a lamp's part in an operation failing. The other lamps carry on. */
 function logLampFailure(operation: string, device: Device, error: unknown): void {
-  logger.error(`${operation}: ${logLabelOf(device)} failed: ${String(error)}`);
+  logger.error(`${operation}: ${labelOf(device)} failed: ${String(error)}`);
 }
 
 /**
@@ -353,7 +353,7 @@ function openGroups<G extends { readonly lamps: LampSelection }>(
 function stateOf(lamp: Lamp): LampState {
   const { state } = lamp;
   if (state === undefined) {
-    throw new Error(`${lamp.logLabel} has no state before it's reached`);
+    throw new Error(`${lamp.label} has no state before it's reached`);
   }
   return state;
 }
@@ -368,7 +368,7 @@ function markFound(operation: string, foundIds: readonly string[]): void {
     const found = foundIds.includes(lamp.id);
     if (lamp.isConnected !== found) {
       changed = true;
-      logger.info(`${operation}: ${lamp.logLabel} ${found ? "found" : "no longer found"}`);
+      logger.info(`${operation}: ${lamp.label} ${found ? "found" : "no longer found"}`);
     }
     lamp.setFound(found);
   }
@@ -448,7 +448,7 @@ function openLamps<G extends { readonly lamps: LampSelection }>(
   const fail = (lamp: Lamp, error: unknown): void => {
     if (!failed.has(lamp)) {
       failed.add(lamp);
-      logger.error(`${operation}: ${lamp.logLabel} failed: ${String(error)}`);
+      logger.error(`${operation}: ${lamp.label} failed: ${String(error)}`);
     }
   };
   const lamps: ReachedLamp<G>[] = [];

@@ -46,16 +46,12 @@ describe("a lamp's identity", () => {
     expect(Lamp.idOf("2541AB017K98")).not.toBe(Lamp.idOf("2541AB027K99"));
   });
 
-  it("names itself by its model and the last 4 characters of its id, for the logs and for the pages", () => {
-    const lamp = knownLamp("Beam LX");
-
-    expect([lamp.logLabel, lamp.label]).toEqual(["Beam LX …73cd", "Beam LX - 73cd"]);
+  it("names itself by its model and the last 4 characters of its id, for the Deck, the pages and the logs", () => {
+    expect(knownLamp("Beam LX").label).toBe("Beam LX - 73cd");
   });
 
   it("names a lamp found that has no Lamp yet the same way", () => {
-    const found = { model: "Beam LX", id: ID };
-
-    expect([Lamp.logLabelOf(found), Lamp.labelOf(found)]).toEqual(["Beam LX …73cd", "Beam LX - 73cd"]);
+    expect(Lamp.labelOf({ model: "Beam LX", id: ID })).toBe("Beam LX - 73cd");
   });
 });
 
@@ -105,8 +101,8 @@ describe("a lamp's cap (#55)", () => {
     lamp.brightnessCapAt("adjust brightness", OTHER_PATH);
 
     expect(logger.info.mock.calls.map(([message]: unknown[]) => message)).toEqual([
-      expect.stringMatching(/^set brightness: Beam …73cd .*324 lm/),
-      expect.stringMatching(/^adjust brightness: Beam …73cd .*324 lm/),
+      expect.stringMatching(/^set brightness: Beam - 73cd .*324 lm/),
+      expect.stringMatching(/^adjust brightness: Beam - 73cd .*324 lm/),
     ]);
   });
 
@@ -284,7 +280,7 @@ describe("a lamp reached by an operation (#198)", () => {
 
     expect([lamp.state, lamp.range, lamp.isConnected]).toEqual([{ on: true, lumen: 215, kelvin: 4000 }, RANGE, true]);
     expect(logged("info")).toEqual([
-      "set brightness: Beam …73cd read, since it was first reached: on at 215 lm (50%) and 4000 K",
+      "set brightness: Beam - 73cd read, since it was first reached: on at 215 lm (50%) and 4000 K",
     ]);
   });
 
@@ -309,8 +305,8 @@ describe("a lamp reached by an operation (#198)", () => {
     expect(lamp.state).toEqual({ on: false, lumen: 324, kelvin: 4000 });
     expect(lamp.withinBrightnessCap("set brightness", OTHER_PATH, 400)).toBe(400);
     expect(logged("info")).toEqual([
-      "set brightness: Beam …73cd was plugged in again, its cap of 324 lm is forgotten",
-      "set brightness: Beam …73cd read, since it was plugged in again: off at 324 lm (79%) and 4000 K",
+      "set brightness: Beam - 73cd was plugged in again, its cap of 324 lm is forgotten",
+      "set brightness: Beam - 73cd read, since it was plugged in again: off at 324 lm (79%) and 4000 K",
     ]);
   });
 
@@ -330,7 +326,7 @@ describe("a lamp reached by an operation (#198)", () => {
     const lamp = knownLamp();
 
     expect(() => lamp.setPower("turn on", new FakeHandle(), true)).toThrow(
-      "Beam …73cd was changed before it was reached",
+      "Beam - 73cd was changed before it was reached",
     );
   });
 });
@@ -342,8 +338,8 @@ describe("a lamp's power (#198)", () => {
     lamp.setPower("turn off", handle, false);
 
     expect([handle.on, lamp.state?.on]).toEqual([false, false]);
-    expect(logged("info")).toEqual(["turn off: Beam …73cd turned off"]);
-    expect(logged("debug")).toEqual(["turn off: Beam …73cd is off"]);
+    expect(logged("info")).toEqual(["turn off: Beam - 73cd turned off"]);
+    expect(logged("debug")).toEqual(["turn off: Beam - 73cd is off"]);
   });
 
   it("turns a lamp on as it was, with nothing else written, when it turns on at the setting it holds", () => {
@@ -365,8 +361,8 @@ describe("a lamp's power (#198)", () => {
     expect([handle.lumen, handle.kelvin]).toEqual([215, 4000]);
     expect(lamp.state).toEqual({ on: true, lumen: 215, kelvin: 4000 });
     expect(logged("info")).toEqual([
-      "turn on: Beam …73cd turned on at 400 lm and 6500 K, put back to 215 lm and 4000 K",
-      "turn on: Beam …73cd turned on",
+      "turn on: Beam - 73cd turned on at 400 lm and 6500 K, put back to 215 lm and 4000 K",
+      "turn on: Beam - 73cd turned on",
     ]);
   });
 });
@@ -379,7 +375,7 @@ describe("a lamp's brightness (#198)", () => {
     const reachedLumen = lamp.readBackBrightness("set brightness", handle, sent, 0);
 
     expect([sent, reachedLumen, lamp.state?.lumen]).toEqual([400, 400, 400]);
-    expect(logged("info")).toEqual(["set brightness: Beam …73cd sent 400 lm, reached 400 lm (100%)"]);
+    expect(logged("info")).toEqual(["set brightness: Beam - 73cd sent 400 lm, reached 400 lm (100%)"]);
   });
 
   it("holds the brightness a capped lamp reached, not the one asked for, and caps what's sent next (#55)", () => {
@@ -398,8 +394,8 @@ describe("a lamp's temperature (#198)", () => {
 
     expect(lamp.setTemperature("set temperature", handle, 6500)).toBe(6500);
     expect(lamp.state?.kelvin).toBe(6500);
-    expect(logged("info")).toEqual(["set temperature: Beam …73cd set to 6500 K"]);
-    expect(logged("debug")).toEqual(["set temperature: Beam …73cd at 6500 K"]);
+    expect(logged("info")).toEqual(["set temperature: Beam - 73cd set to 6500 K"]);
+    expect(logged("debug")).toEqual(["set temperature: Beam - 73cd at 6500 K"]);
   });
 });
 
@@ -412,7 +408,7 @@ describe("a lamp that doesn't report what it set (#198)", () => {
 
     expect(lamp.state?.kelvin).toBe(6500);
     expect(logged("warn")).toEqual([
-      "set temperature: Beam …73cd didn't report its temperature, so it's read again: " +
+      "set temperature: Beam - 73cd didn't report its temperature, so it's read again: " +
         "Error: Cannot read from hid device",
     ]);
   });
@@ -426,7 +422,7 @@ describe("a lamp that doesn't report what it set (#198)", () => {
     expect([handle.lumen, lamp.state?.lumen]).toEqual([244, 400]);
     expect(logged("warn")).toEqual([
       expect.stringContaining("didn't report its brightness, so it's read again"),
-      "set brightness: Beam …73cd didn't report its brightness again, so it holds the brightness asked for, 400: " +
+      "set brightness: Beam - 73cd didn't report its brightness again, so it holds the brightness asked for, 400: " +
         "Error: Cannot read from hid device",
     ]);
   });
@@ -446,7 +442,7 @@ describe("a lamp's blink (#48)", () => {
       await blink;
 
       expect([handle.on, lamp.state?.on]).toEqual([true, true]);
-      expect(logged("info")).toEqual(["identify: Beam …73cd blinked"]);
+      expect(logged("info")).toEqual(["identify: Beam - 73cd blinked"]);
     } finally {
       vi.useRealTimers();
     }
@@ -493,14 +489,14 @@ describe("a lamp's range (#198)", () => {
   it("isn't known before the lamp is reached", () => {
     const lamp = knownLamp();
 
-    expect(() => lamp.lumenAt(50)).toThrow("Beam …73cd has no range before it's reached");
-    expect(() => lamp.lowestKelvin).toThrow("Beam …73cd has no range before it's reached");
+    expect(() => lamp.lumenAt(50)).toThrow("Beam - 73cd has no range before it's reached");
+    expect(() => lamp.lowestKelvin).toThrow("Beam - 73cd has no range before it's reached");
   });
 
   it("can't place a temperature for a lamp that allows none", () => {
     const { lamp } = reached(Object.assign(new FakeHandle(), { range: { ...RANGE, allowedKelvin: [] } }));
 
-    expect(() => lamp.temperaturePercentage(4000)).toThrow("Beam …73cd reports no allowed temperatures");
+    expect(() => lamp.temperaturePercentage(4000)).toThrow("Beam - 73cd reports no allowed temperatures");
   });
 });
 
@@ -583,6 +579,8 @@ describe("the temperature a lamp allows nearest to another", () => {
   });
 
   it("can't be found for a lamp that allows none", () => {
-    expect(() => inRange({ allowedKelvin: [] }).snapKelvin(3123)).toThrow("Beam …73cd reports no allowed temperatures");
+    expect(() => inRange({ allowedKelvin: [] }).snapKelvin(3123)).toThrow(
+      "Beam - 73cd reports no allowed temperatures",
+    );
   });
 });
