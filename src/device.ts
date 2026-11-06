@@ -103,11 +103,11 @@ export function identityOf(device: Device): Pick<Lamp, "id" | "model"> {
 }
 
 /**
- * A lamp found as the logs name it, as a `Lamp` does, or by its model alone, followed by "…", while it has no serial
- * number to tell it by, such as a Beam LX that hasn't given it yet (#170).
+ * A lamp found as a `Lamp` names it, or by its model alone while it has no serial number to tell it by, such as a
+ * Beam LX that hasn't given it yet (#170).
  */
-export function logLabelOf(device: Device): string {
-  return device.serialNumber === "" ? `${modelOf(device)} …` : Lamp.logLabelOf(identityOf(device));
+export function labelOf(device: Device): string {
+  return device.serialNumber === "" ? modelOf(device) : Lamp.labelOf(identityOf(device));
 }
 
 /** A lamp's HID handle with the methods node-hid has at runtime, which litra's type leaves out. */
@@ -134,7 +134,7 @@ export function closeDevice(device: Device): void {
   try {
     asHid(device).close();
   } catch (error) {
-    logger.warn(`Closing ${logLabelOf(device)} failed: ${String(error)}`);
+    logger.warn(`Closing ${labelOf(device)} failed: ${String(error)}`);
   }
 }
 

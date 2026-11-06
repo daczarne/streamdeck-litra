@@ -151,9 +151,9 @@ function idOf(lamp: EmulatedLitra): string {
   return Lamp.idOf(lamp.serialNumber);
 }
 
-/** How the logs name a lamp: its model and the end of its id. */
+/** How the Deck, the pages and the logs name a lamp: its model and the end of its id. */
 function labelOf(lamp: EmulatedLitra): string {
-  return `${lamp.model} …${idOf(lamp).slice(-4)}`;
+  return `${lamp.model} - ${idOf(lamp).slice(-4)}`;
 }
 
 /** What the global settings keep of an emulated lamp. */
@@ -710,9 +710,7 @@ describe("a lamp without a serial number in its USB descriptor (#170)", () => {
 
     expect([lx.on, other.on]).toEqual([false, true]);
     expect(closes(lx)).toBe(1);
-    expect(logger.error).toHaveBeenCalledExactlyOnceWith(
-      "turn on: Beam LX … failed: Error: Cannot read from hid device",
-    );
+    expect(logger.error).toHaveBeenCalledExactlyOnceWith("turn on: Beam LX failed: Error: Cannot read from hid device");
   });
 
   describe("whose serial number can't be read (#100)", () => {
@@ -778,7 +776,7 @@ describe("a lamp without a serial number in its USB descriptor (#170)", () => {
 
     expect(manager.turnLampsOn("all")).toEqual({ ok: false, deviceCount: 0, failures: 1 });
     expect(lamp.on).toBe(false);
-    expect(logger.error).toHaveBeenCalledExactlyOnceWith(`turn on: Beam LX … failed: Error: ${reason}`);
+    expect(logger.error).toHaveBeenCalledExactlyOnceWith(`turn on: Beam LX failed: Error: ${reason}`);
   });
 
   it("makes an operation fail when it's the only lamp, and its serial number can't be read", () => {
@@ -2439,7 +2437,7 @@ describe("logs", () => {
     await readLampStatuses();
 
     const everything = (["error", "warn", "info", "debug"] as const).flatMap(messages);
-    expect(everything).toContainEqual(expect.stringContaining(`…${idOf(lamp).slice(-4)}`));
+    expect(everything).toContainEqual(expect.stringContaining(` - ${idOf(lamp).slice(-4)}`));
     expect(everything).not.toContainEqual(expect.stringContaining("ABCD"));
   });
 
