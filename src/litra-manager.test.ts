@@ -108,7 +108,7 @@ function beam(options: ConstructorParameters<typeof EmulatedLitra>[1] = {}): Emu
  */
 function connect(...lamps: EmulatedLitra[]): void {
   hid.connect(...lamps);
-  knowOnly([...lamps.map(identityOf), { id: MISSING_LAMP, model: MODEL, serialEnd: "MISS" }]);
+  knowOnly([...lamps.map(identityOf), { id: MISSING_LAMP, model: MODEL }]);
   reachKnown(lamps);
 }
 
@@ -118,7 +118,7 @@ function connect(...lamps: EmulatedLitra[]): void {
  * does. A lamp plugged in again is left for the operation to reach, as on the Deck.
  */
 function reachKnown(lamps: readonly EmulatedLitra[]): void {
-  const first = lamps.filter((lamp) => known.get(Lamp.idOf(lamp.serialNumber))?.state === undefined);
+  const first = lamps.filter((lamp) => known.get(idOf(lamp))?.state === undefined);
   if (first.length === 0) {
     return;
   }
@@ -146,16 +146,26 @@ function reachKnown(lamps: readonly EmulatedLitra[]): void {
   }
 }
 
+/** A lamp's id, from the serial number it keeps, as the plugin finds its `Lamp` by. */
+function idOf(lamp: EmulatedLitra): string {
+  return Lamp.idOf(lamp.serialNumber);
+}
+
+/** How the logs name a lamp: its model and the end of its id. */
+function labelOf(lamp: EmulatedLitra): string {
+  return `${lamp.model} …${idOf(lamp).slice(-4)}`;
+}
+
 /** What the global settings keep of an emulated lamp. */
 function identityOf(lamp: EmulatedLitra) {
-  return { id: Lamp.idOf(lamp.serialNumber), model: lamp.model, serialEnd: lamp.serialNumber.slice(-4) };
+  return { id: idOf(lamp), model: lamp.model };
 }
 
 /**
  * Makes these the lamps the plugin knows, as the global settings do when they're read: a lamp still among them keeps
  * its Lamp, and what it remembers, one no longer among them drops it, and a new one gets one.
  */
-function knowOnly(identities: readonly { id: string; model: string; serialEnd: string }[]): void {
+function knowOnly(identities: readonly { id: string; model: string }[]): void {
   for (const id of [...known.keys()]) {
     if (!identities.some((identity) => identity.id === id)) {
       known.delete(id);
@@ -184,7 +194,7 @@ function heldTemperature(lamp: EmulatedLitra): { kelvin: number; percentage: num
 
 /** The `Lamp` of an emulated lamp the plugin knows. */
 function knownLamp(lamp: EmulatedLitra) {
-  return known.get(Lamp.idOf(lamp.serialNumber));
+  return known.get(idOf(lamp));
 }
 
 /** Brightness in lumen at the given percentage of the lamps' range. */
@@ -305,51 +315,29 @@ describe("stepOnGrid", () => {
 type Reached = Parameters<Parameters<typeof import("./litra-manager").forEachLamp>[1]>[0];
 
 describe("forEachLamp", () => {
-  /** An operation that fails on one lamp, by its serial number, as a lamp failing mid-operation would. */
+  /** An operation that fails on one lamp, as a lamp failing mid-operation would. */
   function failingOn(lamp: EmulatedLitra) {
     return vi.fn((reached: Reached) => {
-      if (reached.lamp.serialNumber === lamp.serialNumber) {
+      if (reached.lamp.id === idOf(lamp)) {
         throw new Error("HID write failed");
       }
     });
   }
 
-  /** The serial numbers of the lamps an operation ran on, in order. */
-  function ranOn(operation: ReturnType<typeof vi.fn>): (string | undefined)[] {
-    return operation.mock.calls.map(([reached]) => (reached as Reached).lamp.serialNumber);
+  /** The ids of the lamps an operation ran on, in order. */
+  function ranOn(operation: ReturnType<typeof vi.fn>): string[] {
+    return operation.mock.calls.map(([reached]) => (reached as Reached).lamp.id);
   }
 
-  it("goes through the lamps in the order of their serial numbers, whatever order they're found in", () => {
-    const [later, earlier] = [newLamp({ serialNumber: "2325FE02BBBB" }), newLamp({ serialNumber: "2325FE01AAAA" })];
-    connect(later, earlier);
+  it("goes through the lamps in the order of their ids, whatever order they're found in", () => {
+    const [first, second] = [newLamp(), newLamp()];
+    connect(second, first);
     const operation = vi.fn();
 
     manager.forEachLamp("test", operation, "all");
 
-    expect(ranOn(operation)).toEqual([earlier.serialNumber, later.serialNumber]);
-  });
-
-  it("orders the lamps by the last 4 characters of their serial numbers first, as the settings pages list them", () => {
-    const [startsEarlier, endsEarlier] = [
-      newLamp({ serialNumber: "2325FE01ZZZZ" }),
-      newLamp({ serialNumber: "2325FE02AAAA" }),
-    ];
-    connect(startsEarlier, endsEarlier);
-    const operation = vi.fn();
-
-    manager.forEachLamp("test", operation, "all");
-
-    expect(ranOn(operation)).toEqual([endsEarlier.serialNumber, startsEarlier.serialNumber]);
-  });
-
-  it("orders lamps whose serial numbers end alike by the whole serial number", () => {
-    const [later, earlier] = [newLamp({ serialNumber: "2325FE02AAAA" }), newLamp({ serialNumber: "2325FE01AAAA" })];
-    connect(later, earlier);
-    const operation = vi.fn();
-
-    manager.forEachLamp("test", operation, "all");
-
-    expect(ranOn(operation)).toEqual([earlier.serialNumber, later.serialNumber]);
+    expect(idOf(first) < idOf(second)).toBe(true);
+    expect(ranOn(operation)).toEqual([idOf(first), idOf(second)]);
   });
 
   it("fails without running the operation when no lamp is connected", () => {
@@ -374,7 +362,7 @@ describe("forEachLamp", () => {
     const operation = vi.fn();
 
     expect(manager.forEachLamp("test", operation, "all")).toEqual({ ok: true, deviceCount: 2, failures: 0 });
-    expect(ranOn(operation)).toEqual([first.serialNumber, second.serialNumber]);
+    expect(ranOn(operation)).toEqual([idOf(first), idOf(second)]);
   });
 
   it("keeps going when a lamp fails, and counts the failure", () => {
@@ -383,7 +371,7 @@ describe("forEachLamp", () => {
     const operation = failingOn(first);
 
     expect(manager.forEachLamp("test", operation, "all")).toEqual({ ok: false, deviceCount: 2, failures: 1 });
-    expect(ranOn(operation)).toEqual([first.serialNumber, second.serialNumber]);
+    expect(ranOn(operation)).toEqual([idOf(first), idOf(second)]);
   });
 
   it("closes every lamp's handle once the operation is done, a failed one's included", () => {
@@ -402,7 +390,7 @@ describe("forEachLamp", () => {
     const operation = vi.fn();
 
     expect(manager.forEachLamp("test", operation, "all")).toEqual({ ok: true, deviceCount: 2, failures: 0 });
-    expect(ranOn(operation)).toEqual([first.serialNumber, second.serialNumber]);
+    expect(ranOn(operation)).toEqual([idOf(first), idOf(second)]);
   });
 });
 
@@ -417,9 +405,7 @@ describe("a selection of lamps (#20)", () => {
       deviceCount: 1,
       failures: 0,
     });
-    expect(operation.mock.calls.map(([reached]) => (reached as Reached).lamp.serialNumber)).toEqual([
-      selected.serialNumber,
-    ]);
+    expect(operation.mock.calls.map(([reached]) => (reached as Reached).lamp.id)).toEqual([idOf(selected)]);
     expect([closes(selected), closes(other)]).toEqual([1, 1]);
     expect(asked(other)).toEqual([]);
   });
@@ -492,7 +478,7 @@ describe("the lamps connected (#198)", () => {
 
     manager.turnLampsOn("all");
 
-    expect(manager.connectedLamps()).toEqual([Lamp.idOf(first.serialNumber)]);
+    expect(manager.connectedLamps()).toEqual([idOf(first)]);
   });
 
   it("are told to the listeners when an operation finds a lamp unplugged, and again once it's plugged back in", async () => {
@@ -508,10 +494,7 @@ describe("the lamps connected (#198)", () => {
     manager.turnLampsOn("all");
     await vi.waitFor(() => expect(listener).toHaveBeenCalledTimes(2));
 
-    expect(listener.mock.calls).toEqual([
-      [[Lamp.idOf(first.serialNumber)]],
-      [[Lamp.idOf(first.serialNumber), Lamp.idOf(second.serialNumber)]],
-    ]);
+    expect(listener.mock.calls).toEqual([[[idOf(first)]], [[idOf(first), idOf(second)]]]);
   });
 
   it("are logged as an operation finds a lamp unplugged, and plugged back in", () => {
@@ -523,7 +506,7 @@ describe("the lamps connected (#198)", () => {
     hid.connect(first, second);
     manager.turnLampsOff("all");
 
-    const label = `${MODEL} …${second.serialNumber.slice(-4)}`;
+    const label = labelOf(second);
     const found = logger.info.mock.calls
       .map(([message]: unknown[]) => String(message))
       .filter((m) => m.endsWith("found"));
@@ -585,7 +568,7 @@ describe("the lamps the plugin knows (#194)", () => {
     connectKnowing([first, second], first, second);
 
     const result = manager.turnLampsOff({
-      except: [Lamp.idOf(first.serialNumber), Lamp.idOf(second.serialNumber)],
+      except: [idOf(first), idOf(second)],
     });
 
     expect(result).toEqual({ ok: false, deviceCount: 0, failures: 1 });
@@ -610,7 +593,7 @@ describe("the lamps the plugin knows (#194)", () => {
 
     const { lamps } = await settled(readLampStatuses());
 
-    expect(lamps.map(({ serialNumber }) => serialNumber)).toEqual([known.serialNumber]);
+    expect(lamps.map(({ id }) => id)).toEqual([idOf(known)]);
   });
 
   it("make an operation fail, and log it, when none of the lamps connected is one of them", () => {
@@ -634,10 +617,10 @@ describe("the lamps the plugin knows (#194)", () => {
   });
 
   it("don't limit finding the lamps, which lists the ones the plugin doesn't know too", () => {
-    const [known, unknown] = [newLamp({ serialNumber: "2325FE01AAAA" }), newLamp({ serialNumber: "2325FE02BBBB" })];
+    const [known, unknown] = [newLamp(), newLamp()];
     connectKnowing([known], known, unknown);
 
-    expect(manager.findLamps().map(({ serialEnd }) => serialEnd)).toEqual(["AAAA", "BBBB"]);
+    expect(manager.findLamps().map(({ id }) => id)).toEqual([idOf(known), idOf(unknown)]);
   });
 });
 
@@ -677,27 +660,24 @@ describe.each([
 
 describe("a lamp without a serial number in its USB descriptor (#170)", () => {
   /** A Beam LX, off, whose USB descriptor gives no serial number, as the one probed. */
-  function beamLx(serialNumber: string): EmulatedLitra {
-    return new EmulatedLitra("Beam LX", { serialNumber, on: false });
+  function beamLx(): EmulatedLitra {
+    return new EmulatedLitra("Beam LX", { on: false });
   }
 
   it("is told apart by the serial number it keeps, which it's asked for", () => {
-    const [first, second] = [beamLx("2541AB01C1T8"), beamLx("2541AB02D2T9")];
+    const [first, second] = [beamLx(), beamLx()];
     connect(second, first);
 
     expect([first.info.serialNumber, second.info.serialNumber]).toEqual(["", ""]);
-    expect(manager.findLamps().map(({ id, serialEnd }) => ({ id, serialEnd }))).toEqual([
-      { id: Lamp.idOf("2541AB01C1T8"), serialEnd: "C1T8" },
-      { id: Lamp.idOf("2541AB02D2T9"), serialEnd: "D2T9" },
-    ]);
+    expect(manager.findLamps().map(({ id }) => id)).toEqual([idOf(first), idOf(second)]);
 
-    manager.turnLampsOn([Lamp.idOf("2541AB02D2T9")]);
+    manager.turnLampsOn([idOf(second)]);
 
     expect([first.on, second.on]).toEqual([false, true]);
   });
 
   it("is asked through Root for the index of Device Information, then for its serial number there", () => {
-    const lamp = beamLx("2541AB01C1T8");
+    const lamp = beamLx();
     connect(lamp);
 
     manager.turnLampsOn("all");
@@ -710,7 +690,7 @@ describe("a lamp without a serial number in its USB descriptor (#170)", () => {
   });
 
   it("is the only one asked, since a lamp whose descriptor gives its serial number is found with it", () => {
-    const [lx, other] = [beamLx("2541AB01C1T8"), beam({ on: false })];
+    const [lx, other] = [beamLx(), beam({ on: false })];
     connect(lx, other);
 
     manager.turnLampsOn("all");
@@ -722,7 +702,7 @@ describe("a lamp without a serial number in its USB descriptor (#170)", () => {
   });
 
   it("is left out, closed and logged when its serial number can't be read, and the others go on", () => {
-    const [lx, other] = [beamLx("2541AB01C1T8"), beam({ on: false })];
+    const [lx, other] = [beamLx(), beam({ on: false })];
     lx.fail("identifying");
     connect(lx, other);
 
@@ -738,7 +718,7 @@ describe("a lamp without a serial number in its USB descriptor (#170)", () => {
   describe("whose serial number can't be read (#100)", () => {
     /** A Beam LX that can't be told apart, plugged in with a Beam. */
     function unidentifiedWithBeam(): { lx: EmulatedLitra; other: EmulatedLitra } {
-      const [lx, other] = [beamLx("2541AB01C1T8"), beam({ on: true })];
+      const [lx, other] = [beamLx(), beam({ on: true })];
       lx.fail("identifying");
       connect(lx, other);
       return { lx, other };
@@ -802,7 +782,7 @@ describe("a lamp without a serial number in its USB descriptor (#170)", () => {
   });
 
   it("makes an operation fail when it's the only lamp, and its serial number can't be read", () => {
-    const lamp = beamLx("2541AB01C1T8");
+    const lamp = beamLx();
     lamp.fail("identifying");
     connect(lamp);
 
@@ -818,7 +798,7 @@ describe("a lamp that turns on at the setting it saved once switched off (#100)"
     return new EmulatedLitra("Beam LX", { serialNumber: "2541AB01C1T8", on: true, ...options });
   }
 
-  const identify = (lamp: EmulatedLitra) => settled(manager.identifyLamp(Lamp.idOf(lamp.serialNumber), BLINK_MS));
+  const identify = (lamp: EmulatedLitra) => settled(manager.identifyLamp(idOf(lamp), BLINK_MS));
 
   it("comes back from a blink shorter than it takes to save its setting at the setting it had, and logs it", async () => {
     const lamp = beamLx();
@@ -829,7 +809,7 @@ describe("a lamp that turns on at the setting it saved once switched off (#100)"
 
     expect([lamp.on, lamp.brightnessInLumen, lamp.temperatureInKelvin]).toEqual([true, 400, 6500]);
     expect(logger.info).toHaveBeenCalledWith(
-      "identify: Beam LX …C1T8 turned on at 30 lm and 2700 K, put back to 400 lm and 6500 K",
+      `identify: ${labelOf(lamp)} turned on at 30 lm and 2700 K, put back to 400 lm and 6500 K`,
     );
   });
 
@@ -888,9 +868,9 @@ describe("a lamp that turns on at the setting it saved once switched off (#100)"
     expect(manager.turnLampsOn("all")).toEqual({ ok: true, deviceCount: 1, failures: 0 });
 
     expect(lamp.on).toBe(true);
-    expect(known.get(Lamp.idOf(lamp.serialNumber))?.state?.on).toBe(true);
+    expect(known.get(idOf(lamp))?.state?.on).toBe(true);
     expect(logger.warn).toHaveBeenCalledWith(
-      `turn on: Beam …${lamp.serialNumber.slice(-4)} didn't report its power again, so it holds the power asked for, ` +
+      `turn on: ${labelOf(lamp)} didn't report its power again, so it holds the power asked for, ` +
         "true: Error: Cannot read from hid device",
     );
   });
@@ -955,7 +935,7 @@ describe("toggleLamps", () => {
 
     expect(manager.toggleLamps("all")).toEqual({ ok: true, deviceCount: 2, failures: 0 });
     expect([first.on, second.on]).toEqual([false, false]);
-    expect(known.get(Lamp.idOf(first.serialNumber))?.state?.on).toBe(false);
+    expect(known.get(idOf(first))?.state?.on).toBe(false);
   });
 
   it("counts a lamp once when it can't be read nor written", () => {
@@ -1748,7 +1728,7 @@ describe("setLampsScene", () => {
   });
 
   describe("with groups (#174)", () => {
-    const id = (lamp: EmulatedLitra) => Lamp.idOf(lamp.serialNumber);
+    const id = (lamp: EmulatedLitra) => idOf(lamp);
 
     it("sets each group's lamps to the group's own brightness and temperature, in one pass", async () => {
       const [left, center, right] = [newLamp(), newLamp(), newLamp()];
@@ -1864,9 +1844,9 @@ describe("adjustLampsTemperature", () => {
     expect([first.queries("temperature"), second.queries("temperature")]).toEqual([1, 1]);
   });
 
-  it("steps from the lamp with the lowest serial number, whatever order the lamps are found in", () => {
-    const later = newLamp({ serialNumber: "2325FE02BBBB", temperatureInKelvin: 5000 });
-    const earlier = newLamp({ serialNumber: "2325FE01AAAA", temperatureInKelvin: 3100 });
+  it("steps from the lamp with the lowest id, whatever order the lamps are found in", () => {
+    const earlier = newLamp({ temperatureInKelvin: 3100 });
+    const later = newLamp({ temperatureInKelvin: 5000 });
     connect(later, earlier);
 
     manager.adjustLampsTemperature("all", 1, 200);
@@ -2003,16 +1983,13 @@ describe("adjustLampsTemperature, each lamp from its own (#145)", () => {
 });
 
 describe("findLamps", () => {
-  it("lists every lamp by id, with its model and the end of its serial number, sorted by serial number", () => {
-    const [second, first] = [
-      beam({ serialNumber: "2325FE02BBBB" }),
-      new EmulatedLitra("Beam LX", { serialNumber: "2325FE01AAAA" }),
-    ];
+  it("lists every lamp by id, with its model and its label, in the order of their ids", () => {
+    const [first, second] = [new EmulatedLitra("Beam LX"), beam()];
     connect(second, first);
 
     expect(manager.findLamps()).toEqual([
-      { id: Lamp.idOf("2325FE01AAAA"), label: "Beam LX - AAAA", model: "Beam LX", serialEnd: "AAAA" },
-      { id: Lamp.idOf("2325FE02BBBB"), label: "Beam - BBBB", model: "Beam", serialEnd: "BBBB" },
+      { id: idOf(first), label: `Beam LX - ${idOf(first).slice(-4)}`, model: "Beam LX" },
+      { id: idOf(second), label: `Beam - ${idOf(second).slice(-4)}`, model: "Beam" },
     ]);
   });
 
@@ -2037,34 +2014,27 @@ describe("findLamps", () => {
 });
 
 describe("reachLampsForLampScreen", () => {
-  it("reports every lamp sorted by serial number, and closes every handle", async () => {
-    const second = beam({ serialNumber: "B2", on: false, brightnessInLumen: lumenAt(50), temperatureInKelvin: 6500 });
-    const first = new EmulatedLitra("Beam LX", {
-      serialNumber: "A1",
-      on: true,
-      brightnessInLumen: 400,
-      temperatureInKelvin: 2700,
-    });
+  it("reports every lamp in the order of their ids, and closes every handle", async () => {
+    const first = new EmulatedLitra("Beam LX", { on: true, brightnessInLumen: 400, temperatureInKelvin: 2700 });
+    const second = beam({ on: false, brightnessInLumen: lumenAt(50), temperatureInKelvin: 6500 });
     connect(second, first);
 
     expect(await readLampStatuses()).toEqual({
       ok: true,
       lamps: [
         {
-          id: Lamp.idOf("A1"),
-          serialNumber: "A1",
+          id: idOf(first),
           model: "Beam LX",
-          label: "Beam LX - A1",
+          label: `Beam LX - ${idOf(first).slice(-4)}`,
           on: true,
           brightnessLumen: 400,
           brightnessPercentage: 100,
           temperatureKelvin: 2700,
         },
         {
-          id: Lamp.idOf("B2"),
-          serialNumber: "B2",
+          id: idOf(second),
           model: "Beam",
-          label: "Beam - B2",
+          label: `Beam - ${idOf(second).slice(-4)}`,
           on: false,
           brightnessLumen: lumenAt(50),
           brightnessPercentage: 50,
@@ -2083,7 +2053,7 @@ describe("reachLampsForLampScreen", () => {
     const result = await readLampStatuses();
 
     expect(result.ok).toBe(false);
-    expect(result.lamps.map((lamp) => lamp.serialNumber)).toEqual([readable.serialNumber]);
+    expect(result.lamps.map(({ id }) => id)).toEqual([idOf(readable)]);
   });
 
   it("reports no lamps when none is connected", async () => {
@@ -2127,7 +2097,7 @@ describe("identifyLamp", () => {
     const lamp = newLamp({ on: true });
     connect(lamp);
 
-    const blinked = manager.identifyLamp(Lamp.idOf(lamp.serialNumber), 1000);
+    const blinked = manager.identifyLamp(idOf(lamp), 1000);
     await vi.advanceTimersByTimeAsync(999);
 
     expect(lamp.writes("power")).toEqual([0]);
@@ -2169,12 +2139,7 @@ describe("identifyLamp", () => {
     const lamp = newLamp();
     connect(lamp);
 
-    await settled(
-      Promise.all([
-        manager.setLampsBrightness("all", 100),
-        manager.identifyLamp(Lamp.idOf(lamp.serialNumber), BLINK_MS),
-      ]),
-    );
+    await settled(Promise.all([manager.setLampsBrightness("all", 100), manager.identifyLamp(idOf(lamp), BLINK_MS)]));
 
     // The change reads its lamp back before the blink starts.
     expect(at(positions(lamp, "write", "brightness query"), 0)).toBeLessThan(at(positions(lamp, "write", "power"), 0));
@@ -2189,9 +2154,9 @@ describe("what the dials and step keys show of the temperature, from the Lamps t
     expect(hid.hidEvents()).toEqual([]);
   });
 
-  it("reports the lamp with the lowest serial number, whatever order the lamps are found in", async () => {
-    const later = newLamp({ serialNumber: "2325FE02BBBB", temperatureInKelvin: 5000 });
-    const earlier = newLamp({ serialNumber: "2325FE01AAAA", temperatureInKelvin: 3500 });
+  it("reports the lamp with the lowest id, whatever order the lamps are found in", async () => {
+    const earlier = newLamp({ temperatureInKelvin: 3500 });
+    const later = newLamp({ temperatureInKelvin: 5000 });
     connect(later, earlier);
 
     expect(await readLampsTemperature("all")).toMatchObject({ kelvin: 3500 });
@@ -2212,11 +2177,6 @@ describe("what the dials and step keys show of the temperature, from the Lamps t
 
 describe("logs", () => {
   type Level = "error" | "warn" | "info" | "debug";
-
-  /** How the logs name an emulated lamp: its model and the end of its serial number. */
-  function labelOf(lamp: EmulatedLitra): string {
-    return `${lamp.model} …${lamp.serialNumber.slice(-4)}`;
-  }
 
   /** The messages logged at a level, each as its arguments joined. */
   function messages(level: Level): string[] {
@@ -2312,7 +2272,7 @@ describe("logs", () => {
     connect(lamp);
     lamp.failWrites("power");
 
-    await run(() => manager.identifyLamp(Lamp.idOf(lamp.serialNumber), BLINK_MS));
+    await run(() => manager.identifyLamp(idOf(lamp), BLINK_MS));
 
     const message = onlyMessage("error");
     expect(message).toContain("identify");
@@ -2405,7 +2365,7 @@ describe("logs", () => {
     const lamp = newLamp();
     connect(lamp);
 
-    await run(() => manager.identifyLamp(Lamp.idOf(lamp.serialNumber), BLINK_MS));
+    await run(() => manager.identifyLamp(idOf(lamp), BLINK_MS));
 
     const message = onlyMessage("info");
     expect(message).toContain("identify");
@@ -2468,7 +2428,7 @@ describe("logs", () => {
     expect([logger.error, logger.warn, logger.info, logger.debug].flatMap((log) => log.mock.calls)).toEqual([]);
   });
 
-  it("never writes a lamp's whole serial number", async () => {
+  it("never writes a lamp's serial number, nor its end, only the end of its id", async () => {
     const lamp = newLamp({ serialNumber: "2325FE01ABCD" });
     lamp.fail("close");
     connect(lamp);
@@ -2479,8 +2439,8 @@ describe("logs", () => {
     await readLampStatuses();
 
     const everything = (["error", "warn", "info", "debug"] as const).flatMap(messages);
-    expect(everything).toContainEqual(expect.stringContaining("…ABCD"));
-    expect(everything).not.toContainEqual(expect.stringContaining("2325FE01ABCD"));
+    expect(everything).toContainEqual(expect.stringContaining(`…${idOf(lamp).slice(-4)}`));
+    expect(everything).not.toContainEqual(expect.stringContaining("ABCD"));
   });
 
   it("logs nothing when there is no ACK to drain", () => {

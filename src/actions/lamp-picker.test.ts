@@ -43,8 +43,8 @@ vi.mock("../global-settings", async () => {
 });
 
 const LAMPS = [
-  { id: "lamp-1", label: "Beam - 1111", model: "Beam", serialEnd: "1111" },
-  { id: "lamp-2", label: "Beam LX - 2222", model: "Beam LX", serialEnd: "2222" },
+  { id: "lamp-1", label: "Beam - mp-1", model: "Beam" },
+  { id: "lamp-2", label: "Beam LX - mp-2", model: "Beam LX" },
 ];
 
 beforeEach(() => {

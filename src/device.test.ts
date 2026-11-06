@@ -100,12 +100,12 @@ describe("getBrightnessInLumenSafe", () => {
 //* A lamp's handle (#198)
 
 describe("a lamp's handle", () => {
-  it("gives the lamp's serial number, its path, and its range", () => {
+  it("gives the lamp's path and its range", () => {
     const lamp = beam();
 
     const handle = withDevice(lamp, device.handleOf);
 
-    expect([handle.serialNumber, handle.path]).toEqual([lamp.serialNumber, lamp.info.path]);
+    expect(handle.path).toBe(lamp.info.path);
     expect(handle.range).toMatchObject({ minLumen: 30, maxLumen: 400 });
     expect([handle.range.allowedKelvin.at(0), handle.range.allowedKelvin.at(-1)]).toEqual([2700, 6500]);
   });

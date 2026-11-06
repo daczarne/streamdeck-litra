@@ -1,12 +1,12 @@
 import type { Lamp, LampState } from "./lamp";
-import { bySerialNumber } from "./lamp-order";
+import { byId } from "./lamp-order";
 import { type LampSelection, selects } from "./lamp-selection";
 
 /**
  * What the Deck shows of the lamps, worked out from their `Lamp`s alone (#198): the plugin's state is the lamps' state,
  * so showing a lamp reads nothing. Every function takes the `Lamp`s of the lamps the plugin knows, and shows the ones a
  * selection takes in among those the last operation found and that the plugin holds a state of, in the order of their
- * serial numbers. It holds no state of its own, so the keys and dials read through `src/actions/shown.ts`, which hands
+ * ids. It holds no state of its own, so the keys and dials read through `src/actions/shown.ts`, which hands
  * it the lamps once a brightness change in progress has left them where it goes.
  */
 
@@ -16,9 +16,8 @@ export type TemperatureShown = { readonly kelvin: number; readonly percentage: n
 /** What a lamp screen shows about one lamp (#48). */
 export type LampStatus = {
   id: string;
-  serialNumber: string;
   model: string;
-  /** Its name on the Deck, as on the keys' settings pages, such as "Beam - 7K98". */
+  /** Its name on the Deck, as on the keys' settings pages, such as "Beam - c870". */
   label: string;
   on: boolean;
   brightnessLumen: number;
@@ -26,19 +25,19 @@ export type LampStatus = {
   temperatureKelvin: number;
 };
 
-/** A lamp the plugin holds a state of, with its serial number, which reaching it learned. */
-type HeldLamp = { lamp: Lamp; state: LampState; serialNumber: string };
+/** A lamp the plugin holds a state of. */
+type HeldLamp = { lamp: Lamp; state: LampState };
 
 /** The lamps a selection takes in that are shown: connected as of the last operation, and reached since the start. */
 function heldLamps(lamps: Iterable<Lamp>, selection: LampSelection): HeldLamp[] {
   const held: HeldLamp[] = [];
   for (const lamp of lamps) {
-    const { state, serialNumber } = lamp;
-    if (lamp.isConnected && state !== undefined && serialNumber !== undefined && selects(selection, lamp.id)) {
-      held.push({ lamp, state, serialNumber });
+    const { state } = lamp;
+    if (lamp.isConnected && state !== undefined && selects(selection, lamp.id)) {
+      held.push({ lamp, state });
     }
   }
-  return held.sort((a, b) => bySerialNumber(a.serialNumber, b.serialNumber));
+  return held.sort((a, b) => byId(a.lamp.id, b.lamp.id));
 }
 
 /** Whether a Power key shows on: only when the selection takes in a lamp, and every one is on. */
@@ -62,9 +61,8 @@ export function temperatureShown(lamps: Iterable<Lamp>, selection: LampSelection
 
 /** What the lamp screens show of every lamp, which a tap steps through in this order. */
 export function lampStatuses(lamps: Iterable<Lamp>): LampStatus[] {
-  return heldLamps(lamps, "all").map(({ lamp, state, serialNumber }) => ({
+  return heldLamps(lamps, "all").map(({ lamp, state }) => ({
     id: lamp.id,
-    serialNumber,
     model: lamp.model,
     label: lamp.label,
     on: state.on,

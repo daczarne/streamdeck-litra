@@ -41,11 +41,10 @@ export type LampRange = {
 
 /**
  * A lamp opened for one operation, as a `Lamp` acts on it (#198): what it reads from the lamp and writes to it over
- * HID, each write's ACK drained, so a read that follows gets its reply, with the lamp's serial number, the path it's
- * plugged in at, and its range. It's only good until the operation closes the lamp.
+ * HID, each write's ACK drained, so a read that follows gets its reply, with the path it's plugged in at, and its
+ * range. It's only good until the operation closes the lamp.
  */
 export type LampHandle = {
-  readonly serialNumber: string;
   readonly path: string;
   readonly range: LampRange;
   isOn(): boolean;
@@ -99,9 +98,8 @@ function modelOf(device: Device): string {
 }
 
 /** What identifies a lamp found, as the global settings would keep it. */
-export function identityOf(device: Device): Pick<Lamp, "id" | "model" | "serialEnd"> {
-  const { serialNumber } = device;
-  return { id: Lamp.idOf(serialNumber), model: modelOf(device), serialEnd: serialNumber.slice(-4) };
+export function identityOf(device: Device): Pick<Lamp, "id" | "model"> {
+  return { id: Lamp.idOf(device.serialNumber), model: modelOf(device) };
 }
 
 /**
@@ -223,7 +221,6 @@ export function readSerialNumber(device: Device): string {
 /** The handle a `Lamp` acts on its lamp through, for a lamp an operation opened. */
 export function handleOf(device: Device): LampHandle {
   return {
-    serialNumber: device.serialNumber,
     path: plugPath(device),
     range: {
       minLumen: getMinimumBrightnessInLumenForDevice(device),

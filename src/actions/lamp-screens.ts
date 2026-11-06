@@ -8,7 +8,8 @@ import {
   type TextStyle,
   type TextStyles,
 } from "../global-settings";
-import { bySerialNumber } from "../lamp-order";
+import { Lamp } from "../lamp";
+import { byId } from "../lamp-order";
 import type { LampStatus } from "../lamps-shown";
 import { identifyLamp } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
@@ -28,9 +29,6 @@ export type DialOwner = {
   adjusts: string;
 };
 
-/** The lamp a lamp screen shows: its serial number, which places it among the lamps, and its id. */
-type OnScreen = { serialNumber: string; id: string };
-
 const logger = pluginLogger.createScope("Lamp screens");
 
 export const MAIN_LAYOUT = "$B1";
@@ -41,9 +39,9 @@ const LAMP_TRIGGER_DESCRIPTIONS = { push: "Power", touch: "Next lamp", longTouch
 
 /**
  * The lamp screens of one Brightness or Temperature dial (#48), which the dial creates and drops with itself (#198).
- * Tapping the dial's strip shows each lamp in turn, in the order of their serial numbers, then the dial's main screen
+ * Tapping the dial's strip shows each lamp in turn, in the order of their ids, then the dial's main screen
  * again. The dial stays on a lamp screen until it's tapped past the last lamp, and while it's there, the dial turns and
- * toggles that lamp alone (#20). It remembers the serial of the lamp it shows rather than its position, so a lamp
+ * toggles that lamp alone (#20). It remembers the id of the lamp it shows rather than its position, so a lamp
  * unplugged mid-cycle is skipped and "n of m" counts the lamps connected at that moment.
  *
  * With the blink on, which the dials share as a global setting, a tap that shows a lamp also blinks it, so tapping
@@ -55,7 +53,8 @@ const LAMP_TRIGGER_DESCRIPTIONS = { push: "Power", touch: "Next lamp", longTouch
  * are logged. A blink is part of the operation that asked for it, so a tap during a blink waits for it to end.
  */
 export class LampScreen {
-  private shown: OnScreen | undefined;
+  // The id of the lamp on screen, or undefined on the main screen.
+  private shown: string | undefined;
   private queue: Promise<void> = Promise.resolve();
 
   /** Takes the dial, and what only the dial knows: how to draw its main screen, and what turning it adjusts. */
@@ -71,7 +70,7 @@ export class LampScreen {
 
   /** The id of the lamp on the dial's screen, or undefined on its main screen. */
   get lamp(): string | undefined {
-    return this.shown?.id;
+    return this.shown;
   }
 
   /**
@@ -81,15 +80,14 @@ export class LampScreen {
   tap(): Promise<void> {
     return this.enqueue(async () => {
       const lamps = await findLampStatuses();
-      const current = this.shown?.serialNumber;
+      const current = this.shown;
       if (current === undefined && lamps.length === 0) {
         await this.dial.showAlert();
         return;
       }
       // The lamp after the one on screen in the order the lamps come in, which also finds the one after a lamp
       // unplugged since the last tap.
-      const next =
-        current === undefined ? lamps[0] : lamps.find((lamp) => bySerialNumber(lamp.serialNumber, current) > 0);
+      const next = current === undefined ? lamps[0] : lamps.find((lamp) => byId(lamp.id, current) > 0);
       if (next === undefined) {
         await this.backToMain();
         return;
@@ -105,7 +103,7 @@ export class LampScreen {
   identify(): Promise<void> {
     return this.enqueue(async () => {
       if (this.shown !== undefined) {
-        await blink(this.dial, this.shown.id);
+        await blink(this.dial, this.shown);
       }
     });
   }
@@ -121,7 +119,7 @@ export class LampScreen {
         return;
       }
       const lamps = await readLampStatuses();
-      const lamp = lamps.find((candidate) => candidate.serialNumber === shown.serialNumber);
+      const lamp = lamps.find((candidate) => candidate.id === shown);
       if (lamp === undefined) {
         await this.backToMain();
       } else {
@@ -153,7 +151,7 @@ export class LampScreen {
   /** Draws a lamp, switching the dial to the lamp layout first if it was on its main screen. */
   private async show(lamp: LampStatus, lamps: LampStatus[]): Promise<void> {
     const wasShowing = this.shown !== undefined;
-    this.shown = { serialNumber: lamp.serialNumber, id: lamp.id };
+    this.shown = lamp.id;
     if (!wasShowing) {
       await this.dial.setFeedbackLayout(LAMP_LAYOUT);
       await this.dial.setTriggerDescription({ rotate: this.owner.adjusts, ...LAMP_TRIGGER_DESCRIPTIONS });
@@ -227,10 +225,9 @@ function shownIn(
 }
 
 /**
- * A lamp's identification, made of up to two parts joined by " - ": its model, the end of its serial number, or its
- * name, which falls back to its model and the end of its serial number, as the keys' settings pages show a lamp with no
- * name (#20). A part with no text, such as the serial of a Beam LX, which reports none (#170), is left out. When
- * neither chosen part has text, the lamp shows its model.
+ * A lamp's identification, made of up to two parts joined by " - ": its model, the end of its id, or its name, which
+ * falls back to its model and the end of its id, as the keys' settings pages show a lamp with no name (#20). A part
+ * chosen empty is left out, so both chosen empty show nothing.
  */
 function identification(options: LampScreenItemOptions["identification"], lamp: LampStatus): string {
   const partOf = (part: typeof options.first): string => {
@@ -238,7 +235,7 @@ function identification(options: LampScreenItemOptions["identification"], lamp: 
       case "model":
         return lamp.model;
       case "id":
-        return lamp.serialNumber.slice(-4);
+        return Lamp.idEndOf(lamp.id);
       case "name":
         return globalSettings.lamps.get(lamp.id)?.name ?? lamp.label;
       case "empty":
@@ -246,8 +243,7 @@ function identification(options: LampScreenItemOptions["identification"], lamp: 
     }
   };
   const parts = [partOf(options.first), partOf(options.second)].filter((part) => part !== "");
-  const chosen = options.first !== "empty" || options.second !== "empty";
-  const text = parts.length > 0 ? parts.join(" - ") : chosen ? lamp.model : "";
+  const text = parts.join(" - ");
   return options.trim ? trimmed(text) : text;
 }
 

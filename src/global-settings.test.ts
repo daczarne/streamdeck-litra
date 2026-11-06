@@ -67,10 +67,7 @@ const DEFAULTS = {
 /** Each lamp the plugin knows, by id, as the global settings save it. */
 function savedLamps(): Record<string, object> {
   return Object.fromEntries(
-    [...globalSettings.lamps].map(([id, { model, serialEnd, name }]) => [
-      id,
-      name === undefined ? { model, serialEnd } : { model, serialEnd, name },
-    ]),
+    [...globalSettings.lamps].map(([id, { model, name }]) => [id, name === undefined ? { model } : { model, name }]),
   );
 }
 
@@ -322,24 +319,24 @@ describe("the lamp screens' text styles (#153)", () => {
 });
 
 describe("the lamps an action key acts on (#147)", () => {
-  const picked = { lamps: ["lamp-1"], leftOutLamps: ["lamp-2"] };
+  const picked = { lamps: ["0000000000001111"], leftOutLamps: ["0000000000002222"] };
 
   it("are every lamp but the ones its page left out, by default, so lamps added later join it", () => {
     expect(globalSettings.addsNewLamps("key")).toBe(true);
-    expect(globalSettings.actionKeyLamps("key", picked)).toEqual({ except: ["lamp-2"] });
+    expect(globalSettings.actionKeyLamps("key", picked)).toEqual({ except: ["0000000000002222"] });
   });
 
   it("are the lamps checked, for a key that doesn't add new lamps", () => {
     globalSettings.read({ addNewLamps: false });
 
-    expect(globalSettings.actionKeyLamps("key", picked)).toEqual(["lamp-1"]);
+    expect(globalSettings.actionKeyLamps("key", picked)).toEqual(["0000000000001111"]);
   });
 
   it("follow the key's own choice, the opposite of the plugin's, for a key that chose otherwise", () => {
     globalSettings.read({ addNewLamps: false, addNewLampsExceptions: ["key"] });
 
-    expect(globalSettings.actionKeyLamps("key", picked)).toEqual({ except: ["lamp-2"] });
-    expect(globalSettings.actionKeyLamps("other-key", picked)).toEqual(["lamp-1"]);
+    expect(globalSettings.actionKeyLamps("key", picked)).toEqual({ except: ["0000000000002222"] });
+    expect(globalSettings.actionKeyLamps("other-key", picked)).toEqual(["0000000000001111"]);
   });
 
   it.each([true, false])(
@@ -353,81 +350,90 @@ describe("the lamps an action key acts on (#147)", () => {
 });
 
 describe("the lamps the plugin knows (#194)", () => {
-  const BEAM = { id: "lamp-1", model: "Beam", serialEnd: "1111" };
-  const BEAM_LX = { id: "lamp-2", model: "Beam LX", serialEnd: "2222" };
+  const BEAM = { id: "0000000000001111", model: "Beam" };
+  const BEAM_LX = { id: "0000000000002222", model: "Beam LX" };
 
   it("are none before they're read", () => {
     expect(globalSettings.lamps.size).toBe(0);
   });
 
-  it("are a Lamp for each lamp read, by id, with its model, the end of its serial number and its name", () => {
+  it("are a Lamp for each lamp read, by id, with its model and its name", () => {
     globalSettings.read({
       lamps: {
-        "lamp-1": { model: "Beam", serialEnd: "1111", name: "Key light" },
-        "lamp-2": { model: "Beam LX", serialEnd: "2222" },
+        "0000000000001111": { model: "Beam", name: "Key light" },
+        "0000000000002222": { model: "Beam LX" },
       },
     });
 
-    expect(
-      [...globalSettings.lamps.values()].map(({ id, model, serialEnd, name }) => [id, model, serialEnd, name]),
-    ).toEqual([
-      ["lamp-1", "Beam", "1111", "Key light"],
-      ["lamp-2", "Beam LX", "2222", undefined],
+    expect([...globalSettings.lamps.values()].map(({ id, model, name }) => [id, model, name])).toEqual([
+      ["0000000000001111", "Beam", "Key light"],
+      ["0000000000002222", "Beam LX", undefined],
     ]);
   });
 
-  it("leave out an entry without a model and a serial end, and a name that isn't text, and keep the others", () => {
+  it("leave out an entry without a model, and a name that isn't text, and keep the others", () => {
     globalSettings.read({
       lamps: {
-        "lamp-1": { model: "Beam", serialEnd: "1111", name: 7 },
-        "lamp-2": { model: "Beam LX" },
-        "lamp-3": "Beam",
+        "0000000000001111": { model: "Beam", name: 7 },
+        "0000000000002222": { name: "Fill light" },
+        "0000000000003333": "Beam",
       },
     });
 
-    expect(savedLamps()).toEqual({ "lamp-1": { model: "Beam", serialEnd: "1111" } });
+    expect(savedLamps()).toEqual({ "0000000000001111": { model: "Beam" } });
+  });
+
+  it("read a lamp saved with the end of its serial number, as lamps once were, and save it without it", async () => {
+    globalSettings.read({ lamps: { "0000000000001111": { model: "Beam", serialEnd: "7K98", name: "Key light" } } });
+
+    await globalSettings.renameLamp("0000000000001111", "Fill light");
+
+    expect(vi.mocked(save).mock.lastCall?.[0]).toMatchObject({
+      lamps: { "0000000000001111": { model: "Beam", name: "Fill light" } },
+    });
+    expect(JSON.stringify(vi.mocked(save).mock.lastCall?.[0])).not.toContain("7K98");
   });
 
   it("are none, with a warning, when they aren't lamps by id", () => {
-    globalSettings.read({ lamps: ["lamp-1"] });
+    globalSettings.read({ lamps: ["0000000000001111"] });
 
     expect(globalSettings.lamps.size).toBe(0);
     expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("lamps"));
   });
 
   it("keep each lamp's Lamp, and what it remembers, across reads, with the name a page's save gives it (#198)", () => {
-    globalSettings.read({ lamps: { "lamp-1": { model: "Beam", serialEnd: "1111" } } });
-    const lamp = globalSettings.lamps.get("lamp-1");
+    globalSettings.read({ lamps: { "0000000000001111": { model: "Beam" } } });
+    const lamp = globalSettings.lamps.get("0000000000001111");
     if (lamp !== undefined) {
       lamp.brightnessAsked = 70;
     }
 
-    globalSettings.read({ lamps: { "lamp-1": { model: "Beam", serialEnd: "1111", name: "Key light" } } });
+    globalSettings.read({ lamps: { "0000000000001111": { model: "Beam", name: "Key light" } } });
 
-    expect(globalSettings.lamps.get("lamp-1")).toBe(lamp);
+    expect(globalSettings.lamps.get("0000000000001111")).toBe(lamp);
     expect(lamp?.name).toBe("Key light");
     expect(lamp?.brightnessAsked).toBe(70);
   });
 
   it("drop a lamp's Lamp once it's no longer among them, and give it a new one when it comes back (#198)", () => {
-    globalSettings.read({ lamps: { "lamp-1": { model: "Beam", serialEnd: "1111" } } });
-    const forgotten = globalSettings.lamps.get("lamp-1");
+    globalSettings.read({ lamps: { "0000000000001111": { model: "Beam" } } });
+    const forgotten = globalSettings.lamps.get("0000000000001111");
 
     globalSettings.read({});
 
-    expect(globalSettings.lamps.has("lamp-1")).toBe(false);
+    expect(globalSettings.lamps.has("0000000000001111")).toBe(false);
 
-    globalSettings.read({ lamps: { "lamp-1": { model: "Beam", serialEnd: "1111" } } });
+    globalSettings.read({ lamps: { "0000000000001111": { model: "Beam" } } });
 
-    expect(globalSettings.lamps.get("lamp-1")).not.toBe(forgotten);
+    expect(globalSettings.lamps.get("0000000000001111")).not.toBe(forgotten);
   });
 
   it("take in the new lamps found, and save them, keeping the lamps known and a page's settings", async () => {
-    globalSettings.read({ lamps: { "lamp-1": { model: "Beam", serialEnd: "1111" } }, keepBrightnessDifference: true });
+    globalSettings.read({ lamps: { "0000000000001111": { model: "Beam" } }, keepBrightnessDifference: true });
 
     await globalSettings.addLamps([BEAM, BEAM_LX]);
 
-    const lamps = { "lamp-1": { model: "Beam", serialEnd: "1111" }, "lamp-2": { model: "Beam LX", serialEnd: "2222" } };
+    const lamps = { "0000000000001111": { model: "Beam" }, "0000000000002222": { model: "Beam LX" } };
     expect(save).toHaveBeenCalledExactlyOnceWith({ lamps, keepBrightnessDifference: true });
     expect(savedLamps()).toEqual(lamps);
     expect(logger.info).toHaveBeenCalledExactlyOnceWith("Lamps added: Beam LX - 2222");
@@ -439,12 +445,12 @@ describe("the lamps the plugin knows (#194)", () => {
 
     await globalSettings.addLamps([BEAM]);
 
-    expect(globalSettings.lamps.has("lamp-1")).toBe(true);
+    expect(globalSettings.lamps.has("0000000000001111")).toBe(true);
     expect(logger.error).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("Saving the lamps"), error);
   });
 
   it("save nothing when every lamp found is known", async () => {
-    globalSettings.read({ lamps: { "lamp-1": { model: "Beam", serialEnd: "1111" } } });
+    globalSettings.read({ lamps: { "0000000000001111": { model: "Beam" } } });
 
     await globalSettings.addLamps([BEAM]);
 
@@ -454,82 +460,82 @@ describe("the lamps the plugin knows (#194)", () => {
   it("forget a lamp, with its name, and save the others, keeping the other settings", async () => {
     globalSettings.read({
       lamps: {
-        "lamp-1": { model: "Beam", serialEnd: "1111", name: "Key light" },
-        "lamp-2": { model: "Beam LX", serialEnd: "2222" },
+        "0000000000001111": { model: "Beam", name: "Key light" },
+        "0000000000002222": { model: "Beam LX" },
       },
       identifyBlinkMs: 600,
     });
 
-    await globalSettings.forgetLamp("lamp-1");
+    await globalSettings.forgetLamp("0000000000001111");
 
     expect(save).toHaveBeenCalledExactlyOnceWith({
-      lamps: { "lamp-2": { model: "Beam LX", serialEnd: "2222" } },
+      lamps: { "0000000000002222": { model: "Beam LX" } },
       identifyBlinkMs: 600,
     });
-    expect(globalSettings.lamps.has("lamp-1")).toBe(false);
+    expect(globalSettings.lamps.has("0000000000001111")).toBe(false);
     expect(logger.info).toHaveBeenCalledExactlyOnceWith("Lamp forgotten: Beam - 1111");
   });
 
   it("take a forgotten lamp in again when it's found, without its name", async () => {
-    globalSettings.read({ lamps: { "lamp-1": { model: "Beam", serialEnd: "1111", name: "Key light" } } });
+    globalSettings.read({ lamps: { "0000000000001111": { model: "Beam", name: "Key light" } } });
 
-    await globalSettings.forgetLamp("lamp-1");
+    await globalSettings.forgetLamp("0000000000001111");
     await globalSettings.addLamps([BEAM]);
 
-    expect(savedLamps()).toEqual({ "lamp-1": { model: "Beam", serialEnd: "1111" } });
+    expect(savedLamps()).toEqual({ "0000000000001111": { model: "Beam" } });
   });
 
   it("save nothing when the lamp to forget isn't known, with a warning", async () => {
-    globalSettings.read({ lamps: { "lamp-1": { model: "Beam", serialEnd: "1111" } } });
+    globalSettings.read({ lamps: { "0000000000001111": { model: "Beam" } } });
 
-    await globalSettings.forgetLamp("lamp-2");
+    await globalSettings.forgetLamp("0000000000002222");
 
     expect(save).not.toHaveBeenCalled();
-    expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("lamp-2"));
+    expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("0000000000002222"));
   });
 });
 
 describe("the lamps' names (#146)", () => {
   const KNOWN = {
-    "lamp-1": { model: "Beam", serialEnd: "1111", name: "Key light" },
-    "lamp-2": { model: "Beam LX", serialEnd: "2222" },
+    "0000000000001111": { model: "Beam", name: "Key light" },
+    "0000000000002222": { model: "Beam LX" },
   };
 
   it("are given by the plugin, trimmed, which saves them, keeping the other lamps and settings", async () => {
     globalSettings.read({ lamps: KNOWN, identifyBlinkMs: 600 });
 
-    await globalSettings.renameLamp("lamp-2", "  Fill light ");
+    await globalSettings.renameLamp("0000000000002222", "  Fill light ");
 
     expect(save).toHaveBeenCalledExactlyOnceWith({
-      lamps: { ...KNOWN, "lamp-2": { model: "Beam LX", serialEnd: "2222", name: "Fill light" } },
+      lamps: { ...KNOWN, "0000000000002222": { model: "Beam LX", name: "Fill light" } },
       identifyBlinkMs: 600,
     });
-    expect(globalSettings.lamps.get("lamp-2")?.name).toBe("Fill light");
+    expect(globalSettings.lamps.get("0000000000002222")?.name).toBe("Fill light");
     expect(logger.debug).toHaveBeenCalledExactlyOnceWith('Lamp Beam LX - 2222 named "Fill light"');
   });
 
   it("are cut to 24 characters", async () => {
     globalSettings.read({ lamps: KNOWN });
 
-    await globalSettings.renameLamp("lamp-1", "A name much longer than twenty-four");
+    await globalSettings.renameLamp("0000000000001111", "A name much longer than twenty-four");
 
-    expect(globalSettings.lamps.get("lamp-1")?.name).toBe("A name much longer than ");
+    expect(globalSettings.lamps.get("0000000000001111")?.name).toBe("A name much longer than ");
   });
 
   it("are taken away by a blank name", async () => {
     globalSettings.read({ lamps: KNOWN });
 
-    await globalSettings.renameLamp("lamp-1", "  ");
+    await globalSettings.renameLamp("0000000000001111", "  ");
 
-    expect(savedLamps()["lamp-1"]).toEqual({ model: "Beam", serialEnd: "1111" });
+    expect(savedLamps()["0000000000001111"]).toEqual({ model: "Beam" });
     expect(logger.debug).toHaveBeenCalledExactlyOnceWith("Lamp Beam - 1111's name taken away");
   });
 
   it("save nothing when the name is the one the lamp has", async () => {
     globalSettings.read({ lamps: KNOWN });
 
-    await globalSettings.renameLamp("lamp-1", "Key light");
-    await globalSettings.renameLamp("lamp-2", "");
+    await globalSettings.renameLamp("0000000000001111", "Key light");
+    await globalSettings.renameLamp("0000000000002222", "");
 
     expect(save).not.toHaveBeenCalled();
   });
@@ -537,10 +543,10 @@ describe("the lamps' names (#146)", () => {
   it("save nothing for a lamp the plugin doesn't know, with a warning", async () => {
     globalSettings.read({ lamps: KNOWN });
 
-    await globalSettings.renameLamp("lamp-3", "Key light");
+    await globalSettings.renameLamp("0000000000003333", "Key light");
 
     expect(save).not.toHaveBeenCalled();
-    expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("lamp-3"));
+    expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("0000000000003333"));
   });
 });
 
@@ -548,8 +554,8 @@ describe("following the global settings (#144)", () => {
   // The plugin's instance, from a fresh module for every test, since it keeps the settings it last read.
   let followed: typeof import("./global-settings");
 
-  const BEAM = { id: "lamp-1", label: "Beam - 1111", model: "Beam", serialEnd: "1111" };
-  const BEAM_LX = { id: "lamp-2", label: "Beam LX - 2222", model: "Beam LX", serialEnd: "2222" };
+  const BEAM = { id: "0000000000001111", label: "Beam - 1111", model: "Beam" };
+  const BEAM_LX = { id: "0000000000002222", label: "Beam LX - 2222", model: "Beam LX" };
 
   beforeEach(async () => {
     vi.resetModules();
@@ -572,17 +578,17 @@ describe("following the global settings (#144)", () => {
   }
 
   it("hands litra-manager the lamps the plugin knows, which follow every read (#198)", async () => {
-    settings.getGlobalSettings.mockResolvedValue({ lamps: { "lamp-1": { model: "Beam", serialEnd: "1111" } } });
+    settings.getGlobalSettings.mockResolvedValue({ lamps: { "0000000000001111": { model: "Beam" } } });
 
     await follow();
 
     const [handed] = at(vi.mocked(useLamps).mock.calls, 0);
     expect(handed).toBe(followed.globalSettings.lamps);
-    expect([...handed.keys()]).toEqual(["lamp-1"]);
+    expect([...handed.keys()]).toEqual(["0000000000001111"]);
 
-    changeFromPage({ lamps: { "lamp-2": { model: "Beam LX", serialEnd: "2222" } } });
+    changeFromPage({ lamps: { "0000000000002222": { model: "Beam LX" } } });
 
-    expect([...handed.keys()]).toEqual(["lamp-2"]);
+    expect([...handed.keys()]).toEqual(["0000000000002222"]);
   });
 
   it("are their defaults before the first read answers", () => {
@@ -616,13 +622,13 @@ describe("following the global settings (#144)", () => {
   });
 
   it("save the lamps through Stream Deck, keeping the other settings", async () => {
-    settings.getGlobalSettings.mockResolvedValue({ lamps: { "lamp-1": { model: "Beam", serialEnd: "1111" } } });
+    settings.getGlobalSettings.mockResolvedValue({ lamps: { "0000000000001111": { model: "Beam" } } });
     await follow();
 
-    await followed.globalSettings.renameLamp("lamp-1", "Key light");
+    await followed.globalSettings.renameLamp("0000000000001111", "Key light");
 
     expect(settings.setGlobalSettings).toHaveBeenCalledExactlyOnceWith({
-      lamps: { "lamp-1": { model: "Beam", serialEnd: "1111", name: "Key light" } },
+      lamps: { "0000000000001111": { model: "Beam", name: "Key light" } },
     });
   });
 
@@ -635,9 +641,9 @@ describe("following the global settings (#144)", () => {
 
     expect(settings.setGlobalSettings).toHaveBeenCalledWith({
       identifyBlinkMs: 600,
-      lamps: { "lamp-1": { model: "Beam", serialEnd: "1111" }, "lamp-2": { model: "Beam LX", serialEnd: "2222" } },
+      lamps: { "0000000000001111": { model: "Beam" }, "0000000000002222": { model: "Beam LX" } },
     });
-    expect([...followed.globalSettings.lamps.keys()]).toEqual(["lamp-1", "lamp-2"]);
+    expect([...followed.globalSettings.lamps.keys()]).toEqual(["0000000000001111", "0000000000002222"]);
     expect(vi.mocked(logger.info).mock.calls).toEqual([
       [expect.stringContaining("No lamps known")],
       [expect.stringContaining("Beam - 1111, Beam LX - 2222")],
@@ -645,19 +651,19 @@ describe("following the global settings (#144)", () => {
   });
 
   it("find the lamps when what's saved isn't lamps by id, as when the plugin starts with none (#194)", async () => {
-    settings.getGlobalSettings.mockResolvedValue({ lamps: ["lamp-1"] });
+    settings.getGlobalSettings.mockResolvedValue({ lamps: ["0000000000001111"] });
     vi.mocked(findLamps).mockReturnValue([BEAM]);
 
     await follow();
     await vi.waitFor(() => expect(settings.setGlobalSettings).toHaveBeenCalledOnce());
 
     expect(settings.setGlobalSettings).toHaveBeenCalledWith({
-      lamps: { "lamp-1": { model: "Beam", serialEnd: "1111" } },
+      lamps: { "0000000000001111": { model: "Beam" } },
     });
   });
 
   it("don't look for the lamps when the plugin starts with some, or when a page leaves none (#194)", async () => {
-    settings.getGlobalSettings.mockResolvedValue({ lamps: { "lamp-1": { model: "Beam", serialEnd: "1111" } } });
+    settings.getGlobalSettings.mockResolvedValue({ lamps: { "0000000000001111": { model: "Beam" } } });
     await follow();
 
     changeFromPage({});

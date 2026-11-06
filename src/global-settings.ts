@@ -73,7 +73,7 @@ export class GlobalSettings {
     for (const [id, saved] of Object.entries(this.parsed.lamps)) {
       const lamp = this.knownLamps.get(id);
       if (lamp === undefined) {
-        const known = new Lamp({ id, model: saved.model, serialEnd: saved.serialEnd });
+        const known = new Lamp({ id, model: saved.model });
         known.name = saved.name;
         this.knownLamps.set(id, known);
       } else if (lamp.name !== saved.name) {
@@ -111,12 +111,12 @@ export class GlobalSettings {
    * Adds the lamps found that the plugin doesn't know to the ones it knows (#194), and saves them. Saves nothing when
    * every lamp found is known already.
    */
-  async addLamps(found: readonly Pick<Lamp, "id" | "model" | "serialEnd">[]): Promise<void> {
+  async addLamps(found: readonly Pick<Lamp, "id" | "model">[]): Promise<void> {
     const added = found.filter(({ id }) => !this.knownLamps.has(id));
     if (added.length === 0) {
       return;
     }
-    const lamps = added.map(({ id, model, serialEnd }) => new Lamp({ id, model, serialEnd }));
+    const lamps = added.map(({ id, model }) => new Lamp({ id, model }));
     for (const lamp of lamps) {
       this.knownLamps.set(lamp.id, lamp);
     }
@@ -231,9 +231,9 @@ export class GlobalSettings {
   /** The lamps the plugin knows, as the global settings save them: by id, with what's kept of each. */
   private savedLamps(): Record<string, KnownLamp> {
     return Object.fromEntries(
-      [...this.knownLamps.values()].map(({ id, model, serialEnd, name }) => [
+      [...this.knownLamps.values()].map(({ id, model, name }) => [
         id,
-        name === undefined ? { model, serialEnd } : { model, serialEnd, name },
+        name === undefined ? { model } : { model, name },
       ]),
     );
   }

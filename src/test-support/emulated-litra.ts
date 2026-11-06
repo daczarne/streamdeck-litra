@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { Device as HidDeviceInfo } from "node-hid";
 
 import { at } from "./at";
@@ -168,8 +169,38 @@ type EmulatedLitraOptions = {
   capInLumen?: number | undefined;
 };
 
-// Serial numbers and paths are unique per machine, so every emulated lamp gets its own.
+// Serial numbers and paths are unique per machine, so every emulated lamp of a test gets its own, numbered from 1.
 let nextLamp = 1;
+// The serial number made up for each lamp number, found once (see madeUpSerialNumber).
+const madeUpSerialNumbers = new Map<number, string>();
+
+/**
+ * Numbers the lamps emulated from 1 again, for a new test, so its first lamp is the first the plugin goes through (see
+ * {@link madeUpSerialNumber}). `loadOnEmulatedLamps` calls it before every test.
+ */
+export function restartLampNumbering(): void {
+  nextLamp = 1;
+}
+
+/**
+ * The serial number a lamp gets when a test gives it none: the first of `EMU<number>-1`, `EMU<number>-2`, … whose id
+ * (`Lamp.idOf`, the first 16 hex characters of its SHA-256) starts with the lamp's number in 3 hex digits. The plugin
+ * goes through the lamps in the order of their ids, so the lamps of a test come in the order the test made them.
+ */
+function madeUpSerialNumber(number: number): string {
+  let serialNumber = madeUpSerialNumbers.get(number);
+  if (serialNumber === undefined) {
+    const prefix = number.toString(16).padStart(3, "0");
+    for (let attempt = 1; serialNumber === undefined; attempt++) {
+      const candidate = `EMU${number}-${attempt}`;
+      if (createHash("sha256").update(candidate).digest("hex").startsWith(prefix)) {
+        serialNumber = candidate;
+      }
+    }
+    madeUpSerialNumbers.set(number, serialNumber);
+  }
+  return serialNumber;
+}
 
 /** A report of the given bytes, padded with zeros to a report's length. */
 function padded(bytes: number[]): number[] {
@@ -241,7 +272,7 @@ export class EmulatedLitra {
   constructor(model: LitraModel, options: EmulatedLitraOptions = {}) {
     const number = nextLamp++;
     this.model = model;
-    this.ownSerialNumber = options.serialNumber ?? `EMU${String(number).padStart(4, "0")}`;
+    this.ownSerialNumber = options.serialNumber ?? madeUpSerialNumber(number);
     this.deviceInformation = options.deviceInformation ?? MODELS[model].deviceInfo;
     this.info = {
       vendorId: options.vendorId ?? LOGITECH_VENDOR_ID,

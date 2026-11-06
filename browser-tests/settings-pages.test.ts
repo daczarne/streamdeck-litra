@@ -1278,8 +1278,8 @@ describe("settings pages", () => {
     );
   });
 
-  const FIRST: ListedLamp = { id: "0123456789abcdef", label: "Beam - 1111", model: "Beam", serialEnd: "1111" };
-  const SECOND: ListedLamp = { id: "fedcba9876543210", label: "Beam LX - 2222", model: "Beam LX", serialEnd: "2222" };
+  const FIRST: ListedLamp = { id: "0123456789ab1111", label: "Beam - 1111", model: "Beam" };
+  const SECOND: ListedLamp = { id: "fedcba9876542222", label: "Beam LX - 2222", model: "Beam LX" };
 
   /** A lamp as a key saves it: its id (#194). */
   function savedLamp({ id }: ListedLamp) {
@@ -1494,7 +1494,7 @@ describe("settings pages", () => {
 
     it("shows a lamp by its label when its saved name isn't text", async () => {
       streamDeck.globalSettings = {
-        lamps: { [FIRST.id]: { model: FIRST.model, serialEnd: FIRST.serialEnd, name: 7 } },
+        lamps: { [FIRST.id]: { model: FIRST.model, name: 7 } },
       };
       const { page } = await openPicker([FIRST]);
 
@@ -2069,7 +2069,7 @@ describe("settings pages", () => {
       const { page } = await openPanel(panel);
 
       await clickInPluginSettings(page, "Plugin settings");
-      await expect.poll(() => pluginSettingsOf(page)).toMatchObject({ lamps: [{ serialEnd: FIRST.serialEnd }] });
+      await expect.poll(() => pluginSettingsOf(page)).toMatchObject({ lamps: [{ idEnd: FIRST.id.slice(-4) }] });
       expect(await pluginSettingsOf(page)).toMatchObject({
         open: true,
         actionShown: false,
@@ -2127,7 +2127,7 @@ describe("settings pages", () => {
         .filter((m) => m.event === "sendToPlugin" && m.context === uuid && m.payload?.event === event);
     }
 
-    it("list every lamp the plugin knows by the end of its serial, its model and its name, without looking for lamps (#194)", async () => {
+    it("list every lamp the plugin knows by the end of its id, its model and its name, without looking for lamps (#194)", async () => {
       const { page, uuid } = await openPluginSettings({
         [FIRST.id]: known(FIRST),
         [SECOND.id]: known(SECOND, "Key light"),
@@ -2137,7 +2137,7 @@ describe("settings pages", () => {
         headers: ["ID", "Model", "Name", "", ""],
         lamps: [
           {
-            serialEnd: "1111",
+            idEnd: "1111",
             model: "Beam",
             name: "",
             placeholder: FIRST.label,
@@ -2147,7 +2147,7 @@ describe("settings pages", () => {
             missing: false,
           },
           {
-            serialEnd: "2222",
+            idEnd: "2222",
             model: "Beam LX",
             name: "Key light",
             placeholder: SECOND.label,
@@ -2170,7 +2170,7 @@ describe("settings pages", () => {
       );
 
       const after = streamDeck.messages.length;
-      await typeName(page, FIRST.serialEnd, "  Left ");
+      await typeName(page, FIRST.id.slice(-4), "  Left ");
 
       await expect
         .poll(() => sentToPlugin(uuid, "rename", after).map((m) => m.payload))
@@ -2189,7 +2189,7 @@ describe("settings pages", () => {
       await page.evaluate(`${field}.dataset.typedIn = "yes"`);
 
       const after = streamDeck.messages.length;
-      await typeName(page, FIRST.serialEnd, "  Left ");
+      await typeName(page, FIRST.id.slice(-4), "  Left ");
       await expect.poll(() => sentToPlugin(uuid, "rename", after).length).toBe(1);
       // Long enough for the plugin's save, trimmed to "Left", to reach the page.
       await new Promise((resolve) => setTimeout(resolve, 300));
@@ -2214,7 +2214,7 @@ describe("settings pages", () => {
       );
 
       const after = streamDeck.messages.length;
-      await typeName(page, FIRST.serialEnd, " ");
+      await typeName(page, FIRST.id.slice(-4), " ");
 
       await expect
         .poll(() => sentToPlugin(uuid, "rename", after).map((m) => m.payload))
@@ -2229,7 +2229,7 @@ describe("settings pages", () => {
     it("ask the plugin to blink a lamp on its Identify button", async () => {
       const { page, uuid } = await openPluginSettings({ [FIRST.id]: known(FIRST), [SECOND.id]: known(SECOND) });
 
-      await clickInPluginSettings(page, "Identify", SECOND.serialEnd);
+      await clickInPluginSettings(page, "Identify", SECOND.id.slice(-4));
       const message = await streamDeck.waitFor(
         (m) => m.event === "sendToPlugin" && m.context === uuid && m.payload?.event === "identify",
       );
@@ -2244,14 +2244,14 @@ describe("settings pages", () => {
         [SECOND.id]: known(SECOND, "Key light"),
       });
 
-      await clickInPluginSettings(page, "Forget Key light", SECOND.serialEnd);
+      await clickInPluginSettings(page, "Forget Key light", SECOND.id.slice(-4));
 
       await expect
         .poll(() => sentToPlugin(uuid, "forget").map((m) => m.payload))
         .toEqual([{ event: "forget", id: SECOND.id }]);
       await expect
-        .poll(async () => (await pluginSettingsOf(page)).lamps.map((lamp) => lamp.serialEnd))
-        .toEqual([FIRST.serialEnd]);
+        .poll(async () => (await pluginSettingsOf(page)).lamps.map((lamp) => lamp.idEnd))
+        .toEqual([FIRST.id.slice(-4)]);
       await page.close();
     });
 
@@ -2265,15 +2265,15 @@ describe("settings pages", () => {
 
       await expect
         .poll(async () =>
-          (await pluginSettingsOf(page)).lamps.map(({ serialEnd, identify, missing }) => ({
-            serialEnd,
+          (await pluginSettingsOf(page)).lamps.map(({ idEnd, identify, missing }) => ({
+            idEnd,
             identify,
             missing,
           })),
         )
         .toEqual([
-          { serialEnd: FIRST.serialEnd, identify: false, missing: true },
-          { serialEnd: SECOND.serialEnd, identify: true, missing: false },
+          { idEnd: FIRST.id.slice(-4), identify: false, missing: true },
+          { idEnd: SECOND.id.slice(-4), identify: true, missing: false },
         ]);
       expect((await pluginSettingsOf(page)).notes).toEqual(["Not found"]);
       // Identify and "Not found" share their place, so the column keeps its width whichever shows.
@@ -2288,12 +2288,10 @@ describe("settings pages", () => {
       const { page, uuid } = await openPluginSettings({ [FIRST.id]: known(FIRST), [SECOND.id]: known(SECOND) });
 
       await expect
-        .poll(async () =>
-          (await pluginSettingsOf(page)).lamps.map(({ serialEnd, missing }) => ({ serialEnd, missing })),
-        )
+        .poll(async () => (await pluginSettingsOf(page)).lamps.map(({ idEnd, missing }) => ({ idEnd, missing })))
         .toEqual([
-          { serialEnd: FIRST.serialEnd, missing: true },
-          { serialEnd: SECOND.serialEnd, missing: false },
+          { idEnd: FIRST.id.slice(-4), missing: true },
+          { idEnd: SECOND.id.slice(-4), missing: false },
         ]);
       expect(sentToPlugin(uuid, "connected")).toHaveLength(1);
       expect(streamDeck.messages.filter((m) => isLampsRequest(m, uuid))).toHaveLength(0);
@@ -2381,7 +2379,7 @@ function clickEveryDialBlink(page: Page): Promise<void> {
 
 /** A lamp as the plugin knows it, in the global settings (#194), with the name given to it, if any (#146). */
 function known(lamp: ListedLamp, name?: string): KnownLamp {
-  return { model: lamp.model, serialEnd: lamp.serialEnd, ...(name === undefined ? {} : { name }) };
+  return { model: lamp.model, ...(name === undefined ? {} : { name }) };
 }
 
 /** These lamps as the plugin knows them, by id, in the global settings (#194), without names. */
@@ -2530,7 +2528,8 @@ function clickInPicker(page: Page, label: string): Promise<void> {
 }
 
 type PluginSettingsLamp = {
-  serialEnd: string;
+  /** The last 4 characters of its id, which the table shows first. */
+  idEnd: string;
   model: string;
   name: string;
   placeholder: string | null;
@@ -2579,10 +2578,10 @@ function pluginSettingsOf(page: Page): Promise<PluginSettings> {
         .map((button) => button.textContent || button.getAttribute("aria-label")),
       ...(headers.length === 0 ? {} : { headers }),
       lamps: [...container.querySelectorAll("tr.lamp")].map((row) => {
-        const [serialEnd, model] = [...row.children].map((td) => td.textContent);
+        const [idEnd, model] = [...row.children].map((td) => td.textContent);
         const name = row.querySelector("sdpi-textfield");
         return {
-          serialEnd,
+          idEnd,
           model,
           name: name.value ?? "",
           placeholder: name.getAttribute("placeholder"),

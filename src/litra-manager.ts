@@ -10,7 +10,7 @@ import {
 } from "./device";
 
 import { Lamp, type LampState } from "./lamp";
-import { bySerialNumber } from "./lamp-order";
+import { byId } from "./lamp-order";
 import { type LampSelection, selects } from "./lamp-selection";
 import { logger as pluginLogger } from "./logging";
 
@@ -52,12 +52,10 @@ type BrightnessTarget = number | { stepping: Stepping; ticks: number; step: numb
 /** A connected lamp, as a settings page lists it (#20). */
 export type FoundLamp = {
   id: string;
-  /** Its model and the last 4 characters of its serial number, such as "Beam - 7K98". */
+  /** Its model and the end of its id, such as "Beam - c870". */
   label: string;
-  /** Its model, such as "Beam", which the plugin settings list apart from the end of its serial (#146). */
+  /** Its model, such as "Beam", which the plugin settings list apart from the end of its id (#146). */
   model: string;
-  /** The last 4 characters of its serial number, such as "7K98". */
-  serialEnd: string;
 };
 
 const logger = pluginLogger.createScope("Lamps");
@@ -88,8 +86,8 @@ export function useLamps(lamps: ReadonlyMap<string, Lamp>): void {
 }
 
 /**
- * The `Lamp` of a lamp the plugin knows, which takes the lamp's whole serial number the first time it's reached. Every
- * operation acts on known lamps alone, so one it doesn't know is a bug.
+ * The `Lamp` of a lamp found, by the id of the serial number it gave. Every operation acts on known lamps alone, so one
+ * it doesn't know is a bug.
  */
 function lampOf(device: Device): Lamp {
   const lamp = knownLamps.get(Lamp.idOf(device.serialNumber));
@@ -293,12 +291,12 @@ function openGroups<G extends { readonly lamps: LampSelection }>(
     markFound(operation, []);
     return { devices: opened, unidentified: 0 };
   }
-  // In the order of their serial numbers, since litra finds them in an order that changes from one call to the next.
-  // So every operation goes through the lamps in the same order, as the lamp screens and the settings pages list them,
-  // and the first lamp, whose temperature the dials show and step from, is always the same one.
+  // In the order of their ids, since litra finds them in an order that changes from one call to the next. So every
+  // operation goes through the lamps in the same order, as the lamp screens and the settings pages list them, and the
+  // first lamp, whose temperature the dials show and step from, is always the same one.
   const devices = found
     .filter((device) => hasSerialNumber(operation, device))
-    .sort((a, b) => bySerialNumber(a.serialNumber, b.serialNumber));
+    .sort((a, b) => byId(Lamp.idOf(a.serialNumber), Lamp.idOf(b.serialNumber)));
   // Each lamp left out is logged already.
   markFound(
     operation,
@@ -416,7 +414,7 @@ type ReachedLamp<G> = { readonly lamp: Lamp; readonly handle: LampHandle; readon
 
 /** The lamps an operation opened, as {@link openLamps} gives them. */
 type OpenedLamps<G> = {
-  /** The lamps it reached, in the order of their serial numbers, each with its group. */
+  /** The lamps it reached, in the order of their ids, each with its group. */
   readonly lamps: readonly ReachedLamp<G>[];
   /** How many lamps the operation's selection could take in that it couldn't tell apart (see {@link openGroups}). */
   readonly unidentified: number;
@@ -792,7 +790,7 @@ async function moveLampsBrightness(
 
 /**
  * Lists the connected lamps, the ones the plugin doesn't know included, which it adds to the ones it knows (#194),
- * in the order of their serial numbers, as the lamp screens list them (#20), with what the keys' lamp pickers and the plugin settings show
+ * in the order of their ids, as the lamp screens list them (#20), with what the keys' lamp pickers and the plugin settings show
  * of each (#146). Finding a lamp tells its model and serial, or the lamp is asked for its serial alone (#170), so none
  * of the brightness changes has to be waited for. Lists none when finding them fails.
  */
