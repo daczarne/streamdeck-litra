@@ -42,9 +42,9 @@ const AT_THEIR_CAPS = [63, 79];
 const AT_4000_K = { kelvin: 4000, percentage: 34 };
 
 /** How an operation on the two Beams went. */
-const DONE: OperationResult = { ok: true, deviceCount: 2, failures: 0 };
+const DONE: OperationResult = { ok: true, lampCount: 2, failures: 0 };
 const FAILED: OperationResult = { ...DONE, ok: false, failures: 1 };
-const NO_LAMP: OperationResult = { ok: false, deviceCount: 0, failures: 1 };
+const NO_LAMP: OperationResult = { ok: false, lampCount: 0, failures: 1 };
 
 // Lamps as the settings page saves them, by their ids (#20, #194).
 const LAMP_1 = "lamp-1";

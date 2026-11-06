@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-
-import type { LampHandle, LampRange } from "./device";
 import { BRIGHTNESS_CAP_REVERSAL_WINDOW_MS, Lamp } from "./lamp";
+import type { LampHandle, LampRange } from "./lamp-connection";
 import { logger } from "./test-support/fake-logging";
 
 vi.mock("./logging", () => import("./test-support/fake-logging"));

@@ -49,9 +49,9 @@ const BRIGHTNESS = "com.daczarne.litra.brightness";
 const AT_THEIR_CAPS = [63, 79];
 
 /** How an operation on the two Beams went. */
-const DONE: OperationResult = { ok: true, deviceCount: 2, failures: 0 };
+const DONE: OperationResult = { ok: true, lampCount: 2, failures: 0 };
 const FAILED: OperationResult = { ...DONE, ok: false, failures: 1 };
-const NO_LAMP: OperationResult = { ok: false, deviceCount: 0, failures: 1 };
+const NO_LAMP: OperationResult = { ok: false, lampCount: 0, failures: 1 };
 
 /** What a dial shows of {@link AT_THEIR_CAPS}: 79%, with the bar fainter from 63%, which only one lamp passes. */
 const AT_THE_CAPS = {
@@ -251,7 +251,7 @@ describe("BrightnessAction", () => {
   it("shows an alert on a dial pushed when the lamps can't be toggled, and leaves its screen as it was", async () => {
     const dial = await deck.dial(BRIGHTNESS);
     clearCalls();
-    vi.mocked(toggleLamps).mockReturnValue({ ok: false, deviceCount: 0, failures: 1 });
+    vi.mocked(toggleLamps).mockReturnValue({ ok: false, lampCount: 0, failures: 1 });
 
     await deck.push(dial);
 
@@ -343,7 +343,7 @@ describe("BrightnessAction", () => {
     it("blinks the lamp on screen on a hold, and stays on its screen (#20)", async () => {
       const dial = await deck.dial(BRIGHTNESS);
       await deck.tap(dial);
-      vi.mocked(identifyLamp).mockResolvedValue({ ok: true, deviceCount: 1, failures: 0 });
+      vi.mocked(identifyLamp).mockResolvedValue({ ok: true, lampCount: 1, failures: 0 });
 
       await deck.hold(dial);
 
@@ -364,7 +364,7 @@ describe("BrightnessAction", () => {
     it("toggles only the lamp on screen on a push (#20)", async () => {
       const dial = await deck.dial(BRIGHTNESS);
       await deck.tap(dial);
-      vi.mocked(toggleLamps).mockReturnValue({ ok: true, deviceCount: 1, failures: 0 });
+      vi.mocked(toggleLamps).mockReturnValue({ ok: true, lampCount: 1, failures: 0 });
 
       await deck.push(dial);
 
@@ -376,7 +376,7 @@ describe("BrightnessAction", () => {
       const pushed = await deck.dial(BRIGHTNESS);
       const onLamp = await deck.dial(BRIGHTNESS);
       await deck.tap(onLamp);
-      vi.mocked(toggleLamps).mockReturnValue({ ok: true, deviceCount: 1, failures: 0 });
+      vi.mocked(toggleLamps).mockReturnValue({ ok: true, lampCount: 1, failures: 0 });
 
       await deck.push(pushed);
 
@@ -495,8 +495,8 @@ describe("BrightnessAction", () => {
 
   describe("logs", () => {
     beforeEach(() => {
-      vi.mocked(toggleLamps).mockReturnValue({ ok: true, deviceCount: 1, failures: 0 });
-      vi.mocked(identifyLamp).mockResolvedValue({ ok: true, deviceCount: 1, failures: 0 });
+      vi.mocked(toggleLamps).mockReturnValue({ ok: true, lampCount: 1, failures: 0 });
+      vi.mocked(identifyLamp).mockResolvedValue({ ok: true, lampCount: 1, failures: 0 });
     });
 
     it("a key press, with the key's preset, before changing the lamps", async () => {

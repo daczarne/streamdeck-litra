@@ -1,15 +1,5 @@
-import {
-  closeDevice,
-  type Device,
-  findDevices,
-  handleOf,
-  identityOf,
-  type LampHandle,
-  labelOf,
-  readSerialNumber,
-} from "./device";
-
-import { Lamp, type LampState } from "./lamp";
+import type { Lamp, LampState } from "./lamp";
+import { LampConnection, type LampHandle } from "./lamp-connection";
 import { byId } from "./lamp-order";
 import { type LampSelection, selects } from "./lamp-selection";
 import { logger as pluginLogger } from "./logging";
@@ -20,7 +10,7 @@ import { logger as pluginLogger } from "./logging";
  */
 export type OperationResult = {
   readonly ok: boolean;
-  readonly deviceCount: number;
+  readonly lampCount: number;
   readonly failures: number;
 };
 
@@ -89,10 +79,10 @@ export function useLamps(lamps: ReadonlyMap<string, Lamp>): void {
  * The `Lamp` of a lamp found, by the id of the serial number it gave. Every operation acts on known lamps alone, so one
  * it doesn't know is a bug.
  */
-function lampOf(device: Device): Lamp {
-  const lamp = knownLamps.get(Lamp.idOf(device.serialNumber));
+function lampOf(connection: LampConnection): Lamp {
+  const lamp = knownLamps.get(connection.id);
   if (lamp === undefined) {
-    throw new Error(`${labelOf(device)} isn't one of the plugin's lamps`);
+    throw new Error(`${connection.label} isn't one of the plugin's lamps`);
   }
   return lamp;
 }
@@ -133,8 +123,8 @@ function announced<T>(result: T): T {
 }
 
 /** Logs a lamp's part in an operation failing. The other lamps carry on. */
-function logLampFailure(operation: string, device: Device, error: unknown): void {
-  logger.error(`${operation}: ${labelOf(device)} failed: ${String(error)}`);
+function logLampFailure(operation: string, connection: LampConnection, error: unknown): void {
+  logger.error(`${operation}: ${connection.label} failed: ${String(error)}`);
 }
 
 /**
@@ -142,16 +132,13 @@ function logLampFailure(operation: string, device: Device, error: unknown): void
  * own (#170). A lamp whose serial can't be read is logged and closed, and the operation leaves it out: without its
  * serial, it can't be told from another lamp. Returns whether the lamp has its serial.
  */
-function hasSerialNumber(operation: string, device: Device): boolean {
-  if (device.serialNumber !== "") {
-    return true;
-  }
+function isIdentified(operation: string, connection: LampConnection): boolean {
   try {
-    device.serialNumber = readSerialNumber(device);
+    connection.identify();
     return true;
   } catch (error) {
-    logLampFailure(operation, device, error);
-    closeDevice(device);
+    logLampFailure(operation, connection, error);
+    connection.close();
     return false;
   }
 }
@@ -248,11 +235,11 @@ function stepApart<T extends ApartLamp>(lamps: T[], ticks: number, step: number)
  * The lamps an operation opened, and how many lamps it couldn't tell apart that its selection could take in, which it
  * counts as failed lamps (see {@link openGroups}).
  */
-type Opened<T> = { devices: T; unidentified: number };
+type Opened<T> = { connections: T; unidentified: number };
 
 /** Opens every connected lamp, the ones the plugin doesn't know included, to find them. */
-function openEveryDevice(operation: string): Device[] {
-  return [...openGroups(operation, [{ lamps: "all" }], { onlyKnown: false }).devices.keys()];
+function openEveryLamp(operation: string): LampConnection[] {
+  return [...openGroups(operation, [{ lamps: "all" }], { onlyKnown: false }).connections.keys()];
 }
 
 /**
@@ -271,59 +258,57 @@ function openGroups<G extends { readonly lamps: LampSelection }>(
   operation: string,
   groups: readonly G[],
   { onlyKnown = true }: { onlyKnown?: boolean } = {},
-): Opened<Map<Device, G>> {
-  const opened = new Map<Device, G>();
+): Opened<Map<LampConnection, G>> {
+  const opened = new Map<LampConnection, G>();
   if (groups.every(({ lamps }) => Array.isArray(lamps) && lamps.length === 0)) {
     logger.warn(`${operation}: no lamp selected`);
-    return { devices: opened, unidentified: 0 };
+    return { connections: opened, unidentified: 0 };
   }
-  let found: Device[];
+  let found: LampConnection[];
   try {
-    found = findDevices();
+    found = LampConnection.findAll();
   } catch (error) {
     logger.error(`${operation}: finding the lamps failed: ${String(error)}`);
     // It found none, so none is connected as far as the plugin can tell (#198).
     markFound(operation, []);
-    return { devices: opened, unidentified: 0 };
+    return { connections: opened, unidentified: 0 };
   }
   if (found.length === 0) {
     logger.warn(`${operation}: no lamps found`);
     markFound(operation, []);
-    return { devices: opened, unidentified: 0 };
+    return { connections: opened, unidentified: 0 };
   }
   // In the order of their ids, since litra finds them in an order that changes from one call to the next. So every
   // operation goes through the lamps in the same order, as the lamp screens and the settings pages list them, and the
   // first lamp, whose temperature the dials show and step from, is always the same one.
-  const devices = found
-    .filter((device) => hasSerialNumber(operation, device))
-    .sort((a, b) => byId(Lamp.idOf(a.serialNumber), Lamp.idOf(b.serialNumber)));
+  const identified = found.filter((connection) => isIdentified(operation, connection)).sort((a, b) => byId(a.id, b.id));
   // Each lamp left out is logged already.
   markFound(
     operation,
-    devices.map(({ serialNumber }) => Lamp.idOf(serialNumber)),
+    identified.map(({ id }) => id),
   );
   const takesInAny = onlyKnown && groups.some(({ lamps }) => !Array.isArray(lamps));
-  const unidentified = takesInAny ? found.length - devices.length : 0;
-  if (devices.length === 0) {
-    return { devices: opened, unidentified };
+  const unidentified = takesInAny ? found.length - identified.length : 0;
+  if (identified.length === 0) {
+    return { connections: opened, unidentified };
   }
   const known = (id: string): boolean => !onlyKnown || knownLamps.has(id);
   const connected: string[] = [];
-  for (const device of devices) {
-    const id = Lamp.idOf(device.serialNumber);
+  for (const connection of identified) {
+    const { id } = connection;
     const group = known(id) ? groups.find(({ lamps }) => selects(lamps, id)) : undefined;
     if (known(id)) {
       connected.push(id);
     }
     if (group === undefined) {
-      closeDevice(device);
+      connection.close();
     } else {
-      opened.set(device, group);
+      opened.set(connection, group);
     }
   }
   if (connected.length === 0) {
     logger.warn(`${operation}: none of the lamps connected is one of the plugin's lamps`);
-    return { devices: opened, unidentified };
+    return { connections: opened, unidentified };
   }
   for (const { lamps } of groups) {
     if (lamps === "all") {
@@ -343,7 +328,7 @@ function openGroups<G extends { readonly lamps: LampSelection }>(
       }
     }
   }
-  return { devices: opened, unidentified };
+  return { connections: opened, unidentified };
 }
 
 /**
@@ -401,13 +386,13 @@ export function onConnectedChanged(listener: (ids: string[]) => void | Promise<v
  * What an operation did, from the lamps it acted on and how many of them failed, counting the lamps it couldn't tell
  * apart as failed lamps (see {@link openGroups}).
  */
-function outcome(deviceCount: number, failures: number, unidentified: number): OperationResult {
+function outcome(lampCount: number, failures: number, unidentified: number): OperationResult {
   const failed = failures + unidentified;
-  return { ok: failed === 0, deviceCount: deviceCount + unidentified, failures: failed };
+  return { ok: failed === 0, lampCount: lampCount + unidentified, failures: failed };
 }
 
 /** What an operation that opened no lamp did: it failed. */
-const NO_LAMP: OperationResult = { ok: false, deviceCount: 0, failures: 1 };
+const NO_LAMP: OperationResult = { ok: false, lampCount: 0, failures: 1 };
 
 /** A lamp an operation opened and reached: its `Lamp`, the handle it acts on its lamp through, and its group. */
 type ReachedLamp<G> = { readonly lamp: Lamp; readonly handle: LampHandle; readonly group: G };
@@ -440,8 +425,8 @@ function openLamps<G extends { readonly lamps: LampSelection }>(
   operation: string,
   groups: readonly G[],
 ): OpenedLamps<G> | undefined {
-  const { devices, unidentified } = openGroups(operation, groups);
-  if (devices.size === 0) {
+  const { connections, unidentified } = openGroups(operation, groups);
+  if (connections.size === 0) {
     return undefined;
   }
   const failed = new Set<Lamp>();
@@ -452,12 +437,11 @@ function openLamps<G extends { readonly lamps: LampSelection }>(
     }
   };
   const lamps: ReachedLamp<G>[] = [];
-  for (const [device, group] of devices) {
-    const lamp = lampOf(device);
+  for (const [connection, group] of connections) {
+    const lamp = lampOf(connection);
     try {
-      const handle = handleOf(device);
-      lamp.reach(operation, handle);
-      lamps.push({ lamp, handle, group });
+      lamp.reach(operation, connection);
+      lamps.push({ lamp, handle: connection, group });
     } catch (error) {
       fail(lamp, error);
     }
@@ -479,10 +463,10 @@ function openLamps<G extends { readonly lamps: LampSelection }>(
       }
     },
     fail,
-    outcome: () => outcome(devices.size, failed.size, unidentified),
+    outcome: () => outcome(connections.size, failed.size, unidentified),
     close() {
-      for (const device of devices.keys()) {
-        closeDevice(device);
+      for (const connection of connections.keys()) {
+        connection.close();
       }
     },
   };
@@ -795,15 +779,12 @@ async function moveLampsBrightness(
  * of the brightness changes has to be waited for. Lists none when finding them fails.
  */
 export function findLamps(): FoundLamp[] {
-  const devices = openEveryDevice("find lamps");
+  const connections = openEveryLamp("find lamps");
   try {
-    return devices.map((device) => {
-      const identity = identityOf(device);
-      return { ...identity, label: Lamp.labelOf(identity) };
-    });
+    return connections.map(({ id, model, label }) => ({ id, model, label }));
   } finally {
-    for (const device of devices) {
-      closeDevice(device);
+    for (const connection of connections) {
+      connection.close();
     }
   }
 }

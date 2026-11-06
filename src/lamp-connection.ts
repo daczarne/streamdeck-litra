@@ -1,13 +1,14 @@
 /**
- * The only module that imports `litra` (#198). It finds the lamps connected, opens and closes them, and gives what the
- * plugin needs from a lamp over HID: `litra`'s commands, and the reads the plugin makes itself where `litra` falls
- * short, such as a brightness above 255 lm and a Beam LX's serial number. So whatever lies under it can change without
- * touching the rest of the plugin.
+ * The only module that imports `litra` (#198). It finds the lamps connected, and opens each one as a `LampConnection`,
+ * which gives what the plugin needs from a lamp over HID: `litra`'s commands, and the reads the plugin makes itself
+ * where `litra` falls short, such as a brightness above 255 lm and a Beam LX's serial number. Nothing outside it sees
+ * `litra`'s types, so whatever lies under it can change without touching the rest of the plugin.
  */
 
 import {
   type Device,
   DeviceType,
+  findDevices,
   getAllowedTemperaturesInKelvinForDevice,
   getMaximumBrightnessInLumenForDevice,
   getMinimumBrightnessInLumenForDevice,
@@ -22,16 +23,6 @@ import {
 import { Lamp } from "./lamp";
 import { logger as pluginLogger } from "./logging";
 
-export {
-  type Device,
-  findDevices,
-  getAllowedTemperaturesInKelvinForDevice,
-  getMaximumBrightnessInLumenForDevice,
-  getMinimumBrightnessInLumenForDevice,
-  getTemperatureInKelvin,
-  isOn,
-} from "litra";
-
 /** What a lamp can be set to: its brightness, from its dimmest to its brightest, in lumens, and its temperatures. */
 export type LampRange = {
   readonly minLumen: number;
@@ -40,9 +31,8 @@ export type LampRange = {
 };
 
 /**
- * A lamp opened for one operation, as a `Lamp` acts on it (#198): what it reads from the lamp and writes to it over
- * HID, each write's ACK drained, so a read that follows gets its reply, with the path it's plugged in at, and its
- * range. It's only good until the operation closes the lamp.
+ * A lamp opened for one operation, as a `Lamp` acts on it (#198): what it reads from the lamp and writes to it, with
+ * the path it's plugged in at, and its range. A `LampConnection` is one, and a `Lamp`'s tests give it a fake one.
  */
 export type LampHandle = {
   readonly path: string;
@@ -92,55 +82,9 @@ const ERROR_REPORT = 0xff;
 // A lamp answers a request within a few ms, so a lamp that hasn't answered by then won't.
 const REPLY_TIMEOUT_MS = 500;
 
-/** A lamp's model, as the plugin names it, such as "Beam". */
-function modelOf(device: Device): string {
-  return MODEL_BY_DEVICE_TYPE[device.type];
-}
-
-/** What identifies a lamp found, as the global settings would keep it. */
-export function identityOf(device: Device): Pick<Lamp, "id" | "model"> {
-  return { id: Lamp.idOf(device.serialNumber), model: modelOf(device) };
-}
-
-/**
- * A lamp found as a `Lamp` names it, or by its model alone while it has no serial number to tell it by, such as a
- * Beam LX that hasn't given it yet (#170).
- */
-export function labelOf(device: Device): string {
-  return device.serialNumber === "" ? modelOf(device) : Lamp.labelOf(identityOf(device));
-}
-
 /** A lamp's HID handle with the methods node-hid has at runtime, which litra's type leaves out. */
 function asHid(device: Device): ClosableHid {
   return device.hid as ClosableHid;
-}
-
-/**
- * Reads the ACK a write leaves on the handle, so that a read on the same handle afterwards gets its reply rather than
- * the ACK: litra's isOn and getTemperatureInKelvin take the first report that arrives. Every write gets an ACK within a
- * few ms, so the drain returns as soon as it arrives, and an ACK left on a handle is gone once the handle closes
- * (`scripts/probes/write-reports.mjs`, #96). A lamp just turned on is read right after, on the same handle.
- */
-function drainAck(device: Device): void {
-  try {
-    asHid(device).readTimeout(50);
-  } catch {
-    // nothing pending
-  }
-}
-
-/** Closes a lamp's handle, which litra's type leaves out, and logs a close that fails. */
-export function closeDevice(device: Device): void {
-  try {
-    asHid(device).close();
-  } catch (error) {
-    logger.warn(`Closing ${labelOf(device)} failed: ${String(error)}`);
-  }
-}
-
-/** Where a lamp is plugged in: the path the system gave it, which changes each time it's plugged in. */
-export function plugPath(device: Device): string {
-  return asHid(device).getDeviceInfo().path ?? "";
 }
 
 /** Pads a report with zeros to the length a lamp expects. */
@@ -158,7 +102,7 @@ function padRight(values: number[], length: number): number[] {
  * It also takes the first report that arrives, which can be an ACK or a change notice instead of the reply, so this
  * skips every report that isn't the reply.
  */
-export function getBrightnessInLumenSafe(device: Device): number {
+function getBrightnessInLumenSafe(device: Device): number {
   const featureIndex = device.type === DeviceType.LitraBeamLX ? 0x06 : 0x04;
   device.hid.write(padRight([0x11, 0xff, featureIndex, 0x31], 20));
   for (let skipped = 0; skipped <= MAX_SKIPPED_REPORTS; skipped += 1) {
@@ -201,7 +145,7 @@ function request(device: Device, featureIndex: number, fn: number, parameters: n
  * Asks a lamp for the serial number it keeps itself, through its Device Information feature (#170). A Beam LX needs
  * it: its USB descriptor declares a serial number, but gives none.
  */
-export function readSerialNumber(device: Device): string {
+function readSerialNumber(device: Device): string {
   const [index = 0] = request(device, ROOT_FEATURE_INDEX, ROOT_GET_FEATURE, [
     DEVICE_INFORMATION_FEATURE >> 8,
     DEVICE_INFORMATION_FEATURE & 0xff,
@@ -218,33 +162,133 @@ export function readSerialNumber(device: Device): string {
   return serialNumber;
 }
 
-/** The handle a `Lamp` acts on its lamp through, for a lamp an operation opened. */
-export function handleOf(device: Device): LampHandle {
-  return {
-    path: plugPath(device),
-    range: {
-      minLumen: getMinimumBrightnessInLumenForDevice(device),
-      maxLumen: getMaximumBrightnessInLumenForDevice(device),
-      allowedKelvin: getAllowedTemperaturesInKelvinForDevice(device),
-    },
-    isOn: () => isOn(device),
-    switchPower: (on) => {
-      if (on) {
-        turnOn(device);
-      } else {
-        turnOff(device);
-      }
-      drainAck(device);
-    },
-    readBrightness: () => getBrightnessInLumenSafe(device),
-    writeBrightness: (lumen) => {
-      setBrightnessInLumen(device, lumen);
-      drainAck(device);
-    },
-    readTemperature: () => getTemperatureInKelvin(device),
-    writeTemperature: (kelvin) => {
-      setTemperatureInKelvin(device, kelvin);
-      drainAck(device);
-    },
-  };
+/**
+ * A lamp plugged in, opened for one operation (#198): found by {@link LampConnection.findAll}, used, and closed once
+ * the operation is done, after which it's good for nothing. It names the lamp by what it gives: its model, and the
+ * serial number of its USB descriptor, or the one the lamp keeps itself (see {@link LampConnection.identify}). Each
+ * write's ACK is drained, so a read that follows on the same connection gets its reply.
+ */
+export class LampConnection implements LampHandle {
+  /** The model, as the plugin names it, such as "Beam". */
+  readonly model: string;
+
+  /** Opens a lamp `litra` found. The plugin opens them with {@link LampConnection.findAll}. */
+  constructor(private readonly device: Device) {
+    this.model = MODEL_BY_DEVICE_TYPE[device.type];
+  }
+
+  /** Opens every lamp plugged in, in the order `litra` finds them, which changes from one call to the next. */
+  static findAll(): LampConnection[] {
+    return findDevices().map((device) => new LampConnection(device));
+  }
+
+  /**
+   * Whether the lamp has a serial number to tell it by: the one its USB descriptor gives, or the one it was asked for.
+   * A Beam LX gives none until it's asked (#170).
+   */
+  get isIdentified(): boolean {
+    return this.device.serialNumber !== "";
+  }
+
+  /**
+   * Asks a lamp found without a serial number, such as a Beam LX, for the one it keeps itself, so that it has an id
+   * (#170). Does nothing for a lamp that has one, and fails when the lamp can't give it.
+   */
+  identify(): void {
+    if (!this.isIdentified) {
+      this.device.serialNumber = readSerialNumber(this.device);
+    }
+  }
+
+  /** The lamp's id (see {@link Lamp.idOf}), which only a lamp identified has. */
+  get id(): string {
+    if (!this.isIdentified) {
+      throw new Error(`${this.label} has no serial number to tell it by`);
+    }
+    return Lamp.idOf(this.device.serialNumber);
+  }
+
+  /** The lamp as a `Lamp` names it, or by its model alone while it isn't identified. */
+  get label(): string {
+    return this.isIdentified ? Lamp.labelOf({ model: this.model, id: this.id }) : this.model;
+  }
+
+  /** Where the lamp is plugged in: the path the system gave it, which changes each time it's plugged in. */
+  get path(): string {
+    return this.hid.getDeviceInfo().path ?? "";
+  }
+
+  /** What the lamp can be set to, as `litra` gives it for its model. */
+  get range(): LampRange {
+    return {
+      minLumen: getMinimumBrightnessInLumenForDevice(this.device),
+      maxLumen: getMaximumBrightnessInLumenForDevice(this.device),
+      allowedKelvin: getAllowedTemperaturesInKelvinForDevice(this.device),
+    };
+  }
+
+  /** Whether the lamp is on. */
+  isOn(): boolean {
+    return isOn(this.device);
+  }
+
+  /** Turns the lamp on or off. */
+  switchPower(on: boolean): void {
+    if (on) {
+      turnOn(this.device);
+    } else {
+      turnOff(this.device);
+    }
+    this.drainAck();
+  }
+
+  /** The lamp's brightness, in lumens, read from both of its bytes (see {@link getBrightnessInLumenSafe}). */
+  readBrightness(): number {
+    return getBrightnessInLumenSafe(this.device);
+  }
+
+  /** Sets the lamp's brightness, in lumens. */
+  writeBrightness(lumen: number): void {
+    setBrightnessInLumen(this.device, lumen);
+    this.drainAck();
+  }
+
+  /** The lamp's temperature, in kelvin. */
+  readTemperature(): number {
+    return getTemperatureInKelvin(this.device);
+  }
+
+  /** Sets the lamp's temperature, in kelvin. */
+  writeTemperature(kelvin: number): void {
+    setTemperatureInKelvin(this.device, kelvin);
+    this.drainAck();
+  }
+
+  /** Closes the lamp, and logs a close that fails. */
+  close(): void {
+    try {
+      this.hid.close();
+    } catch (error) {
+      logger.warn(`Closing ${this.label} failed: ${String(error)}`);
+    }
+  }
+
+  /** The lamp's HID handle with the methods node-hid has at runtime, which litra's type leaves out. */
+  private get hid(): ClosableHid {
+    return asHid(this.device);
+  }
+
+  /**
+   * Reads the ACK a write leaves on the handle, so that a read on the same handle afterwards gets its reply rather
+   * than the ACK: litra's isOn and getTemperatureInKelvin take the first report that arrives. Every write gets an ACK
+   * within a few ms, so the drain returns as soon as it arrives, and an ACK left on a handle is gone once the handle
+   * closes (`scripts/probes/write-reports.mjs`, #96). A lamp just turned on is read right after, on the same handle.
+   */
+  private drainAck(): void {
+    try {
+      this.hid.readTimeout(50);
+    } catch {
+      // nothing pending
+    }
+  }
 }

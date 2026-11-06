@@ -51,9 +51,9 @@ const SNAPPED = { kelvin: 4000, percentage: 34 };
 const TEMPERATURE_SNAPPED = { title: "Temperature", value: "4000", indicator: 34 };
 
 /** How an operation on two Beams went. */
-const DONE: OperationResult = { ok: true, deviceCount: 2, failures: 0 };
+const DONE: OperationResult = { ok: true, lampCount: 2, failures: 0 };
 const FAILED: OperationResult = { ...DONE, ok: false, failures: 1 };
-const NO_LAMP: OperationResult = { ok: false, deviceCount: 0, failures: 1 };
+const NO_LAMP: OperationResult = { ok: false, lampCount: 0, failures: 1 };
 
 const UNKNOWN_TEMPERATURE = { title: "Temperature", value: "—", indicator: 0 };
 
@@ -253,7 +253,7 @@ describe("TemperatureAction", () => {
   it("shows an alert on a dial pushed when the lamps can't be toggled, and leaves its screen as it was", async () => {
     const dial = await deck.dial(TEMPERATURE);
     clearCalls();
-    vi.mocked(toggleLamps).mockReturnValue({ ok: false, deviceCount: 0, failures: 1 });
+    vi.mocked(toggleLamps).mockReturnValue({ ok: false, lampCount: 0, failures: 1 });
 
     await deck.push(dial);
 
@@ -344,7 +344,7 @@ describe("TemperatureAction", () => {
     it("blinks the lamp on screen on a hold, and stays on its screen (#20)", async () => {
       const dial = await deck.dial(TEMPERATURE);
       await deck.tap(dial);
-      vi.mocked(identifyLamp).mockResolvedValue({ ok: true, deviceCount: 1, failures: 0 });
+      vi.mocked(identifyLamp).mockResolvedValue({ ok: true, lampCount: 1, failures: 0 });
 
       await deck.hold(dial);
 
@@ -365,7 +365,7 @@ describe("TemperatureAction", () => {
     it("toggles only the lamp on screen on a push (#20)", async () => {
       const dial = await deck.dial(TEMPERATURE);
       await deck.tap(dial);
-      vi.mocked(toggleLamps).mockReturnValue({ ok: true, deviceCount: 1, failures: 0 });
+      vi.mocked(toggleLamps).mockReturnValue({ ok: true, lampCount: 1, failures: 0 });
 
       await deck.push(dial);
 
@@ -377,7 +377,7 @@ describe("TemperatureAction", () => {
       const pushed = await deck.dial(TEMPERATURE);
       const onLamp = await deck.dial(TEMPERATURE);
       await deck.tap(onLamp);
-      vi.mocked(toggleLamps).mockReturnValue({ ok: true, deviceCount: 1, failures: 0 });
+      vi.mocked(toggleLamps).mockReturnValue({ ok: true, lampCount: 1, failures: 0 });
 
       await deck.push(pushed);
 
@@ -489,8 +489,8 @@ describe("TemperatureAction", () => {
 
   describe("logs", () => {
     beforeEach(() => {
-      vi.mocked(toggleLamps).mockReturnValue({ ok: true, deviceCount: 1, failures: 0 });
-      vi.mocked(identifyLamp).mockResolvedValue({ ok: true, deviceCount: 1, failures: 0 });
+      vi.mocked(toggleLamps).mockReturnValue({ ok: true, lampCount: 1, failures: 0 });
+      vi.mocked(identifyLamp).mockResolvedValue({ ok: true, lampCount: 1, failures: 0 });
     });
 
     it("a key press, with the key's preset, before changing the lamps", async () => {

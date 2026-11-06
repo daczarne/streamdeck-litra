@@ -50,7 +50,7 @@ const LAMPS = [
 beforeEach(() => {
   ui.sendToPropertyInspector.mockResolvedValue();
   vi.mocked(findLamps).mockReturnValue(LAMPS);
-  vi.mocked(identifyLamp).mockResolvedValue({ ok: true, deviceCount: 1, failures: 0 });
+  vi.mocked(identifyLamp).mockResolvedValue({ ok: true, lampCount: 1, failures: 0 });
 });
 
 //* Tests
