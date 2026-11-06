@@ -2,7 +2,8 @@ import type { DialAction, FeedbackPayload, KeyAction } from "@elgato/streamdeck"
 import type { JsonObject } from "@elgato/utils";
 import type { Logger } from "@elgato/utils/logging";
 import { globalSettings } from "../global-settings";
-import { type LampSelection, type OperationResult, type Stepping, toggleLamps } from "../litra-manager";
+import type { LampSelection } from "../lamp-selection";
+import { type OperationResult, type Stepping, toggleLamps } from "../litra-manager";
 import { ActionInstance, type DeckControl, RoutingAction } from "./action-instance";
 import { createDialDebouncer } from "./debouncer";
 import { LampScreen } from "./lamp-screens";

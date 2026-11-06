@@ -17,7 +17,8 @@ import {
 } from "./actions/settings";
 import { Lamp } from "./lamp";
 import type { LampIdentity } from "./lamp-identity";
-import { findLamps, type LampSelection, reachEveryLamp, type Stepping, useLamps } from "./litra-manager";
+import type { LampSelection } from "./lamp-selection";
+import { findLamps, reachEveryLamp, type Stepping, useLamps } from "./litra-manager";
 import { logger as pluginLogger } from "./logging";
 
 /** A text's look on the lamp screens: its color, and its font's size and weight (#153). */

@@ -1,10 +1,12 @@
 import { action, type KeyAction } from "@elgato/streamdeck";
 import type { JsonObject } from "@elgato/utils";
 import { globalSettings } from "../global-settings";
-import { areLampsOn, type LampSelection, toggleLamps, turnLampsOff, turnLampsOn } from "../litra-manager";
+import type { LampSelection } from "../lamp-selection";
+import { toggleLamps, turnLampsOff, turnLampsOn } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
 import { ActionInstance, type DeckControl, RoutingAction } from "./action-instance";
 import { describeLamps, type Parsed, parseSettings, powerSettings } from "./settings";
+import { areLampsOn } from "./shown";
 
 const logger = pluginLogger.createScope("Power");
 
@@ -79,7 +81,6 @@ class PowerKey extends ActionInstance<Parsed<typeof powerSettings>, KeyAction<Js
 
   /** Shows the key's state: on (1) only if there is a lamp among its own and every one is on. */
   private async showState(): Promise<void> {
-    const { allOn, deviceCount } = await areLampsOn(this.lamps());
-    await this.control.setState(deviceCount > 0 && allOn ? 1 : 0);
+    await this.control.setState((await areLampsOn(this.lamps())) ? 1 : 0);
   }
 }

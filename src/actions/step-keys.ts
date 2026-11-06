@@ -2,15 +2,8 @@ import { action, type KeyAction } from "@elgato/streamdeck";
 import type { JsonObject } from "@elgato/utils";
 import type { Logger } from "@elgato/utils/logging";
 import { globalSettings } from "../global-settings";
-import {
-  adjustLampsBrightness,
-  adjustLampsTemperature,
-  type LampSelection,
-  type OperationResult,
-  readLampsBrightness,
-  readLampsTemperature,
-  type Stepping,
-} from "../litra-manager";
+import type { LampSelection } from "../lamp-selection";
+import { adjustLampsBrightness, adjustLampsTemperature, type OperationResult, type Stepping } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
 import { ActionInstance, type DeckControl, RoutingAction } from "./action-instance";
 import { createDialDebouncer } from "./debouncer";
@@ -21,6 +14,7 @@ import {
   parseSettings,
   temperatureStepSettings,
 } from "./settings";
+import { readLampsBrightness, readLampsTemperature } from "./shown";
 
 /** A step key's settings: its step, and its lamps. */
 type StepConfig = { step: number; lamps: CheckedLamps; leftOutLamps: readonly string[] };

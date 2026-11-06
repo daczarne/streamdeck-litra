@@ -12,6 +12,7 @@ import {
 import type { Lamp, LampState } from "./lamp";
 import { lampId, lampLabel } from "./lamp-identity";
 import { bySerialNumber } from "./lamp-order";
+import { type LampSelection, selects } from "./lamp-selection";
 import { logger as pluginLogger } from "./logging";
 
 /**
@@ -23,16 +24,6 @@ export type OperationResult = {
   readonly deviceCount: number;
   readonly failures: number;
 };
-
-/** A lamp's temperature as a dial shows it: in kelvin, and as its place between the lowest and the highest. */
-export type TemperatureShown = { readonly kelvin: number; readonly percentage: number };
-
-/**
- * Which lamps an operation acts on, among the ones the plugin knows (see {@link useLamps}): every one connected, the
- * ones with these ids (see {@link Lamp.id}, #20), or every one connected but the ones with these ids, which takes in lamps
- * added later (#147).
- */
-export type LampSelection = "all" | readonly string[] | { readonly except: readonly string[] };
 
 /**
  * A group of a scene (#174): the lamps it acts on, and whether it turns them on, at a brightness, in % of their range,
@@ -68,19 +59,6 @@ export type FoundLamp = {
   model: string;
   /** The last 4 characters of its serial number, such as "7K98". */
   serialEnd: string;
-};
-
-/** What a lamp screen shows about one lamp (#48). */
-export type LampStatus = {
-  id: string;
-  serialNumber: string;
-  model: string;
-  /** Its name on the Deck, as on the keys' settings pages, such as "Beam - 7K98" (see {@link FoundLamp}). */
-  label: string;
-  on: boolean;
-  brightnessLumen: number;
-  brightnessPercentage: number;
-  temperatureKelvin: number;
 };
 
 const logger = pluginLogger.createScope("Lamps");
@@ -269,14 +247,6 @@ function stepApart<T extends ApartLamp>(lamps: T[], ticks: number, step: number)
   return state.map((lamp) => lamp.asked);
 }
 
-/** Whether a selection takes in the lamp with this id. */
-function selects(lamps: LampSelection, id: string): boolean {
-  if (lamps === "all") {
-    return true;
-  }
-  return "except" in lamps ? !lamps.except.includes(id) : lamps.includes(id);
-}
-
 /**
  * The lamps an operation opened, and how many lamps it couldn't tell apart that its selection could take in, which it
  * counts as failed lamps (see {@link openGroups}).
@@ -389,25 +359,6 @@ function stateOf(lamp: Lamp): LampState {
     throw new Error(`${lamp.logLabel} has no state before it's reached`);
   }
   return state;
-}
-
-/** A lamp the plugin holds a state of, with its serial number, which reaching it learned. */
-type HeldLamp = { lamp: Lamp; state: LampState; serialNumber: string };
-
-/**
- * The lamps a selection takes in, among the ones the plugin knows that the last operation found and that it holds a
- * state of, in the order of their serial numbers (#198). It's what the keys and dials show, and it reads nothing: the
- * plugin's state is the lamps' state.
- */
-function heldLamps(lamps: LampSelection): HeldLamp[] {
-  const held: HeldLamp[] = [];
-  for (const lamp of knownLamps.values()) {
-    const { state, serialNumber } = lamp;
-    if (lamp.isConnected && state !== undefined && serialNumber !== undefined && selects(lamps, lamp.id)) {
-      held.push({ lamp, state, serialNumber });
-    }
-  }
-  return held.sort((a, b) => bySerialNumber(a.serialNumber, b.serialNumber));
 }
 
 /**
@@ -571,6 +522,25 @@ export function reachEveryLamp(): OperationResult {
   return announced(forEachLamp("start", () => {}, "all"));
 }
 
+/**
+ * Reaches every lamp the plugin knows that's connected, for a tap on a dial's strip, which shows the lamps one by one
+ * (#48), so it never shows a lamp unplugged since the last operation, and reads one plugged in since. Waits for the
+ * brightness change in progress, if any, which holds the lamps open until it has read them back. Tells no key or dial,
+ * since it changes no lamp.
+ */
+export async function reachLampsForLampScreen(): Promise<OperationResult> {
+  await brightnessChanges;
+  return forEachLamp("lamp screen", () => {}, "all");
+}
+
+/**
+ * Waits for the brightness change in progress, if any, so that what the keys and dials show of the lamps is where it
+ * leaves them, not partway (see `src/actions/shown.ts`).
+ */
+export async function lampsSettled(): Promise<void> {
+  await brightnessChanges;
+}
+
 /** Turns the selected lamps on. */
 export function turnLampsOn(lamps: LampSelection): OperationResult {
   const operation = "turn on";
@@ -604,20 +574,6 @@ export function toggleLamps(lamps: LampSelection): OperationResult {
   } finally {
     opened.close();
   }
-}
-
-/**
- * On only if at least one selected device and every one reports on. Waits for the brightness change in progress, if
- * any, which holds the lamps open until it has read them back.
- */
-export async function areLampsOn(lamps: LampSelection): Promise<{ ok: boolean; allOn: boolean; deviceCount: number }> {
-  await brightnessChanges;
-  const held = heldLamps(lamps);
-  return {
-    ok: held.length > 0,
-    allOn: held.length > 0 && held.every(({ state }) => state.on),
-    deviceCount: held.length,
-  };
 }
 
 /** Ensures a lamp is on before a brightness change, which only shows on a lit lamp. */
@@ -836,38 +792,6 @@ async function moveLampsBrightness(
 }
 
 /**
- * The brightness of each lamp a selection takes in, as a percentage of its range, in the order of their serial numbers,
- * as the plugin holds them (#198). Waits for the brightness change in progress, if any, so it reports where it left
- * them.
- */
-export async function readLampsBrightness(lamps: LampSelection): Promise<number[]> {
-  await brightnessChanges;
-  return heldLamps(lamps).map(({ lamp, state }) => lamp.brightnessPercentage(state.lumen));
-}
-
-/**
- * Reads every lamp the plugin knows for the lamp screens, in the order of their serial numbers, as every operation goes
- * through them. A lamp that can't be read is left out. Waits for the brightness change in progress, if any, which holds the lamps open
- * until it has read them back.
- */
-export async function readLampStatuses(): Promise<{ ok: boolean; lamps: LampStatus[] }> {
-  await brightnessChanges;
-  const operation = "read lamp status";
-  const result = forEachLamp(operation, () => {}, "all");
-  const lamps = heldLamps("all").map(({ lamp, state, serialNumber }) => ({
-    id: lamp.id,
-    serialNumber,
-    model: lamp.model,
-    label: lamp.label,
-    on: state.on,
-    brightnessLumen: state.lumen,
-    brightnessPercentage: lamp.brightnessPercentage(state.lumen),
-    temperatureKelvin: state.kelvin,
-  }));
-  return { ok: result.ok, lamps };
-}
-
-/**
  * Lists the connected lamps, the ones the plugin doesn't know included, which it adds to the ones it knows (#194),
  * in the order of their serial numbers, as the lamp screens list them (#20), with what the keys' lamp pickers and the plugin settings show
  * of each (#146). Finding a lamp tells its model and serial, or the lamp is asked for its serial alone (#170), so none
@@ -1002,17 +926,4 @@ function adjustTemperaturesApart(
   } finally {
     opened.close();
   }
-}
-
-/**
- * The temperature of the first lamp a selection takes in, in the order of their serial numbers, which the dials and
- * keys show, as the plugin holds it (#198), or undefined when none is connected. Waits for the brightness change in
- * progress, if any, so it reports where it left the lamps.
- */
-export async function readLampsTemperature(lamps: LampSelection): Promise<TemperatureShown | undefined> {
-  await brightnessChanges;
-  const first = heldLamps(lamps)[0];
-  return first === undefined
-    ? undefined
-    : { kelvin: first.state.kelvin, percentage: first.lamp.temperaturePercentage(first.state.kelvin) };
 }

@@ -1,9 +1,10 @@
 import { action } from "@elgato/streamdeck";
 import { globalSettings } from "../global-settings";
-import { adjustLampsTemperature, readLampsTemperature, setLampsTemperature } from "../litra-manager";
+import { adjustLampsTemperature, setLampsTemperature } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
 import { type Measure, MeasureAction, type Preset } from "./measure";
 import { parseSettings, temperatureSettings } from "./settings";
+import { readLampsTemperature } from "./shown";
 
 /** What a Temperature key sets its lamps to: its preset, in kelvin, which each lamp snaps to one it allows. */
 const PRESET: Preset = {

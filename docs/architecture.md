@@ -101,6 +101,8 @@ Each one holds its key or dial, as the SDK hands it, and its settings as a `conf
 
 It logs what was found and what was left out, while each `Lamp` logs what its lamp did (see [the logging document][logging]).
 
+What the Deck shows isn't its job. `src/lamps-shown.ts` works it out from the `Lamp`s alone: whether a key's lamps are all on, their brightness and temperature, and what each lamp's lamp screen shows, among the lamps a selection takes in that the last operation found. The keys and dials read it through `src/actions/shown.ts`, which first waits for the brightness change in progress, if any (`lampsSettled`), so nothing shows a lamp partway through one. A tap on a dial's strip is the only one that finds the lamps first, through `litra-manager`, so it never shows a lamp unplugged since the last operation. A redraw shows what the `Lamp`s hold, as every key does.
+
 ## Why litra, not litra-rs
 
 Two libraries speak the lamps' protocol, both by Tim Rogers: `litra`, in TypeScript on `node-hid`, and [`litra-rs`][litra-rs], in Rust, with a CLI and an MCP server. `litra-rs` is the only one that drives the Beam LX's back light. But every way of using it from a Node plugin adds something to own:

@@ -1,9 +1,10 @@
 import { action } from "@elgato/streamdeck";
 import { globalSettings } from "../global-settings";
-import { adjustLampsBrightness, readLampsBrightness, setLampsBrightness } from "../litra-manager";
+import { adjustLampsBrightness, setLampsBrightness } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
 import { type Measure, MeasureAction, type Preset } from "./measure";
 import { brightnessSettings, parseSettings } from "./settings";
+import { readLampsBrightness } from "./shown";
 
 // Where fewer lamps reach, the bar fades from white towards this grey, never as far as the bar's own background, and
 // light enough to read on the strip.

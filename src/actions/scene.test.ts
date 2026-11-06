@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { followGlobalSettings } from "../global-settings";
-import { type LampSelection, setLampsScene } from "../litra-manager";
+import type { LampSelection } from "../lamp-selection";
+import { setLampsScene } from "../litra-manager";
 import { logger } from "../logging";
 import { at } from "../test-support/at";
 import { FakeDeck } from "../test-support/fake-deck";

@@ -1,7 +1,8 @@
 import { action, type KeyAction } from "@elgato/streamdeck";
 import type { JsonObject } from "@elgato/utils";
 import { globalSettings } from "../global-settings";
-import { type LampSelection, type SceneGroup, setLampsScene } from "../litra-manager";
+import type { LampSelection } from "../lamp-selection";
+import { type SceneGroup, setLampsScene } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
 import { ActionInstance, type DeckControl, RoutingAction } from "./action-instance";
 import { describeLamps, type Parsed, parseSettings, sceneGroupSettings, sceneSettings } from "./settings";

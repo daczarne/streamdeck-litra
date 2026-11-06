@@ -3,12 +3,14 @@ import type { JsonObject } from "@elgato/utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { followGlobalSettings } from "../global-settings";
-import { identifyLamp, type LampStatus, readLampStatuses } from "../litra-manager";
+import type { LampStatus } from "../lamps-shown";
+import { identifyLamp } from "../litra-manager";
 import { logger } from "../logging";
 import { at } from "../test-support/at";
 import { changeGlobalSettings, createFakeDial } from "../test-support/fake-stream-deck";
 import { LampScreen, MAIN_LAYOUT } from "./lamp-screens";
 import { globalSettings } from "./settings";
+import { findLampStatuses, readLampStatuses } from "./shown";
 
 //* Fakes
 
@@ -18,11 +20,13 @@ vi.mock("@elgato/streamdeck", () => import("../test-support/fake-stream-deck"));
 // The real logger writes to a logs/ folder.
 vi.mock("../logging", () => import("../test-support/fake-logging"));
 
+// What the keys and dials show of the lamps, which each test sets.
+vi.mock("./shown", () => ({ findLampStatuses: vi.fn(), readLampStatuses: vi.fn() }));
+
 // The real litra-manager loads node-hid's native binary on import and talks to real lamps.
 vi.mock("../litra-manager", () => ({
   findLamps: vi.fn(() => []),
   identifyLamp: vi.fn(),
-  readLampStatuses: vi.fn(),
   reachEveryLamp: vi.fn(),
   useLamps: vi.fn(),
 }));
@@ -49,7 +53,7 @@ function beam(serialNumber: string, overrides: Partial<LampStatus> = {}): LampSt
 
 /** Connects the lamps, which readLampStatuses reports sorted by serial number. */
 function connect(...lamps: LampStatus[]): void {
-  vi.mocked(readLampStatuses).mockResolvedValue({ ok: lamps.length > 0, lamps });
+  vi.mocked(readLampStatuses).mockResolvedValue(lamps);
 }
 
 // The looks every text on a lamp screen is given, and how a slot left out of its cell is hidden (#177).
@@ -137,6 +141,8 @@ beforeEach(() => {
   screens = new Map();
   showMain = vi.fn(async () => {});
   connect(A, B);
+  // A tap finds the lamps, then shows what the plugin holds of them, which each test sets as readLampStatuses.
+  vi.mocked(findLampStatuses).mockImplementation(() => readLampStatuses());
 });
 
 //* Tests
@@ -727,6 +733,19 @@ describe("LampScreen", () => {
       await refreshAll();
 
       expect(dial.setFeedback).toHaveBeenLastCalledWith(expect.objectContaining({ middleRight: shown("ON") }));
+    });
+
+    it("shows what the plugin holds of the lamps, while a tap finds them first (#198)", async () => {
+      const dial = createFakeDial();
+      await screenOf(dial).tap();
+
+      expect(findLampStatuses).toHaveBeenCalledOnce();
+
+      vi.mocked(findLampStatuses).mockClear();
+      await screenOf(dial).refresh();
+
+      expect(findLampStatuses).not.toHaveBeenCalled();
+      expect(dial.setFeedback).toHaveBeenLastCalledWith(lampScreenOf(A, 1, 2));
     });
 
     it("doesn't read the lamps on the main screen, which the dial draws", async () => {

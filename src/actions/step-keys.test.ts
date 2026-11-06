@@ -1,18 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { followGlobalSettings } from "../global-settings";
-import {
-  adjustLampsBrightness,
-  adjustLampsTemperature,
-  type OperationResult,
-  onLampsChanged,
-  readLampsBrightness,
-  readLampsTemperature,
-} from "../litra-manager";
+import { adjustLampsBrightness, adjustLampsTemperature, type OperationResult, onLampsChanged } from "../litra-manager";
 import { logger } from "../logging";
 import { at } from "../test-support/at";
 import { FakeDeck } from "../test-support/fake-deck";
 import { changeGlobalSettings } from "../test-support/fake-stream-deck";
 import { createDialDebouncer } from "./debouncer";
+import { readLampsBrightness, readLampsTemperature } from "./shown";
 import { BrightnessDownAction, BrightnessUpAction, TemperatureDownAction, TemperatureUpAction } from "./step-keys";
 
 //* Fakes
@@ -25,14 +19,15 @@ vi.mock("../logging", () => import("../test-support/fake-logging"));
 // The debouncer gathers what each test says, without the timing its own tests check.
 vi.mock("./debouncer", () => ({ createDialDebouncer: vi.fn() }));
 
+// What the keys and dials show of the lamps, which each test sets.
+vi.mock("./shown", () => ({ readLampsBrightness: vi.fn(), readLampsTemperature: vi.fn() }));
+
 // The real litra-manager loads node-hid's native binary on import and talks to real lamps.
 vi.mock("../litra-manager", () => ({
   adjustLampsBrightness: vi.fn(),
   adjustLampsTemperature: vi.fn(),
   findLamps: vi.fn(() => []),
   onLampsChanged: vi.fn(),
-  readLampsBrightness: vi.fn(),
-  readLampsTemperature: vi.fn(),
   reachEveryLamp: vi.fn(),
   useLamps: vi.fn(),
 }));

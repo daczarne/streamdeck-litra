@@ -9,9 +9,11 @@ import {
   type TextStyles,
 } from "../global-settings";
 import { bySerialNumber } from "../lamp-order";
-import { identifyLamp, type LampStatus, readLampStatuses } from "../litra-manager";
+import type { LampStatus } from "../lamps-shown";
+import { identifyLamp } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
 import { LAMP_SCREEN_CELLS, type LampScreenCell, type LampScreenItem, type LampScreenItemOptions } from "./settings";
+import { findLampStatuses, readLampStatuses } from "./shown";
 
 /** What a lamp screen uses of its dial, whichever action it belongs to. */
 export type LampScreenDial = Pick<
@@ -78,7 +80,7 @@ export class LampScreen {
    */
   tap(): Promise<void> {
     return this.enqueue(async () => {
-      const { lamps } = await readLampStatuses();
+      const lamps = await findLampStatuses();
       const current = this.shown?.serialNumber;
       if (current === undefined && lamps.length === 0) {
         await this.dial.showAlert();
@@ -109,8 +111,8 @@ export class LampScreen {
   }
 
   /**
-   * Redraws the lamp on screen from a fresh read, or goes back to the main screen when it's no longer connected. Does
-   * nothing on the main screen, which the dial draws.
+   * Redraws the lamp on screen, from what the plugin holds, or goes back to the main screen when the last operation
+   * didn't find it. Does nothing on the main screen, which the dial draws.
    */
   refresh(): Promise<void> {
     return this.enqueue(async () => {
@@ -118,7 +120,7 @@ export class LampScreen {
       if (shown === undefined) {
         return;
       }
-      const { lamps } = await readLampStatuses();
+      const lamps = await readLampStatuses();
       const lamp = lamps.find((candidate) => candidate.serialNumber === shown.serialNumber);
       if (lamp === undefined) {
         await this.backToMain();

@@ -1,13 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { followGlobalSettings } from "../global-settings";
+import type { LampStatus } from "../lamps-shown";
 import {
   adjustLampsTemperature,
   identifyLamp,
-  type LampStatus,
   type OperationResult,
   onLampsChanged,
-  readLampStatuses,
-  readLampsTemperature,
   setLampsTemperature,
   toggleLamps,
 } from "../litra-manager";
@@ -17,6 +15,7 @@ import { FakeDeck } from "../test-support/fake-deck";
 import { changeGlobalSettings } from "../test-support/fake-stream-deck";
 import { createDialDebouncer } from "./debouncer";
 import { globalSettings } from "./settings";
+import { findLampStatuses, readLampStatuses, readLampsTemperature } from "./shown";
 import { TemperatureAction } from "./temperature";
 
 //* Fakes
@@ -29,14 +28,15 @@ vi.mock("../logging", () => import("../test-support/fake-logging"));
 // The debouncer gathers what each test says, without the timing its own tests check.
 vi.mock("./debouncer", () => ({ createDialDebouncer: vi.fn() }));
 
+// What the keys and dials show of the lamps, which each test sets.
+vi.mock("./shown", () => ({ findLampStatuses: vi.fn(), readLampStatuses: vi.fn(), readLampsTemperature: vi.fn() }));
+
 // The real litra-manager loads node-hid's native binary on import and talks to real lamps.
 vi.mock("../litra-manager", () => ({
   adjustLampsTemperature: vi.fn(),
   findLamps: vi.fn(() => []),
   identifyLamp: vi.fn(),
   onLampsChanged: vi.fn(),
-  readLampStatuses: vi.fn(),
-  readLampsTemperature: vi.fn(),
   reachEveryLamp: vi.fn(),
   useLamps: vi.fn(),
   setLampsTemperature: vi.fn(),
@@ -84,7 +84,9 @@ beforeEach(() => {
   vi.mocked(createDialDebouncer).mockImplementation((flush) => (ticks) => void flush(ticks));
   // The lamps, as a dial that appears or returns to its main screen reads them, and as the lamp screens read them.
   vi.mocked(readLampsTemperature).mockResolvedValue(SNAPPED);
-  vi.mocked(readLampStatuses).mockResolvedValue({ ok: true, lamps: [BEAM] });
+  vi.mocked(readLampStatuses).mockResolvedValue([BEAM]);
+  // A tap finds the lamps, then shows what the plugin holds of them, which each test sets as readLampStatuses.
+  vi.mocked(findLampStatuses).mockImplementation(() => readLampStatuses());
   const temperature = new TemperatureAction();
   const listener = vi.mocked(onLampsChanged).mock.lastCall?.[0];
   if (listener === undefined) {
@@ -399,7 +401,7 @@ describe("TemperatureAction", () => {
       vi.mocked(createDialDebouncer).mockImplementation((flush) => (ticks) => {
         waiting.push(() => flush(ticks));
       });
-      vi.mocked(readLampStatuses).mockResolvedValue({ ok: true, lamps: [BEAM, OTHER_BEAM] });
+      vi.mocked(readLampStatuses).mockResolvedValue([BEAM, OTHER_BEAM]);
       vi.mocked(adjustLampsTemperature).mockReturnValue(DONE);
       const dial = await deck.dial(TEMPERATURE, { stepKelvin: 100 });
 
@@ -436,7 +438,7 @@ describe("TemperatureAction", () => {
     it("goes back to the main screen when the lamp on screen is no longer connected", async () => {
       const dial = await deck.dial(TEMPERATURE);
       await deck.tap(dial);
-      vi.mocked(readLampStatuses).mockResolvedValue({ ok: true, lamps: [OTHER_BEAM] });
+      vi.mocked(readLampStatuses).mockResolvedValue([OTHER_BEAM]);
 
       await lampsChanged();
 
