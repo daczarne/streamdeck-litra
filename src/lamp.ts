@@ -1,5 +1,5 @@
+import { createHash } from "node:crypto";
 import type { LampHandle, LampRange } from "./device";
-import { type LampIdentity, lampId, lampLabel, lampLogLabel } from "./lamp-identity";
 import { logger as pluginLogger } from "./logging";
 
 const logger = pluginLogger.createScope("Lamps");
@@ -25,8 +25,8 @@ function pause(ms: number): void {
 }
 
 /**
- * One lamp the plugin knows, and what the plugin holds of it (#198): who it is, as the global settings keep it, its
- * whole serial number once an operation has reached it, its state, as the plugin last set it and the lamp reported it,
+ * One lamp the plugin knows, and what the plugin holds of it (#198): who it is, as the global settings keep it (#194),
+ * and the name given to it (#146), its whole serial number once an operation has reached it, its state, as the plugin last set it and the lamp reported it,
  * the brightness it can reach on a low-power supply, its brightness cap (#55), when it may still go back to that cap,
  * and what it was last asked for when it's kept apart from the others (#145). It changes its lamp through the handle an
  * operation lends it, and acts on its own lamp alone. It forgets all but who it is when the plugin restarts.
@@ -54,12 +54,39 @@ export class Lamp {
   private lampRange: LampRange | undefined;
   private found = false;
 
-  /** A lamp, as the global settings keep it, which no operation has reached yet. */
-  constructor({ id, model, serialEnd, name }: LampIdentity) {
+  /**
+   * A lamp, by what the global settings keep of it, which no operation has reached yet, with no name until it's given
+   * one.
+   */
+  constructor({ id, model, serialEnd }: Pick<Lamp, "id" | "model" | "serialEnd">) {
     this.id = id;
     this.model = model;
     this.serialEnd = serialEnd;
-    this.lampName = name;
+  }
+
+  /**
+   * A lamp's id, from its serial number: the first 16 hex characters of its SHA-256. It tells lamps apart wherever the
+   * plugin names a lamp outside its own process, such as a key's settings, which travel with an exported profile,
+   * without revealing the serial (#20).
+   */
+  static idOf(serialNumber: string): string {
+    return createHash("sha256").update(serialNumber).digest("hex").slice(0, 16);
+  }
+
+  /**
+   * A lamp as the logs name it, such as "Beam …7K98": enough to tell lamps apart without writing the whole serial to a
+   * file that may be shared (#41). It names a lamp found that has no `Lamp` yet as well.
+   */
+  static logLabelOf({ model, serialEnd }: Pick<Lamp, "model" | "serialEnd">): string {
+    return `${model} …${serialEnd}`;
+  }
+
+  /**
+   * A lamp as the Deck and the settings pages name it, such as "Beam - 7K98", with a hyphen rather than the logs' "…",
+   * which reads poorly there (#20). It names a lamp found that has no `Lamp` yet as well.
+   */
+  static labelOf({ model, serialEnd }: Pick<Lamp, "model" | "serialEnd">): string {
+    return `${model} - ${serialEnd}`;
   }
 
   /** The name given to the lamp in the plugin settings, or undefined when it has none (#146). */
@@ -67,8 +94,8 @@ export class Lamp {
     return this.lampName;
   }
 
-  /** Names the lamp, or takes its name away with undefined. The global settings are its only caller. */
-  rename(name: string | undefined): void {
+  /** Names the lamp, or takes its name away with undefined. The global settings are its only writer. */
+  set name(name: string | undefined) {
     this.lampName = name;
   }
 
@@ -82,26 +109,20 @@ export class Lamp {
    * bug: the operations find a lamp's `Lamp` by the id of its serial number.
    */
   reachedAs(serialNumber: string): void {
-    if (lampId(serialNumber) !== this.id) {
+    if (Lamp.idOf(serialNumber) !== this.id) {
       throw new Error(`Serial number …${serialNumber.slice(-4)} isn't lamp ${this.id}'s`);
     }
     this.wholeSerialNumber = serialNumber;
   }
 
-  /**
-   * The lamp as the logs name it, such as "Beam …7K98": enough to tell lamps apart without writing the whole serial to
-   * a file that may be shared (#41).
-   */
+  /** The lamp as the logs name it, such as "Beam …7K98" (see {@link Lamp.logLabelOf}). */
   get logLabel(): string {
-    return lampLogLabel(this);
+    return Lamp.logLabelOf(this);
   }
 
-  /**
-   * The lamp as the Deck and the settings pages name it, such as "Beam - 7K98", with a hyphen rather than the logs'
-   * "…", which reads poorly there (#20).
-   */
+  /** The lamp as the Deck and the settings pages name it, such as "Beam - 7K98" (see {@link Lamp.labelOf}). */
   get label(): string {
-    return lampLabel(this);
+    return Lamp.labelOf(this);
   }
 
   /**

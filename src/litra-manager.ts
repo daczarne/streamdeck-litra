@@ -9,8 +9,7 @@ import {
   readSerialNumber,
 } from "./device";
 
-import type { Lamp, LampState } from "./lamp";
-import { lampId, lampLabel } from "./lamp-identity";
+import { Lamp, type LampState } from "./lamp";
 import { bySerialNumber } from "./lamp-order";
 import { type LampSelection, selects } from "./lamp-selection";
 import { logger as pluginLogger } from "./logging";
@@ -93,7 +92,7 @@ export function useLamps(lamps: ReadonlyMap<string, Lamp>): void {
  * operation acts on known lamps alone, so one it doesn't know is a bug.
  */
 function lampOf(device: Device): Lamp {
-  const lamp = knownLamps.get(lampId(device.serialNumber));
+  const lamp = knownLamps.get(Lamp.idOf(device.serialNumber));
   if (lamp === undefined) {
     throw new Error(`${logLabelOf(device)} isn't one of the plugin's lamps`);
   }
@@ -303,7 +302,7 @@ function openGroups<G extends { readonly lamps: LampSelection }>(
   // Each lamp left out is logged already.
   markFound(
     operation,
-    devices.map(({ serialNumber }) => lampId(serialNumber)),
+    devices.map(({ serialNumber }) => Lamp.idOf(serialNumber)),
   );
   const takesInAny = onlyKnown && groups.some(({ lamps }) => !Array.isArray(lamps));
   const unidentified = takesInAny ? found.length - devices.length : 0;
@@ -313,7 +312,7 @@ function openGroups<G extends { readonly lamps: LampSelection }>(
   const known = (id: string): boolean => !onlyKnown || knownLamps.has(id);
   const connected: string[] = [];
   for (const device of devices) {
-    const id = lampId(device.serialNumber);
+    const id = Lamp.idOf(device.serialNumber);
     const group = known(id) ? groups.find(({ lamps }) => selects(lamps, id)) : undefined;
     if (known(id)) {
       connected.push(id);
@@ -802,7 +801,7 @@ export function findLamps(): FoundLamp[] {
   try {
     return devices.map((device) => {
       const identity = identityOf(device);
-      return { ...identity, label: lampLabel(identity) };
+      return { ...identity, label: Lamp.labelOf(identity) };
     });
   } finally {
     for (const device of devices) {

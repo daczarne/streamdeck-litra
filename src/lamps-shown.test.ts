@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { LampHandle, LampRange } from "./device";
 import { Lamp, type LampState } from "./lamp";
-import { lampId } from "./lamp-identity";
 import { allLampsOn, brightnessPercentages, lampStatuses, temperatureShown } from "./lamps-shown";
 
 //* Fakes
@@ -38,14 +37,14 @@ function handleAt(serialNumber: string, state: LampState): LampHandle {
 /** A Beam the plugin knows, by the end of its serial number, as the last operation found it at a state. */
 function held(serialEnd: string, state: Partial<LampState> = {}): Lamp {
   const serialNumber = `2541AB01${serialEnd}`;
-  const lamp = new Lamp({ id: lampId(serialNumber), model: "Beam", serialEnd });
+  const lamp = new Lamp({ id: Lamp.idOf(serialNumber), model: "Beam", serialEnd });
   lamp.reach("test", handleAt(serialNumber, { ...HALF, ...state }));
   return lamp;
 }
 
 /** A lamp the plugin knows that no operation has reached since it started, so it holds no state. */
 function neverReached(serialEnd: string): Lamp {
-  return new Lamp({ id: lampId(`2541AB01${serialEnd}`), model: "Beam", serialEnd });
+  return new Lamp({ id: Lamp.idOf(`2541AB01${serialEnd}`), model: "Beam", serialEnd });
 }
 
 //* Tests

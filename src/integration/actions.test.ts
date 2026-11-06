@@ -4,7 +4,7 @@ import type { JsonObject } from "@elgato/utils";
 import { afterEach, beforeEach, describe, expect, inject, it, vi } from "vitest";
 
 import { LAMP_SCREEN_CELLS } from "../actions/settings";
-import { lampId } from "../lamp-identity";
+import { Lamp } from "../lamp";
 import { at } from "../test-support/at";
 import { loadOnEmulatedLamps } from "../test-support/emulated-lamps";
 import { EmulatedLitra } from "../test-support/emulated-litra";
@@ -387,7 +387,7 @@ describe("the Scene key", () => {
       addedGroups: [
         {
           power: "off",
-          lamps: [lampId(center.serialNumber)],
+          lamps: [Lamp.idOf(center.serialNumber)],
         },
       ],
     });
@@ -408,9 +408,9 @@ describe("the Scene key", () => {
     const key = await deck.key(SCENE, {
       presetPercentage: 100,
       presetKelvin: 6500,
-      lamps: [lampId(first.serialNumber)],
+      lamps: [Lamp.idOf(first.serialNumber)],
       leftOutLamps: [],
-      addedGroups: [{ power: "on", presetPercentage: 10, presetKelvin: 2700, lamps: [lampId(second.serialNumber)] }],
+      addedGroups: [{ power: "on", presetPercentage: 10, presetKelvin: 2700, lamps: [Lamp.idOf(second.serialNumber)] }],
     });
     plugIn(first, second, added);
 
@@ -430,8 +430,8 @@ describe("the Scene key", () => {
     const key = await deck.key(SCENE, {
       presetPercentage: 100,
       presetKelvin: 6500,
-      lamps: [lampId(first.serialNumber), lampId(second.serialNumber)],
-      addedGroups: [{ power: "on", presetPercentage: 10, presetKelvin: 2700, lamps: [lampId(second.serialNumber)] }],
+      lamps: [Lamp.idOf(first.serialNumber), Lamp.idOf(second.serialNumber)],
+      addedGroups: [{ power: "on", presetPercentage: 10, presetKelvin: 2700, lamps: [Lamp.idOf(second.serialNumber)] }],
     });
     plugIn(first, second, added);
 
@@ -664,7 +664,7 @@ describe("the lamp screens", () => {
   it("show the name a lamp was given in the plugin settings, in a cell set to show it (#177)", async () => {
     const { first, dial } = await onFirstLampScreen();
 
-    sdk.sendToPlugin({ event: "rename", id: lampId(first.serialNumber), name: "Key light" });
+    sdk.sendToPlugin({ event: "rename", id: Lamp.idOf(first.serialNumber), name: "Key light" });
     await saveFromPage({ lampScreenOptions: { topLeft: { identification: { first: "name", second: "empty" } } } });
     await vi.runAllTimersAsync();
 
@@ -973,13 +973,13 @@ describe("the plugin's state is the lamps' state (#198)", () => {
 
     expect(at(sdk.sentToPropertyInspector(), -1)).toEqual({
       event: "connected",
-      ids: [lampId(first.serialNumber), lampId(second.serialNumber)],
+      ids: [Lamp.idOf(first.serialNumber), Lamp.idOf(second.serialNumber)],
     });
 
     connect(first);
     await deck.press(key);
 
-    expect(at(sdk.sentToPropertyInspector(), -1)).toEqual({ event: "connected", ids: [lampId(first.serialNumber)] });
+    expect(at(sdk.sentToPropertyInspector(), -1)).toEqual({ event: "connected", ids: [Lamp.idOf(first.serialNumber)] });
   });
 
   it("reads a lamp again once it's plugged in again, which may come back in another state", async () => {
@@ -1140,7 +1140,7 @@ describe("a Beam and a Beam LX together (#100)", () => {
 describe("lamps picked on a key's settings page (#20)", () => {
   /** A lamp as the settings page saves it: its id (#194). */
   function picked(lamp: EmulatedLitra) {
-    return lampId(lamp.serialNumber);
+    return Lamp.idOf(lamp.serialNumber);
   }
 
   /** A lamp as the plugin lists it for a page: its id and label, with its model and the end of its serial (#146). */
@@ -1208,7 +1208,7 @@ describe("lamps picked on a key's settings page (#20)", () => {
 
     expect(at(sdk.sentToPropertyInspector(), -1)).toEqual({ event: "lamps", lamps: [listed(first), listed(second)] });
 
-    sdk.sendToPlugin({ event: "identify", id: lampId(second.serialNumber) });
+    sdk.sendToPlugin({ event: "identify", id: Lamp.idOf(second.serialNumber) });
     await vi.runAllTimersAsync();
 
     expect([first.writes("power"), second.writes("power")]).toEqual([[], [0, 1]]);
@@ -1219,7 +1219,7 @@ describe("lamps picked on a key's settings page (#20)", () => {
     plugIn(lamp);
 
     await saveFromPage({ identifyBlinkMs: 1000 });
-    sdk.sendToPlugin({ event: "identify", id: lampId(lamp.serialNumber) });
+    sdk.sendToPlugin({ event: "identify", id: Lamp.idOf(lamp.serialNumber) });
     await vi.advanceTimersByTimeAsync(999);
 
     expect(lamp.writes("power")).toEqual([0]);
@@ -1270,14 +1270,14 @@ describe("the lamps the plugin knows (#194)", () => {
 
     expect(await sdk.default.settings.getGlobalSettings()).toEqual({
       identifyBlinkMs: 600,
-      lamps: { [lampId("SERIAL-A")]: { model: MODEL, serialEnd: "AL-A" } },
+      lamps: { [Lamp.idOf("SERIAL-A")]: { model: MODEL, serialEnd: "AL-A" } },
     });
   });
 
   it("are renamed from the plugin settings, with the name trimmed, and lose their name once it's cleared (#146)", async () => {
     const lamp = newLamp({ serialNumber: "SERIAL-A" });
     plugIn(lamp);
-    const id = lampId(lamp.serialNumber);
+    const id = Lamp.idOf(lamp.serialNumber);
 
     sdk.sendToPlugin({ event: "rename", id, name: "  Key light  " });
     await vi.runAllTimersAsync();
@@ -1301,7 +1301,7 @@ describe("the lamps the plugin knows (#194)", () => {
     ];
     plugIn(forgotten, kept);
     const key = await deck.key(POWER, { mode: "on" });
-    const id = lampId(forgotten.serialNumber);
+    const id = Lamp.idOf(forgotten.serialNumber);
     sdk.sendToPlugin({ event: "rename", id, name: "Key light" });
 
     sdk.sendToPlugin({ event: "forget", id });
@@ -1309,7 +1309,7 @@ describe("the lamps the plugin knows (#194)", () => {
 
     expect([forgotten.on, kept.on]).toEqual([false, true]);
     expect(await sdk.default.settings.getGlobalSettings()).toEqual({
-      lamps: { [lampId(kept.serialNumber)]: { model: MODEL, serialEnd: "AL-B" } },
+      lamps: { [Lamp.idOf(kept.serialNumber)]: { model: MODEL, serialEnd: "AL-B" } },
     });
 
     sdk.sendToPlugin({ event: "lamps" });
@@ -1319,7 +1319,7 @@ describe("the lamps the plugin knows (#194)", () => {
     expect(await sdk.default.settings.getGlobalSettings()).toEqual({
       lamps: {
         [id]: { model: MODEL, serialEnd: "AL-A" },
-        [lampId(kept.serialNumber)]: { model: MODEL, serialEnd: "AL-B" },
+        [Lamp.idOf(kept.serialNumber)]: { model: MODEL, serialEnd: "AL-B" },
       },
     });
   });
@@ -1329,8 +1329,8 @@ describe("the lamps the plugin knows (#194)", () => {
     await vi.runAllTimersAsync();
     const before = await sdk.default.settings.getGlobalSettings();
 
-    sdk.sendToPlugin({ event: "rename", id: lampId("UNKNOWN"), name: "Key light" });
-    sdk.sendToPlugin({ event: "forget", id: lampId("UNKNOWN") });
+    sdk.sendToPlugin({ event: "rename", id: Lamp.idOf("UNKNOWN"), name: "Key light" });
+    sdk.sendToPlugin({ event: "forget", id: Lamp.idOf("UNKNOWN") });
     await vi.runAllTimersAsync();
 
     expect(await sdk.default.settings.getGlobalSettings()).toEqual(before);
@@ -1380,7 +1380,7 @@ describe("keys and dials whose lamps can't be reached", () => {
     const key = await deck.key(POWER, {
       mode: "on",
       lamps: [],
-      leftOutLamps: [lampId(first.serialNumber), lampId(second.serialNumber)],
+      leftOutLamps: [Lamp.idOf(first.serialNumber), Lamp.idOf(second.serialNumber)],
     });
 
     await deck.press(key);
@@ -1393,7 +1393,7 @@ describe("keys and dials whose lamps can't be reached", () => {
     await saveFromPage({ addNewLamps: false });
     const [unplugged, other] = [newLamp({ on: false }), newLamp({ on: false })];
     plugIn(unplugged, other);
-    const key = await deck.key(POWER, { mode: "on", lamps: [lampId(unplugged.serialNumber)] });
+    const key = await deck.key(POWER, { mode: "on", lamps: [Lamp.idOf(unplugged.serialNumber)] });
     connect(other);
 
     await deck.press(key);

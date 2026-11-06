@@ -16,7 +16,6 @@ import {
   type TextStyleName,
 } from "./actions/settings";
 import { Lamp } from "./lamp";
-import type { LampIdentity } from "./lamp-identity";
 import type { LampSelection } from "./lamp-selection";
 import { findLamps, reachEveryLamp, type Stepping, useLamps } from "./litra-manager";
 import { logger as pluginLogger } from "./logging";
@@ -74,9 +73,11 @@ export class GlobalSettings {
     for (const [id, saved] of Object.entries(this.parsed.lamps)) {
       const lamp = this.knownLamps.get(id);
       if (lamp === undefined) {
-        this.knownLamps.set(id, new Lamp({ id, ...saved }));
+        const known = new Lamp({ id, model: saved.model, serialEnd: saved.serialEnd });
+        known.name = saved.name;
+        this.knownLamps.set(id, known);
       } else if (lamp.name !== saved.name) {
-        lamp.rename(saved.name);
+        lamp.name = saved.name;
       }
     }
     for (const listener of this.listeners) {
@@ -110,7 +111,7 @@ export class GlobalSettings {
    * Adds the lamps found that the plugin doesn't know to the ones it knows (#194), and saves them. Saves nothing when
    * every lamp found is known already.
    */
-  async addLamps(found: readonly LampIdentity[]): Promise<void> {
+  async addLamps(found: readonly Pick<Lamp, "id" | "model" | "serialEnd">[]): Promise<void> {
     const added = found.filter(({ id }) => !this.knownLamps.has(id));
     if (added.length === 0) {
       return;
@@ -139,7 +140,7 @@ export class GlobalSettings {
     }
     // The name field sends every key typed, so a line for each would bury the others.
     logger.debug(trimmed === "" ? `Lamp ${lamp.label}'s name taken away` : `Lamp ${lamp.label} named "${trimmed}"`);
-    lamp.rename(trimmed === "" ? undefined : trimmed);
+    lamp.name = trimmed === "" ? undefined : trimmed;
     await this.saveLamps();
   }
 
