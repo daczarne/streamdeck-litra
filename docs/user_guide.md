@@ -146,7 +146,7 @@ If something else doesn't work, [an issue][issues] with the plugin's log helps. 
 - On macOS: `~/Library/Application Support/com.elgato.StreamDeck/Plugins/com.daczarne.litra.sdPlugin/logs/`
 - On Windows: `%APPDATA%\Elgato\StreamDeck\Plugins\com.daczarne.litra.sdPlugin\logs\`
 
-They name each lamp by its model and the end of its id, never by its serial number, so they can be posted as they are.
+They name each lamp by its model and the end of its id, never by its serial number. An error's stack, which some lines carry, shows where the plugin is installed, with your user name on the computer, which you may want to replace before posting.
 
 [hardware]: ../README.md#supported-hardware
 [installing]: ../README.md#installing
