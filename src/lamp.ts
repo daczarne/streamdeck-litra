@@ -25,21 +25,19 @@ function pause(ms: number): void {
 }
 
 /**
- * One lamp the plugin knows, and what the plugin holds of it (#198): who it is, as the global settings keep it (#194),
- * and the name given to it (#146), its whole serial number once an operation has reached it, its state, as the plugin last set it and the lamp reported it,
- * the brightness it can reach on a low-power supply, its brightness cap (#55), when it may still go back to that cap,
- * and what it was last asked for when it's kept apart from the others (#145). It changes its lamp through the handle an
+ * One lamp the plugin knows, and what the plugin holds of it (#198): who it is, its id and model, as the global
+ * settings keep them (#194), and the name given to it (#146), its state, as the plugin last set it and the lamp reported
+ * it, the brightness it can reach on a low-power supply, its brightness cap (#55), when it may still go back to that
+ * cap, and what it was last asked for when it's kept apart from the others (#145). It never holds the lamp's serial
+ * number, only its id. It changes its lamp through the handle an
  * operation lends it, and acts on its own lamp alone. It forgets all but who it is when the plugin restarts.
  */
 export class Lamp {
-  /** The lamp's id, from its serial number, as the settings and the pages name it. */
+  /** The lamp's id, from its serial number (see {@link Lamp.idOf}), by which the plugin knows it everywhere. */
   readonly id: string;
   /** The lamp's model, such as "Beam". */
   readonly model: string;
-  /** The last 4 characters of the lamp's serial number, which the global settings keep. */
-  readonly serialEnd: string;
   private lampName: string | undefined;
-  private wholeSerialNumber: string | undefined;
   // The brightness cap learned, with the path the lamp had then: a lamp only moves to another power supply by being
   // plugged in again, which gives it a new path, so a cap learned at another path is forgotten.
   private brightnessCap: { path: string; lumen: number } | undefined;
@@ -58,35 +56,43 @@ export class Lamp {
    * A lamp, by what the global settings keep of it, which no operation has reached yet, with no name until it's given
    * one.
    */
-  constructor({ id, model, serialEnd }: Pick<Lamp, "id" | "model" | "serialEnd">) {
+  constructor({ id, model }: Pick<Lamp, "id" | "model">) {
     this.id = id;
     this.model = model;
-    this.serialEnd = serialEnd;
   }
 
   /**
-   * A lamp's id, from its serial number: the first 16 hex characters of its SHA-256. It tells lamps apart wherever the
-   * plugin names a lamp outside its own process, such as a key's settings, which travel with an exported profile,
-   * without revealing the serial (#20).
+   * A lamp's id, from its serial number: the first 16 hex characters of its SHA-256. The plugin reads the serial from
+   * the lamp on every operation, and finds the lamp's `Lamp` by this id, the only thing it keeps of the serial. It names
+   * the lamp wherever the plugin does, such as a key's settings, which travel with an exported profile, without
+   * revealing the serial (#20).
    */
   static idOf(serialNumber: string): string {
     return createHash("sha256").update(serialNumber).digest("hex").slice(0, 16);
   }
 
   /**
-   * A lamp as the logs name it, such as "Beam …7K98": enough to tell lamps apart without writing the whole serial to a
-   * file that may be shared (#41). It names a lamp found that has no `Lamp` yet as well.
+   * The end of a lamp's id that the Deck, the pages and the logs show: its last 4 characters, enough to tell a few
+   * lamps apart. It matches nothing printed on the lamp, which the plugin settings' Identify tells apart instead.
    */
-  static logLabelOf({ model, serialEnd }: Pick<Lamp, "model" | "serialEnd">): string {
-    return `${model} …${serialEnd}`;
+  static idEndOf(id: string): string {
+    return id.slice(-4);
   }
 
   /**
-   * A lamp as the Deck and the settings pages name it, such as "Beam - 7K98", with a hyphen rather than the logs' "…",
+   * A lamp as the logs name it, such as "Beam …c870": its model and the end of its id (#41). It names a lamp found
+   * that has no `Lamp` yet as well.
+   */
+  static logLabelOf({ model, id }: Pick<Lamp, "model" | "id">): string {
+    return `${model} …${Lamp.idEndOf(id)}`;
+  }
+
+  /**
+   * A lamp as the Deck and the settings pages name it, such as "Beam - c870", with a hyphen rather than the logs' "…",
    * which reads poorly there (#20). It names a lamp found that has no `Lamp` yet as well.
    */
-  static labelOf({ model, serialEnd }: Pick<Lamp, "model" | "serialEnd">): string {
-    return `${model} - ${serialEnd}`;
+  static labelOf({ model, id }: Pick<Lamp, "model" | "id">): string {
+    return `${model} - ${Lamp.idEndOf(id)}`;
   }
 
   /** The name given to the lamp in the plugin settings, or undefined when it has none (#146). */
@@ -99,28 +105,12 @@ export class Lamp {
     this.lampName = name;
   }
 
-  /** The lamp's whole serial number, once an operation has reached it, which the global settings don't keep. */
-  get serialNumber(): string | undefined {
-    return this.wholeSerialNumber;
-  }
-
-  /**
-   * Takes the whole serial number of the lamp an operation reached. Throws when it isn't this lamp's, which would be a
-   * bug: the operations find a lamp's `Lamp` by the id of its serial number.
-   */
-  reachedAs(serialNumber: string): void {
-    if (Lamp.idOf(serialNumber) !== this.id) {
-      throw new Error(`Serial number …${serialNumber.slice(-4)} isn't lamp ${this.id}'s`);
-    }
-    this.wholeSerialNumber = serialNumber;
-  }
-
-  /** The lamp as the logs name it, such as "Beam …7K98" (see {@link Lamp.logLabelOf}). */
+  /** The lamp as the logs name it, such as "Beam …c870" (see {@link Lamp.logLabelOf}). */
   get logLabel(): string {
     return Lamp.logLabelOf(this);
   }
 
-  /** The lamp as the Deck and the settings pages name it, such as "Beam - 7K98" (see {@link Lamp.labelOf}). */
+  /** The lamp as the Deck and the settings pages name it, such as "Beam - c870" (see {@link Lamp.labelOf}). */
   get label(): string {
     return Lamp.labelOf(this);
   }
@@ -285,14 +275,11 @@ export class Lamp {
 
   /**
    * Takes the lamp an operation found, and opened through `handle`, before the operation changes anything (#198): it's
-   * connected, and it learns its serial number and its range. It's read, and holds what it reads, the first time it's
+   * connected, and it learns its range. It's read, and holds what it reads, the first time it's
    * reached, and again when it's reached at another path, since a lamp plugged in again may come back in another state,
    * or on another power supply, which forgets its cap.
    */
   reach(operation: string, handle: LampHandle): void {
-    if (this.wholeSerialNumber === undefined) {
-      this.reachedAs(handle.serialNumber);
-    }
     this.found = true;
     this.lampRange = handle.range;
     if (this.heldState === undefined) {

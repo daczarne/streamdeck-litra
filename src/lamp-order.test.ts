@@ -1,20 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import { bySerialNumber } from "./lamp-order";
+import { byId } from "./lamp-order";
 
-describe("bySerialNumber", () => {
-  it("orders serial numbers by their last 4 characters, whatever comes before them", () => {
-    const serialNumbers = ["2541AB02BBBB", "2419AB03CCCC", "2541AB01AAAA"];
+describe("byId", () => {
+  it("orders lamps by their ids", () => {
+    const ids = ["c870b1d2e3f40516", "0a9e4f2b7c1d3e58", "912c77c6cebad870"];
 
-    expect(serialNumbers.sort(bySerialNumber)).toEqual(["2541AB01AAAA", "2541AB02BBBB", "2419AB03CCCC"]);
+    expect(ids.sort(byId)).toEqual(["0a9e4f2b7c1d3e58", "912c77c6cebad870", "c870b1d2e3f40516"]);
   });
 
-  it("orders serial numbers that end alike by the whole serial number", () => {
-    expect(bySerialNumber("2541AB02AAAA", "2541AB01AAAA")).toBeGreaterThan(0);
-    expect(bySerialNumber("2541AB01AAAA", "2541AB02AAAA")).toBeLessThan(0);
-  });
-
-  it("finds a serial number equal to itself", () => {
-    expect(bySerialNumber("2541AB01AAAA", "2541AB01AAAA")).toBe(0);
+  it("finds an id equal to itself", () => {
+    expect(byId("912c77c6cebad870", "912c77c6cebad870")).toBe(0);
   });
 });

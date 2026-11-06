@@ -36,13 +36,12 @@ const LAMP_LAYOUT = "layouts/lamp.json";
 // How long a blink lasts unless the plugin settings say otherwise.
 const BLINK_MS = globalSettings.identifyBlinkMs.default;
 
-/** A Beam on a Stream Deck + XL's USB hub, at its cap. */
-function beam(serialNumber: string, overrides: Partial<LampStatus> = {}): LampStatus {
+/** A Beam on a Stream Deck + XL's USB hub, at its cap, by the last 4 characters of its id. */
+function beam(idEnd: string, overrides: Partial<LampStatus> = {}): LampStatus {
   return {
-    id: `lamp-${serialNumber}`,
-    serialNumber,
+    id: `000000000000${idEnd}`,
     model: "Beam",
-    label: `Beam - ${serialNumber}`,
+    label: `Beam - ${idEnd}`,
     on: true,
     brightnessLumen: 324,
     brightnessPercentage: 79,
@@ -51,7 +50,7 @@ function beam(serialNumber: string, overrides: Partial<LampStatus> = {}): LampSt
   };
 }
 
-/** Connects the lamps, which readLampStatuses reports sorted by serial number. */
+/** Connects the lamps, which readLampStatuses reports in the order of their ids. */
 function connect(...lamps: LampStatus[]): void {
   vi.mocked(readLampStatuses).mockResolvedValue(lamps);
 }
@@ -106,9 +105,9 @@ function lampScreenOf(lamp: LampStatus, position: number, count: number) {
   };
 }
 
-const A = beam("A1");
-const B = beam("B2", { on: false, brightnessLumen: 30, brightnessPercentage: 0, temperatureKelvin: 6500 });
-const C = beam("C3");
+const A = beam("00a1");
+const B = beam("00b2", { on: false, brightnessLumen: 30, brightnessPercentage: 0, temperatureKelvin: 6500 });
+const C = beam("00c3");
 
 type Dial = ReturnType<typeof createFakeDial>;
 
@@ -187,43 +186,16 @@ describe("LampScreen", () => {
       expect(screenOf(dial).lamp).toBeUndefined();
     });
 
-    /** A Beam with a whole serial number, labeled by its last 4 characters, as the plugin labels it. */
-    function beamWithSerial(serialNumber: string): LampStatus {
-      return beam(serialNumber, { label: `Beam - ${serialNumber.slice(-4)}` });
-    }
-
-    it("goes through the lamps in the order they come in, by the end of their serial numbers", async () => {
+    it("goes through the lamps in the order of their ids", async () => {
       const dial = createFakeDial();
-      // In the order of the whole serial numbers, the third lamp would come first.
-      const lamps = [beamWithSerial("2541AB01AAAA"), beamWithSerial("2541AB02BBBB"), beamWithSerial("2419AB03CCCC")];
-      connect(...lamps);
+      connect(A, B, C);
 
-      for (const [place, lamp] of lamps.entries()) {
+      for (const [place, lamp] of [A, B, C].entries()) {
         await screenOf(dial).tap();
 
         expect(screenOf(dial).lamp).toBe(lamp.id);
         expect(dial.setFeedback).toHaveBeenLastCalledWith(lampScreenOf(lamp, place + 1, 3));
       }
-      await screenOf(dial).tap();
-
-      expect(screenOf(dial).isShowing).toBe(false);
-    });
-
-    it("skips a lamp unplugged since the last tap, in the order the lamps come in", async () => {
-      const dial = createFakeDial();
-      const [first, second, third] = [
-        beamWithSerial("2541AB01AAAA"),
-        beamWithSerial("2541AB02BBBB"),
-        beamWithSerial("2419AB03CCCC"),
-      ];
-      connect(first, second, third);
-      await screenOf(dial).tap();
-      await screenOf(dial).tap();
-      connect(first, third);
-
-      await screenOf(dial).tap();
-
-      expect(screenOf(dial).lamp).toBe(third.id);
     });
 
     it("skips a lamp unplugged since the last tap", async () => {
@@ -349,7 +321,7 @@ describe("LampScreen", () => {
 
     /** A lamp as the plugin knows it, with the name given to it in the plugin settings (#146, #194). */
     function known(lamp: LampStatus, name: string) {
-      return { model: lamp.model, serialEnd: lamp.serialNumber.slice(-4), name };
+      return { model: lamp.model, name };
     }
 
     /** What the top left cell of a dial was last told to show. */
@@ -360,8 +332,8 @@ describe("LampScreen", () => {
 
     it.each([
       [{ first: "name", second: "empty" }, "Key light"],
-      [{ first: "name", second: "id" }, "Key light - A1"],
-      [{ first: "id", second: "model" }, "A1 - Beam"],
+      [{ first: "name", second: "id" }, "Key light - 00a1"],
+      [{ first: "id", second: "model" }, "00a1 - Beam"],
       [{ first: "empty", second: "model" }, "Beam"],
     ])("builds the identification from its parts, %o", async (options, text) => {
       const dial = await topLeftOf("identification", options, { lamps: { [A.id]: known(A, "Key light") } });
@@ -369,21 +341,10 @@ describe("LampScreen", () => {
       expect(topLeft(dial)).toEqual(cell("topLeft", shown(text)));
     });
 
-    it("shows the model and the end of the serial number for the name of a lamp with none", async () => {
+    it("shows the model and the end of the id for the name of a lamp with none", async () => {
       const dial = await topLeftOf("identification", { first: "name", second: "empty" });
 
       expect(topLeft(dial)).toEqual(cell("topLeft", shown(A.label)));
-    });
-
-    it("leaves out the ID of a lamp that reports no serial number, and shows its model when nothing else is left", async () => {
-      const lx = beam("", { model: "Beam LX", label: "Beam LX - " });
-      connect(lx, A);
-
-      const withModel = await topLeftOf("identification", { first: "model", second: "id" });
-      const alone = await topLeftOf("identification", { first: "id", second: "empty" });
-
-      expect(topLeft(withModel)).toEqual(cell("topLeft", shown("Beam LX")));
-      expect(topLeft(alone)).toEqual(cell("topLeft", shown("Beam LX")));
     });
 
     it("shows nothing for an identification with both parts empty", async () => {
@@ -415,7 +376,7 @@ describe("LampScreen", () => {
     });
 
     it("counts the lamps of the shown one's model alone, when asked to", async () => {
-      const lx = beam("C3", { model: "Beam LX" });
+      const lx = beam("00c3", { model: "Beam LX" });
       connect(A, B, lx);
       const dial = await topLeftOf("counter", { count: "countByModel" });
       await screenOf(dial).tap();

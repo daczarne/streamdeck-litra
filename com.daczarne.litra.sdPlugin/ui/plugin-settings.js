@@ -1,6 +1,6 @@
 // The plugin's own settings (#146), the same on every action's page: a button at the top of the page shows them in
 // place of the action's, and back. They list the lamps the plugin knows (#194), which it keeps in its global settings as
-// `lamps`, each by the end of its serial number and its model, with a field for its name, a button that blinks it, and
+// `lamps`, each by the end of its id and its model, with a field for its name, a button that blinks it, and
 // one that forgets it. The plugin alone saves the lamps: this asks it to find them, and to rename or forget one, and
 // shows them as Stream Deck passes on what the plugin saved. Find lamps is the only time they're looked for, and marks
 // the ones it didn't find. The keys' lamp pickers list the same lamps, with their names (lamp-picker.js). Under the lamps
@@ -22,7 +22,7 @@
   // Whether the plugin settings are shown, in place of the action's, and the cell whose options are, in their place.
   let open = false;
   let editing;
-  // The lamps the plugin knows, by id, each with its model, the end of its serial number, and its name, if any.
+  // The lamps the plugin knows, by id, each with its model, and its name, if any.
   let lamps = {};
   // The ids of the lamps the plugin found the last time it looked (#198): what it answers as the plugin settings open,
   // and tells of every change since, and what the last Find lamps found. Undefined before either, when none is marked as
@@ -285,7 +285,7 @@
   });
 
   /**
-   * The lamps the plugin knows, by id, or none when they aren't lamps by id: each with a model and serial end, and a
+   * The lamps the plugin knows, by id, or none when they aren't lamps by id: each with a model, and a
    * name only when it's text.
    */
   function validLamps(value) {
@@ -294,13 +294,12 @@
     }
     return Object.fromEntries(
       Object.entries(value).flatMap(([id, lamp]) =>
-        typeof lamp?.model === "string" && typeof lamp?.serialEnd === "string"
+        typeof lamp?.model === "string"
           ? [
               [
                 id,
                 {
                   model: lamp.model,
-                  serialEnd: lamp.serialEnd,
                   ...(typeof lamp.name === "string" ? { name: lamp.name } : {}),
                 },
               ],
@@ -792,12 +791,13 @@
   }
 
   /**
-   * A lamp's row: the end of its serial number, its model, its name, a button that blinks it, and one that forgets it.
+   * A lamp's row: the end of its id, its model, its name, a button that blinks it, and one that forgets it. The end of
+   * its id matches nothing printed on the lamp: Identify tells which lamp a row is.
    * A lamp the plugin didn't find the last time it looked is greyed out, with "Not found" in place of its Identify
    * button (#198).
    */
   function lampRow([id, lamp]) {
-    const label = `${lamp.model} - ${lamp.serialEnd}`;
+    const label = `${lamp.model} - ${id.slice(-4)}`;
     const name = document.createElement("sdpi-textfield");
     name.setAttribute("maxlength", String(MAX_NAME_LENGTH));
     name.setAttribute("placeholder", label);
@@ -825,17 +825,17 @@
     trash.setAttribute("aria-label", trash.title);
     trash.append(trashCan());
     trash.addEventListener("click", () => forget(id));
-    row.append(cell("td", lamp.serialEnd), cell("td", lamp.model), nameCell, identifyCell, cell("td", trash));
+    row.append(cell("td", id.slice(-4)), cell("td", lamp.model), nameCell, identifyCell, cell("td", trash));
     return row;
   }
 
-  /** The table of the lamps the plugin knows, in the order of their serial numbers' ends. */
+  /** The table of the lamps the plugin knows, in the order of their ids. */
   function lampTable() {
     const table = document.createElement("table");
     const model = cell("th", "Model");
     model.className = "model";
     const head = cell("tr", cell("th", "ID"), model, cell("th", "Name"), cell("th"), cell("th"));
-    const rows = Object.entries(lamps).sort(([, a], [, b]) => (a.serialEnd < b.serialEnd ? -1 : 1));
+    const rows = Object.entries(lamps).sort(([a], [b]) => (a < b ? -1 : 1));
     table.append(cell("thead", head), cell("tbody", ...rows.map(lampRow)));
     return table;
   }

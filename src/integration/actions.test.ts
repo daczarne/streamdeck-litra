@@ -24,6 +24,11 @@ const TEMPERATURE_DOWN = "com.daczarne.litra.temperature-down";
 // The model of the lamps, a Beam or a Beam LX, by run (`vitest.config.mjs`).
 const MODEL = inject("model");
 
+// The ends of the ids of the two lamps most tests give a serial number, which the Deck and the pages show: the ids
+// order "SERIAL-A" before "SERIAL-B", as the lamp screens and the plugin settings list them.
+const END_A = Lamp.idOf("SERIAL-A").slice(-4);
+const END_B = Lamp.idOf("SERIAL-B").slice(-4);
+
 // A lamp's brightness in lumens at a percentage of its range (30–400 lm, a Beam's and a Beam LX's), as litra rounds it.
 const LUMEN_AT_0 = 30;
 const LUMEN_AT_10 = 67;
@@ -543,7 +548,7 @@ describe("the step keys", () => {
 });
 
 describe("the lamp screens", () => {
-  /** Two lamps, plugged in out of the order of their serial numbers, and a Brightness dial showing the first. */
+  /** Two lamps, plugged in out of the order of their ids, and a Brightness dial showing the first. */
   async function onFirstLampScreen() {
     const second = newLamp({ serialNumber: "SERIAL-B" });
     const first = newLamp({
@@ -558,14 +563,14 @@ describe("the lamp screens", () => {
     return { first, second, dial };
   }
 
-  it("show each lamp as it reports itself, in the order of their serial numbers (#48)", async () => {
+  it("show each lamp as it reports itself, in the order of their ids (#48)", async () => {
     const { dial } = await onFirstLampScreen();
 
     expect(dial.setFeedbackLayout).toHaveBeenLastCalledWith("layouts/lamp.json");
     // The first lamp is off, which its power shows in dark grey.
     expect(feedbackOf(dial)).toMatchObject({ middleRight: { value: "OFF", color: "#202020", font: { weight: 400 } } });
     expect(cellsOf(dial)).toEqual({
-      topLeft: `${MODEL} - AL-A`,
+      topLeft: `${MODEL} - ${END_A}`,
       topRight: "1 of 2",
       middleLeft: "6500 K",
       middleRight: "OFF",
@@ -580,7 +585,7 @@ describe("the lamp screens", () => {
 
     await deck.press(key);
 
-    expect(cellsOf(dial)).toMatchObject({ topLeft: `${MODEL} - AL-A`, topRight: "1 of 2", middleLeft: "5000 K" });
+    expect(cellsOf(dial)).toMatchObject({ topLeft: `${MODEL} - ${END_A}`, topRight: "1 of 2", middleLeft: "5000 K" });
   });
 
   it("let each dial turn and toggle its lamp alone, until a turn on a main screen brings them back in sync (#20)", async () => {
@@ -596,13 +601,13 @@ describe("the lamp screens", () => {
     expect([first.on, first.brightnessInLumen, first.temperatureInKelvin]).toEqual([true, LUMEN_AT_80, 6500]);
     expect([second.on, second.brightnessInLumen, second.temperatureInKelvin]).toEqual([true, LUMEN_AT_50, 4100]);
     expect(cellsOf(dial)).toMatchObject({
-      topLeft: `${MODEL} - AL-A`,
+      topLeft: `${MODEL} - ${END_A}`,
       topRight: "1 of 2",
       bottomLeft: "80%",
       middleLeft: "6500 K",
     });
     expect(cellsOf(temperatureDial)).toMatchObject({
-      topLeft: `${MODEL} - AL-B`,
+      topLeft: `${MODEL} - ${END_B}`,
       topRight: "2 of 2",
       bottomLeft: "50%",
       middleLeft: "4100 K",
@@ -657,7 +662,7 @@ describe("the lamp screens", () => {
     await vi.runAllTimersAsync();
 
     // Trimmed to 10 characters, its "…" included.
-    expect(cellsOf(dial)).toMatchObject({ topLeft: `${`${MODEL} - AL-A`.slice(0, 9)}…`, topRight: "1" });
+    expect(cellsOf(dial)).toMatchObject({ topLeft: `${`${MODEL} - ${END_A}`.slice(0, 9)}…`, topRight: "1" });
     expect(feedbackOf(dial)).toMatchObject({ middleRight: { value: "OFF", color: "#ff0000", font: { weight: 700 } } });
   });
 
@@ -698,7 +703,7 @@ describe("the lamp screens", () => {
       [0, 1],
       [1, 0],
     ]);
-    expect(cellsOf(temperatureDial)).toMatchObject({ topLeft: `${MODEL} - AL-A`, topRight: "1 of 2" });
+    expect(cellsOf(temperatureDial)).toMatchObject({ topLeft: `${MODEL} - ${END_A}`, topRight: "1 of 2" });
   });
 
   it("blink nothing on a dial that chose otherwise on its own page, while the other dials blink", async () => {
@@ -1066,7 +1071,7 @@ describe("what the dials show", () => {
 });
 
 describe("a Beam and a Beam LX together (#100)", () => {
-  /** A Beam and a Beam LX, whatever the run's model, plugged in out of the order of their serial numbers. */
+  /** A Beam and a Beam LX, whatever the run's model, plugged in out of the order of their ids. */
   function beamAndBeamLx() {
     const setting = { on: true, brightnessInLumen: LUMEN_AT_50, temperatureInKelvin: 4000 };
     const lx = new EmulatedLitra("Beam LX", { serialNumber: "SERIAL-B", ...setting });
@@ -1093,7 +1098,7 @@ describe("a Beam and a Beam LX together (#100)", () => {
     const first = cellsOf(dial);
     await deck.tap(dial);
 
-    expect([first.topLeft, cellsOf(dial).topLeft]).toEqual(["Beam - AL-A", "Beam LX - AL-B"]);
+    expect([first.topLeft, cellsOf(dial).topLeft]).toEqual([`Beam - ${END_A}`, `Beam LX - ${END_B}`]);
   });
 
   it("show an alert on a key for every lamp when the Beam LX can't be told apart, but not on the Beam's lamp screen", async () => {
@@ -1129,7 +1134,7 @@ describe("a Beam and a Beam LX together (#100)", () => {
       [true, LUMEN_AT_100, 6500],
     ]);
     expect(cellsOf(dial)).toMatchObject({
-      topLeft: "Beam LX - AL-B",
+      topLeft: `Beam LX - ${END_B}`,
       middleLeft: "6500 K",
       bottomLeft: "100%",
       bottomRight: "400 lm",
@@ -1143,10 +1148,10 @@ describe("lamps picked on a key's settings page (#20)", () => {
     return Lamp.idOf(lamp.serialNumber);
   }
 
-  /** A lamp as the plugin lists it for a page: its id and label, with its model and the end of its serial (#146). */
+  /** A lamp as the plugin lists it for a page: its id, its label, with the end of its id, and its model (#146). */
   function listed(lamp: EmulatedLitra) {
-    const serialEnd = lamp.serialNumber.slice(-4);
-    return { id: picked(lamp), label: `${MODEL} - ${serialEnd}`, model: MODEL, serialEnd };
+    const id = picked(lamp);
+    return { id, label: `${MODEL} - ${id.slice(-4)}`, model: MODEL };
   }
 
   it("are the only ones a key switches, and its state shows theirs", async () => {
@@ -1270,7 +1275,7 @@ describe("the lamps the plugin knows (#194)", () => {
 
     expect(await sdk.default.settings.getGlobalSettings()).toEqual({
       identifyBlinkMs: 600,
-      lamps: { [Lamp.idOf("SERIAL-A")]: { model: MODEL, serialEnd: "AL-A" } },
+      lamps: { [Lamp.idOf("SERIAL-A")]: { model: MODEL } },
     });
   });
 
@@ -1283,14 +1288,14 @@ describe("the lamps the plugin knows (#194)", () => {
     await vi.runAllTimersAsync();
 
     expect(await sdk.default.settings.getGlobalSettings()).toEqual({
-      lamps: { [id]: { model: MODEL, serialEnd: "AL-A", name: "Key light" } },
+      lamps: { [id]: { model: MODEL, name: "Key light" } },
     });
 
     sdk.sendToPlugin({ event: "rename", id, name: " " });
     await vi.runAllTimersAsync();
 
     expect(await sdk.default.settings.getGlobalSettings()).toEqual({
-      lamps: { [id]: { model: MODEL, serialEnd: "AL-A" } },
+      lamps: { [id]: { model: MODEL } },
     });
   });
 
@@ -1309,7 +1314,7 @@ describe("the lamps the plugin knows (#194)", () => {
 
     expect([forgotten.on, kept.on]).toEqual([false, true]);
     expect(await sdk.default.settings.getGlobalSettings()).toEqual({
-      lamps: { [Lamp.idOf(kept.serialNumber)]: { model: MODEL, serialEnd: "AL-B" } },
+      lamps: { [Lamp.idOf(kept.serialNumber)]: { model: MODEL } },
     });
 
     sdk.sendToPlugin({ event: "lamps" });
@@ -1318,8 +1323,8 @@ describe("the lamps the plugin knows (#194)", () => {
     expect([forgotten.on, kept.on]).toEqual([true, true]);
     expect(await sdk.default.settings.getGlobalSettings()).toEqual({
       lamps: {
-        [id]: { model: MODEL, serialEnd: "AL-A" },
-        [Lamp.idOf(kept.serialNumber)]: { model: MODEL, serialEnd: "AL-B" },
+        [id]: { model: MODEL },
+        [Lamp.idOf(kept.serialNumber)]: { model: MODEL },
       },
     });
   });

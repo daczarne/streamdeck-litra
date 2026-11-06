@@ -97,37 +97,33 @@ function hexColor(fallback: string): Setting<string> {
 }
 
 /**
- * A lamp the plugin knows (#194): its model, such as "Beam", the last 4 characters of its serial number, and the name
- * given to it in the plugin settings, if any (#146).
+ * A lamp the plugin knows (#194), saved by its id: its model, such as "Beam", and the name given to it in the plugin
+ * settings, if any (#146). Nothing of its serial number is saved.
  */
-export type KnownLamp = { readonly model: string; readonly serialEnd: string; readonly name?: string };
+export type KnownLamp = { readonly model: string; readonly name?: string };
 
 /** The longest name a lamp can be given (#146), which the plugin settings' name field also stops at. */
 export const MAX_LAMP_NAME_LENGTH = 24;
 
 /**
- * The lamps the plugin knows, by id (#194). Entries without a model and a serial end, as text, are left out, so one that
- * was edited doesn't take the others with it, and so is a name that isn't text.
+ * The lamps the plugin knows, by id (#194). Entries without a model, as text, are left out, so one that was edited
+ * doesn't take the others with it, and so is a name that isn't text. Anything else an entry holds, such as the end of
+ * the serial number lamps were once saved with, is dropped, and goes at the next save.
  */
 function lampsById(): Setting<Readonly<Record<string, KnownLamp>>> {
   return {
     default: {},
-    expected: "lamps by id, each with its model and serial end",
+    expected: "lamps by id, each with its model",
     parse: (value) =>
       typeof value === "object" && value !== null && !Array.isArray(value)
         ? Object.fromEntries(
             Object.entries(value).flatMap(([id, lamp]) =>
-              typeof lamp === "object" &&
-              lamp !== null &&
-              !Array.isArray(lamp) &&
-              typeof lamp.model === "string" &&
-              typeof lamp.serialEnd === "string"
+              typeof lamp === "object" && lamp !== null && !Array.isArray(lamp) && typeof lamp.model === "string"
                 ? [
                     [
                       id,
                       {
                         model: lamp.model,
-                        serialEnd: lamp.serialEnd,
                         ...(typeof lamp.name === "string" ? { name: lamp.name } : {}),
                       },
                     ],
@@ -274,7 +270,7 @@ export const sceneGroupSettings = {
   lamps: lampList(),
 };
 
-// What a lamp screen can show in each of its cells (#177): the lamp's model and the end of its serial number, its place
+// What a lamp screen can show in each of its cells (#177): the lamp's model and the end of its id, its place
 // among the lamps, its temperature, whether it's on, its brightness in % or in lumens, or nothing.
 export const LAMP_SCREEN_ITEMS = [
   "identification",

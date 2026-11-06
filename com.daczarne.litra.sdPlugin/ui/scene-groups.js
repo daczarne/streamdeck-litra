@@ -78,7 +78,7 @@
   }
 
   /**
-   * The lamps the plugin knows, by id, or none when they aren't lamps by id: each with a model and serial end, and a
+   * The lamps the plugin knows, by id, or none when they aren't lamps by id: each with a model, and a
    * name only when it's text.
    */
   function validKnown(value) {
@@ -87,13 +87,12 @@
     }
     return Object.fromEntries(
       Object.entries(value).flatMap(([id, lamp]) =>
-        typeof lamp?.model === "string" && typeof lamp?.serialEnd === "string"
+        typeof lamp?.model === "string"
           ? [
               [
                 id,
                 {
                   model: lamp.model,
-                  serialEnd: lamp.serialEnd,
                   ...(typeof lamp.name === "string" ? { name: lamp.name } : {}),
                 },
               ],
@@ -189,14 +188,14 @@
   }
 
   /**
-   * The lamps a group lists: the ones the plugin knows, in the order of the ends of their serial numbers, as the lamp
+   * The lamps a group lists: the ones the plugin knows, in the order of their ids, as the lamp
    * picker lists them, each with its name, or else its label, and the group that holds it.
    */
   function listed() {
     const held = { ...Object.fromEntries(firstGroupLamps.map((id) => [id, 1])), ...holders() };
     return Object.entries(known ?? {})
-      .sort(([, a], [, b]) => (a.serialEnd < b.serialEnd ? -1 : 1))
-      .map(([id, lamp]) => ({ id, label: lamp.name ?? `${lamp.model} - ${lamp.serialEnd}`, heldBy: held[id] }));
+      .sort(([a], [b]) => (a < b ? -1 : 1))
+      .map(([id, lamp]) => ({ id, label: lamp.name ?? `${lamp.model} - ${id.slice(-4)}`, heldBy: held[id] }));
   }
 
   /**

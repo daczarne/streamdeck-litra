@@ -59,7 +59,6 @@ const UNKNOWN_TEMPERATURE = { title: "Temperature", value: "—", indicator: 0 }
 
 const BEAM: LampStatus = {
   id: "lamp-A1",
-  serialNumber: "A1",
   model: "Beam",
   label: "Beam - A1",
   on: true,
@@ -68,7 +67,7 @@ const BEAM: LampStatus = {
   temperatureKelvin: 2700,
 };
 
-const OTHER_BEAM: LampStatus = { ...BEAM, id: "lamp-B2", serialNumber: "B2", label: "Beam - B2" };
+const OTHER_BEAM: LampStatus = { ...BEAM, id: "lamp-B2", label: "Beam - B2" };
 
 let deck: FakeDeck;
 // What the action does when litra-manager announces that the lamps changed.

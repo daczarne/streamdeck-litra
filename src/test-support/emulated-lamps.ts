@@ -1,5 +1,7 @@
 import { vi } from "vitest";
 
+import { restartLampNumbering } from "./emulated-litra";
+
 type Options = {
   /** Whether to replace `@elgato/streamdeck` with the fake SDK too, for tests that start the plugin. */
   streamDeck?: boolean;
@@ -11,7 +13,8 @@ type Options = {
  * `beforeEach`, and import the code under test through it rather than at the top of the file.
  *
  * It replaces `node-hid` with `fake-node-hid.ts` and `src/logging.ts` with `fake-logging.ts`, and returns, besides what
- * `load` returned, the fake node-hid, which plugs emulated lamps in, and the logger the code logs to. The fakes are mocked with
+ * `load` returned, the fake node-hid, which plugs emulated lamps in, and the logger the code logs to. It numbers the
+ * lamps emulated from 1 again, so a test's lamps come in the order it makes them (see `restartLampNumbering`). The fakes are mocked with
  * `vi.doMock` after `vi.resetModules()`, rather than with `vi.mock`, whose modules outlive the reset: the code and the
  * test then share this test's fakes.
  *
@@ -20,6 +23,7 @@ type Options = {
  */
 export async function loadOnEmulatedLamps<T>(load: () => Promise<T>, { streamDeck = false }: Options = {}) {
   vi.resetModules();
+  restartLampNumbering();
   let nodeHidFaked = false;
   vi.doMock("node-hid", () => {
     nodeHidFaked = true;

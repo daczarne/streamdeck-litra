@@ -1,7 +1,7 @@
 // The lamps a key acts on (#20): a checkbox for each lamp the plugin knows (#194), and one for every lamp. The lamps
 // come from the plugin's global settings, where the plugin saves them, and the page looks for none: Find lamps in the
 // plugin settings does (plugin-settings.js). Each lamp shows with the name given to it in the plugin settings (#146), or
-// else its label, such as "Beam - 7K98". The key saves the ids of the lamps checked, as `lamps`, and of the ones left
+// else its label, such as "Beam - c870": its model and the last 4 characters of its id. The key saves the ids of the lamps checked, as `lamps`, and of the ones left
 // unchecked, as `leftOutLamps`, and keeps the ids of the lamps the plugin no longer knows, such as one forgotten, which
 // comes back as the key left it once the plugin knows it again. A key that adds new lamps acts on every lamp but the
 // left out ones, so a lamp it hasn't listed yet shows checked, and one that doesn't acts on the checked ones alone
@@ -84,7 +84,7 @@
   }
 
   /**
-   * The lamps the plugin knows, by id, or none when they aren't lamps by id: each with a model and serial end, and a
+   * The lamps the plugin knows, by id, or none when they aren't lamps by id: each with a model, and a
    * name only when it's text.
    */
   function validKnown(value) {
@@ -93,13 +93,12 @@
     }
     return Object.fromEntries(
       Object.entries(value).flatMap(([id, lamp]) =>
-        typeof lamp?.model === "string" && typeof lamp?.serialEnd === "string"
+        typeof lamp?.model === "string"
           ? [
               [
                 id,
                 {
                   model: lamp.model,
-                  serialEnd: lamp.serialEnd,
                   ...(typeof lamp.name === "string" ? { name: lamp.name } : {}),
                 },
               ],
@@ -110,13 +109,13 @@
   }
 
   /**
-   * Every lamp the page lists: the ones the plugin knows, in the order of the ends of their serial numbers, as the plugin
+   * Every lamp the page lists: the ones the plugin knows, in the order of their ids, as the plugin
    * settings list them, each with its name, or else its label.
    */
   function listed() {
     return Object.entries(known ?? {})
-      .sort(([, a], [, b]) => (a.serialEnd < b.serialEnd ? -1 : 1))
-      .map(([id, lamp]) => ({ id, label: lamp.name ?? `${lamp.model} - ${lamp.serialEnd}` }));
+      .sort(([a], [b]) => (a < b ? -1 : 1))
+      .map(([id, lamp]) => ({ id, label: lamp.name ?? `${lamp.model} - ${id.slice(-4)}` }));
   }
 
   /**

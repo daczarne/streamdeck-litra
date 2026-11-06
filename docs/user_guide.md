@@ -60,7 +60,7 @@ Brightness and Temperature Up and Down keys step their lamps by the step in thei
 
 ### Picking a key's lamps
 
-A key's settings page lists the lamps the plugin knows by their names, or else as their model and the last 4 characters of their serial number, such as "Beam - 7K98". The key acts on the lamps checked there, and All checks every lamp listed. A lamp that isn't plugged in stays listed, so it can be checked or unchecked, and a lamp the plugin forgets leaves the list, and comes back as the key left it once Find lamps finds it again.
+A key's settings page lists the lamps the plugin knows by their names, or else as their model and 4 characters that tell them apart, the end of the id the plugin gives each lamp, such as "Beam - c870". The key acts on the lamps checked there, and All checks every lamp listed. A lamp that isn't plugged in stays listed, so it can be checked or unchecked, and a lamp the plugin forgets leaves the list, and comes back as the key left it once Find lamps finds it again.
 
 By default, a key also takes in lamps added later: it acts on every lamp but the ones left unchecked, so a lamp Find lamps adds shows checked. With "Add new lamps automatically, on this key" unchecked, under its lamps, a key acts on the lamps checked alone, and a lamp Find lamps adds shows unchecked. "Add new lamps automatically, on every key", under "Keys" in [the plugin settings](#keys-1), makes that choice for every key at once, and shows a bar when the keys differ.
 
@@ -82,7 +82,7 @@ With "Blink each lamp as it's shown, on this dial" checked on a Brightness or Te
 
 ### What a lamp screen shows
 
-By default, a lamp screen shows the lamp's label, the model and the last 4 characters of its serial number, as a key's settings page lists a lamp without a name, with its place among the lamps ("1 of 2"), then its temperature and whether it's on, and its brightness in % and lumens. "OFF" shows in dark grey.
+By default, a lamp screen shows the lamp's label, its model and the end of its id, as a key's settings page lists a lamp without a name, with its place among the lamps ("1 of 2"), then its temperature and whether it's on, and its brightness in % and lumens. "OFF" shows in dark grey.
 
 Its six cells, three rows of two, can each show any of these, or nothing, chosen under "Layout" in the plugin settings, the same on every dial. Two long values chosen for one row can run into each other. Each cell's **Configure** button shows how it shows its item, in place of the plugin settings, and **Reset** there brings back the defaults:
 
@@ -113,7 +113,7 @@ Every settings page, on a key or a dial, starts with a **Plugin settings** butto
 
 ### Lamps
 
-"Lamps" lists the lamps the plugin knows, in the order of the last 4 characters of their serial numbers, each by those 4 characters and its model, with a field for its name, up to 24 characters, an Identify button that blinks it, and a trash can that forgets it.
+"Lamps" lists the lamps the plugin knows, each by the end of its id and its model, with a field for its name, up to 24 characters, an Identify button that blinks it, and a trash can that forgets it. The plugin gives each lamp an id from its serial number, which it never shows, so the 4 characters under ID match nothing printed on the lamp: Identify tells which lamp a row is, and a name keeps it told apart everywhere else. Every list of the lamps, on the Deck and on the pages, comes in the order of their ids.
 
 **Find lamps** adds the lamps connected that the plugin doesn't know yet (see [The lamps the plugin controls](#the-lamps-the-plugin-controls)). The table greys out the lamps the plugin didn't find the last time it looked, with "Not found" in place of Identify: at the last Find lamps, or the last press, turn or tap that reached the lamps. A lamp's trash can takes its name too, until Find lamps finds it again. A name is the lamp's, not a key's: every key shows it. Emptying the field takes it away.
 
@@ -146,7 +146,7 @@ If something else doesn't work, [an issue][issues] with the plugin's log helps. 
 - On macOS: `~/Library/Application Support/com.elgato.StreamDeck/Plugins/com.daczarne.litra.sdPlugin/logs/`
 - On Windows: `%APPDATA%\Elgato\StreamDeck\Plugins\com.daczarne.litra.sdPlugin\logs\`
 
-They hold your lamps' serial numbers, so remove those before posting.
+They name each lamp by its model and the end of its id, never by its serial number, so they can be posted as they are.
 
 [hardware]: ../README.md#supported-hardware
 [installing]: ../README.md#installing

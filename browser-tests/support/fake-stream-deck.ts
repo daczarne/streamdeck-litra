@@ -13,10 +13,10 @@ const GLOBAL_SETTINGS_DELAY_MS = 150;
 export type StreamDeckMessage = { event: string; context?: string; payload?: Record<string, unknown> };
 
 /** A lamp as the plugin lists it for a settings page (#20, #146). */
-export type ListedLamp = { id: string; label: string; model: string; serialEnd: string };
+export type ListedLamp = { id: string; label: string; model: string };
 
 /** A lamp as the plugin knows it, in the global settings' `lamps` (#194), with the name it was given, if any. */
-export type KnownLamp = { model: string; serialEnd: string; name?: string };
+export type KnownLamp = { model: string; name?: string };
 
 /**
  * Stands in for the WebSocket that Stream Deck opens for a settings page: it accepts the page's connection and
@@ -144,8 +144,8 @@ export class FakeStreamDeck {
       const added = this.lamps.filter(({ id }) => this.known[id] === undefined);
       if (added.length > 0) {
         const lamps = { ...this.known };
-        for (const { id, model, serialEnd } of added) {
-          lamps[id] = { model, serialEnd };
+        for (const { id, model } of added) {
+          lamps[id] = { model };
         }
         this.saveLamps(socket, lamps);
       }

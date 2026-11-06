@@ -62,7 +62,7 @@ Every new word must pass CSpell. Real terms go into the matching dictionary unde
 
 ### Setups
 
-Docs, comments and test names describe what any reader could have, not one person's setup: "the computer" rather than a model of it, "a hub" rather than the one a lamp happened to be on, and "lamp 1" and "lamp 2" rather than where each lamp sits. A log or a probe's output quoted in a doc has its serial numbers, even their last characters, replaced with placeholders such as `<serialNumber1>` and `<serialNumber2>`. The setup the plugin is checked on, and what was measured on it, are stated as such, with what a reader's own lamps may do differently.
+Docs, comments and test names describe what any reader could have, not one person's setup: "the computer" rather than a model of it, "a hub" rather than the one a lamp happened to be on, and "lamp 1" and "lamp 2" rather than where each lamp sits. A log quoted in a doc has the ends of its lamps' ids replaced with placeholders such as `<id1>` and `<id2>`, and a probe's output its serial numbers, even their last characters, with `<serialNumber1>` and `<serialNumber2>`. The setup the plugin is checked on, and what was measured on it, are stated as such, with what a reader's own lamps may do differently.
 
 ## Markdown
 

@@ -20,10 +20,9 @@ const RANGE: LampRange = {
 const HALF: LampState = { on: true, lumen: 215, kelvin: 4000 };
 
 /** A lamp opened for an operation, which only answers what it's at, as reaching a lamp reads it. */
-function handleAt(serialNumber: string, state: LampState): LampHandle {
+function handleAt(state: LampState): LampHandle {
   return {
-    serialNumber,
-    path: `path-${serialNumber}`,
+    path: "path-1",
     range: RANGE,
     isOn: () => state.on,
     switchPower: () => {},
@@ -34,24 +33,27 @@ function handleAt(serialNumber: string, state: LampState): LampHandle {
   };
 }
 
-/** A Beam the plugin knows, by the end of its serial number, as the last operation found it at a state. */
-function held(serialEnd: string, state: Partial<LampState> = {}): Lamp {
-  const serialNumber = `2541AB01${serialEnd}`;
-  const lamp = new Lamp({ id: Lamp.idOf(serialNumber), model: "Beam", serialEnd });
-  lamp.reach("test", handleAt(serialNumber, { ...HALF, ...state }));
+/** A Beam the plugin knows, by its id, as the last operation found it at a state. */
+function held(id: string, state: Partial<LampState> = {}): Lamp {
+  const lamp = new Lamp({ id, model: "Beam" });
+  lamp.reach("test", handleAt({ ...HALF, ...state }));
   return lamp;
 }
 
 /** A lamp the plugin knows that no operation has reached since it started, so it holds no state. */
-function neverReached(serialEnd: string): Lamp {
-  return new Lamp({ id: Lamp.idOf(`2541AB01${serialEnd}`), model: "Beam", serialEnd });
+function neverReached(id: string): Lamp {
+  return new Lamp({ id, model: "Beam" });
 }
 
 //* Tests
 
 describe("what the Deck shows of the lamps (#198)", () => {
-  it("shows the lamps a selection takes in, in the order of the ends of their serial numbers", () => {
-    const [later, earlier, other] = [held("BBBB", { lumen: 400 }), held("AAAA", { lumen: 30 }), held("CCCC")];
+  it("shows the lamps a selection takes in, in the order of their ids", () => {
+    const [later, earlier, other] = [
+      held("00000000000b2222", { lumen: 400 }),
+      held("00000000000a1111", { lumen: 30 }),
+      held("00000000000c3333"),
+    ];
 
     expect(brightnessPercentages([later, other, earlier], "all")).toEqual([0, 100, 50]);
     expect(brightnessPercentages([later, other, earlier], [later.id, earlier.id])).toEqual([0, 100]);
@@ -59,19 +61,19 @@ describe("what the Deck shows of the lamps (#198)", () => {
   });
 
   it("leaves out a lamp the last operation didn't find, and one never reached, which has no state", () => {
-    const [found, unplugged] = [held("AAAA"), held("BBBB")];
+    const [found, unplugged] = [held("00000000000a1111"), held("00000000000b2222")];
     unplugged.setFound(false);
 
-    expect(brightnessPercentages([found, unplugged, neverReached("CCCC")], "all")).toEqual([50]);
+    expect(brightnessPercentages([found, unplugged, neverReached("00000000000c3333")], "all")).toEqual([50]);
   });
 
   describe("whether every lamp is on, as a Power key shows it", () => {
     it("is on when every lamp the selection takes in is on", () => {
-      expect(allLampsOn([held("AAAA"), held("BBBB")], "all")).toBe(true);
+      expect(allLampsOn([held("00000000000a1111"), held("00000000000b2222")], "all")).toBe(true);
     });
 
     it("is off when a lamp is off, even one the selection takes in alone", () => {
-      const [on, off] = [held("AAAA"), held("BBBB", { on: false })];
+      const [on, off] = [held("00000000000a1111"), held("00000000000b2222", { on: false })];
 
       expect(allLampsOn([on, off], "all")).toBe(false);
       expect(allLampsOn([on, off], [on.id])).toBe(true);
@@ -79,13 +81,13 @@ describe("what the Deck shows of the lamps (#198)", () => {
 
     it("is off when the selection takes in no lamp shown", () => {
       expect(allLampsOn([], "all")).toBe(false);
-      expect(allLampsOn([held("AAAA")], [])).toBe(false);
+      expect(allLampsOn([held("00000000000a1111")], [])).toBe(false);
     });
   });
 
   describe("the temperature, as a dial or a step key shows it", () => {
     it("is the first lamp's, in kelvin and as its place in the lamp's range", () => {
-      const lamps = [held("BBBB", { kelvin: 5000 }), held("AAAA", { kelvin: 3500 })];
+      const lamps = [held("00000000000b2222", { kelvin: 5000 }), held("00000000000a1111", { kelvin: 3500 })];
 
       expect(temperatureShown(lamps, "all")).toEqual({ kelvin: 3500, percentage: 21 });
     });
@@ -96,14 +98,13 @@ describe("what the Deck shows of the lamps (#198)", () => {
   });
 
   it("shows every lamp on the lamp screens, with its name, power, brightness and temperature", () => {
-    const lamp = held("AAAA", { on: false, lumen: 400, kelvin: 6500 });
+    const lamp = held("00000000000a1111", { on: false, lumen: 400, kelvin: 6500 });
 
-    expect(lampStatuses([lamp, neverReached("BBBB")])).toEqual([
+    expect(lampStatuses([lamp, neverReached("00000000000b2222")])).toEqual([
       {
         id: lamp.id,
-        serialNumber: "2541AB01AAAA",
         model: "Beam",
-        label: "Beam - AAAA",
+        label: "Beam - 1111",
         on: false,
         brightnessLumen: 400,
         brightnessPercentage: 100,
