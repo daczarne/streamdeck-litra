@@ -171,7 +171,7 @@ Steps 3 and 4 found that a capped lamp can undo a write that comes soon after a 
 
 ## write-reports.mjs
 
-For each connected Litra, makes each kind of write and prints every HID report the lamp sends in the second after it. It was written for [#96], to find out whether a lamp ACKs a power or a temperature write as it ACKs a brightness write, and whether a report sent before a handle closes reaches the next handle opened on the lamp. The plugin drains an ACK after every write (`drainAck` in `src/device.ts`), and opens new handles for every operation, so both decide whether that drain does anything.
+For each connected Litra, makes each kind of write and prints every HID report the lamp sends in the second after it. It was written for [#96], to find out whether a lamp ACKs a power or a temperature write as it ACKs a brightness write, and whether a report sent before a handle closes reaches the next handle opened on the lamp. The plugin drains an ACK after every write (`drainAck` in `src/lamp-connection.ts`), and opens new handles for every operation, so both decide whether that drain does anything.
 
 Run it again when changing how the plugin writes to the lamps, or with a lamp it hasn't been run on, such as the Beam LX.
 
@@ -292,7 +292,7 @@ Reading it:
 
 ## serial-numbers.mjs
 
-For each connected Litra, asks for the serial number it keeps itself, over HID++, and compares it with the one its USB descriptor gives, which `litra` finds it with. It was written for [#170]: a Beam LX's descriptor declares a serial number but gives none, so `litra` finds it with an empty one, and two Beam LXs couldn't be told apart. The plugin asks a lamp found without a serial number for the one it keeps (`readSerialNumber` in `src/device.ts`), and the emulated lamp gives it as this probe found it.
+For each connected Litra, asks for the serial number it keeps itself, over HID++, and compares it with the one its USB descriptor gives, which `litra` finds it with. It was written for [#170]: a Beam LX's descriptor declares a serial number but gives none, so `litra` finds it with an empty one, and two Beam LXs couldn't be told apart. The plugin asks a lamp found without a serial number for the one it keeps (`identify` in `src/lamp-connection.ts`), and the emulated lamp gives it as this probe found it.
 
 Run it again with a lamp it hasn't been run on, such as a Glow, or after a firmware update.
 

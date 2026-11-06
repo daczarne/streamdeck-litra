@@ -7,6 +7,7 @@
   - [Whether a lamp is connected](#whether-a-lamp-is-connected)
 - [The objects](#the-objects)
   - [Lamp](#lamp)
+  - [LampConnection](#lampconnection)
   - [GlobalSettings](#globalsettings)
   - [Keys and dials](#keys-and-dials)
   - [litra-manager](#litra-manager)
@@ -24,7 +25,7 @@ This document describes how the plugin's parts fit together, and why they're bui
 
 ## From a press to the lamps
 
-Stream Deck starts the plugin as a Node process (`src/plugin.ts`). The plugin registers the actions and connects to Stream Deck. A press, a turn or a tap reaches the action it belongs to, in `src/actions/`, which hands it to the object that stands for that key or dial (see [Keys and dials](#keys-and-dials)). The key or dial, which holds its settings as read against their schema (`src/actions/settings.ts`), logs what was asked for, and asks `src/litra-manager.ts` for it. `litra-manager` finds the lamps, picks the ones the key or dial acts on, and tells each one's `Lamp` what to change. The `Lamp` sends its lamp what it takes, through `src/device.ts`, which writes HID++ reports through the [`litra`][litra] library and `node-hid`, and reads back what the lamp did (see [Two trips for every value](#two-trips-for-every-value)). Once the lamps are changed, `litra-manager` tells every key and dial, which redraws from the `Lamp`s, without reading the lamps.
+Stream Deck starts the plugin as a Node process (`src/plugin.ts`). The plugin registers the actions and connects to Stream Deck. A press, a turn or a tap reaches the action it belongs to, in `src/actions/`, which hands it to the object that stands for that key or dial (see [Keys and dials](#keys-and-dials)). The key or dial, which holds its settings as read against their schema (`src/actions/settings.ts`), logs what was asked for, and asks `src/litra-manager.ts` for it. `litra-manager` finds the lamps, picks the ones the key or dial acts on, and tells each one's `Lamp` what to change. The `Lamp` sends its lamp what it takes, through the lamp's connection (`src/lamp-connection.ts`), which writes HID++ reports through the [`litra`][litra] library and `node-hid`, and reads back what the lamp did (see [Two trips for every value](#two-trips-for-every-value)). Once the lamps are changed, `litra-manager` tells every key and dial, which redraws from the `Lamp`s, without reading the lamps.
 
 The settings pages talk to the plugin too: the plugin settings ask it to find the lamps, which it adds to the lamps it knows, to blink one, and to rename or forget one, and which lamps are connected, which `src/actions/lamp-picker.ts` answers for every page (see [The settings pages](#the-settings-pages)).
 
@@ -67,13 +68,21 @@ Every piece of the plugin's state has one owner, an object that holds it and is 
 
 ### Lamp
 
-A `Lamp` (`src/lamp.ts`) stands for one lamp the plugin knows. It holds:
+A `Lamp` (`src/lamp.ts`) stands for one lamp the plugin knows, for as long as the global settings keep it, whether the lamp is plugged in or not. It's the plugin's record of the lamp, and what decides what the lamp is sent. It holds:
 
 - Its identity: its id and its model, which the global settings keep, the name given to it, and the path it was last reached at. It holds nothing of the lamp's serial number (see [The lamps the plugin knows](#the-lamps-the-plugin-knows)).
 - Its state: its power, brightness and temperature, as described in [The plugin's state is the lamps' state](#the-plugins-state-is-the-lamps-state), and whether it's connected.
 - What the plugin remembers about it (see [What a lamp remembers](#what-a-lamp-remembers)).
 
-Its methods change its lamp and its state together: `setPower`, `setTemperature` and `blink` each send the lamp what it takes, read back what it did, and hold that, and so do `sendBrightness` and `readBackBrightness` between them. They're given the lamp's open handle by `litra-manager`, which opens it for the length of an operation (see [Finding the lamps on every operation](#finding-the-lamps-on-every-operation)), and the brightness's two trips are two methods, one that sends and one that reads back, so `litra-manager` can send every lamp its brightness before letting them all settle at once. A `Lamp` acts on its own lamp alone: what spans several lamps is `litra-manager`'s.
+Its methods change its lamp and its state together: `setPower`, `setTemperature` and `blink` each send the lamp what it takes, read back what it did, and hold that, and so do `sendBrightness` and `readBackBrightness` between them. They're lent the lamp's connection by `litra-manager`, which opens it for the length of an operation (see [LampConnection](#lampconnection)), and the brightness's two trips are two methods, one that sends and one that reads back, so `litra-manager` can send every lamp its brightness before letting them all settle at once. A `Lamp` acts on its own lamp alone: what spans several lamps is `litra-manager`'s.
+
+### LampConnection
+
+A `LampConnection` (`src/lamp-connection.ts`) stands for one lamp plugged in, opened for one operation. `litra-manager` opens one for each lamp an operation finds, and closes it once the operation is done, after which it's good for nothing. A connection holds no state and decides nothing: it sends the lamp what it's told, as HID++ reports through `litra`, and returns what the lamp answers. It names the lamp by what the lamp gives: its model, and the id of its serial number, which a Beam LX gives only when it's asked (see [Finding the lamps on every operation](#finding-the-lamps-on-every-operation)). A connection to a lamp that hasn't given its serial has no id.
+
+A lamp the plugin knows and a lamp plugged in are two things, with lives of their own. A `Lamp` outlives every connection: it's there while its lamp is unplugged, and stays the same `Lamp` each time the lamp is plugged in again, at a new path. A connection lasts one operation, and can be to a lamp the plugin doesn't know, such as one Find lamps is about to add, or can't tell apart yet, such as a Beam LX before it gives its serial. So for each operation, `litra-manager` matches the connections to the `Lamp`s, by id, and lends each `Lamp` its lamp's connection.
+
+The `Lamp` makes the decisions, and the connection carries them out. `setPower`, for example, decides what to send, such as the setting a Beam LX loses when it's turned on, sends it through the connection, reads back through it, and holds what the lamp answered. A `Lamp` acts on a connection as a `LampHandle`, the reads and writes it needs, which a connection implements. So the tests of a `Lamp` give it a fake handle, and check what it decides without a lamp, while the tests of a connection run it on emulated lamps, and check what it sends and reads.
 
 ### GlobalSettings
 
@@ -89,7 +98,7 @@ Each one holds its key or dial, as the SDK hands it, and its settings as a `conf
 
 ### litra-manager
 
-`litra-manager` (`src/litra-manager.ts`) is the orchestrator. It takes what a key or a dial asks for, finds the lamps, and tells each one's `Lamp` what to change. What spans several lamps is its job:
+`litra-manager` (`src/litra-manager.ts`) is the orchestrator. It takes what a key or a dial asks for, opens a connection to each lamp plugged in, matches each one to its `Lamp`, and tells the `Lamp` what to change, lending it the connection for the operation. What spans several lamps is its job:
 
 - Stepping lamps together, from the brightest one's brightness or the first one's temperature, or each from its own (see [Turning a dial](#turning-a-dial)).
 - One brightness change at a time across every lamp, so a change starts only once the one before has been read back, and a capped lamp's reversal can't undo a later change (see [What a lamp remembers](#what-a-lamp-remembers)).
@@ -112,7 +121,7 @@ Two libraries speak the lamps' protocol, both by Tim Rogers: `litra`, in TypeScr
 
 ## One module talks to the lamps
 
-`src/device.ts` is the only module that imports `litra`. It finds the lamps connected, opens and closes them, and offers what a `Lamp` needs from its lamp, such as switching it on or reading its brightness, rather than `litra`'s own functions. So whatever lies under it can change without touching the rest of the plugin: a fork or a copy of `litra`, or more HID++ calls of the plugin's own, besides the ones it already makes to read a brightness and a Beam LX's serial number, such as the ones the Beam LX's back light needs ([#19]).
+`src/lamp-connection.ts` is the only module that imports `litra`, and nothing outside it sees `litra`'s types. The rest of the plugin reaches a lamp plugged in through a `LampConnection` (see [LampConnection](#lampconnection)), whose methods are what a `Lamp` needs from its lamp, such as switching it on or reading its brightness, rather than `litra`'s own functions. So whatever lies under it can change without touching the rest of the plugin: a fork or a copy of `litra`, or more HID++ calls of the plugin's own, besides the ones it already makes to read a brightness and a Beam LX's serial number, such as the ones the Beam LX's back light needs ([#19]).
 
 ## The lamps the plugin knows
 
@@ -126,7 +135,7 @@ Every operation leaves out the connected lamps that aren't among them, so a sele
 
 ## Finding the lamps on every operation
 
-`litra-manager` keeps no list of the lamps connected. Every operation finds them again, opens each one the plugin knows that it acts on, hands its handle to its `Lamp` for the operation, and closes them, so a lamp that was unplugged is simply not found, and one plugged in again is, without any code for either. Finding the lamps is a call inside the plugin's process, not a new process, so doing it on every operation costs little. It also tells which lamps are connected (see [Whether a lamp is connected](#whether-a-lamp-is-connected)).
+`litra-manager` keeps no list of the lamps connected. Every operation finds them again, opens each one the plugin knows that it acts on, lends its connection to its `Lamp` for the operation, and closes them, so a lamp that was unplugged is simply not found, and one plugged in again is, without any code for either. Finding the lamps is a call inside the plugin's process, not a new process, so doing it on every operation costs little. It also tells which lamps are connected (see [Whether a lamp is connected](#whether-a-lamp-is-connected)).
 
 An operation can be given the lamps to act on, by their ids, which a key's settings can hold, and an exported profile carry, without revealing the serial ([#20]). A lamp screen gives its lamp the same way. Or it can be given the lamps to leave out, which is how a key takes in lamps added later: every lamp found but those ([#147]). A scene is given one selection for each of its groups, and each lamp found takes the part of the first group that selects it ([#174]). It then closes the others unused, and logs a selected lamp it doesn't find, or that every lamp found is left out.
 
@@ -134,7 +143,7 @@ An operation can be given the lamps to act on, by their ids, which a key's setti
 
 A Beam LX's USB descriptor declares a serial number but gives none, so `litra` finds it with an empty one. The plugin then asks the lamp for the serial number it keeps itself, through HID++'s Device Information feature, whose index it gets from the Root feature rather than hard-coding it ([#170]). A Beam gives the same serial both ways, so only a lamp found without one is asked. It costs about 4 ms on every operation, so the serial isn't remembered: remembering it by the lamp's path would need a path that belongs to the lamp, which on Windows isn't checked. A lamp whose serial can't be read is logged and left out, since it couldn't be told from another. It still counts as a failed lamp for an operation on every lamp, or on every lamp but some, which it could be one of, so a key shows an alert, as it does for a Beam that fails ([#100]). An operation on given lamps, such as a lamp screen's, can't tell whether it was one of them, and leaves it out unnoticed: it fails on its own when none of its lamps is found.
 
-Closing the handles matters because the plugin runs for as long as Stream Deck does: a handle left open would leak for the whole session. `litra`'s type for a lamp's handle leaves out `close`, which `node-hid`'s handle has, so `src/device.ts` reaches it through a type of its own.
+Closing the handles matters because the plugin runs for as long as Stream Deck does: a handle left open would leak for the whole session. `litra`'s type for a lamp's handle leaves out `close`, which `node-hid`'s handle has, so a `LampConnection` reaches it through a type of its own.
 
 A lamp that fails is logged, and the operation goes on with the others. Finding no lamp counts as a failure too, so a press with nothing plugged in shows an alert, rather than doing nothing, and so does a turn on a lamp screen whose lamp was unplugged. So does an operation left with no lamp to act on: one given no lamp, one whose lamps aren't connected, one that leaves out every lamp connected, one that finds none of the lamps the plugin knows, and one for which finding the lamps fails. Each is logged with its reason (see [the logging document][logging]).
 
@@ -148,7 +157,7 @@ Besides its state, a `Lamp` remembers three things, all because of a lamp on a l
 
 ## Reading what a lamp sends
 
-A lamp answers a query with a reply, and a write with an ACK. A lamp on a low-power supply also sends a change notice when it lowers its brightness to its cap. `litra` takes the first report that arrives as its reply, and reads a brightness from one byte, which holds 255 lm at most, where a Beam goes to 400. So `src/device.ts` reads the brightness itself (`getBrightnessInLumenSafe`), from two bytes, skipping up to 10 reports that aren't the reply, such as change notices and ACKs, after which the read fails, so a lamp that keeps sending something else can't hold an operation. Asking a Beam LX for its serial number skips them the same way, and waits at most 500 ms for each report, so a lamp that doesn't answer is left out rather than holding the operation.
+A lamp answers a query with a reply, and a write with an ACK. A lamp on a low-power supply also sends a change notice when it lowers its brightness to its cap. `litra` takes the first report that arrives as its reply, and reads a brightness from one byte, which holds 255 lm at most, where a Beam goes to 400. So a `LampConnection` reads the brightness itself (`getBrightnessInLumenSafe` in `src/lamp-connection.ts`), from two bytes, skipping up to 10 reports that aren't the reply, such as change notices and ACKs, after which the read fails, so a lamp that keeps sending something else can't hold an operation. Asking a Beam LX for its serial number skips them the same way, and waits at most 500 ms for each report, so a lamp that doesn't answer is left out rather than holding the operation.
 
 After every write, it reads the write's ACK (`drainAck`), so that a read on the same handle afterwards gets its reply, such as the second trip of every value. The lamps were measured to ACK every write within a few ms, and an ACK is gone once its handle closes ([#96]), so the drain costs little and only guards a read that follows a write on the same handle. What was measured, and how, is in [the probes][probes].
 

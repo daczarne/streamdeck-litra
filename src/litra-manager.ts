@@ -1,6 +1,5 @@
-import { LampConnection, type LampHandle } from "./device";
-
 import type { Lamp, LampState } from "./lamp";
+import { LampConnection, type LampHandle } from "./lamp-connection";
 import { byId } from "./lamp-order";
 import { type LampSelection, selects } from "./lamp-selection";
 import { logger as pluginLogger } from "./logging";
@@ -11,7 +10,7 @@ import { logger as pluginLogger } from "./logging";
  */
 export type OperationResult = {
   readonly ok: boolean;
-  readonly deviceCount: number;
+  readonly lampCount: number;
   readonly failures: number;
 };
 
@@ -387,13 +386,13 @@ export function onConnectedChanged(listener: (ids: string[]) => void | Promise<v
  * What an operation did, from the lamps it acted on and how many of them failed, counting the lamps it couldn't tell
  * apart as failed lamps (see {@link openGroups}).
  */
-function outcome(deviceCount: number, failures: number, unidentified: number): OperationResult {
+function outcome(lampCount: number, failures: number, unidentified: number): OperationResult {
   const failed = failures + unidentified;
-  return { ok: failed === 0, deviceCount: deviceCount + unidentified, failures: failed };
+  return { ok: failed === 0, lampCount: lampCount + unidentified, failures: failed };
 }
 
 /** What an operation that opened no lamp did: it failed. */
-const NO_LAMP: OperationResult = { ok: false, deviceCount: 0, failures: 1 };
+const NO_LAMP: OperationResult = { ok: false, lampCount: 0, failures: 1 };
 
 /** A lamp an operation opened and reached: its `Lamp`, the handle it acts on its lamp through, and its group. */
 type ReachedLamp<G> = { readonly lamp: Lamp; readonly handle: LampHandle; readonly group: G };

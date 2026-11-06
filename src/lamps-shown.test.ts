@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-
-import type { LampHandle, LampRange } from "./device";
 import { Lamp, type LampState } from "./lamp";
+import type { LampHandle, LampRange } from "./lamp-connection";
 import { allLampsOn, brightnessPercentages, lampStatuses, temperatureShown } from "./lamps-shown";
 
 //* Fakes

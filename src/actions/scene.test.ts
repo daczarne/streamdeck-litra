@@ -26,7 +26,7 @@ vi.mock("../litra-manager", () => ({
 
 const SCENE = "com.daczarne.litra.scene";
 
-const SET = { ok: true, deviceCount: 2, failures: 0 };
+const SET = { ok: true, lampCount: 2, failures: 0 };
 
 /** A group of a scene, as the key hands it to litra-manager, which turns its lamps on at these values. */
 function onAt(lamps: LampSelection, percentage: number, kelvin: number) {
@@ -64,7 +64,7 @@ describe("SceneAction", () => {
 
     it.each([
       ["a lamp fails", { ...SET, ok: false, failures: 1 }],
-      ["no lamp is connected", { ok: false, deviceCount: 0, failures: 1 }],
+      ["no lamp is connected", { ok: false, lampCount: 0, failures: 1 }],
     ])("shows an alert when %s", async (_when, result) => {
       const key = await deck.key(SCENE, { presetPercentage: 100, presetKelvin: 6500 });
       vi.mocked(setLampsScene).mockResolvedValue(result);

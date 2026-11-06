@@ -504,7 +504,7 @@ describe("LampScreen", () => {
   describe("on identify", () => {
     it("blinks the lamp on the dial's screen", async () => {
       const dial = createFakeDial();
-      vi.mocked(identifyLamp).mockResolvedValue({ ok: true, deviceCount: 1, failures: 0 });
+      vi.mocked(identifyLamp).mockResolvedValue({ ok: true, lampCount: 1, failures: 0 });
       await screenOf(dial).tap();
       await screenOf(dial).tap();
 
@@ -516,7 +516,7 @@ describe("LampScreen", () => {
 
     it("blinks for as long as the plugin settings say (#171)", async () => {
       const dial = createFakeDial();
-      vi.mocked(identifyLamp).mockResolvedValue({ ok: true, deviceCount: 1, failures: 0 });
+      vi.mocked(identifyLamp).mockResolvedValue({ ok: true, lampCount: 1, failures: 0 });
       changeGlobalSettings({ identifyBlinkMs: 1000 });
       await screenOf(dial).tap();
 
@@ -527,7 +527,7 @@ describe("LampScreen", () => {
 
     it("shows an alert when the lamp can't be blinked", async () => {
       const dial = createFakeDial();
-      vi.mocked(identifyLamp).mockResolvedValue({ ok: false, deviceCount: 0, failures: 1 });
+      vi.mocked(identifyLamp).mockResolvedValue({ ok: false, lampCount: 0, failures: 1 });
       await screenOf(dial).tap();
 
       await screenOf(dial).identify();
@@ -547,7 +547,7 @@ describe("LampScreen", () => {
   describe("with the blink on (#144)", () => {
     beforeEach(() => {
       changeGlobalSettings({ blinkOnLampScreen: true });
-      vi.mocked(identifyLamp).mockResolvedValue({ ok: true, deviceCount: 1, failures: 0 });
+      vi.mocked(identifyLamp).mockResolvedValue({ ok: true, lampCount: 1, failures: 0 });
     });
 
     it("blinks each lamp a tap shows, once its screen is drawn, and nothing on the way back to the main screen", async () => {
@@ -576,7 +576,7 @@ describe("LampScreen", () => {
       vi.mocked(identifyLamp).mockImplementationOnce(
         () =>
           new Promise((resolve) => {
-            endBlink = () => resolve({ ok: true, deviceCount: 1, failures: 0 });
+            endBlink = () => resolve({ ok: true, lampCount: 1, failures: 0 });
           }),
       );
 
@@ -598,7 +598,7 @@ describe("LampScreen", () => {
 
     it("shows an alert when the lamp can't be blinked, and stays on its screen", async () => {
       const dial = createFakeDial();
-      vi.mocked(identifyLamp).mockResolvedValue({ ok: false, deviceCount: 0, failures: 1 });
+      vi.mocked(identifyLamp).mockResolvedValue({ ok: false, lampCount: 0, failures: 1 });
 
       await screenOf(dial).tap();
 

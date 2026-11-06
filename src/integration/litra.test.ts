@@ -7,7 +7,7 @@ import { EmulatedLitra, type LitraModel } from "../test-support/emulated-litra";
 //* Fakes
 
 let litra: typeof import("litra");
-let deviceModule: typeof import("../device");
+let deviceModule: typeof import("../lamp-connection");
 let lampModule: typeof import("../lamp");
 let connect: (...lamps: EmulatedLitra[]) => void;
 
@@ -17,7 +17,7 @@ beforeEach(async () => {
     hid: { connect },
   } = await loadOnEmulatedLamps(async () => ({
     litra: await import("litra"),
-    deviceModule: await import("../device"),
+    deviceModule: await import("../lamp-connection"),
     lampModule: await import("../lamp"),
   })));
 });

@@ -31,7 +31,7 @@ vi.mock("../litra-manager", () => ({
 
 const POWER = "com.daczarne.litra.power";
 
-const SWITCHED = { ok: true, deviceCount: 2, failures: 0 };
+const SWITCHED = { ok: true, lampCount: 2, failures: 0 };
 
 // Lamps as the settings page saves them, by their ids (#20, #194).
 const LAMP_1 = "lamp-1";
@@ -139,7 +139,7 @@ describe("PowerAction", () => {
       const key = await deck.key(POWER);
       const otherKey = await deck.key(POWER);
       clearCalls();
-      vi.mocked(toggleLamps).mockReturnValue({ ok: false, deviceCount: 0, failures: 1 });
+      vi.mocked(toggleLamps).mockReturnValue({ ok: false, lampCount: 0, failures: 1 });
 
       await deck.press(key);
 
@@ -156,7 +156,7 @@ describe("PowerAction", () => {
 
     it("shows a failed press's alert only once, with the redraw that follows the press", async () => {
       const key = await deck.key(POWER);
-      vi.mocked(toggleLamps).mockReturnValue({ ok: false, deviceCount: 0, failures: 1 });
+      vi.mocked(toggleLamps).mockReturnValue({ ok: false, lampCount: 0, failures: 1 });
       await deck.press(key);
       await lampsChanged();
       clearCalls();

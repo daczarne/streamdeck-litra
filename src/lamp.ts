@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { LampHandle, LampRange } from "./device";
+import type { LampHandle, LampRange } from "./lamp-connection";
 import { logger as pluginLogger } from "./logging";
 
 const logger = pluginLogger.createScope("Lamps");
@@ -29,12 +29,13 @@ function pause(ms: number): void {
 }
 
 /**
- * One lamp the plugin knows, and what the plugin holds of it (#198): who it is, its id and model, as the global
- * settings keep them (#194), and the name given to it (#146), its state, as the plugin last set it and the lamp reported
- * it, the brightness it can reach on a low-power supply, its brightness cap (#55), when it may still go back to that
- * cap, and what it was last asked for when it's kept apart from the others (#145). It never holds the lamp's serial
- * number, only its id. It changes its lamp through the handle an
- * operation lends it, and acts on its own lamp alone. It forgets all but who it is when the plugin restarts.
+ * One lamp the plugin knows, plugged in or not, and what the plugin holds of it (#198): who it is, its id and model, as
+ * the global settings keep them (#194), and the name given to it (#146), its state, as the plugin last set it and the
+ * lamp reported it, the brightness it can reach on a low-power supply, its brightness cap (#55), when it may still go
+ * back to that cap, and what it was last asked for when it's kept apart from the others (#145). It never holds the
+ * lamp's serial number, only its id. It decides what its lamp is sent, and sends it through the lamp's connection, which
+ * an operation lends it as a `LampHandle`, and acts on its own lamp alone. It forgets all but who it is when the plugin
+ * restarts.
  */
 export class Lamp {
   /** The lamp's id, from its serial number (see {@link Lamp.idOf}), by which the plugin knows it everywhere. */
