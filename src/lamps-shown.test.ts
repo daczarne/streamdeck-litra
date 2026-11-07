@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { Lamp, type LampState } from "./lamp";
 import { allLampsOn, brightnessPercentages, shownLamps, temperatureShown } from "./lamps-shown";
+import { at } from "./test-support/at";
 import { reachedLamp } from "./test-support/reached-lamps";
 
 //* Fakes
@@ -73,11 +74,13 @@ describe("what the Deck shows of the lamps (#198)", () => {
     });
   });
 
-  it("holds each lamp shown with the state it's at, which the lamp screens draw from", () => {
+  it("hands the lamp screens each lamp shown as its Lamp, which holds the state it's at", () => {
     const lamp = held("00000000000a1111", { on: false, lumen: 400, kelvin: 6500 });
 
-    expect(shownLamps([lamp, neverReached("00000000000b2222")], "all")).toEqual([
-      { lamp, state: { on: false, lumen: 400, kelvin: 6500 } },
-    ]);
+    const shown = shownLamps([lamp, neverReached("00000000000b2222")], "all");
+
+    expect(shown).toHaveLength(1);
+    expect(at(shown, 0)).toBe(lamp);
+    expect(at(shown, 0).state).toEqual({ on: false, lumen: 400, kelvin: 6500 });
   });
 });

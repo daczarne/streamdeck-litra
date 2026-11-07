@@ -1,13 +1,7 @@
 import { globalSettings } from "../global-settings";
+import type { ReachedLamp } from "../lamp";
 import type { LampSelection } from "../lamp-selection";
-import {
-  allLampsOn,
-  brightnessPercentages,
-  type ShownLamp,
-  shownLamps,
-  type TemperatureShown,
-  temperatureShown,
-} from "../lamps-shown";
+import { allLampsOn, brightnessPercentages, shownLamps, type TemperatureShown, temperatureShown } from "../lamps-shown";
 import { lampsSettled, reachLampsForLampScreen } from "../litra-manager";
 
 /**
@@ -35,7 +29,7 @@ export async function readLampsTemperature(lamps: LampSelection): Promise<Temper
 }
 
 /** Every lamp shown, which the lamp screens show, in the order a tap steps through them. */
-export async function readShownLamps(): Promise<ShownLamp[]> {
+export async function readShownLamps(): Promise<ReachedLamp[]> {
   await lampsSettled();
   return shownLamps(globalSettings.lamps.values(), "all");
 }
@@ -44,7 +38,7 @@ export async function readShownLamps(): Promise<ShownLamp[]> {
  * Finds the lamps connected for a tap on a dial's strip, so it neither shows a lamp unplugged since the last operation
  * nor misses one plugged in since, then every lamp shown, which the lamp screens show.
  */
-export async function findShownLamps(): Promise<ShownLamp[]> {
+export async function findShownLamps(): Promise<ReachedLamp[]> {
   await reachLampsForLampScreen();
   return shownLamps(globalSettings.lamps.values(), "all");
 }

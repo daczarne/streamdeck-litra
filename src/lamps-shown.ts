@@ -1,4 +1,4 @@
-import type { Lamp, LampState } from "./lamp";
+import type { Lamp, ReachedLamp } from "./lamp";
 import { byId } from "./lamp-order";
 import { type LampSelection, selects } from "./lamp-selection";
 
@@ -18,28 +18,17 @@ export type TemperatureShown = {
 };
 
 /**
- * A lamp the Deck shows: its `Lamp`, which names it and converts within its range, and the state it held when it was
- * picked to be shown, which it holds once an operation has reached it. A lamp screen draws from one `ShownLamp`, so
- * everything it shows comes from the same state, even when the lamp changes while it draws.
- */
-export type ShownLamp = {
-  readonly lamp: Lamp;
-  readonly state: LampState;
-};
-
-/**
  * The lamps a selection takes in that are shown: connected as of the last operation, and reached since the start. The
  * lamp screens show every one, which a tap steps through in this order.
  */
-export function shownLamps(lamps: Iterable<Lamp>, selection: LampSelection): ShownLamp[] {
-  const shown: ShownLamp[] = [];
+export function shownLamps(lamps: Iterable<Lamp>, selection: LampSelection): ReachedLamp[] {
+  const shown: ReachedLamp[] = [];
   for (const lamp of lamps) {
-    const { state } = lamp;
-    if (lamp.isConnected && state !== undefined && selects(selection, lamp.id)) {
-      shown.push({ lamp, state });
+    if (lamp.isConnected && lamp.isReached() && selects(selection, lamp.id)) {
+      shown.push(lamp);
     }
   }
-  return shown.sort((a, b) => byId(a.lamp.id, b.lamp.id));
+  return shown.sort((a, b) => byId(a.id, b.id));
 }
 
 /** Whether a Power key shows on: only when the selection takes in a lamp, and every one is on. */
@@ -50,7 +39,7 @@ export function allLampsOn(lamps: Iterable<Lamp>, selection: LampSelection): boo
 
 /** The brightness of each lamp, as a percentage of its range, which a dial or a step key shows the brightest of. */
 export function brightnessPercentages(lamps: Iterable<Lamp>, selection: LampSelection): number[] {
-  return shownLamps(lamps, selection).map(({ lamp, state }) => lamp.brightnessPercentage(state.lumen));
+  return shownLamps(lamps, selection).map((lamp) => lamp.brightnessPercentage(lamp.state.lumen));
 }
 
 /** The temperature of the first lamp, which a dial or a step key shows, or undefined with none. */
@@ -58,5 +47,5 @@ export function temperatureShown(lamps: Iterable<Lamp>, selection: LampSelection
   const first = shownLamps(lamps, selection)[0];
   return first === undefined
     ? undefined
-    : { kelvin: first.state.kelvin, percentage: first.lamp.temperaturePercentage(first.state.kelvin) };
+    : { kelvin: first.state.kelvin, percentage: first.temperaturePercentage(first.state.kelvin) };
 }

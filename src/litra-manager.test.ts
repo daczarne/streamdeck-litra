@@ -83,12 +83,12 @@ async function readLampsTemperature(lamps: LampSelection) {
  */
 async function readShownLamps() {
   const { ok } = await manager.reachLampsForLampScreen();
-  const lamps = shownLamps(known.values(), "all").map(({ lamp, state }) => ({
+  const lamps = shownLamps(known.values(), "all").map((lamp) => ({
     id: lamp.id,
     model: lamp.model,
     label: lamp.label,
-    ...state,
-    brightnessPercentage: lamp.brightnessPercentage(state.lumen),
+    ...lamp.state,
+    brightnessPercentage: lamp.brightnessPercentage(lamp.state.lumen),
   }));
   return { ok, lamps };
 }

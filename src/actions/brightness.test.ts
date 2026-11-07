@@ -12,7 +12,7 @@ import { logger } from "../logging";
 import { at } from "../test-support/at";
 import { FakeDeck } from "../test-support/fake-deck";
 import { changeGlobalSettings } from "../test-support/fake-stream-deck";
-import { shownLamp } from "../test-support/reached-lamps";
+import { reachedLamp } from "../test-support/reached-lamps";
 import { BrightnessAction, barFill } from "./brightness";
 import { createDialDebouncer } from "./debouncer";
 import { globalSettings } from "./settings";
@@ -65,9 +65,9 @@ const UNKNOWN_BRIGHTNESS = { title: "Brightness", value: "—", indicator: { val
 /** A Beam on a Stream Deck + XL's USB hub, at its cap, which the lamp screens show. */
 const AT_ITS_CAP = { on: true, lumen: 324, kelvin: 2700 };
 
-const BEAM = shownLamp("00000000000000a1", AT_ITS_CAP);
+const BEAM = reachedLamp("00000000000000a1", AT_ITS_CAP);
 
-const OTHER_BEAM = shownLamp("00000000000000b2", AT_ITS_CAP);
+const OTHER_BEAM = reachedLamp("00000000000000b2", AT_ITS_CAP);
 
 let deck: FakeDeck;
 // What the action does when litra-manager announces that the lamps changed.
@@ -310,7 +310,7 @@ describe("BrightnessAction", () => {
 
       await deck.turn(dial, 3);
 
-      expect(adjustLampsBrightness).toHaveBeenCalledExactlyOnceWith([BEAM.lamp.id], 3, 5, "together");
+      expect(adjustLampsBrightness).toHaveBeenCalledExactlyOnceWith([BEAM.id], 3, 5, "together");
     });
 
     it("steps the lamps together when only the temperature difference is kept", async () => {
@@ -342,7 +342,7 @@ describe("BrightnessAction", () => {
 
       await deck.hold(dial);
 
-      expect(identifyLamp).toHaveBeenCalledExactlyOnceWith(BEAM.lamp.id, globalSettings.identifyBlinkMs.default);
+      expect(identifyLamp).toHaveBeenCalledExactlyOnceWith(BEAM.id, globalSettings.identifyBlinkMs.default);
       expect(dial.setFeedbackLayout).toHaveBeenLastCalledWith("layouts/lamp.json");
     });
 
@@ -363,7 +363,7 @@ describe("BrightnessAction", () => {
 
       await deck.push(dial);
 
-      expect(toggleLamps).toHaveBeenCalledExactlyOnceWith([BEAM.lamp.id]);
+      expect(toggleLamps).toHaveBeenCalledExactlyOnceWith([BEAM.id]);
       expect(identifyLamp).not.toHaveBeenCalled();
     });
 
@@ -385,7 +385,7 @@ describe("BrightnessAction", () => {
 
       await deck.turn(dial, 3);
 
-      expect(adjustLampsBrightness).toHaveBeenCalledExactlyOnceWith([BEAM.lamp.id], 3, 5, "together");
+      expect(adjustLampsBrightness).toHaveBeenCalledExactlyOnceWith([BEAM.id], 3, 5, "together");
     });
 
     it("moves the lamps that were on screen as the dial turned, even when the strip is tapped before (#20)", async () => {
@@ -409,8 +409,8 @@ describe("BrightnessAction", () => {
 
       expect(vi.mocked(adjustLampsBrightness).mock.calls).toEqual([
         ["all", 1, 5, "together"],
-        [[BEAM.lamp.id], 2, 5, "together"],
-        [[OTHER_BEAM.lamp.id], 3, 5, "together"],
+        [[BEAM.id], 2, 5, "together"],
+        [[OTHER_BEAM.id], 3, 5, "together"],
       ]);
     });
 
@@ -477,7 +477,7 @@ describe("BrightnessAction", () => {
 
       await deck.turn(dial, 1);
 
-      expect(adjustLampsBrightness).toHaveBeenCalledExactlyOnceWith([BEAM.lamp.id], 1, 10, "together");
+      expect(adjustLampsBrightness).toHaveBeenCalledExactlyOnceWith([BEAM.id], 1, 10, "together");
     });
 
     it("starts a dial that appears on the main screen", async () => {

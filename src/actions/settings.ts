@@ -97,10 +97,11 @@ function hexColor(fallback: string): Setting<string> {
 }
 
 /**
- * A lamp the plugin knows (#194), saved by its id: its model, such as "Beam", and the name given to it in the plugin
- * settings, if any (#146). Nothing of its serial number is saved.
+ * What the global settings save of a lamp the plugin knows (#194), by its id: its model, such as "Beam", and the name
+ * given to it in the plugin settings, if any (#146). Nothing of its serial number is saved. The plugin holds each one as
+ * a `Lamp`.
  */
-export type KnownLamp = { readonly model: string; readonly name?: string };
+export type SavedLamp = { readonly model: string; readonly name?: string };
 
 /** The longest name a lamp can be given (#146), which the plugin settings' name field also stops at. */
 export const MAX_LAMP_NAME_LENGTH = 24;
@@ -110,7 +111,7 @@ export const MAX_LAMP_NAME_LENGTH = 24;
  * doesn't take the others with it, and so is a name that isn't text. Anything else an entry holds, such as the end of
  * the serial number lamps were once saved with, is dropped, and goes at the next save.
  */
-function lampsById(): Setting<Readonly<Record<string, KnownLamp>>> {
+function lampsById(): Setting<Readonly<Record<string, SavedLamp>>> {
   return {
     default: {},
     expected: "lamps by id, each with its model",

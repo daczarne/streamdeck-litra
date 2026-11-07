@@ -4,7 +4,6 @@ import type { JsonObject } from "@elgato/utils";
 import {
   type CheckedLamps,
   globalSettings as globalSettingsSchema,
-  type KnownLamp,
   LAMP_SCREEN_CELLS,
   type LampScreenCell,
   type LampScreenItem,
@@ -13,6 +12,7 @@ import {
   MAX_LAMP_NAME_LENGTH,
   type GlobalSettings as ParsedGlobalSettings,
   parseSettings,
+  type SavedLamp,
   type TextStyleName,
 } from "./actions/settings";
 import { Lamp } from "./lamp";
@@ -229,7 +229,7 @@ export class GlobalSettings {
   }
 
   /** The lamps the plugin knows, as the global settings save them: by id, with what's kept of each. */
-  private savedLamps(): Record<string, KnownLamp> {
+  private savedLamps(): Record<string, SavedLamp> {
     return Object.fromEntries(
       [...this.knownLamps.values()].map(({ id, model, name }) => [
         id,
