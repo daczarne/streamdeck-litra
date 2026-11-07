@@ -336,11 +336,10 @@ function openGroups<G extends { readonly lamps: LampSelection }>(
  * it.
  */
 function stateOf(lamp: Lamp): LampState {
-  const { state } = lamp;
-  if (state === undefined) {
+  if (!lamp.isReached()) {
     throw new Error(`${lamp.label} has no state before it's reached`);
   }
-  return state;
+  return lamp.state;
 }
 
 /**

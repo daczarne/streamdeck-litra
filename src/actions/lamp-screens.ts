@@ -8,9 +8,8 @@ import {
   type TextStyle,
   type TextStyles,
 } from "../global-settings";
-import { Lamp } from "../lamp";
+import { Lamp, type ReachedLamp } from "../lamp";
 import { byId } from "../lamp-order";
-import type { ShownLamp } from "../lamps-shown";
 import { identifyLamp } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
 import { LAMP_SCREEN_CELLS, type LampScreenCell, type LampScreenItem, type LampScreenItemOptions } from "./settings";
@@ -87,14 +86,14 @@ export class LampScreen {
       }
       // The lamp after the one on screen in the order the lamps come in, which also finds the one after a lamp
       // unplugged since the last tap.
-      const next = current === undefined ? lamps[0] : lamps.find(({ lamp }) => byId(lamp.id, current) > 0);
+      const next = current === undefined ? lamps[0] : lamps.find((lamp) => byId(lamp.id, current) > 0);
       if (next === undefined) {
         await this.backToMain();
         return;
       }
       await this.show(next, lamps);
       if (globalSettings.blinksOnLampScreen(this.dial.id)) {
-        await blink(this.dial, next.lamp.id);
+        await blink(this.dial, next.id);
       }
     });
   }
@@ -119,11 +118,11 @@ export class LampScreen {
         return;
       }
       const lamps = await readShownLamps();
-      const onScreen = lamps.find(({ lamp }) => lamp.id === shown);
-      if (onScreen === undefined) {
+      const lamp = lamps.find((candidate) => candidate.id === shown);
+      if (lamp === undefined) {
         await this.backToMain();
       } else {
-        await draw(this.dial, onScreen, lamps);
+        await draw(this.dial, lamp, lamps);
       }
     });
   }
@@ -149,14 +148,14 @@ export class LampScreen {
   }
 
   /** Draws a lamp, switching the dial to the lamp layout first if it was on its main screen. */
-  private async show(next: ShownLamp, lamps: ShownLamp[]): Promise<void> {
+  private async show(lamp: ReachedLamp, lamps: ReachedLamp[]): Promise<void> {
     const wasShowing = this.shown !== undefined;
-    this.shown = next.lamp.id;
+    this.shown = lamp.id;
     if (!wasShowing) {
       await this.dial.setFeedbackLayout(LAMP_LAYOUT);
       await this.dial.setTriggerDescription({ rotate: this.owner.adjusts, ...LAMP_TRIGGER_DESCRIPTIONS });
     }
-    await draw(this.dial, next, lamps);
+    await draw(this.dial, lamp, lamps);
   }
 
   /** Switches the dial back to the main layout and lets it draw its main screen. */
@@ -202,16 +201,16 @@ type Shown = { text: { value: string } & TextStyle; icon?: string };
  */
 function shownIn(
   content: LampScreenCellContent,
-  shown: ShownLamp,
-  lamps: ShownLamp[],
+  lamp: ReachedLamp,
+  lamps: ReachedLamp[],
   styles: TextStyles,
 ): Shown | undefined {
-  const { lamp, state } = shown;
+  const { state } = lamp;
   switch (content.item) {
     case "identification":
       return { text: { value: identification(content.options, lamp), ...styles[content.options.style] } };
     case "counter":
-      return { text: { value: counter(content.options, shown, lamps), ...styles[content.options.style] } };
+      return { text: { value: counter(content.options, lamp, lamps), ...styles[content.options.style] } };
     case "temperature":
       return measure(content, `${state.kelvin}`, " K", styles[content.options.style]);
     case "power":
@@ -255,10 +254,9 @@ function trimmed(text: string): string {
 }
 
 /** A lamp's place among the lamps, or among the lamps of its model, alone or with their count. */
-function counter(options: LampScreenItemOptions["counter"], shown: ShownLamp, lamps: ShownLamp[]): string {
-  const { model } = shown.lamp;
-  const among = options.count === "countByModel" ? lamps.filter(({ lamp }) => lamp.model === model) : lamps;
-  const place = among.indexOf(shown) + 1;
+function counter(options: LampScreenItemOptions["counter"], lamp: Lamp, lamps: readonly Lamp[]): string {
+  const among = options.count === "countByModel" ? lamps.filter((other) => other.model === lamp.model) : lamps;
+  const place = among.indexOf(lamp) + 1;
   return options.count === "count" ? `${place}` : `${place}${COUNTER_SEPARATORS[options.format]}${among.length}`;
 }
 
@@ -320,10 +318,10 @@ function cellSlots(cell: LampScreenCell, shown: Shown | undefined) {
 }
 
 /** Fills the slots of the lamp layout, each cell with what the global settings give it, and how (#177). */
-async function draw(dial: LampScreenDial, shown: ShownLamp, lamps: ShownLamp[]): Promise<void> {
+async function draw(dial: LampScreenDial, lamp: ReachedLamp, lamps: ReachedLamp[]): Promise<void> {
   const cells = globalSettings.lampScreenCells;
   const styles = globalSettings.textStyles;
   await dial.setFeedback(
-    Object.assign({}, ...LAMP_SCREEN_CELLS.map((cell) => cellSlots(cell, shownIn(cells[cell], shown, lamps, styles)))),
+    Object.assign({}, ...LAMP_SCREEN_CELLS.map((cell) => cellSlots(cell, shownIn(cells[cell], lamp, lamps, styles)))),
   );
 }

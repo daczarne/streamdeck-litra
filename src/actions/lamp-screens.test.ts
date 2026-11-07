@@ -3,13 +3,12 @@ import type { JsonObject } from "@elgato/utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { followGlobalSettings } from "../global-settings";
-import type { LampState } from "../lamp";
-import type { ShownLamp } from "../lamps-shown";
+import type { LampState, ReachedLamp } from "../lamp";
 import { identifyLamp } from "../litra-manager";
 import { logger } from "../logging";
 import { at } from "../test-support/at";
 import { changeGlobalSettings, createFakeDial } from "../test-support/fake-stream-deck";
-import { shownLamp } from "../test-support/reached-lamps";
+import { reachedLamp } from "../test-support/reached-lamps";
 import { LampScreen, MAIN_LAYOUT } from "./lamp-screens";
 import { globalSettings } from "./settings";
 import { findShownLamps, readShownLamps } from "./shown";
@@ -42,27 +41,27 @@ const BLINK_MS = globalSettings.identifyBlinkMs.default;
 const AT_ITS_CAP: LampState = { on: true, lumen: 324, kelvin: 2700 };
 
 /** A lamp shown, a Beam at its cap unless a test says otherwise, by the last 4 characters of its id. */
-function beam(idEnd: string, state: Partial<LampState> = {}, model = "Beam"): ShownLamp {
-  return shownLamp(`000000000000${idEnd}`, { ...AT_ITS_CAP, ...state }, { model });
+function beam(idEnd: string, state: Partial<LampState> = {}, model = "Beam"): ReachedLamp {
+  return reachedLamp(`000000000000${idEnd}`, { ...AT_ITS_CAP, ...state }, { model });
 }
 
-/** The same lamp shown at another state, as an operation leaves it. */
-function changed(shown: ShownLamp, state: Partial<LampState>): ShownLamp {
-  return { lamp: shown.lamp, state: { ...shown.state, ...state } };
+/** The same lamp at another state, as an operation leaves it. */
+function changed(lamp: ReachedLamp, state: Partial<LampState>): ReachedLamp {
+  return reachedLamp(lamp.id, { ...lamp.state, ...state }, { model: lamp.model, name: lamp.name });
 }
 
 /** The same lamp with the name given to it in the plugin settings (#146), which its `Lamp` holds. */
-function named(shown: ShownLamp, name: string): ShownLamp {
-  return shownLamp(shown.lamp.id, shown.state, { model: shown.lamp.model, name });
+function named(lamp: ReachedLamp, name: string): ReachedLamp {
+  return reachedLamp(lamp.id, lamp.state, { model: lamp.model, name });
 }
 
 /** A lamp's brightness, as a percentage of its range, which the lamp screens show. */
-function percentageOf({ lamp, state }: ShownLamp): number {
-  return lamp.brightnessPercentage(state.lumen);
+function percentageOf(lamp: ReachedLamp): number {
+  return lamp.brightnessPercentage(lamp.state.lumen);
 }
 
 /** Connects the lamps, which readShownLamps reports in the order of their ids. */
-function connect(...lamps: ShownLamp[]): void {
+function connect(...lamps: ReachedLamp[]): void {
   vi.mocked(readShownLamps).mockResolvedValue(lamps);
 }
 
@@ -105,9 +104,9 @@ function cell(name: string, text?: object, icon?: string) {
 }
 
 /** What a dial's lamp screen shows for a lamp, the `position`-th of `count`, with every cell at its default. */
-function lampScreenOf(lamp: ShownLamp, position: number, count: number) {
+function lampScreenOf(lamp: ReachedLamp, position: number, count: number) {
   return {
-    ...cell("topLeft", shown(lamp.lamp.label)),
+    ...cell("topLeft", shown(lamp.label)),
     ...cell("topRight", shown(`${position} of ${count}`)),
     ...cell("middleLeft", shown(`${lamp.state.kelvin} K`), THERMOMETER),
     ...cell("middleRight", lamp.state.on ? shown("ON") : shown("OFF", OFF_POWER)),
@@ -173,7 +172,7 @@ describe("LampScreen", () => {
       });
       expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith(lampScreenOf(A, 1, 2));
       expect(screenOf(dial).isShowing).toBe(true);
-      expect(screenOf(dial).lamp).toBe(A.lamp.id);
+      expect(screenOf(dial).lamp).toBe(A.id);
       // The blink is off by default (#144).
       expect(identifyLamp).not.toHaveBeenCalled();
     });
@@ -204,7 +203,7 @@ describe("LampScreen", () => {
       for (const [place, lamp] of [A, B, C].entries()) {
         await screenOf(dial).tap();
 
-        expect(screenOf(dial).lamp).toBe(lamp.lamp.id);
+        expect(screenOf(dial).lamp).toBe(lamp.id);
         expect(dial.setFeedback).toHaveBeenLastCalledWith(lampScreenOf(lamp, place + 1, 3));
       }
     });
@@ -295,7 +294,7 @@ describe("LampScreen", () => {
         ...cell("middleLeft"),
         ...cell("middleRight", shown(`${percentageOf(A)}%`), SUN),
         ...cell("bottomLeft", shown(`${A.state.lumen} lm`)),
-        ...cell("bottomRight", shown(A.lamp.label)),
+        ...cell("bottomRight", shown(A.label)),
       });
     });
 
@@ -351,7 +350,7 @@ describe("LampScreen", () => {
     it("shows the model and the end of the id for the name of a lamp with none", async () => {
       const dial = await topLeftOf("identification", { first: "name", second: "empty" });
 
-      expect(topLeft(dial)).toEqual(cell("topLeft", shown(A.lamp.label)));
+      expect(topLeft(dial)).toEqual(cell("topLeft", shown(A.label)));
     });
 
     it("shows nothing for an identification with both parts empty", async () => {
@@ -434,7 +433,7 @@ describe("LampScreen", () => {
 
       expect(dial.setFeedback).toHaveBeenLastCalledWith(
         expect.objectContaining({
-          topLeft: shown(A.lamp.label, PRIMARY),
+          topLeft: shown(A.label, PRIMARY),
           middleLeftBesideIcon: shown(`${A.state.kelvin} K`, PRIMARY),
           middleRight: shown("ON", PRIMARY),
           bottomRight: shown(`${A.state.lumen} lm`, PRIMARY),
@@ -449,7 +448,7 @@ describe("LampScreen", () => {
     });
 
     it.each([
-      ["identification", {}, cell("topLeft", shown(A.lamp.label, SECONDARY))],
+      ["identification", {}, cell("topLeft", shown(A.label, SECONDARY))],
       ["counter", {}, cell("topLeft", shown("1 of 2", SECONDARY))],
       [
         "temperature",
@@ -491,7 +490,7 @@ describe("LampScreen", () => {
       changeGlobalSettings({ lampScreenOptions: { topLeft: { counter: { count: "count" } } } });
       await screenOf(dial).tap();
 
-      expect(topLeft(dial)).toEqual(cell("topLeft", shown(A.lamp.label)));
+      expect(topLeft(dial)).toEqual(cell("topLeft", shown(A.label)));
     });
 
     it("keeps each cell's options apart", async () => {
@@ -517,7 +516,7 @@ describe("LampScreen", () => {
 
       await screenOf(dial).identify();
 
-      expect(identifyLamp).toHaveBeenCalledExactlyOnceWith(B.lamp.id, BLINK_MS);
+      expect(identifyLamp).toHaveBeenCalledExactlyOnceWith(B.id, BLINK_MS);
       expect(dial.showAlert).not.toHaveBeenCalled();
     });
 
@@ -529,7 +528,7 @@ describe("LampScreen", () => {
 
       await screenOf(dial).identify();
 
-      expect(identifyLamp).toHaveBeenCalledExactlyOnceWith(A.lamp.id, 1000);
+      expect(identifyLamp).toHaveBeenCalledExactlyOnceWith(A.id, 1000);
     });
 
     it("shows an alert when the lamp can't be blinked", async () => {
@@ -562,7 +561,7 @@ describe("LampScreen", () => {
 
       await screenOf(dial).tap();
 
-      expect(identifyLamp).toHaveBeenCalledExactlyOnceWith(A.lamp.id, BLINK_MS);
+      expect(identifyLamp).toHaveBeenCalledExactlyOnceWith(A.id, BLINK_MS);
       expect(at(dial.setFeedback.mock.invocationCallOrder, 0)).toBeLessThan(
         at(vi.mocked(identifyLamp).mock.invocationCallOrder, 0),
       );
@@ -571,8 +570,8 @@ describe("LampScreen", () => {
       await screenOf(dial).tap();
 
       expect(vi.mocked(identifyLamp).mock.calls).toEqual([
-        [A.lamp.id, BLINK_MS],
-        [B.lamp.id, BLINK_MS],
+        [A.id, BLINK_MS],
+        [B.id, BLINK_MS],
       ]);
       expect(showMain).toHaveBeenCalledOnce();
     });
@@ -598,8 +597,8 @@ describe("LampScreen", () => {
 
       expect(dial.setFeedback).toHaveBeenLastCalledWith(lampScreenOf(B, 2, 2));
       expect(vi.mocked(identifyLamp).mock.calls).toEqual([
-        [A.lamp.id, BLINK_MS],
-        [B.lamp.id, BLINK_MS],
+        [A.id, BLINK_MS],
+        [B.id, BLINK_MS],
       ]);
     });
 
@@ -610,7 +609,7 @@ describe("LampScreen", () => {
       await screenOf(dial).tap();
 
       expect(dial.showAlert).toHaveBeenCalledOnce();
-      expect(screenOf(dial).lamp).toBe(A.lamp.id);
+      expect(screenOf(dial).lamp).toBe(A.id);
     });
 
     it("blinks nothing when a lamp screen is redrawn", async () => {
@@ -629,7 +628,7 @@ describe("LampScreen", () => {
       await screenOf(dial).tap();
       await screenOf(other).tap();
 
-      expect(identifyLamp).toHaveBeenCalledExactlyOnceWith(A.lamp.id, BLINK_MS);
+      expect(identifyLamp).toHaveBeenCalledExactlyOnceWith(A.id, BLINK_MS);
     });
 
     it("blinks for as long as the plugin settings say (#171)", async () => {
@@ -638,7 +637,7 @@ describe("LampScreen", () => {
 
       await screenOf(dial).tap();
 
-      expect(identifyLamp).toHaveBeenCalledExactlyOnceWith(A.lamp.id, 1000);
+      expect(identifyLamp).toHaveBeenCalledExactlyOnceWith(A.id, 1000);
     });
 
     it("stops blinking once turned off", async () => {
@@ -648,7 +647,7 @@ describe("LampScreen", () => {
       changeGlobalSettings({ blinkOnLampScreen: false });
       await screenOf(dial).tap();
 
-      expect(identifyLamp).toHaveBeenCalledExactlyOnceWith(A.lamp.id, BLINK_MS);
+      expect(identifyLamp).toHaveBeenCalledExactlyOnceWith(A.id, BLINK_MS);
     });
   });
 
@@ -694,7 +693,7 @@ describe("LampScreen", () => {
       await refreshAll();
 
       expect(dial.setFeedback).toHaveBeenLastCalledWith(
-        expect.objectContaining({ topLeft: shown(A.lamp.label), middleRight: shown("OFF", OFF_POWER) }),
+        expect.objectContaining({ topLeft: shown(A.label), middleRight: shown("OFF", OFF_POWER) }),
       );
 
       connect(A, B);

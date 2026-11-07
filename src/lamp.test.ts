@@ -273,11 +273,16 @@ describe("a lamp reached by an operation (#198)", () => {
   it("is read the first time, and holds its state, its range, and that it's connected", () => {
     const lamp = knownLamp();
 
-    expect([lamp.state, lamp.isConnected]).toEqual([undefined, false]);
+    expect([lamp.state, lamp.isReached(), lamp.isConnected]).toEqual([undefined, false, false]);
 
     lamp.reach("set brightness", new FakeHandle());
 
-    expect([lamp.state, lamp.range, lamp.isConnected]).toEqual([{ on: true, lumen: 215, kelvin: 4000 }, RANGE, true]);
+    expect([lamp.state, lamp.isReached(), lamp.range, lamp.isConnected]).toEqual([
+      { on: true, lumen: 215, kelvin: 4000 },
+      true,
+      RANGE,
+      true,
+    ]);
     expect(logged("info")).toEqual([
       "set brightness: Beam - 73cd read, since it was first reached: on at 215 lm (50%) and 4000 K",
     ]);

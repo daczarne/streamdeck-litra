@@ -20,6 +20,9 @@ export type LampState = {
   readonly kelvin: number;
 };
 
+/** A lamp an operation has reached since the plugin started, so its `Lamp` holds its state (see `Lamp.isReached`). */
+export type ReachedLamp = Lamp & { readonly state: LampState };
+
 /**
  * Waits, holding the thread, since the writes it follows are synchronous. Only a read that just failed waits, and only
  * for {@link READ_AGAIN_MS}.
@@ -186,6 +189,11 @@ export class Lamp {
    */
   get state(): LampState | undefined {
     return this.heldState;
+  }
+
+  /** Whether an operation has reached the lamp since the plugin started, so the plugin holds its state. */
+  isReached(): this is ReachedLamp {
+    return this.heldState !== undefined;
   }
 
   /** The lamp's range, once an operation has reached it. */

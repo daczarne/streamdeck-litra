@@ -1,6 +1,5 @@
-import { Lamp, type LampState } from "../lamp";
+import { Lamp, type LampState, type ReachedLamp } from "../lamp";
 import type { LampHandle, LampRange } from "../lamp-connection";
-import type { ShownLamp } from "../lamps-shown";
 
 /**
  * `Lamp`s as an operation leaves them, for the tests of what the Deck shows, which need no lamp: each is reached
@@ -29,26 +28,19 @@ export function handleAt(state: LampState): LampHandle {
   };
 }
 
-/** A lamp the plugin knows, by its id and model, as the last operation found it at a state. */
-export function reachedLamp(id: string, state: LampState, model = "Beam"): Lamp {
+/** A lamp the plugin knows, by its id, as the last operation found it at a state, with its model and name, if given. */
+export function reachedLamp(id: string, state: LampState, { model = "Beam", name }: ReachedOptions = {}): ReachedLamp {
   const lamp = new Lamp({ id, model });
+  lamp.name = name;
   lamp.reach("test", handleAt(state));
+  if (!lamp.isReached()) {
+    throw new Error(`${lamp.label} holds no state once reached`);
+  }
   return lamp;
 }
 
-/** A lamp the Deck shows, by its id and model, at a state, with the name given to it, if any. */
-export function shownLamp(id: string, state: LampState, { model = "Beam", name }: ShownOptions = {}): ShownLamp {
-  const lamp = reachedLamp(id, state, model);
-  lamp.name = name;
-  const held = lamp.state;
-  if (held === undefined) {
-    throw new Error(`${lamp.label} holds no state once reached`);
-  }
-  return { lamp, state: held };
-}
-
-/** What a lamp shown is besides its id and state: its model, a Beam unless given, and its name, none unless given. */
-type ShownOptions = {
+/** What a lamp reached is besides its id and state: its model, a Beam unless given, and its name, none unless given. */
+type ReachedOptions = {
   model?: string;
   name?: string | undefined;
 };
