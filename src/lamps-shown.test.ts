@@ -1,42 +1,19 @@
 import { describe, expect, it, vi } from "vitest";
 import { Lamp, type LampState } from "./lamp";
-import type { LampHandle, LampRange } from "./lamp-connection";
-import { allLampsOn, brightnessPercentages, lampStatuses, temperatureShown } from "./lamps-shown";
+import { allLampsOn, brightnessPercentages, shownLamps, temperatureShown } from "./lamps-shown";
+import { reachedLamp } from "./test-support/reached-lamps";
 
 //* Fakes
 
 // The real logger writes to a logs/ folder, and a Lamp logs what it reads.
 vi.mock("./logging", () => import("./test-support/fake-logging"));
 
-/** A Beam's range: 30 to 400 lm, and 2700 K to 6500 K in steps of 100 K. */
-const RANGE: LampRange = {
-  minLumen: 30,
-  maxLumen: 400,
-  allowedKelvin: Array.from({ length: 39 }, (_, step) => 2700 + step * 100),
-};
-
 /** A Beam at 50% of its range and 4000 K, unless a test says otherwise. */
 const HALF: LampState = { on: true, lumen: 215, kelvin: 4000 };
 
-/** A lamp opened for an operation, which only answers what it's at, as reaching a lamp reads it. */
-function handleAt(state: LampState): LampHandle {
-  return {
-    path: "path-1",
-    range: RANGE,
-    isOn: () => state.on,
-    switchPower: () => {},
-    readBrightness: () => state.lumen,
-    writeBrightness: () => {},
-    readTemperature: () => state.kelvin,
-    writeTemperature: () => {},
-  };
-}
-
 /** A Beam the plugin knows, by its id, as the last operation found it at a state. */
 function held(id: string, state: Partial<LampState> = {}): Lamp {
-  const lamp = new Lamp({ id, model: "Beam" });
-  lamp.reach("test", handleAt({ ...HALF, ...state }));
-  return lamp;
+  return reachedLamp(id, { ...HALF, ...state });
 }
 
 /** A lamp the plugin knows that no operation has reached since it started, so it holds no state. */
@@ -96,19 +73,11 @@ describe("what the Deck shows of the lamps (#198)", () => {
     });
   });
 
-  it("shows every lamp on the lamp screens, with its name, power, brightness and temperature", () => {
+  it("holds each lamp shown with the state it's at, which the lamp screens draw from", () => {
     const lamp = held("00000000000a1111", { on: false, lumen: 400, kelvin: 6500 });
 
-    expect(lampStatuses([lamp, neverReached("00000000000b2222")])).toEqual([
-      {
-        id: lamp.id,
-        model: "Beam",
-        label: "Beam - 1111",
-        on: false,
-        brightnessLumen: 400,
-        brightnessPercentage: 100,
-        temperatureKelvin: 6500,
-      },
+    expect(shownLamps([lamp, neverReached("00000000000b2222")], "all")).toEqual([
+      { lamp, state: { on: false, lumen: 400, kelvin: 6500 } },
     ]);
   });
 });

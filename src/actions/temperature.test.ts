@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { followGlobalSettings } from "../global-settings";
-import type { LampStatus } from "../lamps-shown";
 import {
   adjustLampsTemperature,
   identifyLamp,
@@ -13,9 +12,10 @@ import { logger } from "../logging";
 import { at } from "../test-support/at";
 import { FakeDeck } from "../test-support/fake-deck";
 import { changeGlobalSettings } from "../test-support/fake-stream-deck";
+import { shownLamp } from "../test-support/reached-lamps";
 import { createDialDebouncer } from "./debouncer";
 import { globalSettings } from "./settings";
-import { findLampStatuses, readLampStatuses, readLampsTemperature } from "./shown";
+import { findShownLamps, readLampsTemperature, readShownLamps } from "./shown";
 import { TemperatureAction } from "./temperature";
 
 //* Fakes
@@ -29,7 +29,7 @@ vi.mock("../logging", () => import("../test-support/fake-logging"));
 vi.mock("./debouncer", () => ({ createDialDebouncer: vi.fn() }));
 
 // What the keys and dials show of the lamps, which each test sets.
-vi.mock("./shown", () => ({ findLampStatuses: vi.fn(), readLampStatuses: vi.fn(), readLampsTemperature: vi.fn() }));
+vi.mock("./shown", () => ({ findShownLamps: vi.fn(), readShownLamps: vi.fn(), readLampsTemperature: vi.fn() }));
 
 // The real litra-manager loads node-hid's native binary on import and talks to real lamps.
 vi.mock("../litra-manager", () => ({
@@ -57,17 +57,12 @@ const NO_LAMP: OperationResult = { ok: false, lampCount: 0, failures: 1 };
 
 const UNKNOWN_TEMPERATURE = { title: "Temperature", value: "—", indicator: 0 };
 
-const BEAM: LampStatus = {
-  id: "lamp-A1",
-  model: "Beam",
-  label: "Beam - A1",
-  on: true,
-  brightnessLumen: 324,
-  brightnessPercentage: 79,
-  temperatureKelvin: 2700,
-};
+/** A Beam on a Stream Deck + XL's USB hub, at its cap, which the lamp screens show. */
+const AT_ITS_CAP = { on: true, lumen: 324, kelvin: 2700 };
 
-const OTHER_BEAM: LampStatus = { ...BEAM, id: "lamp-B2", label: "Beam - B2" };
+const BEAM = shownLamp("00000000000000a1", AT_ITS_CAP);
+
+const OTHER_BEAM = shownLamp("00000000000000b2", AT_ITS_CAP);
 
 let deck: FakeDeck;
 // What the action does when litra-manager announces that the lamps changed.
@@ -83,9 +78,9 @@ beforeEach(() => {
   vi.mocked(createDialDebouncer).mockImplementation((flush) => (ticks) => void flush(ticks));
   // The lamps, as a dial that appears or returns to its main screen reads them, and as the lamp screens read them.
   vi.mocked(readLampsTemperature).mockResolvedValue(SNAPPED);
-  vi.mocked(readLampStatuses).mockResolvedValue([BEAM]);
-  // A tap finds the lamps, then shows what the plugin holds of them, which each test sets as readLampStatuses.
-  vi.mocked(findLampStatuses).mockImplementation(() => readLampStatuses());
+  vi.mocked(readShownLamps).mockResolvedValue([BEAM]);
+  // A tap finds the lamps, then shows what the plugin holds of them, which each test sets as readShownLamps.
+  vi.mocked(findShownLamps).mockImplementation(() => readShownLamps());
   const temperature = new TemperatureAction();
   const listener = vi.mocked(onLampsChanged).mock.lastCall?.[0];
   if (listener === undefined) {
@@ -317,7 +312,7 @@ describe("TemperatureAction", () => {
 
       await deck.turn(dial, 2);
 
-      expect(adjustLampsTemperature).toHaveBeenCalledExactlyOnceWith([BEAM.id], 2, 100, "together");
+      expect(adjustLampsTemperature).toHaveBeenCalledExactlyOnceWith([BEAM.lamp.id], 2, 100, "together");
     });
 
     it("steps the lamps together when only the brightness difference is kept", async () => {
@@ -348,7 +343,7 @@ describe("TemperatureAction", () => {
 
       await deck.hold(dial);
 
-      expect(identifyLamp).toHaveBeenCalledExactlyOnceWith(BEAM.id, globalSettings.identifyBlinkMs.default);
+      expect(identifyLamp).toHaveBeenCalledExactlyOnceWith(BEAM.lamp.id, globalSettings.identifyBlinkMs.default);
       expect(dial.setFeedbackLayout).toHaveBeenLastCalledWith("layouts/lamp.json");
     });
 
@@ -369,7 +364,7 @@ describe("TemperatureAction", () => {
 
       await deck.push(dial);
 
-      expect(toggleLamps).toHaveBeenCalledExactlyOnceWith([BEAM.id]);
+      expect(toggleLamps).toHaveBeenCalledExactlyOnceWith([BEAM.lamp.id]);
       expect(identifyLamp).not.toHaveBeenCalled();
     });
 
@@ -391,7 +386,7 @@ describe("TemperatureAction", () => {
 
       await deck.turn(dial, 3);
 
-      expect(adjustLampsTemperature).toHaveBeenCalledExactlyOnceWith([BEAM.id], 3, 100, "together");
+      expect(adjustLampsTemperature).toHaveBeenCalledExactlyOnceWith([BEAM.lamp.id], 3, 100, "together");
     });
 
     it("moves the lamps that were on screen as the dial turned, even when the strip is tapped before (#20)", async () => {
@@ -400,7 +395,7 @@ describe("TemperatureAction", () => {
       vi.mocked(createDialDebouncer).mockImplementation((flush) => (ticks) => {
         waiting.push(() => flush(ticks));
       });
-      vi.mocked(readLampStatuses).mockResolvedValue([BEAM, OTHER_BEAM]);
+      vi.mocked(readShownLamps).mockResolvedValue([BEAM, OTHER_BEAM]);
       vi.mocked(adjustLampsTemperature).mockReturnValue(DONE);
       const dial = await deck.dial(TEMPERATURE, { stepKelvin: 100 });
 
@@ -415,8 +410,8 @@ describe("TemperatureAction", () => {
 
       expect(vi.mocked(adjustLampsTemperature).mock.calls).toEqual([
         ["all", 1, 100, "together"],
-        [[BEAM.id], 2, 100, "together"],
-        [[OTHER_BEAM.id], 3, 100, "together"],
+        [[BEAM.lamp.id], 2, 100, "together"],
+        [[OTHER_BEAM.lamp.id], 3, 100, "together"],
       ]);
     });
 
@@ -428,7 +423,7 @@ describe("TemperatureAction", () => {
 
       await lampsChanged();
 
-      expect(readLampStatuses).toHaveBeenCalledOnce();
+      expect(readShownLamps).toHaveBeenCalledOnce();
       expect(onLamp.setFeedback).toHaveBeenCalledOnce();
       expect(onLamp.setFeedback).not.toHaveBeenCalledWith(TEMPERATURE_SNAPPED);
       expect(onMain.setFeedback).toHaveBeenCalledExactlyOnceWith(TEMPERATURE_SNAPPED);
@@ -437,7 +432,7 @@ describe("TemperatureAction", () => {
     it("goes back to the main screen when the lamp on screen is no longer connected", async () => {
       const dial = await deck.dial(TEMPERATURE);
       await deck.tap(dial);
-      vi.mocked(readLampStatuses).mockResolvedValue([OTHER_BEAM]);
+      vi.mocked(readShownLamps).mockResolvedValue([OTHER_BEAM]);
 
       await lampsChanged();
 
@@ -467,7 +462,7 @@ describe("TemperatureAction", () => {
       await lampsChanged();
 
       expect(dial.setFeedback).not.toHaveBeenCalled();
-      expect(readLampStatuses).not.toHaveBeenCalled();
+      expect(readShownLamps).not.toHaveBeenCalled();
     });
 
     it("keeps a lamp screen drawn when the dial's settings change on it, and turns its lamp by the new step", async () => {
@@ -483,7 +478,7 @@ describe("TemperatureAction", () => {
 
       await deck.turn(dial, 1);
 
-      expect(adjustLampsTemperature).toHaveBeenCalledExactlyOnceWith([BEAM.id], 1, 200, "together");
+      expect(adjustLampsTemperature).toHaveBeenCalledExactlyOnceWith([BEAM.lamp.id], 1, 200, "together");
     });
   });
 
