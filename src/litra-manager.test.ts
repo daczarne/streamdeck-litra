@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, inject, it, vi } from "vitest";
 
 import type { LampSelection } from "./lamp-selection";
-import { allLampsOn, brightnessPercentages, lampStatuses, temperatureShown } from "./lamps-shown";
+import { allLampsOn, brightnessPercentages, shownLamps, temperatureShown } from "./lamps-shown";
 import type { OperationResult, SceneGroup } from "./litra-manager";
 import { at } from "./test-support/at";
 import { loadOnEmulatedLamps } from "./test-support/emulated-lamps";
@@ -77,10 +77,20 @@ async function readLampsTemperature(lamps: LampSelection) {
   return temperatureShown(known.values(), lamps);
 }
 
-/** What a tap on a dial's strip finds, and how finding them went, as the lamp screens show the lamps. */
-async function readLampStatuses() {
+/**
+ * What a tap on a dial's strip finds, and how finding them went: each lamp shown, by what the lamp screens show of it,
+ * its name, its state, and its brightness as a percentage of its range.
+ */
+async function readShownLamps() {
   const { ok } = await manager.reachLampsForLampScreen();
-  return { ok, lamps: lampStatuses(known.values()) };
+  const lamps = shownLamps(known.values(), "all").map(({ lamp, state }) => ({
+    id: lamp.id,
+    model: lamp.model,
+    label: lamp.label,
+    ...state,
+    brightnessPercentage: lamp.brightnessPercentage(state.lumen),
+  }));
+  return { ok, lamps };
 }
 
 /**
@@ -589,7 +599,7 @@ describe("the lamps the plugin knows (#194)", () => {
     const [known, unknown] = [newLamp(), newLamp()];
     connectKnowing([known], known, unknown);
 
-    const { lamps } = await settled(readLampStatuses());
+    const { lamps } = await settled(readShownLamps());
 
     expect(lamps.map(({ id }) => id)).toEqual([idOf(known)]);
   });
@@ -2015,7 +2025,7 @@ describe("reachLampsForLampScreen", () => {
     const second = beam({ on: false, brightnessInLumen: lumenAt(50), temperatureInKelvin: 6500 });
     connect(second, first);
 
-    expect(await readLampStatuses()).toEqual({
+    expect(await readShownLamps()).toEqual({
       ok: true,
       lamps: [
         {
@@ -2023,18 +2033,18 @@ describe("reachLampsForLampScreen", () => {
           model: "Beam LX",
           label: `Beam LX - ${idOf(first).slice(-4)}`,
           on: true,
-          brightnessLumen: 400,
+          lumen: 400,
+          kelvin: 2700,
           brightnessPercentage: 100,
-          temperatureKelvin: 2700,
         },
         {
           id: idOf(second),
           model: "Beam",
           label: `Beam - ${idOf(second).slice(-4)}`,
           on: false,
-          brightnessLumen: lumenAt(50),
+          lumen: lumenAt(50),
+          kelvin: 6500,
           brightnessPercentage: 50,
-          temperatureKelvin: 6500,
         },
       ],
     });
@@ -2046,22 +2056,22 @@ describe("reachLampsForLampScreen", () => {
     unreadable.fail("readSync");
     connect(unreadable, readable);
 
-    const result = await readLampStatuses();
+    const result = await readShownLamps();
 
     expect(result.ok).toBe(false);
     expect(result.lamps.map(({ id }) => id)).toEqual([idOf(readable)]);
   });
 
   it("reports no lamps when none is connected", async () => {
-    expect(await readLampStatuses()).toEqual({ ok: false, lamps: [] });
+    expect(await readShownLamps()).toEqual({ ok: false, lamps: [] });
   });
 
   it("waits for the brightness change in progress", async () => {
     connect(newLamp());
 
-    const [, statuses] = await settled(Promise.all([manager.setLampsBrightness("all", 100), readLampStatuses()]));
+    const [, shown] = await settled(Promise.all([manager.setLampsBrightness("all", 100), readShownLamps()]));
 
-    expect(at(statuses.lamps, 0).brightnessLumen).toBe(MAX_LUMEN);
+    expect(at(shown.lamps, 0).lumen).toBe(MAX_LUMEN);
   });
 });
 
@@ -2432,7 +2442,7 @@ describe("logs", () => {
     manager.turnLampsOn("all");
     lamp.failWrites("power");
     manager.turnLampsOff("all");
-    await readLampStatuses();
+    await readShownLamps();
 
     const everything = (["error", "warn", "info", "debug"] as const).flatMap(messages);
     expect(everything).toContainEqual(expect.stringContaining(` - ${idOf(lamp).slice(-4)}`));

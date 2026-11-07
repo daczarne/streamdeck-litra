@@ -3,8 +3,8 @@ import type { LampSelection } from "../lamp-selection";
 import {
   allLampsOn,
   brightnessPercentages,
-  type LampStatus,
-  lampStatuses,
+  type ShownLamp,
+  shownLamps,
   type TemperatureShown,
   temperatureShown,
 } from "../lamps-shown";
@@ -34,17 +34,17 @@ export async function readLampsTemperature(lamps: LampSelection): Promise<Temper
   return temperatureShown(globalSettings.lamps.values(), lamps);
 }
 
-/** What the lamp screens show of every lamp, in the order a tap steps through them. */
-export async function readLampStatuses(): Promise<LampStatus[]> {
+/** Every lamp shown, which the lamp screens show, in the order a tap steps through them. */
+export async function readShownLamps(): Promise<ShownLamp[]> {
   await lampsSettled();
-  return lampStatuses(globalSettings.lamps.values());
+  return shownLamps(globalSettings.lamps.values(), "all");
 }
 
 /**
  * Finds the lamps connected for a tap on a dial's strip, so it neither shows a lamp unplugged since the last operation
- * nor misses one plugged in since, then what the lamp screens show of each.
+ * nor misses one plugged in since, then every lamp shown, which the lamp screens show.
  */
-export async function findLampStatuses(): Promise<LampStatus[]> {
+export async function findShownLamps(): Promise<ShownLamp[]> {
   await reachLampsForLampScreen();
-  return lampStatuses(globalSettings.lamps.values());
+  return shownLamps(globalSettings.lamps.values(), "all");
 }
