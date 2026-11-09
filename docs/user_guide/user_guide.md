@@ -148,7 +148,7 @@ If something else doesn't work, [an issue][issues] with the plugin's log helps. 
 
 They name each lamp by its model and the end of its id, never by its serial number. An error's stack, which some lines carry, shows where the plugin is installed, with your user name on the computer, which you may want to replace before posting.
 
-[hardware]: ../README.md#supported-hardware
-[installing]: ../README.md#installing
+[hardware]: ../../README.md#supported-hardware
+[installing]: ../../README.md#installing
 [issues]: https://github.com/daczarne/streamdeck-litra/issues
-[keys]: elgato_sdk/keys.md
+[keys]: ../elgato_sdk/keys.md

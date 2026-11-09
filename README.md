@@ -95,7 +95,7 @@ Developer mode stays on afterwards.
 
 ## Working on the plugin
 
-[The architecture document][architecture] describes how the plugin's parts fit together, and why they're built that way. [The contributing guide][contributing] describes how changes are made.
+[The architecture document][architecture] describes how the plugin's parts fit together, and why they're built that way. [The developer guide][developer-guide] follows the plugin as it starts, and a key press from the Deck to the lamps and back. [The contributing guide][contributing] describes how changes are made.
 
 Since the plugin is linked, a change takes effect as soon as it's built and the plugin restarts. A change to `manifest.json` takes effect once Stream Deck itself is quit and reopened: restarting the plugin isn't enough. Switching branches switches what the Deck runs, after the next build.
 
@@ -186,6 +186,7 @@ The plugin is MIT licensed: see [`LICENSE`][license].
 [bright-up]: com.daczarne.litra.sdPlugin/imgs/actions/brightness-up/icon@2x.png
 [check-ui]: scripts/check-ui.mjs
 [contributing]: docs/contributing.md
+[developer-guide]: docs/developer_guide/start_up.md
 [issues]: https://github.com/daczarne/streamdeck-litra/issues
 [latest-release]: https://github.com/daczarne/streamdeck-litra/releases/latest
 [license]: LICENSE
@@ -204,5 +205,5 @@ The plugin is MIT licensed: see [`LICENSE`][license].
 [temp]: com.daczarne.litra.sdPlugin/imgs/actions/temperature/icon@2x.png
 [temp-down]: com.daczarne.litra.sdPlugin/imgs/actions/temperature-down/icon@2x.png
 [temp-up]: com.daczarne.litra.sdPlugin/imgs/actions/temperature-up/icon@2x.png
-[troubleshooting]: docs/user_guide.md#when-something-doesnt-work
-[user-guide]: docs/user_guide.md
+[troubleshooting]: docs/user_guide/user_guide.md#when-something-doesnt-work
+[user-guide]: docs/user_guide/user_guide.md
