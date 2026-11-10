@@ -9,7 +9,6 @@ import {
   type TextStyles,
 } from "../global-settings";
 import { Lamp, type ReachedLamp } from "../lamp";
-import { byId } from "../lamp-order";
 import { identifyLamp } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
 import { LAMP_SCREEN_CELLS, type LampScreenCell, type LampScreenItem, type LampScreenItemOptions } from "./settings";
@@ -86,7 +85,7 @@ export class LampScreen {
       }
       // The lamp after the one on screen in the order the lamps come in, which also finds the one after a lamp
       // unplugged since the last tap.
-      const next = current === undefined ? lamps[0] : lamps.find((lamp) => byId(lamp.id, current) > 0);
+      const next = current === undefined ? lamps[0] : lamps.find((lamp) => Lamp.byId(lamp.id, current) > 0);
       if (next === undefined) {
         await this.backToMain();
         return;

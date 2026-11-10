@@ -1,5 +1,4 @@
-import type { Lamp, ReachedLamp } from "./lamp";
-import { byId } from "./lamp-order";
+import { Lamp, type ReachedLamp } from "./lamp";
 import { type LampSelection, selects } from "./lamp-selection";
 
 /**
@@ -28,7 +27,7 @@ export function shownLamps(lamps: Iterable<Lamp>, selection: LampSelection): Rea
       shown.push(lamp);
     }
   }
-  return shown.sort((a, b) => byId(a.id, b.id));
+  return shown.sort((a, b) => Lamp.byId(a.id, b.id));
 }
 
 /** Whether a Power key shows on: only when the selection takes in a lamp, and every one is on. */
