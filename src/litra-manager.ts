@@ -1,6 +1,5 @@
-import type { Lamp, LampState } from "./lamp";
+import { Lamp, type LampState } from "./lamp";
 import { LampConnection, type LampHandle } from "./lamp-connection";
-import { byId } from "./lamp-order";
 import { type LampSelection, selects } from "./lamp-selection";
 import { logger as pluginLogger } from "./logging";
 
@@ -281,7 +280,9 @@ function openGroups<G extends { readonly lamps: LampSelection }>(
   // In the order of their ids, since litra finds them in an order that changes from one call to the next. So every
   // operation goes through the lamps in the same order, as the lamp screens and the settings pages list them, and the
   // first lamp, whose temperature the dials show and step from, is always the same one.
-  const identified = found.filter((connection) => isIdentified(operation, connection)).sort((a, b) => byId(a.id, b.id));
+  const identified = found
+    .filter((connection) => isIdentified(operation, connection))
+    .sort((a, b) => Lamp.byId(a.id, b.id));
   // Each lamp left out is logged already.
   markFound(
     operation,

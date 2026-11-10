@@ -52,6 +52,16 @@ describe("a lamp's identity", () => {
   it("names a lamp found that has no Lamp yet the same way", () => {
     expect(Lamp.labelOf({ model: "Beam LX", id: ID })).toBe("Beam LX - 73cd");
   });
+
+  it("orders lamps by their ids", () => {
+    const ids = ["c870b1d2e3f40516", "0a9e4f2b7c1d3e58", "912c77c6cebad870"];
+
+    expect(ids.sort(Lamp.byId)).toEqual(["0a9e4f2b7c1d3e58", "912c77c6cebad870", "c870b1d2e3f40516"]);
+  });
+
+  it("finds an id equal to itself in that order", () => {
+    expect(Lamp.byId("912c77c6cebad870", "912c77c6cebad870")).toBe(0);
+  });
 });
 
 describe("a lamp's cap (#55)", () => {
