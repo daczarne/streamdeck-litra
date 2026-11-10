@@ -141,4 +141,4 @@ A setting that takes a number within a range, on a step, such as a brightness, a
 [architecture]: architecture.md
 [manual-testing]: manual_testing/
 [style-guide]: style_guide.md
-[user-guide]: user_guide.md
+[user-guide]: user_guide/user_guide.md

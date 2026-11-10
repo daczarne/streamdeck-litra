@@ -20,7 +20,7 @@ The plugin isn't on Elgato's Marketplace: `docs/releases.md` describes how a rel
 
 ## Read before changing things
 
-- `docs/user_guide.md`: how the plugin is used, action by action, for its users. A change to what the Deck shows or does, or to a setting, updates it.
+- `docs/user_guide/user_guide.md`: how the plugin is used, action by action, for its users. A change to what the Deck shows or does, or to a setting, updates it.
 - `docs/contributing.md`: how work is done here. Changes go through pull requests, features come with their tests, dependencies are pinned, unused code is removed, a new setting goes in the plugin settings' section of what it reaches, and a text on the lamp screens takes the text style of its role. This file only adds what is specific to Claude.
 - `docs/style_guide.md`: the conventions the linters don't enforce (see [Style](#style)).
 - `docs/elgato_sdk/`: what the Stream Deck SDK offers and what it doesn't (how actions are registered, the interactions a dial receives, its layouts, how Stream Deck loads the settings pages, its logger, what a key shows), checked against the installed version. Read it before designing how an action behaves on the Deck, and add to it when a change finds out something new about the SDK.
@@ -28,6 +28,7 @@ The plugin isn't on Elgato's Marketplace: `docs/releases.md` describes how a rel
 - `docs/manual_testing/`: the checks that only the Deck can prove, one document per area. Before asking for a test on the Deck, point to the matching document. When a feature needs new manual checks, add them there.
 - `docs/releases.md`: how a release is made, from the branch that raises the version to the published release, and where the version is written.
 - `docs/architecture.md`: how the plugin's parts fit together, and why they're built that way, such as using `litra` rather than `litra-rs`, finding the lamps afresh on every operation, and what `litra-manager` remembers.
+- `docs/developer_guide/`: how the plugin runs, step by step: how Stream Deck starts it and it registers its actions (`start_up.md`), and a key press from the Deck to the lamps and back (`request_journey.md`). A change to a step it describes updates it.
 
 ## Layout
 
