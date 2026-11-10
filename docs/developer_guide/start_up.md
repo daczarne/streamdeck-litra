@@ -141,16 +141,16 @@ Once that's done, the plugin waits for events, holding:
 - `manifest.js`: the manifest, read from the working directory.
 - `logging/index.js`: the SDK's own log files.
 
-[action-instance-appear]: ../../src/actions/action-instance.ts#L108-L115
-[action-instance-constructor]: ../../src/actions/action-instance.ts#L95-L99
+[action-instance-appear]: ../../src/actions/action-instance.ts
+[action-instance-constructor]: ../../src/actions/action-instance.ts
 [brightness.ts]: ../../src/actions/brightness.ts
 [elgato-sdk-actions]: ../elgato_sdk/actions.md
-[follow-global-settings]: ../../src/global-settings.ts#L303-L319
-[global-settings-read]: ../../src/global-settings.ts#L64-L90
-[lamp-picker]: ../../src/actions/lamp-picker.ts#L18-L26
+[follow-global-settings]: ../../src/global-settings.ts
+[global-settings-read]: ../../src/global-settings.ts
+[lamp-picker]: ../../src/actions/lamp-picker.ts
 [manifest.json]: ../../com.daczarne.litra.sdPlugin/manifest.json
-[measure-create]: ../../src/actions/measure.ts#L59-L64
-[reach-every-lamp]: ../../src/litra-manager.ts#L501-L503
+[measure-create]: ../../src/actions/measure.ts
+[reach-every-lamp]: ../../src/litra-manager.ts
 [request-journey]: request_journey.md
 [rollup.config.mjs]: ../../rollup.config.mjs
 [src/global-settings.ts]: ../../src/global-settings.ts

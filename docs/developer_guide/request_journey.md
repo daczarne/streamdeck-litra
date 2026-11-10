@@ -117,43 +117,43 @@ Almost all of the HID work is synchronous, so it holds the plugin's event loop, 
 
 1. at start-up: `Plugin started`, then a `start: … read, since it was first reached: …` line for each lamp;
 2. at the press: `Key pressed: preset 100%, on every lamp`;
-3. a `turned on` line, and on an LX a `put back` line, for each lamp that was off;
+3. for each lamp that was off, a `put back to …` line on a Beam LX that lost its setting, then a `turned on` line;
 4. a `sent … lm, reached … lm` line for each lamp;
 5. a `capped at … lm` line for each lamp that fell short.
 
-[action-instance-keydown]: ../../src/actions/action-instance.ts#L130-L132
-[action-key-lamps]: ../../src/global-settings.ts#L182-L187
-[announce]: ../../src/litra-manager.ts#L109-L117
-[brightness-reached]: ../../src/lamp.ts#L141-L148
-[brightness-safe]: ../../src/lamp-connection.ts#L105-L116
+[action-instance-keydown]: ../../src/actions/action-instance.ts
+[action-key-lamps]: ../../src/global-settings.ts
+[announce]: ../../src/litra-manager.ts
+[brightness-reached]: ../../src/lamp.ts
+[brightness-safe]: ../../src/lamp-connection.ts
 [brightness.ts]: ../../src/actions/brightness.ts
-[dial-lamps-changed]: ../../src/actions/measure.ts#L150-L152
-[drain-ack]: ../../src/lamp-connection.ts#L287-L293
-[ensure-on]: ../../src/litra-manager.ts#L560-L564
-[find-all]: ../../src/lamp-connection.ts#L181-L183
-[identify]: ../../src/lamp-connection.ts#L197-L201
-[lamp-reach]: ../../src/lamp.ts#L282-L293
-[lamp-screen-refresh]: ../../src/actions/lamp-screens.ts#L114-L128
-[lamp-send-brightness]: ../../src/lamp.ts#L325-L329
-[mark-found]: ../../src/litra-manager.ts#L349-L369
-[move-lamps-brightness]: ../../src/litra-manager.ts#L708-L772
-[one-at-a-time]: ../../src/litra-manager.ts#L614-L618
-[open-groups]: ../../src/litra-manager.ts#L257-L332
-[open-lamps]: ../../src/litra-manager.ts#L423-L472
-[outcome]: ../../src/litra-manager.ts#L388-L391
-[percentage-to-lumen]: ../../src/lamp.ts#L449-L451
-[power-lamps-changed]: ../../src/actions/power.ts#L47-L53
-[preset-key-down]: ../../src/actions/measure.ts#L96-L104
-[put-back-setting]: ../../src/lamp.ts#L383-L404
-[read-back]: ../../src/lamp.ts#L411-L427
-[read-back-brightness]: ../../src/lamp.ts#L335-L343
-[read-serial-number]: ../../src/lamp-connection.ts#L148-L163
-[send-brightness]: ../../src/litra-manager.ts#L638-L663
-[set-lamps-brightness]: ../../src/litra-manager.ts#L570-L578
+[dial-lamps-changed]: ../../src/actions/measure.ts
+[drain-ack]: ../../src/lamp-connection.ts
+[ensure-on]: ../../src/litra-manager.ts
+[find-all]: ../../src/lamp-connection.ts
+[identify]: ../../src/lamp-connection.ts
+[lamp-reach]: ../../src/lamp.ts
+[lamp-screen-refresh]: ../../src/actions/lamp-screens.ts
+[lamp-send-brightness]: ../../src/lamp.ts
+[mark-found]: ../../src/litra-manager.ts
+[move-lamps-brightness]: ../../src/litra-manager.ts
+[one-at-a-time]: ../../src/litra-manager.ts
+[open-groups]: ../../src/litra-manager.ts
+[open-lamps]: ../../src/litra-manager.ts
+[outcome]: ../../src/litra-manager.ts
+[percentage-to-lumen]: ../../src/lamp.ts
+[power-lamps-changed]: ../../src/actions/power.ts
+[preset-key-down]: ../../src/actions/measure.ts
+[put-back-setting]: ../../src/lamp.ts
+[read-back]: ../../src/lamp.ts
+[read-back-brightness]: ../../src/lamp.ts
+[read-serial-number]: ../../src/lamp-connection.ts
+[send-brightness]: ../../src/litra-manager.ts
+[set-lamps-brightness]: ../../src/litra-manager.ts
 [src/actions/shown.ts]: ../../src/actions/shown.ts
 [src/lamps-shown.ts]: ../../src/lamps-shown.ts
 [start-up]: start_up.md
 [start-up-register]: start_up.md#4-the-body-of-plugints
-[step-key-lamps-changed]: ../../src/actions/step-keys.ts#L121-L123
-[switch-power]: ../../src/lamp.ts#L368-L377
-[wait-for-cap-reversal]: ../../src/litra-manager.ts#L624-L631
+[step-key-lamps-changed]: ../../src/actions/step-keys.ts
+[switch-power]: ../../src/lamp.ts
+[wait-for-cap-reversal]: ../../src/litra-manager.ts
