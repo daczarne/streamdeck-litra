@@ -6,9 +6,9 @@
 export type LampSelection = "all" | readonly string[] | { readonly except: readonly string[] };
 
 /** Whether a selection takes in the lamp with this id. */
-export function selects(lamps: LampSelection, id: string): boolean {
-  if (lamps === "all") {
+export function selects(selection: LampSelection, id: string): boolean {
+  if (selection === "all") {
     return true;
   }
-  return "except" in lamps ? !lamps.except.includes(id) : lamps.includes(id);
+  return "except" in selection ? !selection.except.includes(id) : selection.includes(id);
 }
