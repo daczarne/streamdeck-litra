@@ -17,7 +17,7 @@ import {
 } from "./actions/settings";
 import { Lamp } from "./lamp";
 import type { LampSelection } from "./lamp-selection";
-import { findLamps, reachEveryLamp, type Stepping, useLamps } from "./litra-manager";
+import type { Stepping } from "./litra-manager";
 import { logger as pluginLogger } from "./logging";
 
 /** A text's look on the lamp screens: its color, and its font's size and weight (#153). */
@@ -294,26 +294,13 @@ function objectAt(object: JsonObject, key: string): JsonObject {
 export const globalSettings = new GlobalSettings((settings) => streamDeck.settings.setGlobalSettings(settings));
 
 /**
- * Follows the plugin's global settings, which the settings pages save (#144): hands litra-manager the lamps the plugin
- * knows, reads the settings once Stream Deck is connected, and again whenever a page changes them. They're kept rather
- * than asked for on every tap, turn or press, so none of them waits on Stream Deck. When the plugin knows no lamps yet,
- * it finds the connected ones first, so a new user starts with every lamp (#194). Then it reads every lamp it knows
- * that's connected, so it holds them as they are (#198).
+ * Keeps the plugin's global settings in sync with Stream Deck's, which the settings pages save (#144): reads them once
+ * Stream Deck is connected, and again whenever a page changes them. They're kept rather than asked for on every tap,
+ * turn or press, so none of them waits on Stream Deck. Resolves once the first read is done, and rejects when it
+ * fails, which leaves the defaults. The first read is answered only once the plugin is connected, so it mustn't be
+ * awaited before `streamDeck.connect()` is called.
  */
-export function followGlobalSettings(): void {
-  useLamps(globalSettings.lamps);
+export async function syncGlobalSettings(): Promise<void> {
   streamDeck.settings.onDidReceiveGlobalSettings((ev) => globalSettings.read(ev.settings));
-  streamDeck.settings
-    .getGlobalSettings()
-    .then(async (settings) => {
-      globalSettings.read(settings);
-      if (globalSettings.lamps.size === 0) {
-        logger.info("No lamps known: finding the lamps connected");
-        await globalSettings.addLamps(findLamps());
-      }
-      reachEveryLamp();
-    })
-    .catch((error: unknown) => {
-      logger.error("Reading the global settings failed", error);
-    });
+  globalSettings.read(await streamDeck.settings.getGlobalSettings());
 }

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { followGlobalSettings } from "../global-settings";
+import { syncGlobalSettings } from "../global-settings";
 import { onLampsChanged, toggleLamps, turnLampsOff, turnLampsOn } from "../litra-manager";
 import { logger } from "../logging";
 import { at } from "../test-support/at";
@@ -20,10 +20,7 @@ vi.mock("./shown", () => ({ areLampsOn: vi.fn() }));
 
 // The real litra-manager loads node-hid's native binary on import and talks to real lamps.
 vi.mock("../litra-manager", () => ({
-  findLamps: vi.fn(() => []),
   onLampsChanged: vi.fn(),
-  reachEveryLamp: vi.fn(),
-  useLamps: vi.fn(),
   toggleLamps: vi.fn(),
   turnLampsOff: vi.fn(),
   turnLampsOn: vi.fn(),
@@ -64,7 +61,7 @@ function clearCalls(): void {
 }
 
 // The keys read whether they add new lamps from the global settings, which each test sets afresh (#147).
-followGlobalSettings();
+await syncGlobalSettings();
 
 //* Tests
 

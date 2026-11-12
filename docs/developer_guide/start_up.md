@@ -19,7 +19,7 @@ It's read from the plugin's code and from `@elgato/streamdeck` 3.0.3. What Strea
 ```text
 Stream Deck starts ─► reads manifest.json ─► spawns Node 24 on bin/plugin.js, with -port -pluginUUID -registerEvent -info
   └► imports run: SDK services, node-hid's binary, the logger, globalSettings, the action classes (@action)
-  └► plugin.ts: registerAction × 8, answerLampPickers, followGlobalSettings, connect
+  └► plugin.ts: registerAction × 8, answerLampPickers, useLamps, syncGlobalSettings, connect
   └► WebSocket opens ─► { event: registerEvent, uuid } ─► queued getGlobalSettings goes out
   └► Stream Deck sends willAppear for each key and dial on screen ─► each gets its ActionInstance and draws
   └► didReceiveGlobalSettings ─► a Lamp for each known lamp ─► reachEveryLamp reads each lamp ─► every control redraws
@@ -81,11 +81,13 @@ Before the first line of `plugin.ts` runs, every module it imports is evaluated,
 
    So 8 listeners hear every `keyDown`, and only the one whose `manifestId` matches calls its action. See [the SDK's actions][elgato-sdk-actions] for what that means for the actions.
 3. **[`answerLampPickers`][lamp-picker].** It subscribes to `sendToPlugin`, the messages the settings pages send (Find lamps, Identify, rename, forget, which lamps are connected), and to `onConnectedChanged`, which tells the page shown when a lamp is plugged in or unplugged.
-4. **[`followGlobalSettings`][follow-global-settings].**
-   - `useLamps(globalSettings.lamps)` hands litra-manager the map of known lamps, empty for now. It's the same `Map` object the global settings keep up to date, so litra-manager always sees the current lamps.
+4. **`useLamps(globalSettings.lamps)`** hands litra-manager the map of known lamps, empty for now. It's the same `Map` object the global settings keep up to date, so litra-manager always sees the current lamps. `plugin.ts` makes the call, so that litra-manager doesn't depend on the global settings, and its tests can hand it lamps of their own.
+5. **[`syncGlobalSettings`][sync-global-settings].**
    - It subscribes to `onDidReceiveGlobalSettings`, so a settings page's change is read again.
    - It calls `getGlobalSettings()`, which waits for a `didReceiveGlobalSettings` carrying its request's id, and sends the request through `connection.send`. That waits for the connection, so the request is queued until the WebSocket opens.
-5. **`streamDeck.connect()`**, whose failure is logged to `litra.log` rather than left to the SDK's own files.
+   - It returns a promise that resolves once that first read is done. `plugin.ts` waits for it only after the next step: awaited before `connect()`, it would never resolve.
+6. **`streamDeck.connect()`**, whose failure is logged to `litra.log` rather than left to the SDK's own files.
+7. **Finding and reading the lamps**, chained to the first read, so they run once the settings are read: when the plugin knows no lamps, as on a first start, it finds the connected ones and saves them, then it reads every lamp it knows that's connected. When the read fails, the failure is logged, and no lamp is found or read: knowing no lamps, the plugin would find the connected ones and save them over the ones saved.
 
 ## 5. Connecting and registering with Stream Deck
 
@@ -114,10 +116,10 @@ Two things arrive, and nothing in the plugin depends on which comes first.
 | Brightness dial (`MeasureDial`) | Sets the `$B1` layout, then its main screen: with no lamp reached, `—` and an empty bar |
 | Brightness Up key | Its title, from the lamps shown, none yet |
 
-**The answer to `getGlobalSettings`.** It carries the request's id, so the `onDidReceiveGlobalSettings` listener ignores it (that one only reports a page's changes), and it resolves the promise from [4](#4-the-body-of-plugints) instead. Then:
+**The answer to `getGlobalSettings`.** It carries the request's id, so the `onDidReceiveGlobalSettings` listener ignores it (that one only reports a page's changes), and it resolves the promise `syncGlobalSettings` returned in [4](#4-the-body-of-plugints) instead. Then:
 
 1. [`globalSettings.read`][global-settings-read] reads the settings against their schema, and builds a `Lamp` for each saved lamp, from its id, model and name, none reached yet. Then it calls its `onChanged` listeners, so every control's `globalSettingsChanged` runs.
-2. If the plugin knows no lamps, as on a first start, it finds the lamps connected and saves them with `addLamps`, which sends `setGlobalSettings` (#194).
+2. The handler `plugin.ts` chained to the read runs. If the plugin knows no lamps, as on a first start, it finds the lamps connected with `findLamps`, and saves them with `addLamps`, which sends `setGlobalSettings` (#194).
 3. [`reachEveryLamp`][reach-every-lamp] runs the operation `start` on every known lamp. It finds and opens them, asks a Beam LX for its serial number, and reaches each `Lamp`. This is the first time each one is reached, so it **reads** the lamp's power, brightness and temperature, and holds them. It then closes the lamps and announces that the lamps changed.
 4. Every action's `onLampsChanged` listener runs, and every control redraws, now with the lamps' real state: the Power key shows on or off, the dial shows the brightest lamp's percentage, the step key its title.
 
@@ -145,7 +147,6 @@ Once that's done, the plugin waits for events, holding:
 [action-instance-constructor]: ../../src/actions/action-instance.ts
 [brightness.ts]: ../../src/actions/brightness.ts
 [elgato-sdk-actions]: ../elgato_sdk/actions.md
-[follow-global-settings]: ../../src/global-settings.ts
 [global-settings-read]: ../../src/global-settings.ts
 [lamp-picker]: ../../src/actions/lamp-picker.ts
 [manifest.json]: ../../com.daczarne.litra.sdPlugin/manifest.json
@@ -157,3 +158,4 @@ Once that's done, the plugin waits for events, holding:
 [src/litra-manager.ts]: ../../src/litra-manager.ts
 [src/logging.ts]: ../../src/logging.ts
 [src/plugin.ts]: ../../src/plugin.ts
+[sync-global-settings]: ../../src/global-settings.ts

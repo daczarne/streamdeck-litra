@@ -2,7 +2,7 @@ import { brightnessGlyph, svgDoc, temperatureGlyph } from "@daczarne/streamdeck-
 import type { JsonObject } from "@elgato/utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { followGlobalSettings } from "../global-settings";
+import { syncGlobalSettings } from "../global-settings";
 import type { LampState, ReachedLamp } from "../lamp";
 import { identifyLamp } from "../litra-manager";
 import { logger } from "../logging";
@@ -26,10 +26,7 @@ vi.mock("./shown", () => ({ findShownLamps: vi.fn(), readShownLamps: vi.fn() }))
 
 // The real litra-manager loads node-hid's native binary on import and talks to real lamps.
 vi.mock("../litra-manager", () => ({
-  findLamps: vi.fn(() => []),
   identifyLamp: vi.fn(),
-  reachEveryLamp: vi.fn(),
-  useLamps: vi.fn(),
 }));
 
 const LAMP_LAYOUT = "layouts/lamp.json";
@@ -143,7 +140,7 @@ async function refreshAll(): Promise<void> {
 }
 
 // The blink of the lamp screens is a global setting, which the tests change as a settings page does (#144).
-followGlobalSettings();
+await syncGlobalSettings();
 
 beforeEach(() => {
   changeGlobalSettings({});
