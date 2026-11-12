@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { followGlobalSettings } from "../global-settings";
+import { syncGlobalSettings } from "../global-settings";
 import {
   adjustLampsTemperature,
   identifyLamp,
@@ -34,11 +34,8 @@ vi.mock("./shown", () => ({ findShownLamps: vi.fn(), readShownLamps: vi.fn(), re
 // The real litra-manager loads node-hid's native binary on import and talks to real lamps.
 vi.mock("../litra-manager", () => ({
   adjustLampsTemperature: vi.fn(),
-  findLamps: vi.fn(() => []),
   identifyLamp: vi.fn(),
   onLampsChanged: vi.fn(),
-  reachEveryLamp: vi.fn(),
-  useLamps: vi.fn(),
   setLampsTemperature: vi.fn(),
   toggleLamps: vi.fn(),
 }));
@@ -69,7 +66,7 @@ let deck: FakeDeck;
 let lampsChanged: () => Promise<void>;
 
 // The global settings, which the tests change as a settings page does (#145).
-followGlobalSettings();
+await syncGlobalSettings();
 
 beforeEach(() => {
   vi.useFakeTimers();

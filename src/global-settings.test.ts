@@ -2,7 +2,6 @@ import type { JsonObject } from "@elgato/utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { GlobalSettings } from "./global-settings";
-import { findLamps, useLamps } from "./litra-manager";
 import { logger } from "./logging";
 import { at } from "./test-support/at";
 
@@ -20,9 +19,6 @@ vi.mock("@elgato/streamdeck", () => ({ default: { settings } }));
 
 // The real logger writes to a logs/ folder.
 vi.mock("./logging", () => import("./test-support/fake-logging"));
-
-// The real litra-manager loads node-hid's native binary on import and talks to real lamps.
-vi.mock("./litra-manager", () => ({ findLamps: vi.fn(), reachEveryLamp: vi.fn(), useLamps: vi.fn() }));
 
 // What the global settings save through, which sends them to Stream Deck.
 const save = vi.fn<(settings: JsonObject) => Promise<void>>();
@@ -550,26 +546,16 @@ describe("the lamps' names (#146)", () => {
   });
 });
 
-describe("following the global settings (#144)", () => {
+describe("syncing the global settings (#144)", () => {
   // The plugin's instance, from a fresh module for every test, since it keeps the settings it last read.
-  let followed: typeof import("./global-settings");
-
-  const BEAM = { id: "0000000000001111", label: "Beam - 1111", model: "Beam" };
-  const BEAM_LX = { id: "0000000000002222", label: "Beam LX - 2222", model: "Beam LX" };
+  let synced: typeof import("./global-settings");
 
   beforeEach(async () => {
     vi.resetModules();
-    followed = await import("./global-settings");
+    synced = await import("./global-settings");
     settings.getGlobalSettings.mockResolvedValue({});
     settings.setGlobalSettings.mockResolvedValue();
-    vi.mocked(findLamps).mockReturnValue([]);
   });
-
-  /** Follows the global settings, and waits for the first read to answer. */
-  async function follow(): Promise<void> {
-    followed.followGlobalSettings();
-    await settings.getGlobalSettings.mock.results[0]?.value;
-  }
 
   /** Changes the global settings from a settings page, as Stream Deck passes them on to the plugin. */
   function changeFromPage(saved: JsonObject): void {
@@ -577,104 +563,57 @@ describe("following the global settings (#144)", () => {
     listener({ settings: saved });
   }
 
-  it("hands litra-manager the lamps the plugin knows, which follow every read (#198)", async () => {
-    settings.getGlobalSettings.mockResolvedValue({ lamps: { "0000000000001111": { model: "Beam" } } });
-
-    await follow();
-
-    const [handed] = at(vi.mocked(useLamps).mock.calls, 0);
-    expect(handed).toBe(followed.globalSettings.lamps);
-    expect([...handed.keys()]).toEqual(["0000000000001111"]);
-
-    changeFromPage({ lamps: { "0000000000002222": { model: "Beam LX" } } });
-
-    expect([...handed.keys()]).toEqual(["0000000000002222"]);
-  });
-
   it("are their defaults before the first read answers", () => {
     settings.getGlobalSettings.mockReturnValue(new Promise(() => {}));
 
-    followed.followGlobalSettings();
+    void synced.syncGlobalSettings();
 
-    expect(followed.globalSettings.current).toEqual(DEFAULTS);
+    expect(synced.globalSettings.current).toEqual(DEFAULTS);
   });
 
   it("are the ones saved, once read, and follow a settings page that changes them", async () => {
     settings.getGlobalSettings.mockResolvedValue({ blinkOnLampScreen: true });
 
-    await follow();
+    await synced.syncGlobalSettings();
 
-    expect(followed.globalSettings.current).toEqual({ ...DEFAULTS, blinkOnLampScreen: true });
+    expect(synced.globalSettings.current).toEqual({ ...DEFAULTS, blinkOnLampScreen: true });
 
     changeFromPage({ keepTemperatureDifference: true });
 
-    expect(followed.globalSettings.current).toEqual({ ...DEFAULTS, keepTemperatureDifference: true });
+    expect(synced.globalSettings.current).toEqual({ ...DEFAULTS, keepTemperatureDifference: true });
   });
 
-  it("log a failed read, and keep the defaults", async () => {
+  it("keep the lamps the plugin knows in one map, which every read updates, as litra-manager holds it (#198)", async () => {
+    settings.getGlobalSettings.mockResolvedValue({ lamps: { "0000000000001111": { model: "Beam" } } });
+    // The map as litra-manager is handed it, before the first read.
+    const { lamps } = synced.globalSettings;
+
+    await synced.syncGlobalSettings();
+
+    expect([...lamps.keys()]).toEqual(["0000000000001111"]);
+
+    changeFromPage({ lamps: { "0000000000002222": { model: "Beam LX" } } });
+
+    expect([...lamps.keys()]).toEqual(["0000000000002222"]);
+  });
+
+  it("reject when the first read fails, and keep the defaults", async () => {
     const error = new Error("connection closed");
     settings.getGlobalSettings.mockRejectedValue(error);
 
-    followed.followGlobalSettings();
+    await expect(synced.syncGlobalSettings()).rejects.toBe(error);
 
-    await vi.waitFor(() => expect(logger.error).toHaveBeenCalledExactlyOnceWith(expect.any(String), error));
-    expect(followed.globalSettings.current).toEqual(DEFAULTS);
+    expect(synced.globalSettings.current).toEqual(DEFAULTS);
   });
 
   it("save the lamps through Stream Deck, keeping the other settings", async () => {
     settings.getGlobalSettings.mockResolvedValue({ lamps: { "0000000000001111": { model: "Beam" } } });
-    await follow();
+    await synced.syncGlobalSettings();
 
-    await followed.globalSettings.renameLamp("0000000000001111", "Key light");
+    await synced.globalSettings.renameLamp("0000000000001111", "Key light");
 
     expect(settings.setGlobalSettings).toHaveBeenCalledExactlyOnceWith({
       lamps: { "0000000000001111": { model: "Beam", name: "Key light" } },
     });
-  });
-
-  it("find and save the lamps when the plugin starts with none, keeping the other settings (#194)", async () => {
-    settings.getGlobalSettings.mockResolvedValue({ identifyBlinkMs: 600 });
-    vi.mocked(findLamps).mockReturnValue([BEAM, BEAM_LX]);
-
-    await follow();
-    await vi.waitFor(() => expect(settings.setGlobalSettings).toHaveBeenCalledOnce());
-
-    expect(settings.setGlobalSettings).toHaveBeenCalledWith({
-      identifyBlinkMs: 600,
-      lamps: { "0000000000001111": { model: "Beam" }, "0000000000002222": { model: "Beam LX" } },
-    });
-    expect([...followed.globalSettings.lamps.keys()]).toEqual(["0000000000001111", "0000000000002222"]);
-    expect(vi.mocked(logger.info).mock.calls).toEqual([
-      [expect.stringContaining("No lamps known")],
-      [expect.stringContaining("Beam - 1111, Beam LX - 2222")],
-    ]);
-  });
-
-  it("find the lamps when what's saved isn't lamps by id, as when the plugin starts with none (#194)", async () => {
-    settings.getGlobalSettings.mockResolvedValue({ lamps: ["0000000000001111"] });
-    vi.mocked(findLamps).mockReturnValue([BEAM]);
-
-    await follow();
-    await vi.waitFor(() => expect(settings.setGlobalSettings).toHaveBeenCalledOnce());
-
-    expect(settings.setGlobalSettings).toHaveBeenCalledWith({
-      lamps: { "0000000000001111": { model: "Beam" } },
-    });
-  });
-
-  it("don't look for the lamps when the plugin starts with some, or when a page leaves none (#194)", async () => {
-    settings.getGlobalSettings.mockResolvedValue({ lamps: { "0000000000001111": { model: "Beam" } } });
-    await follow();
-
-    changeFromPage({});
-
-    expect(findLamps).not.toHaveBeenCalled();
-  });
-
-  it("save nothing when the plugin starts with none and finds none (#194)", async () => {
-    await follow();
-    await vi.waitFor(() => expect(findLamps).toHaveBeenCalledOnce());
-
-    expect(settings.setGlobalSettings).not.toHaveBeenCalled();
   });
 });

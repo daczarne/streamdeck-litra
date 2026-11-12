@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { followGlobalSettings } from "../global-settings";
+import { syncGlobalSettings } from "../global-settings";
 import { adjustLampsBrightness, adjustLampsTemperature, type OperationResult, onLampsChanged } from "../litra-manager";
 import { logger } from "../logging";
 import { at } from "../test-support/at";
@@ -26,10 +26,7 @@ vi.mock("./shown", () => ({ readLampsBrightness: vi.fn(), readLampsTemperature: 
 vi.mock("../litra-manager", () => ({
   adjustLampsBrightness: vi.fn(),
   adjustLampsTemperature: vi.fn(),
-  findLamps: vi.fn(() => []),
   onLampsChanged: vi.fn(),
-  reachEveryLamp: vi.fn(),
-  useLamps: vi.fn(),
 }));
 
 const BRIGHTNESS_UP = "com.daczarne.litra.brightness-up";
@@ -55,7 +52,7 @@ let deck: FakeDeck;
 let lampsChanged: () => Promise<void>;
 
 // The global settings, which the tests change as a settings page does (#145).
-followGlobalSettings();
+await syncGlobalSettings();
 
 beforeEach(() => {
   vi.useFakeTimers();
