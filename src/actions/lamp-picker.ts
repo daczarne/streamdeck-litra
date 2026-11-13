@@ -35,7 +35,7 @@ export async function answer(payload: JsonValue): Promise<void> {
     const lamps = findLamps();
     await globalSettings.addLamps(lamps);
     // The lamps just added are read, as when the plugin starts, so the keys and dials show them (#198).
-    reachEveryLamp();
+    await reachEveryLamp("find lamps");
     await streamDeck.ui.sendToPropertyInspector({ event: "lamps", lamps });
   } else if (payload.event === "connected") {
     logger.debug("Settings page asked which lamps are connected");

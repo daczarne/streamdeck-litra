@@ -75,7 +75,7 @@ describe("the lamp picker's answers (#20)", () => {
   it("read the lamps once they're added, so the keys and dials show them (#198)", async () => {
     await answer({ event: "lamps" });
 
-    expect(reachEveryLamp).toHaveBeenCalledOnce();
+    expect(reachEveryLamp).toHaveBeenCalledExactlyOnceWith("find lamps");
     expect(at(vi.mocked(pluginSettings.addLamps).mock.invocationCallOrder, 0)).toBeLessThan(
       at(vi.mocked(reachEveryLamp).mock.invocationCallOrder, 0),
     );

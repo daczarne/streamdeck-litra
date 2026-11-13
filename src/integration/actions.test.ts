@@ -75,12 +75,15 @@ afterEach(() => {
 
 /**
  * Plugs in these lamps, in the order litra finds them, in place of the ones before, and presses Find lamps, which adds
- * the new ones to the lamps the plugin knows (#194). The plugin takes them before the find's answer reaches the page.
+ * the new ones to the lamps the plugin knows (#194), and reads them, once any brightness change in progress is done.
+ * Waits for the find to end, as the user does before pressing anything else. The plugin takes the lamps before the
+ * find's answer reaches the page.
  */
-function plugIn(...plugged: EmulatedLitra[]): void {
+async function plugIn(...plugged: EmulatedLitra[]): Promise<void> {
   lamps.push(...plugged.filter((lamp) => !lamps.includes(lamp)));
   connect(...plugged);
   sdk.sendToPlugin({ event: "lamps" });
+  await vi.runAllTimersAsync();
 }
 
 /**
@@ -141,7 +144,7 @@ function cellsOf(dial: Awaited<ReturnType<FakeDeck["dial"]>>): Record<string, st
 describe("the Power key", () => {
   it("turns every lamp off or on in its off and on modes, and every Power key follows (#57)", async () => {
     const pair = [newLamp(), newLamp()];
-    plugIn(...pair);
+    await plugIn(...pair);
     const offKey = await deck.key(POWER, { mode: "off" });
     const onKey = await deck.key(POWER, { mode: "on" });
 
@@ -158,11 +161,11 @@ describe("the Power key", () => {
 
   it("shows an alert when no lamp answers, after the off state it switches to, so the state doesn't cover it (#132)", async () => {
     const pair = [newLamp(), newLamp()];
-    plugIn(...pair);
+    await plugIn(...pair);
     const key = await deck.key(POWER, { mode: "toggle" });
     expect(stateOf(key)).toBe(1);
     // Unplugged while on: nothing tells the plugin until the next press.
-    plugIn();
+    await plugIn();
 
     await deck.press(key);
 
@@ -175,7 +178,7 @@ describe("the Power key", () => {
 
   it("follows a Brightness key, which turns the lamps on (#57)", async () => {
     const pair = [newLamp({ on: false }), newLamp({ on: false })];
-    plugIn(...pair);
+    await plugIn(...pair);
     const powerKey = await deck.key(POWER, { mode: "toggle" });
     const brightnessKey = await deck.key(BRIGHTNESS, { presetPercentage: 50 });
 
@@ -187,7 +190,7 @@ describe("the Power key", () => {
 
   it("follows a Brightness dial pushed to toggle the lamps (#57)", async () => {
     const pair = [newLamp(), newLamp()];
-    plugIn(...pair);
+    await plugIn(...pair);
     const powerKey = await deck.key(POWER, { mode: "toggle" });
     const dial = await deck.dial(BRIGHTNESS, { stepPercentage: 10 });
 
@@ -199,7 +202,7 @@ describe("the Power key", () => {
 
   it("toggles the lamps from the power it holds, and shows an alert for a lamp it can't change (#198)", async () => {
     const [failing, working] = [newLamp(), newLamp()];
-    plugIn(failing, working);
+    await plugIn(failing, working);
     const key = await deck.key(POWER, { mode: "toggle" });
     failing.fail("everything");
 
@@ -213,7 +216,7 @@ describe("the Power key", () => {
 
   it("turns on a lamp that takes the command but can't report back, and shows it on, as asked, without an alert (#198)", async () => {
     const lamp = newLamp({ on: false });
-    plugIn(lamp);
+    await plugIn(lamp);
     const key = await deck.key(POWER, { mode: "on" });
     lamp.fail("readSync");
 
@@ -228,7 +231,7 @@ describe("the Power key", () => {
 describe("the Brightness action", () => {
   it("shows the brightest lamp when lamps stop at their caps, with the bar fainter where only one reaches (#13, #59)", async () => {
     // Two lamps on a Stream Deck + XL's USB hub, which stop at 63% and 79%.
-    plugIn(newLamp({ capInLumen: 264 }), newLamp({ capInLumen: 324 }));
+    await plugIn(newLamp({ capInLumen: 264 }), newLamp({ capInLumen: 324 }));
     const key = await deck.key(BRIGHTNESS, { presetPercentage: 100 });
     const dial = await deck.dial(BRIGHTNESS);
 
@@ -246,7 +249,7 @@ describe("the Brightness action", () => {
     // Two lamps on a Stream Deck + XL's USB hub, which stop at 63% and 79%, and can go back to their caps for about a
     // second after being asked for more.
     const pair = [newLamp({ capInLumen: 264 }), newLamp({ capInLumen: 324 })];
-    plugIn(...pair);
+    await plugIn(...pair);
     const key = await deck.key(BRIGHTNESS, { presetPercentage: 100 });
     const dial = await deck.dial(BRIGHTNESS, { stepPercentage: 10 });
 
@@ -262,13 +265,13 @@ describe("the Brightness action", () => {
 
   it("lets the lamps reach 100% once moved from a hub to the computer, without a restart (#55)", async () => {
     const onAHub = [newLamp({ capInLumen: 264 }), newLamp({ capInLumen: 324 })];
-    plugIn(...onAHub);
+    await plugIn(...onAHub);
     const key = await deck.key(BRIGHTNESS, { presetPercentage: 100 });
     const dial = await deck.dial(BRIGHTNESS);
     await deck.press(key);
 
     const onTheComputer = onAHub.map((lamp) => newLamp({ serialNumber: lamp.serialNumber }));
-    plugIn(...onTheComputer);
+    await plugIn(...onTheComputer);
     await deck.press(key);
 
     expect(onTheComputer.map((lamp) => lamp.brightnessInLumen)).toEqual([LUMEN_AT_100, LUMEN_AT_100]);
@@ -277,7 +280,7 @@ describe("the Brightness action", () => {
 
   it("moves the lamps once for a quick turn, with the step the dial has by then", async () => {
     const pair = [newLamp(), newLamp()];
-    plugIn(...pair);
+    await plugIn(...pair);
     const dial = await deck.dial(BRIGHTNESS, { stepPercentage: 5 });
 
     await deck.quickly(() => {
@@ -294,7 +297,7 @@ describe("the Brightness action", () => {
 
   it("turns the lamps on before a dial changes their brightness", async () => {
     const pair = [newLamp({ on: false }), newLamp({ on: false })];
-    plugIn(...pair);
+    await plugIn(...pair);
     const powerKey = await deck.key(POWER, { mode: "toggle" });
     const dial = await deck.dial(BRIGHTNESS, { stepPercentage: 10 });
 
@@ -307,7 +310,7 @@ describe("the Brightness action", () => {
 
   it("shows an alert when a lamp fails, and still sets the others, which the dial shows", async () => {
     const [failing, working] = [newLamp({ brightnessInLumen: 30 }), newLamp({ brightnessInLumen: 30 })];
-    plugIn(failing, working);
+    await plugIn(failing, working);
     const key = await deck.key(BRIGHTNESS, { presetPercentage: 50 });
     const dial = await deck.dial(BRIGHTNESS);
     failing.fail("everything");
@@ -323,7 +326,7 @@ describe("the Brightness action", () => {
 describe("the Temperature action", () => {
   it("sets every lamp to a key's preset, snapped to a temperature they allow, and shows it on the dials", async () => {
     const pair = [newLamp(), newLamp()];
-    plugIn(...pair);
+    await plugIn(...pair);
     const key = await deck.key(TEMPERATURE, { presetKelvin: 4230 });
     const dial = await deck.dial(TEMPERATURE);
 
@@ -335,7 +338,7 @@ describe("the Temperature action", () => {
 
   it("moves every lamp by a dial's step from the first lamp's temperature", async () => {
     const pair = [newLamp({ temperatureInKelvin: 3000 }), newLamp({ temperatureInKelvin: 5000 })];
-    plugIn(...pair);
+    await plugIn(...pair);
     const dial = await deck.dial(TEMPERATURE, { stepKelvin: 300 });
 
     await deck.turn(dial, 1);
@@ -346,7 +349,7 @@ describe("the Temperature action", () => {
 
   it("moves the lamps once for a quick turn, with the step the dial has by then", async () => {
     const pair = [newLamp({ temperatureInKelvin: 3100 }), newLamp({ temperatureInKelvin: 3100 })];
-    plugIn(...pair);
+    await plugIn(...pair);
     const dial = await deck.dial(TEMPERATURE, { stepKelvin: 100 });
 
     await deck.quickly(() => {
@@ -365,7 +368,7 @@ describe("the Temperature action", () => {
 describe("the Scene key", () => {
   it("turns every lamp on at its brightness and temperature, and every dial and Power key follows (#86)", async () => {
     const pair = [newLamp({ on: false }), newLamp({ on: false })];
-    plugIn(...pair);
+    await plugIn(...pair);
     const powerKey = await deck.key(POWER, { mode: "toggle" });
     const brightnessDial = await deck.dial(BRIGHTNESS);
     const temperatureDial = await deck.dial(TEMPERATURE);
@@ -384,7 +387,7 @@ describe("the Scene key", () => {
 
   it("sets each group's lamps to the group's part, and every Power key follows the whole scene (#174)", async () => {
     const [left, center, right] = [newLamp({ on: false }), newLamp(), newLamp({ on: false })];
-    plugIn(left, center, right);
+    await plugIn(left, center, right);
     const powerKey = await deck.key(POWER, { mode: "toggle" });
     const key = await deck.key(SCENE, {
       presetPercentage: 100,
@@ -409,7 +412,7 @@ describe("the Scene key", () => {
 
   it("takes a lamp added later into its first group, and leaves the lamps a group added after it checks to that group (#147, #174)", async () => {
     const [first, second, added] = [newLamp({ on: false }), newLamp({ on: false }), newLamp({ on: false })];
-    plugIn(first, second);
+    await plugIn(first, second);
     const key = await deck.key(SCENE, {
       presetPercentage: 100,
       presetKelvin: 6500,
@@ -417,7 +420,7 @@ describe("the Scene key", () => {
       leftOutLamps: [],
       addedGroups: [{ power: "on", presetPercentage: 10, presetKelvin: 2700, lamps: [Lamp.idOf(second.serialNumber)] }],
     });
-    plugIn(first, second, added);
+    await plugIn(first, second, added);
 
     await deck.press(key);
 
@@ -431,14 +434,14 @@ describe("the Scene key", () => {
   it("gives a lamp both groups check to the group added after the first, on a key that takes in no lamps added later (#174)", async () => {
     await saveFromPage({ addNewLamps: false });
     const [first, second, added] = [newLamp({ on: false }), newLamp({ on: false }), newLamp({ on: false })];
-    plugIn(first, second);
+    await plugIn(first, second);
     const key = await deck.key(SCENE, {
       presetPercentage: 100,
       presetKelvin: 6500,
       lamps: [Lamp.idOf(first.serialNumber), Lamp.idOf(second.serialNumber)],
       addedGroups: [{ power: "on", presetPercentage: 10, presetKelvin: 2700, lamps: [Lamp.idOf(second.serialNumber)] }],
     });
-    plugIn(first, second, added);
+    await plugIn(first, second, added);
 
     await deck.press(key);
 
@@ -453,7 +456,7 @@ describe("the Scene key", () => {
 describe("the step keys", () => {
   it("step every lamp's brightness up and down by their step, and every step key shows the brightest lamp (#129)", async () => {
     const pair = [newLamp(), newLamp()];
-    plugIn(...pair);
+    await plugIn(...pair);
     const up = await deck.key(BRIGHTNESS_UP, { stepPercentage: 10 });
     const down = await deck.key(BRIGHTNESS_DOWN, { stepPercentage: 10 });
 
@@ -472,7 +475,7 @@ describe("the step keys", () => {
 
   it("move the lamps once for quick presses, with the step the key has by then", async () => {
     const pair = [newLamp(), newLamp()];
-    plugIn(...pair);
+    await plugIn(...pair);
     const key = await deck.key(BRIGHTNESS_UP, { stepPercentage: 5 });
 
     await deck.quickly(() => {
@@ -493,7 +496,7 @@ describe("the step keys", () => {
       newLamp({ brightnessInLumen: LUMEN_AT_60, capInLumen: 264 }),
       newLamp({ brightnessInLumen: LUMEN_AT_60, capInLumen: 324 }),
     ];
-    plugIn(...pair);
+    await plugIn(...pair);
     // 80%, a step of 20% up from 60%, is past both caps.
     const key = await deck.key(BRIGHTNESS_UP, { stepPercentage: 20 });
 
@@ -505,7 +508,7 @@ describe("the step keys", () => {
 
   it("step every lamp's temperature up and down from the first lamp's, and every step key shows it (#129)", async () => {
     const pair = [newLamp({ temperatureInKelvin: 3000 }), newLamp({ temperatureInKelvin: 5000 })];
-    plugIn(...pair);
+    await plugIn(...pair);
     const up = await deck.key(TEMPERATURE_UP, { stepKelvin: 300 });
     const down = await deck.key(TEMPERATURE_DOWN, { stepKelvin: 300 });
 
@@ -523,7 +526,7 @@ describe("the step keys", () => {
   });
 
   it("follow what another action changes", async () => {
-    plugIn(newLamp(), newLamp());
+    await plugIn(newLamp(), newLamp());
     const brightnessKey = await deck.key(BRIGHTNESS_DOWN, { stepPercentage: 10 });
     const temperatureKey = await deck.key(TEMPERATURE_UP, { stepKelvin: 300 });
     const scene = await deck.key(SCENE, { presetPercentage: 80, presetKelvin: 6500 });
@@ -535,7 +538,7 @@ describe("the step keys", () => {
 
   it("show an alert when a lamp fails, and still step the others", async () => {
     const [failing, working] = [newLamp(), newLamp()];
-    plugIn(failing, working);
+    await plugIn(failing, working);
     const key = await deck.key(BRIGHTNESS_UP, { stepPercentage: 10 });
     failing.fail("everything");
 
@@ -557,7 +560,7 @@ describe("the lamp screens", () => {
       brightnessInLumen: LUMEN_AT_100,
       temperatureInKelvin: 6500,
     });
-    plugIn(second, first);
+    await plugIn(second, first);
     const dial = await deck.dial(BRIGHTNESS, { stepPercentage: 10 });
     await deck.tap(dial);
     return { first, second, dial };
@@ -678,7 +681,7 @@ describe("the lamp screens", () => {
 
   it("blink each lamp as a tap shows it, on every dial, once the dials' setting is on (#144)", async () => {
     const [first, second] = [newLamp({ serialNumber: "SERIAL-A" }), newLamp({ serialNumber: "SERIAL-B", on: false })];
-    plugIn(second, first);
+    await plugIn(second, first);
     const brightnessDial = await deck.dial(BRIGHTNESS);
     const temperatureDial = await deck.dial(TEMPERATURE);
 
@@ -708,7 +711,7 @@ describe("the lamp screens", () => {
 
   it("blink nothing on a dial that chose otherwise on its own page, while the other dials blink", async () => {
     const [first, second] = [newLamp({ serialNumber: "SERIAL-A" }), newLamp({ serialNumber: "SERIAL-B" })];
-    plugIn(second, first);
+    await plugIn(second, first);
     const brightnessDial = await deck.dial(BRIGHTNESS);
     const temperatureDial = await deck.dial(TEMPERATURE);
 
@@ -729,7 +732,7 @@ describe("the lamp screens", () => {
     "blink the lamp on a %s dial's screen when its strip is held, and nothing on its main screen",
     async (_name, manifestId) => {
       const [first, second] = [newLamp({ serialNumber: "SERIAL-A" }), newLamp({ serialNumber: "SERIAL-B" })];
-      plugIn(second, first);
+      await plugIn(second, first);
       const dial = await deck.dial(manifestId);
 
       await deck.hold(dial);
@@ -755,7 +758,7 @@ describe("the lamp screens", () => {
   });
 
   it("show an alert on a tap when there are no lamps, and stay on the main screen", async () => {
-    plugIn();
+    await plugIn();
     const dial = await deck.dial(BRIGHTNESS);
 
     await deck.tap(dial);
@@ -779,7 +782,7 @@ describe("the lamp screens", () => {
     ["Brightness", BRIGHTNESS],
     ["Temperature", TEMPERATURE],
   ])("forget a %s dial taken off the Deck, which the lamps changing no longer redraws", async (_name, manifestId) => {
-    plugIn(newLamp({ serialNumber: "SERIAL-A" }), newLamp({ serialNumber: "SERIAL-B" }));
+    await plugIn(newLamp({ serialNumber: "SERIAL-A" }), newLamp({ serialNumber: "SERIAL-B" }));
     const dial = await deck.dial(manifestId);
     const powerKey = await deck.key(POWER, { mode: "toggle" });
     await deck.tap(dial);
@@ -796,7 +799,7 @@ describe("lamps kept apart (#145)", () => {
   it("step each from its own brightness on a dial and a step key, while their temperatures stay together", async () => {
     const dim = newLamp({ brightnessInLumen: LUMEN_AT_50, temperatureInKelvin: 4000 });
     const bright = newLamp({ brightnessInLumen: LUMEN_AT_80, temperatureInKelvin: 5000 });
-    plugIn(dim, bright);
+    await plugIn(dim, bright);
     const brightnessDial = await deck.dial(BRIGHTNESS, { stepPercentage: 10 });
     const brightnessUp = await deck.key(BRIGHTNESS_UP, { stepPercentage: 10 });
     const temperatureDial = await deck.dial(TEMPERATURE, { stepKelvin: 100 });
@@ -823,7 +826,7 @@ describe("lamps kept apart (#145)", () => {
     // Two lamps on a Stream Deck + XL's USB hub, which stop at 79% and 58%, the first one set a step ahead.
     const ahead = newLamp({ serialNumber: "SERIAL-A", brightnessInLumen: LUMEN_AT_10, capInLumen: 324 });
     const behind = newLamp({ serialNumber: "SERIAL-B", brightnessInLumen: LUMEN_AT_0, capInLumen: 244 });
-    plugIn(ahead, behind);
+    await plugIn(ahead, behind);
     const dial = await deck.dial(BRIGHTNESS, { stepPercentage: 10 });
     await saveFromPage({ keepBrightnessDifference: true });
     const levels = () => [ahead.brightnessInLumen, behind.brightnessInLumen];
@@ -849,7 +852,7 @@ describe("lamps kept apart (#145)", () => {
 
   it("come back in sync on a turn once the setting is off again", async () => {
     const [dim, bright] = [newLamp({ brightnessInLumen: LUMEN_AT_50 }), newLamp({ brightnessInLumen: LUMEN_AT_80 })];
-    plugIn(dim, bright);
+    await plugIn(dim, bright);
     const dial = await deck.dial(BRIGHTNESS, { stepPercentage: 10 });
     await saveFromPage({ keepBrightnessDifference: true });
     await deck.turn(dial, -1);
@@ -863,7 +866,7 @@ describe("lamps kept apart (#145)", () => {
   it("step each from its own temperature on a dial and a step key, while their brightness stays together", async () => {
     const warm = newLamp({ serialNumber: "SERIAL-A", brightnessInLumen: LUMEN_AT_50, temperatureInKelvin: 3100 });
     const cool = newLamp({ serialNumber: "SERIAL-B", brightnessInLumen: LUMEN_AT_80, temperatureInKelvin: 4700 });
-    plugIn(cool, warm);
+    await plugIn(cool, warm);
     const temperatureDial = await deck.dial(TEMPERATURE, { stepKelvin: 200 });
     const temperatureUp = await deck.key(TEMPERATURE_UP, { stepKelvin: 200 });
     const brightnessDial = await deck.dial(BRIGHTNESS, { stepPercentage: 10 });
@@ -888,7 +891,7 @@ describe("lamps kept apart (#145)", () => {
   it("stay apart through the end of the temperature range, and come back with their difference, on a dial", async () => {
     const warm = newLamp({ serialNumber: "SERIAL-A", temperatureInKelvin: 6100 });
     const cool = newLamp({ serialNumber: "SERIAL-B", temperatureInKelvin: 6300 });
-    plugIn(warm, cool);
+    await plugIn(warm, cool);
     const dial = await deck.dial(TEMPERATURE, { stepKelvin: 200 });
     await saveFromPage({ keepTemperatureDifference: true });
     const temperatures = () => [warm.temperatureInKelvin, cool.temperatureInKelvin];
@@ -909,7 +912,7 @@ describe("lamps kept apart (#145)", () => {
   it("come back in sync on a temperature turn once the temperature's setting is off again", async () => {
     const warm = newLamp({ serialNumber: "SERIAL-A", temperatureInKelvin: 3100 });
     const cool = newLamp({ serialNumber: "SERIAL-B", temperatureInKelvin: 4700 });
-    plugIn(warm, cool);
+    await plugIn(warm, cool);
     const dial = await deck.dial(TEMPERATURE, { stepKelvin: 200 });
     await saveFromPage({ keepTemperatureDifference: true });
     await deck.turn(dial, -1);
@@ -925,7 +928,7 @@ describe("lamps kept apart (#145)", () => {
 describe("the plugin's state is the lamps' state (#198)", () => {
   it("shows what the plugin last set, not a change made with a lamp's own buttons", async () => {
     const lamp = newLamp();
-    plugIn(lamp);
+    await plugIn(lamp);
     const dial = await deck.dial(BRIGHTNESS);
     const powerKey = await deck.key(POWER, { mode: "toggle" });
     const temperatureKey = await deck.key(TEMPERATURE, { presetKelvin: 5000 });
@@ -942,7 +945,7 @@ describe("the plugin's state is the lamps' state (#198)", () => {
 
   it("steps from what it last set: a lamp set to 10%, brought to 20% with its button, is put back, then goes to 20%", async () => {
     const lamp = newLamp();
-    plugIn(lamp);
+    await plugIn(lamp);
     const key = await deck.key(BRIGHTNESS, { presetPercentage: 10 });
     const dial = await deck.dial(BRIGHTNESS, { stepPercentage: 10 });
     await deck.press(key);
@@ -958,7 +961,7 @@ describe("the plugin's state is the lamps' state (#198)", () => {
 
   it("turns on a lamp turned off with its own button before it steps its brightness", async () => {
     const lamp = newLamp();
-    plugIn(lamp);
+    await plugIn(lamp);
     const key = await deck.key(BRIGHTNESS, { presetPercentage: 10 });
     const dial = await deck.dial(BRIGHTNESS, { stepPercentage: 10 });
     await deck.press(key);
@@ -973,7 +976,7 @@ describe("the plugin's state is the lamps' state (#198)", () => {
 
   it("toggles from the power it holds, so a lamp turned off with its own button is turned off again", async () => {
     const lamp = newLamp();
-    plugIn(lamp);
+    await plugIn(lamp);
     const key = await deck.key(POWER, { mode: "toggle" });
     lamp.on = false;
 
@@ -985,7 +988,7 @@ describe("the plugin's state is the lamps' state (#198)", () => {
 
   it("tells a page which lamps are connected when it asks, and when a press finds one unplugged", async () => {
     const [first, second] = [newLamp(), newLamp()];
-    plugIn(first, second);
+    await plugIn(first, second);
     const key = await deck.key(POWER, { mode: "on" });
 
     sdk.sendToPlugin({ event: "connected" });
@@ -1004,7 +1007,7 @@ describe("the plugin's state is the lamps' state (#198)", () => {
 
   it("reads a lamp again once it's plugged in again, which may come back in another state", async () => {
     const lamp = newLamp({ serialNumber: "SERIAL-A" });
-    plugIn(lamp);
+    await plugIn(lamp);
     const dial = await deck.dial(BRIGHTNESS);
     const temperatureKey = await deck.key(TEMPERATURE, { presetKelvin: 5000 });
     const pluggedInAgain = newLamp({ serialNumber: "SERIAL-A", brightnessInLumen: LUMEN_AT_80 });
@@ -1060,7 +1063,7 @@ describe("what the dials show", () => {
     ["Brightness", BRIGHTNESS, { presetPercentage: 50 }],
     ["Temperature", TEMPERATURE, { presetKelvin: 5000 }],
   ])("fits the layout the %s dial is on, on every screen it shows", async (_name, manifestId, keySettings) => {
-    plugIn(newLamp({ serialNumber: "SERIAL-A" }), newLamp({ serialNumber: "SERIAL-B" }));
+    await plugIn(newLamp({ serialNumber: "SERIAL-A" }), newLamp({ serialNumber: "SERIAL-B" }));
     const dial = await deck.dial(manifestId);
     const key = await deck.key(manifestId, keySettings);
 
@@ -1087,16 +1090,16 @@ describe("what the dials show", () => {
 
 describe("a Beam and a Beam LX together (#100)", () => {
   /** A Beam and a Beam LX, whatever the run's model, plugged in out of the order of their ids. */
-  function beamAndBeamLx() {
+  async function beamAndBeamLx() {
     const setting = { on: true, brightnessInLumen: LUMEN_AT_50, temperatureInKelvin: 4000 };
     const lx = new EmulatedLitra("Beam LX", { serialNumber: "SERIAL-B", ...setting });
     const beam = new EmulatedLitra("Beam", { serialNumber: "SERIAL-A", ...setting });
-    plugIn(lx, beam);
+    await plugIn(lx, beam);
     return { beam, lx };
   }
 
   it("go to the same percentage of their ranges from a dial's main screen, which shows them as one", async () => {
-    const { beam, lx } = beamAndBeamLx();
+    const { beam, lx } = await beamAndBeamLx();
     const dial = await deck.dial(BRIGHTNESS, { stepPercentage: 10 });
 
     await deck.turn(dial, 1);
@@ -1106,7 +1109,7 @@ describe("a Beam and a Beam LX together (#100)", () => {
   });
 
   it("are each named by their own model on the lamp screens", async () => {
-    beamAndBeamLx();
+    await beamAndBeamLx();
     const dial = await deck.dial(BRIGHTNESS);
 
     await deck.tap(dial);
@@ -1117,7 +1120,7 @@ describe("a Beam and a Beam LX together (#100)", () => {
   });
 
   it("show an alert on a key for every lamp when the Beam LX can't be told apart, but not on the Beam's lamp screen", async () => {
-    const { beam, lx } = beamAndBeamLx();
+    const { beam, lx } = await beamAndBeamLx();
     const key = await deck.key(BRIGHTNESS, { presetPercentage: 100 });
     const dial = await deck.dial(BRIGHTNESS, { stepPercentage: 10 });
     await deck.tap(dial);
@@ -1135,7 +1138,7 @@ describe("a Beam and a Beam LX together (#100)", () => {
   });
 
   it("come back from a blink as they were after a scene, as their lamp screens show", async () => {
-    const { beam, lx } = beamAndBeamLx();
+    const { beam, lx } = await beamAndBeamLx();
     const scene = await deck.key(SCENE, { presetPercentage: 100, presetKelvin: 6500 });
     const dial = await deck.dial(BRIGHTNESS);
     await saveFromPage({ blinkOnLampScreen: true });
@@ -1173,7 +1176,7 @@ describe("lamps picked on a key's settings page (#20)", () => {
     // A key that adds no new lamps acts on the lamps checked alone (#147).
     await saveFromPage({ addNewLamps: false });
     const [first, second] = [newLamp({ on: false }), newLamp({ on: false })];
-    plugIn(first, second);
+    await plugIn(first, second);
     const firstKey = await deck.key(POWER, { mode: "toggle", lamps: [picked(first)] });
     const everyLamp = await deck.key(POWER, { mode: "toggle" });
 
@@ -1186,7 +1189,7 @@ describe("lamps picked on a key's settings page (#20)", () => {
   it("are the ones a Power key shows the state of as soon as its page saves them", async () => {
     await saveFromPage({ addNewLamps: false });
     const [first, second] = [newLamp(), newLamp({ on: false })];
-    plugIn(first, second);
+    await plugIn(first, second);
     const key = await deck.key(POWER, { mode: "toggle", lamps: [picked(first)] });
 
     expect(stateOf(key)).toBe(1);
@@ -1199,7 +1202,7 @@ describe("lamps picked on a key's settings page (#20)", () => {
   it("are the only ones a step key steps, and its title shows them", async () => {
     await saveFromPage({ addNewLamps: false });
     const [first, second] = [newLamp(), newLamp({ brightnessInLumen: LUMEN_AT_80 })];
-    plugIn(first, second);
+    await plugIn(first, second);
     const key = await deck.key(BRIGHTNESS_UP, { stepPercentage: 10, lamps: [picked(first)] });
 
     await deck.press(key);
@@ -1210,9 +1213,9 @@ describe("lamps picked on a key's settings page (#20)", () => {
 
   it("take in a lamp added later, but not the ones the page left out, by default (#147)", async () => {
     const [first, second, third] = [newLamp({ on: false }), newLamp({ on: false }), newLamp({ on: false })];
-    plugIn(first, second);
+    await plugIn(first, second);
     const key = await deck.key(POWER, { mode: "on", lamps: [picked(first)], leftOutLamps: [picked(second)] });
-    plugIn(first, second, third);
+    await plugIn(first, second, third);
 
     await deck.press(key);
 
@@ -1221,7 +1224,7 @@ describe("lamps picked on a key's settings page (#20)", () => {
 
   it("are listed for the page from the lamps plugged in, and blinked by its Identify button", async () => {
     const [first, second] = [newLamp({ serialNumber: "SERIAL-A" }), newLamp({ serialNumber: "SERIAL-B" })];
-    plugIn(second, first);
+    await plugIn(second, first);
 
     sdk.sendToPlugin({ event: "lamps" });
     await vi.runAllTimersAsync();
@@ -1236,7 +1239,7 @@ describe("lamps picked on a key's settings page (#20)", () => {
 
   it("blink for as long as the plugin settings say (#171)", async () => {
     const lamp = newLamp();
-    plugIn(lamp);
+    await plugIn(lamp);
 
     await saveFromPage({ identifyBlinkMs: 1000 });
     sdk.sendToPlugin({ event: "identify", id: Lamp.idOf(lamp.serialNumber) });
@@ -1253,7 +1256,7 @@ describe("lamps picked on a key's settings page (#20)", () => {
 describe("the lamps the plugin knows (#194)", () => {
   it("leave a lamp plugged in alone until Find lamps adds it, then every key takes it in", async () => {
     const [known, added] = [newLamp({ on: false }), newLamp({ on: false })];
-    plugIn(known);
+    await plugIn(known);
     const key = await deck.key(POWER, { mode: "on" });
     lamps.push(added);
     connect(known, added);
@@ -1270,7 +1273,7 @@ describe("the lamps the plugin knows (#194)", () => {
 
   it("are kept when a lamp is unplugged, so it's acted on again once it's plugged back in, without a find", async () => {
     const lamp = newLamp({ on: false });
-    plugIn(lamp);
+    await plugIn(lamp);
     const key = await deck.key(POWER, { mode: "on" });
     connect();
     await deck.press(key);
@@ -1285,7 +1288,7 @@ describe("the lamps the plugin knows (#194)", () => {
     await saveFromPage({ identifyBlinkMs: 600 });
     const lamp = newLamp({ serialNumber: "SERIAL-A" });
 
-    plugIn(lamp);
+    await plugIn(lamp);
     await vi.runAllTimersAsync();
 
     expect(await sdk.default.settings.getGlobalSettings()).toEqual({
@@ -1296,7 +1299,7 @@ describe("the lamps the plugin knows (#194)", () => {
 
   it("are renamed from the plugin settings, with the name trimmed, and lose their name once it's cleared (#146)", async () => {
     const lamp = newLamp({ serialNumber: "SERIAL-A" });
-    plugIn(lamp);
+    await plugIn(lamp);
     const id = Lamp.idOf(lamp.serialNumber);
 
     sdk.sendToPlugin({ event: "rename", id, name: "  Key light  " });
@@ -1319,7 +1322,7 @@ describe("the lamps the plugin knows (#194)", () => {
       newLamp({ serialNumber: "SERIAL-A", on: false }),
       newLamp({ serialNumber: "SERIAL-B", on: false }),
     ];
-    plugIn(forgotten, kept);
+    await plugIn(forgotten, kept);
     const key = await deck.key(POWER, { mode: "on" });
     const id = Lamp.idOf(forgotten.serialNumber);
     sdk.sendToPlugin({ event: "rename", id, name: "Key light" });
@@ -1345,7 +1348,7 @@ describe("the lamps the plugin knows (#194)", () => {
   });
 
   it("are left as they are when a page renames or forgets a lamp the plugin doesn't know", async () => {
-    plugIn(newLamp({ serialNumber: "SERIAL-A" }));
+    await plugIn(newLamp({ serialNumber: "SERIAL-A" }));
     await vi.runAllTimersAsync();
     const before = await sdk.default.settings.getGlobalSettings();
 
@@ -1362,7 +1365,7 @@ describe("keys and dials whose lamps can't be reached", () => {
     ["Brightness", BRIGHTNESS],
     ["Temperature", TEMPERATURE],
   ])("show an alert on a %s dial pushed or turned once its lamps are unplugged", async (_name, manifestId) => {
-    plugIn(newLamp());
+    await plugIn(newLamp());
     const dial = await deck.dial(manifestId);
     connect();
 
@@ -1373,7 +1376,7 @@ describe("keys and dials whose lamps can't be reached", () => {
   });
 
   it("show an alert on a Temperature key once its lamps are unplugged", async () => {
-    plugIn(newLamp());
+    await plugIn(newLamp());
     const key = await deck.key(TEMPERATURE, { presetKelvin: 5000 });
     connect();
 
@@ -1385,7 +1388,7 @@ describe("keys and dials whose lamps can't be reached", () => {
   it("show an alert on a key whose page checks no lamp, which acts on none (#20)", async () => {
     await saveFromPage({ addNewLamps: false });
     const lamp = newLamp({ on: false });
-    plugIn(lamp);
+    await plugIn(lamp);
     const key = await deck.key(POWER, { mode: "on", lamps: [] });
 
     await deck.press(key);
@@ -1396,7 +1399,7 @@ describe("keys and dials whose lamps can't be reached", () => {
 
   it("show an alert on a key whose page leaves out every lamp connected (#147)", async () => {
     const [first, second] = [newLamp({ on: false }), newLamp({ on: false })];
-    plugIn(first, second);
+    await plugIn(first, second);
     const key = await deck.key(POWER, {
       mode: "on",
       lamps: [],
@@ -1412,7 +1415,7 @@ describe("keys and dials whose lamps can't be reached", () => {
   it("show an alert on a key none of whose lamps is connected, which leaves the others alone (#20)", async () => {
     await saveFromPage({ addNewLamps: false });
     const [unplugged, other] = [newLamp({ on: false }), newLamp({ on: false })];
-    plugIn(unplugged, other);
+    await plugIn(unplugged, other);
     const key = await deck.key(POWER, { mode: "on", lamps: [Lamp.idOf(unplugged.serialNumber)] });
     connect(other);
 
@@ -1424,7 +1427,7 @@ describe("keys and dials whose lamps can't be reached", () => {
 
   it("show an alert when none of the lamps connected is one the plugin knows, and leave them alone (#194)", async () => {
     const [known, unknown] = [newLamp({ on: false }), newLamp({ on: false })];
-    plugIn(known);
+    await plugIn(known);
     const key = await deck.key(POWER, { mode: "on" });
     lamps.push(unknown);
     connect(unknown);
@@ -1436,7 +1439,7 @@ describe("keys and dials whose lamps can't be reached", () => {
   });
 
   it("show an alert when finding the lamps fails, and no value on the dials", async () => {
-    plugIn(newLamp());
+    await plugIn(newLamp());
     const key = await deck.key(BRIGHTNESS, { presetPercentage: 100 });
     const dial = await deck.dial(BRIGHTNESS);
     failFindingLamps(new Error("Cannot list HID devices"));
