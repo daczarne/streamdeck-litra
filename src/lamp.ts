@@ -248,13 +248,17 @@ export class Lamp {
   }
 
   /**
-   * The temperature the lamp allows nearest to `kelvin`, the one it lists first on a tie. Throws when it allows none.
+   * The temperature the lamp allows nearest to `kelvin`, the one it lists first on a tie. `kelvin` is kept within the
+   * lamp's range first, so even an infinite one, which a step of lamps kept apart asks for to find the ends (#145), has
+   * a nearest one. Throws when it allows none.
    */
   snapKelvin(kelvin: number): number {
+    const { allowedKelvin } = this.reachedRange();
+    const within = Math.max(Math.min(...allowedKelvin), Math.min(Math.max(...allowedKelvin), kelvin));
     let nearest: number | undefined;
     let nearestDelta = Infinity;
-    for (const allowed of this.reachedRange().allowedKelvin) {
-      const delta = Math.abs(kelvin - allowed);
+    for (const allowed of allowedKelvin) {
+      const delta = Math.abs(within - allowed);
       if (delta < nearestDelta) {
         nearest = allowed;
         nearestDelta = delta;
