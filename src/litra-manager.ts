@@ -180,12 +180,19 @@ type ApartLamp = {
 };
 
 /**
- * How many steps what a lamp was asked for is past its end in a direction: how far it can go back and still be held
- * there. A
- * lamp can get there when a turn was planned before its cap was learned.
+ * How many steps what a lamp was asked for can come back, against `direction`, with the lamp still sent its end in
+ * `direction`: the highest it's sent going up, its cap included, or the lowest going down. A lamp asked for 6700 K going
+ * up, in steps of 100 K, has 2, since it's sent 6500 K for 6600 K and for 6500 K, and 6400 K for 6400 K. A lamp asked
+ * for something that doesn't put it at that end has none.
+ *
+ * A lamp kept apart gets past its end when it stops there while the others keep going (#145). Every lamp is past its
+ * end only when a turn was planned before a cap was learned: {@link stepApart} then brings them all back by the fewest
+ * steps any of them has, so they keep their difference, and the next tick the other way moves one of them.
  */
 function stepsPastEnd(lamp: ApartLamp, step: number, direction: 1 | -1): number {
   const end = lamp.reach(direction * Infinity);
+  // Enough steps to go from what was asked across the whole range, so a lamp sent its end for every value can't hold
+  // the search.
   const bound = Math.ceil((Math.abs(lamp.asked - lamp.origin) + lamp.span) / step);
   let steps = 0;
   while (steps < bound && lamp.reach(lamp.asked - direction * (steps + 1) * step) === end) {
