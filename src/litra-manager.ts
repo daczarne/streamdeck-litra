@@ -180,12 +180,19 @@ type ApartLamp = {
 };
 
 /**
- * How many steps what a lamp was asked for is past its end in a direction: how far it can go back and still be held
- * there. A
- * lamp can get there when a turn was planned before its cap was learned.
+ * How many steps what a lamp was asked for can come back, against `direction`, with the lamp still sent its end in
+ * `direction`: the highest it's sent going up, its cap included, or the lowest going down. A lamp asked for 6700 K going
+ * up, in steps of 100 K, has 2, since it's sent 6500 K for 6600 K and for 6500 K, and 6400 K for 6400 K. A lamp asked
+ * for something that doesn't put it at that end has none.
+ *
+ * A lamp kept apart gets past its end when it stops there while the others keep going (#145). Every lamp is past its
+ * end only when a turn was planned before a cap was learned: {@link stepApart} then brings them all back by the fewest
+ * steps any of them has, so they keep their difference, and the next tick the other way moves one of them.
  */
 function stepsPastEnd(lamp: ApartLamp, step: number, direction: 1 | -1): number {
   const end = lamp.reach(direction * Infinity);
+  // Enough steps to go from what was asked across the whole range, so a lamp sent its end for every value can't hold
+  // the search.
   const bound = Math.ceil((Math.abs(lamp.asked - lamp.origin) + lamp.span) / step);
   let steps = 0;
   while (steps < bound && lamp.reach(lamp.asked - direction * (steps + 1) * step) === end) {
@@ -688,7 +695,7 @@ async function setScene(groups: readonly SceneGroup[], settleMs: number): Promis
           return;
         }
         ensureOn(operation, reached);
-        setSnappedTemperature(operation, reached, group.kelvin);
+        lamp.setTemperature(operation, handle, group.kelvin);
         targets.set(reached, Math.max(0, Math.min(100, group.percentage)));
       });
     }
@@ -817,17 +824,10 @@ export function identifyLamp(id: string, blinkMs: number): Promise<OperationResu
   });
 }
 
-/** Sets a lamp to the temperature it allows nearest to `kelvin`, and returns the one it reached. */
-function setSnappedTemperature(operation: string, { lamp, handle }: ReachedLamp<unknown>, kelvin: number): number {
-  const kelvinReached = lamp.setTemperature(operation, handle, lamp.snapKelvin(kelvin));
-  lamp.temperatureAsked = undefined;
-  return kelvinReached;
-}
-
 /** Sets the selected lamps to the allowed temperature nearest to `kelvin`. */
 export function setLampsTemperature(lamps: LampSelection, kelvin: number): OperationResult {
   const operation = "set temperature";
-  return announced(forEachLamp(operation, (reached) => setSnappedTemperature(operation, reached, kelvin), lamps));
+  return announced(forEachLamp(operation, ({ lamp, handle }) => lamp.setTemperature(operation, handle, kelvin), lamps));
 }
 
 /**
@@ -849,10 +849,9 @@ export function adjustLampsTemperature(
   return announced(
     forEachLamp(
       operation,
-      (reached) => {
-        const { lamp } = reached;
+      ({ lamp, handle }) => {
         target ??= stepOnGrid(stateOf(lamp).kelvin, ticks, stepKelvin, lamp.lowestKelvin, lamp.highestKelvin);
-        setSnappedTemperature(operation, reached, target);
+        lamp.setTemperature(operation, handle, target);
       },
       lamps,
     ),
@@ -884,6 +883,8 @@ function adjustTemperaturesApart(
           reached,
           asked: lamp.temperatureAsked ?? kelvin,
           value: kelvin,
+          // Kept within the range before it's snapped: stepsPastEnd finds the ends by asking for an infinite
+          // temperature, which has no nearest one.
           reach: (askedKelvin) => lamp.snapKelvin(Math.max(lowest, Math.min(highest, askedKelvin))),
           origin: lowest,
           span: highest - lowest,
@@ -896,8 +897,7 @@ function adjustTemperaturesApart(
       const { lamp, handle } = planned.reached;
       opened.attempt(lamp, () => {
         const askedKelvin = stepped[index] ?? planned.asked;
-        lamp.setTemperature(operation, handle, planned.reach(askedKelvin));
-        lamp.temperatureAsked = askedKelvin;
+        lamp.setTemperature(operation, handle, askedKelvin, askedKelvin);
       });
     });
     return opened.outcome();

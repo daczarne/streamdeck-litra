@@ -411,6 +411,32 @@ describe("a lamp's temperature (#198)", () => {
     expect(logged("info")).toEqual(["set temperature: Beam - 73cd set to 6500 K"]);
     expect(logged("debug")).toEqual(["set temperature: Beam - 73cd at 6500 K"]);
   });
+
+  it("is the one the lamp allows nearest to the one asked for", () => {
+    const { lamp, handle } = reached();
+
+    expect(lamp.setTemperature("set temperature", handle, 4540)).toBe(4500);
+    expect(handle.written).toEqual(["4500 K"]);
+    expect(logged("info")).toEqual(["set temperature: Beam - 73cd set to 4500 K"]);
+  });
+
+  it("keeps what a step of lamps kept apart asked, even past an end of the range (#145)", () => {
+    const { lamp, handle } = reached();
+
+    lamp.setTemperature("adjust temperature", handle, 6700, 6700);
+
+    expect(handle.written).toEqual(["6500 K"]);
+    expect(lamp.temperatureAsked).toBe(6700);
+  });
+
+  it("forgets what a step of lamps kept apart asked, once another change sets it (#145)", () => {
+    const { lamp, handle } = reached();
+    lamp.setTemperature("adjust temperature", handle, 6700, 6700);
+
+    lamp.setTemperature("set temperature", handle, 5000);
+
+    expect(lamp.temperatureAsked).toBeUndefined();
+  });
 });
 
 describe("a lamp that doesn't report what it set (#198)", () => {

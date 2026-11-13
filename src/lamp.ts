@@ -352,13 +352,19 @@ export class Lamp {
     return reached;
   }
 
-  /** Sets the lamp to a temperature it allows, and holds the one it then reports, which it returns. */
-  setTemperature(operation: string, handle: LampHandle, kelvin: number): number {
-    handle.writeTemperature(kelvin);
-    const reached = this.readBack(operation, "temperature", () => handle.readTemperature(), kelvin);
+  /**
+   * Sets the lamp to the temperature it allows nearest to `kelvin`, and holds the one it then reports, which it returns.
+   * `asked` is what a step of lamps kept apart asked of the lamp (#145), which its next such step goes on from. Any
+   * other change leaves it out, which forgets it.
+   */
+  setTemperature(operation: string, handle: LampHandle, kelvin: number, asked?: number): number {
+    const allowed = this.snapKelvin(kelvin);
+    handle.writeTemperature(allowed);
+    const reached = this.readBack(operation, "temperature", () => handle.readTemperature(), allowed);
     logger.debug(`${operation}: ${this.label} at ${reached} K`);
     this.heldState = { ...this.held(), kelvin: reached };
-    logger.info(`${operation}: ${this.label} set to ${kelvin} K`);
+    this.temperatureAsked = asked;
+    logger.info(`${operation}: ${this.label} set to ${allowed} K`);
     return reached;
   }
 
