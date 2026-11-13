@@ -149,7 +149,7 @@ A lamp that fails is logged, and the operation goes on with the others. Finding 
 
 ## What a lamp remembers
 
-Besides its state, a `Lamp` remembers three things, all because of a lamp on a low-power supply ([#55]), and all forgotten when the plugin restarts:
+Besides its state, a `Lamp` remembers three things, all forgotten when the plugin restarts: two because of a lamp on a low-power supply ([#55]), and one for lamps kept apart ([#145]):
 
 - The brightness its lamp can reach, its cap, learned each time the lamp falls short of what it was sent. A cap moves by a few lumens over time ([#164], [probes]): one that drops is learned again on the next change that reaches it, while one that rises stays as learned, a lumen or two below what the lamp could reach, since the lamp is never sent more. A lamp only moves to another power supply by being plugged in again, which on macOS gives it a new path, so a cap is forgotten once its lamp has another one (see [When a lamp is read](#when-a-lamp-is-read)).
 - When a capped lamp may still go back to its cap after being asked for more, which can undo a lower brightness written in between: `litra-manager` has the next brightness change wait until then.
