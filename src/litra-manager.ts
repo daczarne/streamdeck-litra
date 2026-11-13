@@ -127,11 +127,6 @@ function announced<T>(result: T): T {
   return result;
 }
 
-/** Logs a lamp's part in an operation failing. The other lamps carry on. */
-function logLampFailure(operation: string, connection: LampConnection, error: unknown): void {
-  logger.error(`${operation}: ${connection.label} failed: ${String(error)}`);
-}
-
 /**
  * Gives a lamp found without a serial number, such as a Beam LX, the one it keeps itself, so that it has an id of its
  * own (#170). A lamp whose serial can't be read is logged and closed, and the operation leaves it out: without its
@@ -142,7 +137,7 @@ function isIdentified(operation: string, connection: LampConnection): boolean {
     connection.identify();
     return true;
   } catch (error) {
-    logLampFailure(operation, connection, error);
+    logger.error(`${operation}: ${connection.label} failed: ${String(error)}`);
     connection.close();
     return false;
   }
@@ -243,75 +238,72 @@ function stepApart<T extends ApartLamp>(lamps: T[], ticks: number, step: number)
   return state.map((lamp) => lamp.asked);
 }
 
-/**
- * The lamps an operation opened, and how many lamps it couldn't tell apart that its selection could take in, which it
- * counts as failed lamps (see {@link openGroups}).
- */
-type Opened<T> = { connections: T; unidentified: number };
+/** The lamps found, each opened, in the order of their ids, and how many more couldn't be told apart. */
+type Found = { readonly connections: LampConnection[]; readonly unidentified: number };
 
-/** Opens every connected lamp, the ones the plugin doesn't know included, to find them. */
-function openEveryLamp(operation: string): LampConnection[] {
-  return [...openGroups(operation, [{ lamps: "all" }], { onlyKnown: false }).connections.keys()];
+/**
+ * Finds and opens every connected lamp, the ones the plugin doesn't know included. A lamp found without a serial
+ * number, such as a Beam LX, is asked for the one it keeps (#170), and one whose serial can't be read is logged, closed
+ * and left out, since it can't be told from another, but counted. The lamps come in the order of their ids, since
+ * litra finds them in an order that changes from one call to the next: so every operation goes through them in the
+ * same order, as the lamp screens and the settings pages list them, and the first lamp, whose temperature the dials
+ * show and step from, is always the same one. Marks each lamp the plugin knows as connected or not from what it found
+ * (#198). Finds none when finding them fails, which is logged, and so is finding none.
+ */
+function findConnections(operation: string): Found {
+  let found: LampConnection[] = [];
+  try {
+    found = LampConnection.findAll();
+    if (found.length === 0) {
+      logger.warn(`${operation}: no lamps found`);
+    }
+  } catch (error) {
+    logger.error(`${operation}: finding the lamps failed: ${String(error)}`);
+  }
+  const identified = found
+    .filter((connection) => isIdentified(operation, connection))
+    .sort((a, b) => Lamp.byId(a.id, b.id));
+  // When finding them failed, none is connected as far as the plugin can tell.
+  markFound(
+    operation,
+    identified.map(({ id }) => id),
+  );
+  return { connections: identified, unidentified: found.length - identified.length };
 }
 
 /**
  * Opens the lamps an operation acts on, named in the logs, for each of its groups: every connected lamp the plugin
- * knows, the selected ones, or every one but the left out ones, closing the others, each lamp with the first group that
- * selects it, so a lamp two groups select takes the first one's part. A selection of none is logged only when every
- * group selects none, since a group may lose its lamps to another. A connected lamp the plugin doesn't know is closed
- * unused, unless `onlyKnown` is false.
+ * knows, the selected ones, or every one but the left out ones, each lamp with the first group that selects it, so a
+ * lamp two groups select takes the first one's part. It closes the other lamps found, the ones the plugin doesn't know
+ * included. A selection of none is logged only when every group selects none, since a group may lose its lamps to
+ * another, and then no lamp is looked for.
  *
- * A lamp whose serial number can't be read is left out, since it can't be told from another (#170), but counted, when
- * a group takes in every lamp, or every lamp but some, which it could be one of: a Beam that fails counts as a failed
- * lamp, and a Beam LX that can't even be told apart is one too (#100). A group of given lamps can't tell whether it
- * was one of them, and fails on its own when none of them is found.
+ * A lamp whose serial number can't be read is counted when a group takes in every lamp, or every lamp but some, which
+ * it could be one of: a Beam that fails counts as a failed lamp, and a Beam LX that can't even be told apart is one too
+ * (#100). A group of given lamps can't tell whether it was one of them, and fails on its own when none of them is
+ * found.
  */
 function openGroups<G extends { readonly lamps: LampSelection }>(
   operation: string,
   groups: readonly G[],
-  { onlyKnown = true }: { onlyKnown?: boolean } = {},
-): Opened<Map<LampConnection, G>> {
+): { connections: Map<LampConnection, G>; unidentified: number } {
   const opened = new Map<LampConnection, G>();
   if (groups.every(({ lamps }) => Array.isArray(lamps) && lamps.length === 0)) {
     logger.warn(`${operation}: no lamp selected`);
     return { connections: opened, unidentified: 0 };
   }
-  let found: LampConnection[];
-  try {
-    found = LampConnection.findAll();
-  } catch (error) {
-    logger.error(`${operation}: finding the lamps failed: ${String(error)}`);
-    // It found none, so none is connected as far as the plugin can tell (#198).
-    markFound(operation, []);
-    return { connections: opened, unidentified: 0 };
-  }
-  if (found.length === 0) {
-    logger.warn(`${operation}: no lamps found`);
-    markFound(operation, []);
-    return { connections: opened, unidentified: 0 };
-  }
-  // In the order of their ids, since litra finds them in an order that changes from one call to the next. So every
-  // operation goes through the lamps in the same order, as the lamp screens and the settings pages list them, and the
-  // first lamp, whose temperature the dials show and step from, is always the same one.
-  const identified = found
-    .filter((connection) => isIdentified(operation, connection))
-    .sort((a, b) => Lamp.byId(a.id, b.id));
-  // Each lamp left out is logged already.
-  markFound(
-    operation,
-    identified.map(({ id }) => id),
-  );
-  const takesInAny = onlyKnown && groups.some(({ lamps }) => !Array.isArray(lamps));
-  const unidentified = takesInAny ? found.length - identified.length : 0;
-  if (identified.length === 0) {
+  const found = findConnections(operation);
+  const takesInAny = groups.some(({ lamps }) => !Array.isArray(lamps));
+  const unidentified = takesInAny ? found.unidentified : 0;
+  if (found.connections.length === 0) {
     return { connections: opened, unidentified };
   }
-  const known = (id: string): boolean => !onlyKnown || knownLamps.has(id);
   const connected: string[] = [];
-  for (const connection of identified) {
+  for (const connection of found.connections) {
     const { id } = connection;
-    const group = known(id) ? groups.find(({ lamps }) => selects(lamps, id)) : undefined;
-    if (known(id)) {
+    const known = knownLamps.has(id);
+    const group = known ? groups.find(({ lamps }) => selects(lamps, id)) : undefined;
+    if (known) {
       connected.push(id);
     }
     if (group === undefined) {
@@ -335,7 +327,7 @@ function openGroups<G extends { readonly lamps: LampSelection }>(
       continue;
     }
     for (const id of lamps) {
-      if (!known(id)) {
+      if (!knownLamps.has(id)) {
         logger.warn(`${operation}: lamp ${id} isn't one of the plugin's lamps`);
       } else if (!connected.includes(id)) {
         logger.warn(`${operation}: lamp ${id} not connected`);
@@ -408,12 +400,12 @@ function outcome(lampCount: number, failures: number, unidentified: number): Ope
 const NO_LAMP: OperationResult = { ok: false, lampCount: 0, failures: 1 };
 
 /** A lamp an operation opened and reached: its `Lamp`, the handle it acts on its lamp through, and its group. */
-type ReachedLamp<G> = { readonly lamp: Lamp; readonly handle: LampHandle; readonly group: G };
+type OpenedLamp<G> = { readonly lamp: Lamp; readonly handle: LampHandle; readonly group: G };
 
 /** The lamps an operation opened, as {@link openLamps} gives them. */
 type OpenedLamps<G> = {
   /** The lamps it reached, in the order of their ids, each with its group. */
-  readonly lamps: readonly ReachedLamp<G>[];
+  readonly lamps: readonly OpenedLamp<G>[];
   /** How many lamps the operation's selection could take in that it couldn't tell apart (see {@link openGroups}). */
   readonly unidentified: number;
   /** How many lamps failed so far, the ones that couldn't be reached included. */
@@ -449,7 +441,7 @@ function openLamps<G extends { readonly lamps: LampSelection }>(
       logger.error(`${operation}: ${lamp.label} failed: ${String(error)}`);
     }
   };
-  const lamps: ReachedLamp<G>[] = [];
+  const lamps: OpenedLamp<G>[] = [];
   for (const [connection, group] of connections) {
     const lamp = lampOf(connection);
     try {
@@ -491,7 +483,7 @@ function openLamps<G extends { readonly lamps: LampSelection }>(
  */
 export function forEachLamp(
   operation: string,
-  step: (reached: ReachedLamp<{ lamps: LampSelection }>) => void,
+  step: (reached: OpenedLamp<{ lamps: LampSelection }>) => void,
   lamps: LampSelection,
 ): OperationResult {
   const opened = openLamps(operation, [{ lamps }]);
@@ -644,11 +636,11 @@ async function waitForCapReversal(operation: string): Promise<void> {
  */
 async function sendBrightness(
   operation: string,
-  targets: ReadonlyMap<ReachedLamp<unknown>, BrightnessSent>,
+  targets: ReadonlyMap<OpenedLamp<unknown>, BrightnessSent>,
   attempt: (lamp: Lamp, step: () => void) => void,
   settleMs: number,
 ): Promise<void> {
-  const sent = new Map<ReachedLamp<unknown>, number>();
+  const sent = new Map<OpenedLamp<unknown>, number>();
   const sentAt = Date.now();
   if (targets.size > 0) {
     for (const [reached, { percentage, asked }] of targets) {
@@ -680,7 +672,7 @@ async function setScene(groups: readonly SceneGroup[], settleMs: number): Promis
     return NO_LAMP;
   }
   try {
-    const targets = new Map<ReachedLamp<unknown>, BrightnessSent>();
+    const targets = new Map<OpenedLamp<unknown>, BrightnessSent>();
     for (const reached of opened.lamps) {
       const { lamp, handle, group } = reached;
       opened.attempt(lamp, () => {
@@ -722,7 +714,7 @@ async function moveLampsBrightness(
   try {
     // The lamps, each told to turn on, even one the plugin holds as on, so one turned off another way follows the
     // plugin again, then ready for their brightness, each with its brightness in lumens before the change.
-    const before = new Map<ReachedLamp<unknown>, number>();
+    const before = new Map<OpenedLamp<unknown>, number>();
     for (const reached of opened.lamps) {
       const { lamp, handle } = reached;
       opened.attempt(lamp, () => {
@@ -732,7 +724,7 @@ async function moveLampsBrightness(
     }
 
     // The percentage to send each lamp. Lamps kept apart also get what they're asked for.
-    const targets = new Map<ReachedLamp<unknown>, BrightnessSent>();
+    const targets = new Map<OpenedLamp<unknown>, BrightnessSent>();
     if (typeof target === "number") {
       for (const reached of before.keys()) {
         targets.set(reached, { percentage: target });
@@ -781,7 +773,7 @@ async function moveLampsBrightness(
  * USB descriptor, or by asking a Beam LX for its serial (#170), and nothing that a change sets.
  */
 export function findLamps(): FoundLamp[] {
-  const connections = openEveryLamp("find lamps");
+  const { connections } = findConnections("find lamps");
   try {
     return connections.map(({ id, model, label }) => ({ id, model, label }));
   } finally {
@@ -851,7 +843,7 @@ function moveLampsTemperature(operation: string, lamps: LampSelection, target: T
   }
   try {
     // The lamps to move, each with its temperature before the change and its range.
-    const before = new Map<ReachedLamp<unknown>, { kelvin: number; lowest: number; highest: number }>();
+    const before = new Map<OpenedLamp<unknown>, { kelvin: number; lowest: number; highest: number }>();
     for (const reached of opened.lamps) {
       const { lamp } = reached;
       opened.attempt(lamp, () => {
@@ -860,7 +852,7 @@ function moveLampsTemperature(operation: string, lamps: LampSelection, target: T
     }
 
     // The temperature to set each lamp to. Lamps kept apart also get what they're asked for.
-    const targets = new Map<ReachedLamp<unknown>, TemperatureSet>();
+    const targets = new Map<OpenedLamp<unknown>, TemperatureSet>();
     if (typeof target === "number") {
       for (const reached of before.keys()) {
         targets.set(reached, { kelvin: target });

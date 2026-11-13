@@ -46,7 +46,7 @@ Deck key ─► Stream Deck app ─► WebSocket ─► SDK ─► BrightnessAct
 
 ## 3. Finding and opening the lamps
 
-[`openLamps`][open-lamps] calls [`openGroups`][open-groups]:
+[`openLamps`][open-lamps] calls [`openGroups`][open-groups], which first finds the lamps with [`findConnections`][find-connections], in steps 1 to 4, then keeps the ones the operation acts on, in step 5:
 
 1. **Find.** [`LampConnection.findAll`][find-all] calls `litra`'s `findDevices`, which lists the HID devices with vendor `0x046d`, a Litra product id and usage page `0xff43`, and opens each one's path: 4 handles, in whatever order the system lists them.
 2. **Identify.** The 3 Beams give their serial number in their USB descriptor. The Beam LX gives none, so [`identify`][identify] asks the lamp for it over HID++ ([`readSerialNumber`][read-serial-number]): Root's `getFeature(0x0003)` gives the index of Device Information, and its function 2 gives up to 12 ASCII characters. If that fails, the LX is logged, closed and left out, but counted as a failure (`unidentified`), since the selection could have covered it.
@@ -131,6 +131,7 @@ Almost all of the HID work is synchronous, so it holds the plugin's event loop, 
 [dial-lamps-changed]: ../../src/actions/measure.ts
 [drain-ack]: ../../src/lamp-connection.ts
 [find-all]: ../../src/lamp-connection.ts
+[find-connections]: ../../src/litra-manager.ts
 [identify]: ../../src/lamp-connection.ts
 [lamp-reach]: ../../src/lamp.ts
 [lamp-screen-refresh]: ../../src/actions/lamp-screens.ts
