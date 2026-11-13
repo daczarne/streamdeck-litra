@@ -2,7 +2,7 @@ import { globalSettings } from "../global-settings";
 import type { ReachedLamp } from "../lamp";
 import type { LampSelection } from "../lamp-selection";
 import { allLampsOn, brightnessPercentages, shownLamps, type TemperatureShown, temperatureShown } from "../lamps-shown";
-import { lampsSettled, reachLampsForLampScreen } from "../litra-manager";
+import { lampsSettled, reachEveryLamp } from "../litra-manager";
 
 /**
  * What the keys and dials show of the lamps they act on, from the `Lamp`s the global settings hold, without reading the
@@ -39,6 +39,6 @@ export async function readShownLamps(): Promise<ReachedLamp[]> {
  * nor misses one plugged in since, then every lamp shown, which the lamp screens show.
  */
 export async function findShownLamps(): Promise<ReachedLamp[]> {
-  await reachLampsForLampScreen();
+  await reachEveryLamp("lamp screen");
   return shownLamps(globalSettings.lamps.values(), "all");
 }

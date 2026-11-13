@@ -120,7 +120,7 @@ Two things arrive, and nothing in the plugin depends on which comes first.
 
 1. [`globalSettings.read`][global-settings-read] reads the settings against their schema, and builds a `Lamp` for each saved lamp, from its id, model and name, none reached yet. Then it calls its `onChanged` listeners, so every control's `globalSettingsChanged` runs.
 2. The handler `plugin.ts` chained to the read runs. If the plugin knows no lamps, as on a first start, it finds the lamps connected with `findLamps`, and saves them with `addLamps`, which sends `setGlobalSettings` (#194).
-3. [`reachEveryLamp`][reach-every-lamp] runs the operation `start` on every known lamp. It finds and opens them, asks a Beam LX for its serial number, and reaches each `Lamp`. This is the first time each one is reached, so it **reads** the lamp's power, brightness and temperature, and holds them. It then closes the lamps and announces that the lamps changed.
+3. [`reachEveryLamp`][reach-every-lamp] waits for any brightness change in progress, of which there's none yet, then runs the operation `start` on every known lamp. It finds and opens them, asks a Beam LX for its serial number, and reaches each `Lamp`. This is the first time each one is reached, so it **reads** the lamp's power, brightness and temperature, and holds them. It then closes the lamps and announces that the lamps changed.
 4. Every action's `onLampsChanged` listener runs, and every control redraws, now with the lamps' real state: the Power key shows on or off, the dial shows the brightest lamp's percentage, the step key its title.
 
 ## 7. Ready: what the plugin holds

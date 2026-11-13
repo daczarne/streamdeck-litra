@@ -74,7 +74,7 @@ Rotating adjusts every lamp (see [Steps](#steps)), and pressing toggles every la
 
 ### Lamp screens
 
-Tapping a dial's part of the strip shows one screen per lamp. Each tap shows the next lamp, in the order of the plugin settings' list, and the dial's own screen after the last. The dial stays on a lamp screen until it's tapped past the last lamp, a press, turn or tap finds its lamp unplugged, or the Deck shows another page. Tapped after its lamp is unplugged, it shows the next lamp connected.
+Tapping a dial's part of the strip shows one screen per lamp. Each tap shows the next lamp, in the order of the plugin settings' list, and the dial's own screen after the last. The dial stays on a lamp screen until it's tapped past the last lamp, a press, turn, hold or tap finds its lamp unplugged, or the Deck shows another page. Tapped after its lamp is unplugged, it shows the next lamp connected.
 
 On a lamp screen, the dial controls that lamp alone: turning it changes the lamp's brightness or temperature, and pressing it turns the lamp on or off. Holding the strip blinks the lamp once, to show which one it is. A turn on the dial's own screen sets every lamp to the same value again, unless the lamps keep their difference (see [Lamps together or apart](#lamps-together-or-apart)).
 

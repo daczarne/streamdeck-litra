@@ -95,30 +95,36 @@ function lampOf(connection: LampConnection): Lamp {
 /**
  * Registers a listener called after every operation that writes to the lamps, whichever action asked for it, so that
  * everything the Deck shows about the lamps can follow (#57). A brightness change calls it once it has settled and left
- * the queue. Returns a function that removes the listener.
+ * the queue. The actions register theirs once, for as long as the plugin runs.
  */
-export function onLampsChanged(listener: () => void | Promise<void>): () => void {
+export function onLampsChanged(listener: () => void | Promise<void>): void {
   lampsChangedListeners.push(listener);
-  return () => {
-    const index = lampsChangedListeners.indexOf(listener);
-    if (index !== -1) {
-      lampsChangedListeners.splice(index, 1);
-    }
-  };
 }
 
 /**
- * Calls every listener once the current operation has returned, and its handles are closed. A failed operation is
- * announced too, since it may have written to some lamps, and finding none is news as well.
+ * Calls each listener once the current operation has returned, and its handles are closed, each on its own, so one
+ * that fails is logged as `name`'s, and the others still run.
  */
-function announceLampsChanged(): void {
-  for (const listener of [...lampsChangedListeners]) {
+function callListeners<A extends unknown[]>(
+  listeners: ReadonlyArray<(...args: A) => void | Promise<void>>,
+  name: string,
+  ...args: A
+): void {
+  for (const listener of [...listeners]) {
     Promise.resolve()
-      .then(listener)
+      .then(() => listener(...args))
       .catch((error: unknown) => {
-        logger.error("Lamps changed listener failed", error);
+        logger.error(`${name} listener failed`, error);
       });
   }
+}
+
+/**
+ * Calls every listener registered with {@link onLampsChanged}. A failed operation is announced too, since it may have
+ * written to some lamps, and finding none is news as well.
+ */
+function announceLampsChanged(): void {
+  callListeners(lampsChangedListeners, "Lamps changed");
 }
 
 /** Announces that the lamps changed, and passes on the result of the operation that changed them. */
@@ -363,14 +369,7 @@ function markFound(operation: string, foundIds: readonly string[]): void {
     lamp.setFound(found);
   }
   if (changed) {
-    const ids = connectedLamps();
-    for (const listener of [...connectedListeners]) {
-      Promise.resolve()
-        .then(() => listener(ids))
-        .catch((error: unknown) => {
-          logger.error("Connected lamps listener failed", error);
-        });
-    }
+    callListeners(connectedListeners, "Connected lamps", connectedLamps());
   }
 }
 
@@ -501,22 +500,16 @@ export function forEachLamp(
 }
 
 /**
- * Reaches every lamp the plugin knows that's connected, which reads each one, as the plugin starts (#198), so that it
- * holds the lamps as they are before any key or dial changes them. Tells every key and dial once they're read.
+ * Reaches every lamp the plugin knows that's connected, which marks each one connected or not, and reads one reached
+ * for the first time or plugged in again (#198), so the plugin holds the lamps as they are: as it starts, when Find
+ * lamps adds lamps, and on a tap on a dial's strip, which then never shows a lamp unplugged since the last operation
+ * (#48). Waits for the brightness change in progress, if any, which holds the lamps open until it has read them back.
+ * Tells every key and dial once it's done, since a lamp read, or found unplugged or plugged in, changes what they
+ * show.
  */
-export function reachEveryLamp(): OperationResult {
-  return announced(forEachLamp("start", () => {}, "all"));
-}
-
-/**
- * Reaches every lamp the plugin knows that's connected, for a tap on a dial's strip, which shows the lamps one by one
- * (#48), so it never shows a lamp unplugged since the last operation, and reads one plugged in since. Waits for the
- * brightness change in progress, if any, which holds the lamps open until it has read them back. Tells no key or dial,
- * since it changes no lamp.
- */
-export async function reachLampsForLampScreen(): Promise<OperationResult> {
-  await brightnessChanges;
-  return forEachLamp("lamp screen", () => {}, "all");
+export async function reachEveryLamp(operation: string): Promise<OperationResult> {
+  await lampsSettled();
+  return announced(forEachLamp(operation, () => {}, "all"));
 }
 
 /**
@@ -786,10 +779,12 @@ export function findLamps(): FoundLamp[] {
 /**
  * Blinks one lamp, by its id, so the user can tell which one it is (#48): switches it the other way from the power the
  * plugin holds, and back `blinkMs` later (#171). A blink writes no brightness, so it shows at any brightness and leaves
- * learned caps alone, and the lamp ends as it started. Fails when the lamp isn't connected.
+ * learned caps alone, and the lamp ends as it started. Fails when the lamp isn't connected. Only a blink that failed
+ * tells the keys and dials, since it may have left the lamp switched the other way, or found it unplugged: one that
+ * didn't changes nothing they show.
  */
-export function identifyLamp(id: string, blinkMs: number): Promise<OperationResult> {
-  return oneBrightnessChangeAtATime(async () => {
+export async function identifyLamp(id: string, blinkMs: number): Promise<OperationResult> {
+  const result = await oneBrightnessChangeAtATime(async () => {
     const operation = "identify";
     const opened = openLamps(operation, [{ lamps: [id] }]);
     if (opened === undefined) {
@@ -809,6 +804,7 @@ export function identifyLamp(id: string, blinkMs: number): Promise<OperationResu
       opened.close();
     }
   });
+  return result.ok ? result : announced(result);
 }
 
 /** Sets the selected lamps to the allowed temperature nearest to `kelvin`. */

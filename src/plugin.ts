@@ -53,7 +53,7 @@ settingsRead.then(
       await globalSettings.addLamps(findLamps());
     }
     // Reads every lamp the plugin knows that's connected, so the Deck starts out showing them as they are (#198).
-    reachEveryLamp();
+    await reachEveryLamp("start");
   },
   (error: unknown) => {
     logger.error("Reading the global settings failed", error);

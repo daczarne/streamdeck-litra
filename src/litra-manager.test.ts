@@ -82,7 +82,7 @@ async function readLampsTemperature(lamps: LampSelection) {
  * its name, its state, and its brightness as a percentage of its range.
  */
 async function readShownLamps() {
-  const { ok } = await manager.reachLampsForLampScreen();
+  const { ok } = await manager.reachEveryLamp("lamp screen");
   const lamps = shownLamps(known.values(), "all").map((lamp) => ({
     id: lamp.id,
     model: lamp.model,
@@ -1044,10 +1044,8 @@ describe("onLampsChanged", () => {
 
   it.each([
     ["areLampsOn", () => areLampsOn("all")],
-    ["reachLampsForLampScreen", () => manager.reachLampsForLampScreen()],
     ["readLampsBrightness", () => readLampsBrightness("all")],
     ["readLampsTemperature", () => readLampsTemperature("all")],
-    ["identifyLamp, which leaves the lamp as it was", () => manager.identifyLamp("FAKE", BLINK_MS)],
   ])("doesn't call the listeners after %s", async (_, operation) => {
     connect(newLamp(), newLamp());
     const listener = vi.fn();
@@ -1057,6 +1055,40 @@ describe("onLampsChanged", () => {
     await announced();
 
     expect(listener).not.toHaveBeenCalled();
+  });
+
+  it("doesn't call the listeners after a blink, which leaves the lamp as it was", async () => {
+    const lamp = newLamp();
+    connect(lamp);
+    const listener = vi.fn();
+    manager.onLampsChanged(listener);
+
+    await settled(manager.identifyLamp(idOf(lamp), BLINK_MS));
+    await announced();
+
+    expect(listener).not.toHaveBeenCalled();
+  });
+
+  it("calls the listeners after a blink that fails, which may leave the lamp switched the other way", async () => {
+    connect(newLamp());
+    const listener = vi.fn();
+    manager.onLampsChanged(listener);
+
+    await settled(manager.identifyLamp("FAKE", BLINK_MS));
+    await announced();
+
+    expect(listener).toHaveBeenCalledOnce();
+  });
+
+  it("calls the listeners after a tap reaches the lamps, which can find one unplugged or plugged in again", async () => {
+    connect(newLamp());
+    const listener = vi.fn();
+    manager.onLampsChanged(listener);
+
+    await settled(manager.reachEveryLamp("lamp screen"));
+    await announced();
+
+    expect(listener).toHaveBeenCalledOnce();
   });
 
   it("calls the listeners after a brightness change has read the lamps back", async () => {
@@ -1108,34 +1140,6 @@ describe("onLampsChanged", () => {
     await announced();
 
     expect(listener).toHaveBeenCalledOnce();
-  });
-
-  it("removes a listener once, however many times it's removed, and keeps the others", async () => {
-    connect(newLamp());
-    const others = [vi.fn(), vi.fn()];
-    const remove = manager.onLampsChanged(vi.fn());
-    for (const other of others) {
-      manager.onLampsChanged(other);
-    }
-
-    remove();
-    remove();
-    manager.turnLampsOn("all");
-    await announced();
-
-    expect(others.map((other) => other.mock.calls.length)).toEqual([1, 1]);
-  });
-
-  it("stops calling a listener once it's removed", async () => {
-    connect(newLamp());
-    const listener = vi.fn();
-    const remove = manager.onLampsChanged(listener);
-
-    remove();
-    manager.turnLampsOn("all");
-    await announced();
-
-    expect(listener).not.toHaveBeenCalled();
   });
 });
 
@@ -2212,7 +2216,7 @@ describe("logs", () => {
     ["set brightness", () => manager.setLampsBrightness("all", 50)],
     ["adjust brightness", () => manager.adjustLampsBrightness("all", 1, 5)],
     ["set scene", () => manager.setLampsScene(everyLampAt(50, 4000))],
-    ["lamp screen", () => manager.reachLampsForLampScreen()],
+    ["lamp screen", () => manager.reachEveryLamp("lamp screen")],
     ["identify", () => manager.identifyLamp("FAKE9999", BLINK_MS)],
     ["set temperature", () => manager.setLampsTemperature("all", 4000)],
     ["adjust temperature", () => manager.adjustLampsTemperature("all", 1, 100)],

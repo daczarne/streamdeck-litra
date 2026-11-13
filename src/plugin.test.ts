@@ -113,7 +113,7 @@ describe("plugin", () => {
 
     await start();
 
-    await vi.waitFor(() => expect(manager.reachEveryLamp).toHaveBeenCalledOnce());
+    await vi.waitFor(() => expect(manager.reachEveryLamp).toHaveBeenCalledExactlyOnceWith("start"));
     expect(manager.findLamps).not.toHaveBeenCalled();
     expect(streamDeck.settings.setGlobalSettings).not.toHaveBeenCalled();
   });
@@ -125,7 +125,7 @@ describe("plugin", () => {
 
     const logger = await start();
 
-    await vi.waitFor(() => expect(manager.reachEveryLamp).toHaveBeenCalledOnce());
+    await vi.waitFor(() => expect(manager.reachEveryLamp).toHaveBeenCalledExactlyOnceWith("start"));
     expect(streamDeck.settings.setGlobalSettings).toHaveBeenCalledExactlyOnceWith({
       identifyBlinkMs: 600,
       lamps: { [BEAM.id]: { model: "Beam" }, [BEAM_LX.id]: { model: "Beam LX" } },
@@ -148,7 +148,7 @@ describe("plugin", () => {
 
     await start();
 
-    await vi.waitFor(() => expect(manager.reachEveryLamp).toHaveBeenCalledOnce());
+    await vi.waitFor(() => expect(manager.reachEveryLamp).toHaveBeenCalledExactlyOnceWith("start"));
     expect(streamDeck.settings.setGlobalSettings).toHaveBeenCalledExactlyOnceWith({
       lamps: { [BEAM.id]: { model: "Beam" } },
     });
@@ -159,7 +159,7 @@ describe("plugin", () => {
 
     await start();
 
-    await vi.waitFor(() => expect(manager.reachEveryLamp).toHaveBeenCalledOnce());
+    await vi.waitFor(() => expect(manager.reachEveryLamp).toHaveBeenCalledExactlyOnceWith("start"));
     expect(manager.findLamps).toHaveBeenCalledOnce();
     expect(streamDeck.settings.setGlobalSettings).not.toHaveBeenCalled();
   });
