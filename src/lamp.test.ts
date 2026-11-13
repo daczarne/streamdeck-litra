@@ -405,20 +405,49 @@ describe("a lamp's brightness (#198)", () => {
   it("is sent, then read back once the lamp has settled, and the lamp holds what it reached", () => {
     const { lamp, handle } = reached();
 
-    const sent = lamp.sendBrightness("set brightness", handle, 400);
+    const sent = lamp.sendBrightness("set brightness", handle, 100);
     const reachedLumen = lamp.readBackBrightness("set brightness", handle, sent, 0);
 
     expect([sent, reachedLumen, lamp.state?.lumen]).toEqual([400, 400, 400]);
     expect(logged("info")).toEqual(["set brightness: Beam - 73cd sent 400 lm, reached 400 lm (100%)"]);
   });
 
+  it("is sent as the lumens of a percentage of the lamp's range, kept within 0 to 100", () => {
+    const { lamp, handle } = reached();
+
+    const sent = [50, 130, -10, Infinity, -Infinity].map((percentage) =>
+      lamp.sendBrightness("set brightness", handle, percentage),
+    );
+
+    expect(sent).toEqual([215, 400, 30, 400, 30]);
+    expect(handle.written).toEqual(["215 lm", "400 lm", "30 lm", "400 lm", "30 lm"]);
+  });
+
+  it("keeps what a step of lamps kept apart asked, even past an end of the range (#145)", () => {
+    const { lamp, handle } = reached();
+
+    lamp.sendBrightness("adjust brightness", handle, 110, 110);
+
+    expect(handle.written).toEqual(["400 lm"]);
+    expect(lamp.brightnessAsked).toBe(110);
+  });
+
+  it("forgets what a step of lamps kept apart asked, once another change sends it (#145)", () => {
+    const { lamp, handle } = reached();
+    lamp.sendBrightness("adjust brightness", handle, 110, 110);
+
+    lamp.sendBrightness("set brightness", handle, 50);
+
+    expect(lamp.brightnessAsked).toBeUndefined();
+  });
+
   it("holds the brightness a capped lamp reached, not the one asked for, and caps what's sent next (#55)", () => {
     const { lamp, handle } = reached(Object.assign(new FakeHandle(), { cap: 244 }));
 
-    lamp.readBackBrightness("set brightness", handle, lamp.sendBrightness("set brightness", handle, 400), 0);
+    lamp.readBackBrightness("set brightness", handle, lamp.sendBrightness("set brightness", handle, 100), 0);
 
     expect(lamp.state?.lumen).toBe(244);
-    expect(lamp.sendBrightness("adjust brightness", handle, 400)).toBe(244);
+    expect(lamp.sendBrightness("adjust brightness", handle, 100)).toBe(244);
   });
 });
 
@@ -477,7 +506,7 @@ describe("a lamp that doesn't report what it set (#198)", () => {
     const { lamp, handle } = reached(Object.assign(new FakeHandle(), { cap: 244 }));
     handle.failingReads = 2;
 
-    lamp.readBackBrightness("set brightness", handle, lamp.sendBrightness("set brightness", handle, 400), 0);
+    lamp.readBackBrightness("set brightness", handle, lamp.sendBrightness("set brightness", handle, 100), 0);
 
     expect([handle.lumen, lamp.state?.lumen]).toEqual([244, 400]);
     expect(logged("warn")).toEqual([

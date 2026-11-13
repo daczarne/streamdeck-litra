@@ -69,11 +69,12 @@ Every read goes through [`readBack`][read-back]: when it fails, it's tried again
 
 ## 5. The write: sending 400 lm
 
-Each lamp's target is `clamp(100)`, and [`sendBrightness`][send-brightness]:
+Each lamp's target is 100%, which [`sendBrightness`][send-brightness] hands to [`Lamp.sendBrightness`][lamp-send-brightness]. It:
 
-- turns it into lumens: `lumenAt(100)` = `ceil(1.0 × (400 − 30) + 30)` = **400 lm** ([`percentageToLumen`][percentage-to-lumen]);
-- lowers that to the lamp's cap, when it learned one at this path ([`Lamp.sendBrightness`][lamp-send-brightness]), such as a Beam on a Deck's USB hub;
-- writes it through `litra`'s `setBrightnessInLumen`: `[0x11, 0xff, idx, 0x4c, 0x01, 0x90]` (400 is `0x0190`), then drains the ACK.
+- keeps it within 0 to 100%, and turns it into lumens: `lumenAt(100)` = `ceil(1.0 × (400 − 30) + 30)` = **400 lm** ([`percentageToLumen`][percentage-to-lumen]);
+- lowers that to the lamp's cap, when it learned one at this path, such as a Beam on a Deck's USB hub;
+- writes it through `litra`'s `setBrightnessInLumen`: `[0x11, 0xff, idx, 0x4c, 0x01, 0x90]` (400 is `0x0190`), then drains the ACK;
+- forgets `brightnessAsked`, which only a step of lamps kept apart by an `each` step (#145) passes, so lamps kept apart start together again.
 
 The 4 writes are synchronous `node-hid` calls, made one after another, so the lamps change at almost the same moment. Then comes `await setTimeout(250)` (`BRIGHTNESS_SETTLE_MS`), the operation's only real pause: a capped Beam takes about 100 ms to drop to its cap, and until then reports what it was sent.
 
@@ -84,7 +85,7 @@ For each lamp, [`readBackBrightness`][read-back-brightness]:
 - reads the brightness with [`getBrightnessInLumenSafe`][brightness-safe]: it writes `[0x11, 0xff, idx, 0x31]`, skips up to 10 reports that aren't the reply, and returns `high × 256 + low` (`litra`'s own read takes the low byte alone, wrong above 255 lm);
 - logs `set brightness: Beam - <id1> sent 400 lm, reached 400 lm (100%)`;
 - learns a cap when the lamp reached less than it was sent ([`brightnessReached`][brightness-reached]): it keeps `{ path, lumen }`, logs `capped at N lm`, and opens the 1.5 s window of [2](#2-queueing-and-waiting);
-- holds the lumens reached, and clears `brightnessAsked`, so lamps kept apart by an `each` step (#145) start together again.
+- holds the lumens reached.
 
 [`outcome`][outcome] returns `{ ok, lampCount: 4, failures }`, and the `finally` closes the 4 handles.
 

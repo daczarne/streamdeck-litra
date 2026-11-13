@@ -38,6 +38,9 @@ export type Stepping = "together" | "each";
  */
 type BrightnessTarget = number | { stepping: Stepping; ticks: number; step: number };
 
+/** What a lamp is sent: a percentage of its range, and, for a lamp kept apart, what its step asked (#145). */
+type BrightnessSent = { readonly percentage: number; readonly asked?: number | undefined };
+
 /** A connected lamp, as a settings page lists it (#20). */
 export type FoundLamp = {
   id: string;
@@ -632,43 +635,38 @@ async function waitForCapReversal(operation: string): Promise<void> {
 }
 
 /**
- * Sends each lamp its percentage, or its cap, whichever is lower, lets them settle, and reads them back. A lamp that
- * reaches less than it was sent has its cap learned. A lamp kept apart takes what it was asked for, which any other
- * change forgets. Sends nothing, and doesn't wait, when no lamp has a percentage.
+ * Sends each lamp its percentage, as its `Lamp` sends it, caps included, lets them settle, and reads them back. A lamp
+ * that reaches less than it was sent has its cap learned. Sends nothing, and doesn't wait, when no lamp has a
+ * percentage.
  */
 async function sendBrightness(
   operation: string,
-  targets: ReadonlyMap<ReachedLamp<unknown>, number>,
-  asked: ReadonlyMap<Lamp, number>,
+  targets: ReadonlyMap<ReachedLamp<unknown>, BrightnessSent>,
   attempt: (lamp: Lamp, step: () => void) => void,
   settleMs: number,
 ): Promise<void> {
   const sent = new Map<ReachedLamp<unknown>, number>();
   const sentAt = Date.now();
   if (targets.size > 0) {
-    for (const [reached, pct] of targets) {
+    for (const [reached, { percentage, asked }] of targets) {
       const { lamp, handle } = reached;
       attempt(lamp, () => {
-        sent.set(reached, lamp.sendBrightness(operation, handle, lamp.lumenAt(pct)));
+        sent.set(reached, lamp.sendBrightness(operation, handle, percentage, asked));
       });
     }
     await new Promise((resolve) => setTimeout(resolve, settleMs));
   }
   for (const [{ lamp, handle }, lumen] of sent) {
-    attempt(lamp, () => {
-      lamp.readBackBrightness(operation, handle, lumen, sentAt);
-      // A lamp kept apart takes what it was asked for, which any other change forgets.
-      lamp.brightnessAsked = asked.get(lamp);
-    });
+    attempt(lamp, () => lamp.readBackBrightness(operation, handle, lumen, sentAt));
   }
 }
 
 /**
  * Sets each lamp to its group's part of a scene: a group that's off turns its lamps off, and a group that's on turns
  * its lamps on, sets their temperature, snapped to one each lamp allows, then their brightness, as
- * {@link sendBrightness} sends it, caps included. Like
- * {@link moveLampsBrightness}, it waits for a lamp that can still go back to its cap, and holds the lamps open until
- * it has read them back, so it goes through {@link oneBrightnessChangeAtATime}.
+ * {@link sendBrightness} sends it, caps included. Like {@link moveLampsBrightness}, it waits for a lamp that can still
+ * go back to its cap, and holds the lamps open until it has read them back, so it goes through
+ * {@link oneBrightnessChangeAtATime}.
  */
 async function setScene(groups: readonly SceneGroup[], settleMs: number): Promise<OperationResult> {
   const operation = "set scene";
@@ -679,7 +677,7 @@ async function setScene(groups: readonly SceneGroup[], settleMs: number): Promis
     return NO_LAMP;
   }
   try {
-    const targets = new Map<ReachedLamp<unknown>, number>();
+    const targets = new Map<ReachedLamp<unknown>, BrightnessSent>();
     for (const reached of opened.lamps) {
       const { lamp, handle, group } = reached;
       opened.attempt(lamp, () => {
@@ -689,10 +687,10 @@ async function setScene(groups: readonly SceneGroup[], settleMs: number): Promis
         }
         lamp.setPower(operation, handle, true);
         lamp.setTemperature(operation, handle, group.kelvin);
-        targets.set(reached, Math.max(0, Math.min(100, group.percentage)));
+        targets.set(reached, { percentage: group.percentage });
       });
     }
-    await sendBrightness(operation, targets, new Map(), opened.attempt, settleMs);
+    await sendBrightness(operation, targets, opened.attempt, settleMs);
     return opened.outcome();
   } finally {
     opened.close();
@@ -731,19 +729,17 @@ async function moveLampsBrightness(
     }
 
     // The percentage to send each lamp. Lamps kept apart also get what they're asked for.
-    const targets = new Map<ReachedLamp<unknown>, number>();
-    const asked = new Map<Lamp, number>();
-    const clamp = (percentage: number): number => Math.max(0, Math.min(100, percentage));
+    const targets = new Map<ReachedLamp<unknown>, BrightnessSent>();
     if (typeof target === "number") {
       for (const reached of before.keys()) {
-        targets.set(reached, clamp(target));
+        targets.set(reached, { percentage: target });
       }
     } else if (target.stepping === "together") {
       const levels = [...before].map(([{ lamp }, lumen]) => lamp.brightnessPercentage(lumen));
       if (levels.length > 0) {
         const stepped = stepOnGrid(Math.max(...levels), target.ticks, target.step, 0, 100);
         for (const reached of before.keys()) {
-          targets.set(reached, stepped);
+          targets.set(reached, { percentage: stepped });
         }
       }
     } else {
@@ -753,8 +749,7 @@ async function moveLampsBrightness(
           reached,
           asked: lamp.brightnessAsked ?? lamp.brightnessPercentage(lumen),
           value: lumen,
-          reach: (percentage: number) =>
-            lamp.withinBrightnessCap(operation, handle.path, lamp.lumenAt(clamp(percentage))),
+          reach: (percentage: number) => lamp.lumenToSend(operation, handle.path, percentage),
           origin: 0,
           span: 100,
         };
@@ -762,12 +757,11 @@ async function moveLampsBrightness(
       const stepped = stepApart(apart, target.ticks, target.step);
       apart.forEach(({ reached }, index) => {
         const percentage = stepped[index] ?? 0;
-        asked.set(reached.lamp, percentage);
-        targets.set(reached, clamp(percentage));
+        targets.set(reached, { percentage, asked: percentage });
       });
     }
 
-    await sendBrightness(operation, targets, asked, opened.attempt, settleMs);
+    await sendBrightness(operation, targets, opened.attempt, settleMs);
     return opened.outcome();
   } finally {
     opened.close();
@@ -775,10 +769,13 @@ async function moveLampsBrightness(
 }
 
 /**
- * Lists the connected lamps, the ones the plugin doesn't know included, which it adds to the ones it knows (#194),
- * in the order of their ids, as the lamp screens list them (#20), with what the keys' lamp pickers and the plugin settings show
- * of each (#146). Finding a lamp tells its model and serial, or the lamp is asked for its serial alone (#170), so none
- * of the brightness changes has to be waited for. Lists none when finding them fails.
+ * Lists the connected lamps, the ones the plugin doesn't know included, in the order of their ids, as the lamp screens
+ * list them (#20), each with what the keys' lamp pickers and the plugin settings show of it (#146). The plugin adds
+ * them to the lamps it knows when it starts knowing none, and when Find lamps asks (#194). Lists none when finding them
+ * fails.
+ *
+ * It doesn't wait for a brightness change in progress: finding a lamp only reads its model and serial number, from its
+ * USB descriptor, or by asking a Beam LX for its serial (#170), and nothing that a change sets.
  */
 export function findLamps(): FoundLamp[] {
   const connections = openEveryLamp("find lamps");
