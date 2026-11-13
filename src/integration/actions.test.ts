@@ -940,7 +940,7 @@ describe("the plugin's state is the lamps' state (#198)", () => {
     expect(stateOf(powerKey)).toBe(1);
   });
 
-  it("steps from what it last set: a lamp set to 10%, brought to 20% with its button, goes to 20% a step up", async () => {
+  it("steps from what it last set: a lamp set to 10%, brought to 20% with its button, is put back, then goes to 20%", async () => {
     const lamp = newLamp();
     plugIn(lamp);
     const key = await deck.key(BRIGHTNESS, { presetPercentage: 10 });
@@ -950,8 +950,23 @@ describe("the plugin's state is the lamps' state (#198)", () => {
 
     await deck.turn(dial, 1);
 
-    // The plugin held 10%, so a step up sends 20%, which the lamp is already at.
-    expect(lamp.writes("brightness")).toEqual([LUMEN_AT_10, LUMEN_AT_20]);
+    // Turned on, the lamp gets back the 10% the plugin holds, and a step up from there sends 20%.
+    expect(lamp.writes("brightness")).toEqual([LUMEN_AT_10, LUMEN_AT_10, LUMEN_AT_20]);
+    expect(lamp.brightnessInLumen).toBe(LUMEN_AT_20);
+    expect(feedbackOf(dial)).toMatchObject({ value: "20%" });
+  });
+
+  it("turns on a lamp turned off with its own button before it steps its brightness", async () => {
+    const lamp = newLamp();
+    plugIn(lamp);
+    const key = await deck.key(BRIGHTNESS, { presetPercentage: 10 });
+    const dial = await deck.dial(BRIGHTNESS, { stepPercentage: 10 });
+    await deck.press(key);
+    lamp.on = false;
+
+    await deck.turn(dial, 1);
+
+    expect(lamp.on).toBe(true);
     expect(lamp.brightnessInLumen).toBe(LUMEN_AT_20);
     expect(feedbackOf(dial)).toMatchObject({ value: "20%" });
   });

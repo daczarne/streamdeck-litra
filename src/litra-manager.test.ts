@@ -1228,11 +1228,12 @@ describe("setLampsBrightness", () => {
 
     const result = manager.setLampsBrightness("all", 40);
     await vi.advanceTimersByTimeAsync(249);
-    expect(lamp.queries("brightness")).toBe(0);
+    // Only turning it on reads it, to check it's at the brightness the plugin holds (#100).
+    expect(lamp.queries("brightness")).toBe(1);
 
     await vi.advanceTimersByTimeAsync(1);
     await result;
-    expect(lamp.queries("brightness")).toBe(1);
+    expect(lamp.queries("brightness")).toBe(2);
   });
 
   it("turns a lamp that is off on before changing its brightness", async () => {
@@ -1245,13 +1246,15 @@ describe("setLampsBrightness", () => {
     expect(at(positions(lamp, "write", "power"), 0)).toBeLessThan(at(positions(lamp, "write", "brightness"), 0));
   });
 
-  it("leaves a lamp that is on as it is", async () => {
+  it("turns on a lamp it holds as on, so one turned off with its own button follows the plugin again", async () => {
     const lamp = newLamp({ on: true });
     connect(lamp);
+    lamp.on = false;
 
     await set(40);
 
-    expect(lamp.writes("power")).toEqual([]);
+    expect(lamp.writes("power")).toEqual([1]);
+    expect(lamp.on).toBe(true);
   });
 
   it("counts a lamp that fails, sets the others, which the plugin holds, and closes every handle", async () => {
@@ -1416,12 +1419,12 @@ describe("adjustLampsBrightness", () => {
 
     const result = manager.adjustLampsBrightness("all", 1, 10);
     await vi.advanceTimersByTimeAsync(249);
-    // It steps from the brightness the plugin holds, without reading it first (#198).
-    expect(lamp.queries("brightness")).toBe(0);
+    // Only turning it on reads it, to put back the brightness the plugin holds, which it steps from (#100, #198).
+    expect(lamp.queries("brightness")).toBe(1);
 
     await vi.advanceTimersByTimeAsync(1);
     await result;
-    expect(lamp.queries("brightness")).toBe(1);
+    expect(lamp.queries("brightness")).toBe(2);
   });
 
   it("fails without writing when no lamp can be read", async () => {
@@ -2147,8 +2150,9 @@ describe("identifyLamp", () => {
 
     await settled(Promise.all([manager.setLampsBrightness("all", 100), manager.identifyLamp(idOf(lamp), BLINK_MS)]));
 
-    // The change reads its lamp back before the blink starts.
-    expect(at(positions(lamp, "write", "brightness query"), 0)).toBeLessThan(at(positions(lamp, "write", "power"), 0));
+    // The change turns its lamp on and reads its brightness back before the blink switches it off: each turn on reads
+    // the brightness, and the change reads it again once it has settled.
+    expect(at(positions(lamp, "write", "brightness query"), 1)).toBeLessThan(at(positions(lamp, "write", "power"), 1));
   });
 });
 
@@ -2346,7 +2350,8 @@ describe("logs", () => {
     ["set temperature", () => manager.setLampsTemperature("all", 4000), "4000 K"],
     ["adjust temperature", () => manager.adjustLampsTemperature("all", 1, 100), "4100 K"],
   ])("logs what %s did to each lamp, with the value sent", async (operation, operate, value) => {
-    const pair = [newLamp(), newLamp()];
+    // On, but for turning them on, so each operation changes them.
+    const pair = [newLamp({ on: operation !== "turn on" }), newLamp({ on: operation !== "turn on" })];
     connect(...pair);
 
     await run(operate);
@@ -2394,7 +2399,9 @@ describe("logs", () => {
 
     await run(() => Promise.all([manager.setLampsBrightness("all", 100), manager.setLampsBrightness("all", 30)]));
 
-    expect(onlyMessage("debug")).toContain("waiting 1250 ms");
+    expect(messages("debug").filter((message) => message.includes("waiting"))).toEqual([
+      expect.stringContaining("waiting 1250 ms"),
+    ]);
   });
 
   it("logs a cap forgotten because its lamp was plugged in again, with the lamp and the cap (#55)", async () => {

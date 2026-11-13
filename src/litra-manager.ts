@@ -564,13 +564,6 @@ export function toggleLamps(lamps: LampSelection): OperationResult {
   }
 }
 
-/** Ensures a lamp is on before a brightness change, which only shows on a lit lamp. */
-function ensureOn(operation: string, { lamp, handle }: ReachedLamp<unknown>): void {
-  if (!stateOf(lamp).on) {
-    lamp.setPower(operation, handle, true);
-  }
-}
-
 /**
  * Sets the selected lamps to the percentage, as {@link moveLampsBrightness} does. A lamp at its cap stays there, which
  * its `Lamp` holds.
@@ -694,7 +687,7 @@ async function setScene(groups: readonly SceneGroup[], settleMs: number): Promis
           lamp.setPower(operation, handle, false);
           return;
         }
-        ensureOn(operation, reached);
+        lamp.setPower(operation, handle, true);
         lamp.setTemperature(operation, handle, group.kelvin);
         targets.set(reached, Math.max(0, Math.min(100, group.percentage)));
       });
@@ -726,12 +719,14 @@ async function moveLampsBrightness(
     return NO_LAMP;
   }
   try {
-    // The lamps turned on, ready for their brightness, each with its brightness in lumens before the change.
+    // The lamps, each told to turn on, even one the plugin holds as on, so one turned off another way follows the
+    // plugin again, then ready for their brightness, each with its brightness in lumens before the change.
     const before = new Map<ReachedLamp<unknown>, number>();
     for (const reached of opened.lamps) {
-      opened.attempt(reached.lamp, () => {
-        ensureOn(operation, reached);
-        before.set(reached, stateOf(reached.lamp).lumen);
+      const { lamp, handle } = reached;
+      opened.attempt(lamp, () => {
+        lamp.setPower(operation, handle, true);
+        before.set(reached, stateOf(lamp).lumen);
       });
     }
 

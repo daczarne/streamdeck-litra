@@ -36,6 +36,7 @@ To put the lamps out of sync, turn one Beam off on its lamp screen: tap the Brig
 8. **An alert shows when no lamp answers.** With both lamps on, unplug them, then press a Power key: it shows off, then Stream Deck's alert over it ([#132]). The other Power key shows off, without an alert.
 9. **A lamp's own button isn't followed.** With both lamps on, turn one off with its own power button: both Power keys still show on. Press a Power key: the plugin turns both lamps off, the one already off staying off, and both keys show off. Press it again: both turn on.
 10. **The keys show their state in color.** A Power key shows an orange power symbol when the lamps are on and a grey one when they're off, with nothing drawn behind it, like the transparent icons around it. A key given a custom image keeps it.
+11. **A brightness change undoes a lamp's own buttons.** With both lamps on, turn one off with its own power button, and dim the other with its own buttons. Turn the Brightness dial one tick up: both lamps turn on, one step above the brightness the dial showed, and the dimmed one comes back up with the other. `logs/litra.log` has a `put back to …` line for the dimmed lamp, and no `turned on` line, since the plugin held both lamps as on.
 
 [#23]: https://github.com/daczarne/streamdeck-litra/issues/23
 [#57]: https://github.com/daczarne/streamdeck-litra/issues/57
