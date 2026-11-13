@@ -152,14 +152,11 @@ function isIdentified(operation: string, connection: LampConnection): boolean {
 /**
  * Moves a value by a number of steps along the grid min, min + step, min + 2 × step, …, clamped to min–max, so a dial
  * stops on the same values going up as going down (#14, #16). From a value off the grid, such as a lamp's cap or a
- * clamped end, the first step goes to the grid's next value in the direction of the turn.
+ * clamped end, the first step goes to the grid's next value in the direction of the turn. `ticks` is never 0, and
+ * `step` is positive, as the dials and the step keys send them.
  */
 export function stepOnGrid(value: number, ticks: number, step: number, min: number, max: number): number {
-  const clamp = (x: number): number => Math.max(min, Math.min(max, x));
-  if (ticks === 0 || !(step > 0)) {
-    return clamp(value);
-  }
-  return clamp(stepAlongGrid(value, ticks, step, min));
+  return Math.max(min, Math.min(max, stepAlongGrid(value, ticks, step, min)));
 }
 
 /**
@@ -182,66 +179,40 @@ type ApartLamp = {
   reach: (asked: number) => number;
   /** Where the lamp's grid starts: the bottom of its range. */
   origin: number;
-  /** How far the lamp's range goes from its origin, which bounds the search for its ends. */
+  /** How far the lamp's range goes from its origin. */
   span: number;
 };
 
 /**
- * How many steps what a lamp was asked for can come back, against `direction`, with the lamp still sent its end in
- * `direction`: the highest it's sent going up, its cap included, or the lowest going down. A lamp asked for 6700 K going
- * up, in steps of 100 K, has 2, since it's sent 6500 K for 6600 K and for 6500 K, and 6400 K for 6400 K. A lamp asked
- * for something that doesn't put it at that end has none.
- *
- * A lamp kept apart gets past its end when it stops there while the others keep going (#145). Every lamp is past its
- * end only when a turn was planned before a cap was learned: {@link stepApart} then brings them all back by the fewest
- * steps any of them has, so they keep their difference, and the next tick the other way moves one of them.
+ * Plans the steps of lamps kept apart (#145), a tick at a time. A tick moves what every lamp is asked for along its
+ * grid, step after step, until one of the lamps moves, and each lamp goes as far towards it as it can. So one stopped by
+ * an end of its range or its cap stays there while the others keep going, and comes back with them once they've retraced
+ * the way. Steps that move no lamp cost no tick, such as the ones every lamp was asked for past a cap it hadn't learned
+ * yet. A turn stops at the first tick that moves no lamp across their whole ranges, so turning on once every lamp is at
+ * its end does nothing, rather than piling up steps to undo. Returns the lamps, each with what it's asked for next.
  */
-function stepsPastEnd(lamp: ApartLamp, step: number, direction: 1 | -1): number {
-  const end = lamp.reach(direction * Infinity);
-  // Enough steps to go from what was asked across the whole range, so a lamp sent its end for every value can't hold
-  // the search.
-  const bound = Math.ceil((Math.abs(lamp.asked - lamp.origin) + lamp.span) / step);
-  let steps = 0;
-  while (steps < bound && lamp.reach(lamp.asked - direction * (steps + 1) * step) === end) {
-    steps += 1;
-  }
-  return lamp.reach(lamp.asked) === end ? steps : 0;
-}
-
-/**
- * Plans the steps of lamps kept apart (#145), a tick at a time. What every lamp is asked for moves along the grid, and
- * the lamp goes as far towards it as it can, so one stopped by an end of its range or its cap stays there while the
- * others keep going, and comes back with them once they've retraced the way. A tick counts only while a lamp still
- * moves, so turning on once every lamp is at its end does nothing, rather than piling up steps to undo, and steps piled
- * up while a cap wasn't known yet are dropped before the next turn. Returns what each lamp is asked for next.
- */
-function stepApart<T extends ApartLamp>(lamps: T[], ticks: number, step: number): number[] {
-  let state = lamps;
+function stepApart<T extends ApartLamp>(lamps: readonly T[], ticks: number, step: number): T[] {
   const direction = Math.sign(ticks);
-  if (step > 0 && state.length > 0) {
-    // Lamps all past their ends in a direction come back together by the steps they all have past them, which keeps
-    // their difference, and lets the next tick the other way move one of them.
-    for (const end of [1, -1] as const) {
-      const past = Math.min(...state.map((lamp) => stepsPastEnd(lamp, step, end)));
-      if (past > 0) {
-        state = state.map((lamp) => ({ ...lamp, asked: lamp.asked - end * past * step }));
-      }
-    }
-    for (let tick = 0; tick < Math.abs(ticks); tick++) {
-      let moved = false;
-      const next = state.map((lamp) => {
+  // Enough steps to take any lamp from what it was asked for across its whole range, so a tick that moves no lamp ends.
+  const bound = Math.max(...lamps.map((lamp) => Math.ceil((Math.abs(lamp.asked - lamp.origin) + lamp.span) / step)));
+  let state = [...lamps];
+  for (let tick = 0; tick < Math.abs(ticks); tick++) {
+    let next = state;
+    let moved = false;
+    for (let steps = 0; !moved && steps < bound; steps++) {
+      next = next.map((lamp) => {
         const asked = stepAlongGrid(lamp.asked, direction, step, lamp.origin);
         const value = lamp.reach(asked);
         moved ||= (value - lamp.value) * direction > 0;
         return { ...lamp, asked, value };
       });
-      if (!moved) {
-        break;
-      }
-      state = next;
     }
+    if (!moved) {
+      break;
+    }
+    state = next;
   }
-  return state.map((lamp) => lamp.asked);
+  return state;
 }
 
 /** The lamps found, each opened, in the order of their ids, and how many more couldn't be told apart. */
@@ -742,11 +713,9 @@ async function moveLampsBrightness(
           span: 100,
         };
       });
-      const stepped = stepApart(apart, target.ticks, target.step);
-      apart.forEach(({ reached }, index) => {
-        const percentage = stepped[index] ?? 0;
-        targets.set(reached, { percentage, asked: percentage });
-      });
+      for (const { reached, asked } of stepApart(apart, target.ticks, target.step)) {
+        targets.set(reached, { percentage: asked, asked });
+      }
     }
 
     await sendBrightness(operation, targets, opened.attempt, settleMs);
@@ -870,11 +839,9 @@ function moveLampsTemperature(operation: string, lamps: LampSelection, target: T
         origin: lowest,
         span: highest - lowest,
       }));
-      const stepped = stepApart(apart, target.ticks, target.step);
-      apart.forEach(({ reached, asked }, index) => {
-        const kelvin = stepped[index] ?? asked;
-        targets.set(reached, { kelvin, asked: kelvin });
-      });
+      for (const { reached, asked } of stepApart(apart, target.ticks, target.step)) {
+        targets.set(reached, { kelvin: asked, asked });
+      }
     }
 
     for (const [{ lamp, handle }, { kelvin, asked }] of targets) {

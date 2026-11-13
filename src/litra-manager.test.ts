@@ -308,13 +308,6 @@ describe("stepOnGrid", () => {
     expect(manager.stepOnGrid(MAX_KELVIN, -1, 500, MIN_KELVIN, MAX_KELVIN)).toBe(6200);
     expect(manager.stepOnGrid(MAX_KELVIN, -1, 300, MIN_KELVIN, MAX_KELVIN)).toBe(6300);
   });
-
-  it("only clamps the value when there are no ticks or the step isn't positive", () => {
-    expect(manager.stepOnGrid(79, 0, 5, 0, 100)).toBe(79);
-    expect(manager.stepOnGrid(79, 2, 0, 0, 100)).toBe(79);
-    expect(manager.stepOnGrid(79, 2, Number.NaN, 0, 100)).toBe(79);
-    expect(manager.stepOnGrid(120, 0, 5, 0, 100)).toBe(100);
-  });
 });
 
 //* Broadcasting to lamps
