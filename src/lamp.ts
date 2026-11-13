@@ -145,6 +145,14 @@ export class Lamp {
   }
 
   /**
+   * The lumens to send the lamp, plugged in at `path`, for a percentage of its range: the percentage is kept within 0
+   * to 100, since a step of lamps kept apart can ask for one past an end (#145), and the lumens within its cap.
+   */
+  lumenToSend(operation: string, path: string, percentage: number): number {
+    return this.withinBrightnessCap(operation, path, this.lumenAt(Math.max(0, Math.min(100, percentage))));
+  }
+
+  /**
    * Takes what the lamp reached for a brightness sent at `sentAt`, a time from `Date.now()`. A lamp that reached less
    * than it was sent is capped there, which is logged, and may go back to its cap for a while after the write.
    */
@@ -336,12 +344,15 @@ export class Lamp {
   }
 
   /**
-   * Sends the lamp a brightness, or its cap if it has a lower one, without waiting for it to settle, and returns the
-   * lumens sent. {@link readBackBrightness} takes what it reached, once it has settled.
+   * Sends the lamp a percentage of its range, in the lumens {@link lumenToSend} gives for it, without waiting for it to
+   * settle, and returns the lumens sent. {@link readBackBrightness} takes what it reached, once it has settled. `asked`
+   * is what a step of lamps kept apart asked of the lamp (#145), which its next such step goes on from. Any other
+   * change leaves it out, which forgets it.
    */
-  sendBrightness(operation: string, handle: LampHandle, lumen: number): number {
-    const sent = this.withinBrightnessCap(operation, handle.path, lumen);
+  sendBrightness(operation: string, handle: LampHandle, percentage: number, asked?: number): number {
+    const sent = this.lumenToSend(operation, handle.path, percentage);
     handle.writeBrightness(sent);
+    this.brightnessAsked = asked;
     return sent;
   }
 
