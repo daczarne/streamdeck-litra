@@ -33,13 +33,16 @@ export type SceneGroup = {
 export type Stepping = "together" | "each";
 
 /**
- * Where a brightness change sends the lamps: one value for every lamp, in % of their range, or ticks of a step, taken
- * together from the brightest lamp's value, or by each lamp from its own.
+ * Where a brightness or temperature change sends the lamps: one value for every lamp, in % of their range or in
+ * kelvin, or ticks of a step, taken together from the value a dial shows, or by each lamp from its own.
  */
-type BrightnessTarget = number | { stepping: Stepping; ticks: number; step: number };
+type Target = number | { stepping: Stepping; ticks: number; step: number };
 
 /** What a lamp is sent: a percentage of its range, and, for a lamp kept apart, what its step asked (#145). */
 type BrightnessSent = { readonly percentage: number; readonly asked?: number | undefined };
+
+/** What a lamp is set to: a temperature, and, for a lamp kept apart, what its step asked (#145). */
+type TemperatureSet = { readonly kelvin: number; readonly asked?: number | undefined };
 
 /** A connected lamp, as a settings page lists it (#20). */
 export type FoundLamp = {
@@ -707,7 +710,7 @@ async function setScene(groups: readonly SceneGroup[], settleMs: number): Promis
 async function moveLampsBrightness(
   operation: string,
   lamps: LampSelection,
-  target: BrightnessTarget,
+  target: Target,
   settleMs: number,
 ): Promise<OperationResult> {
   await waitForCapReversal(operation);
@@ -818,14 +821,12 @@ export function identifyLamp(id: string, blinkMs: number): Promise<OperationResu
 
 /** Sets the selected lamps to the allowed temperature nearest to `kelvin`. */
 export function setLampsTemperature(lamps: LampSelection, kelvin: number): OperationResult {
-  const operation = "set temperature";
-  return announced(forEachLamp(operation, ({ lamp, handle }) => lamp.setTemperature(operation, handle, kelvin), lamps));
+  return announced(moveLampsTemperature("set temperature", lamps, kelvin));
 }
 
 /**
  * Steps the selected lamps' temperature along the grid lowest + k × step: together, to one target stepped from the
- * first one's temperature (the one the dial shows), or each from its own, as {@link stepApart} plans it (#145). When
- * the first lamp can't be reached, the next one becomes the starting point of the lamps stepped together.
+ * first one's temperature (the one the dial shows), or each from its own, as {@link stepApart} plans it (#145).
  */
 export function adjustLampsTemperature(
   lamps: LampSelection,
@@ -833,65 +834,64 @@ export function adjustLampsTemperature(
   stepKelvin: number,
   stepping: Stepping = "together",
 ): OperationResult {
-  const operation = "adjust temperature";
-  if (stepping === "each") {
-    return announced(adjustTemperaturesApart(operation, lamps, ticks, stepKelvin));
-  }
-  let target: number | undefined;
-  return announced(
-    forEachLamp(
-      operation,
-      ({ lamp, handle }) => {
-        target ??= stepOnGrid(stateOf(lamp).kelvin, ticks, stepKelvin, lamp.lowestKelvin, lamp.highestKelvin);
-        lamp.setTemperature(operation, handle, target);
-      },
-      lamps,
-    ),
-  );
+  return announced(moveLampsTemperature("adjust temperature", lamps, { stepping, ticks, step: stepKelvin }));
 }
 
 /**
- * Steps each selected lamp's temperature from its own, as {@link stepApart} plans it, and each lamp takes what it was
- * asked for. Plans every lamp before it sets any, since a tick counts only while a lamp still moves.
+ * Moves the selected lamps to their target, each to the temperature it allows nearest to it. The target is a
+ * temperature, or a step from the first selected lamp's temperature or from each lamp's own, as the plugin holds them.
+ * Plans every lamp before it sets any, as {@link moveLampsBrightness} does, since a step of lamps kept apart counts a
+ * tick only while a lamp still moves. When the first lamp can't be reached, the next one is where the lamps stepped
+ * together start from.
  */
-function adjustTemperaturesApart(
-  operation: string,
-  lamps: LampSelection,
-  ticks: number,
-  stepKelvin: number,
-): OperationResult {
+function moveLampsTemperature(operation: string, lamps: LampSelection, target: Target): OperationResult {
   const opened = openLamps(operation, [{ lamps }]);
   if (opened === undefined) {
     return NO_LAMP;
   }
   try {
-    const apart: Array<ApartLamp & { reached: ReachedLamp<unknown> }> = [];
+    // The lamps to move, each with its temperature before the change and its range.
+    const before = new Map<ReachedLamp<unknown>, { kelvin: number; lowest: number; highest: number }>();
     for (const reached of opened.lamps) {
       const { lamp } = reached;
       opened.attempt(lamp, () => {
-        const kelvin = stateOf(lamp).kelvin;
-        const { lowestKelvin: lowest, highestKelvin: highest } = lamp;
-        apart.push({
-          reached,
-          asked: lamp.temperatureAsked ?? kelvin,
-          value: kelvin,
-          // Kept within the range before it's snapped: stepsPastEnd finds the ends by asking for an infinite
-          // temperature, which has no nearest one.
-          reach: (askedKelvin) => lamp.snapKelvin(Math.max(lowest, Math.min(highest, askedKelvin))),
-          origin: lowest,
-          span: highest - lowest,
-        });
+        before.set(reached, { kelvin: stateOf(lamp).kelvin, lowest: lamp.lowestKelvin, highest: lamp.highestKelvin });
       });
     }
 
-    const stepped = stepApart(apart, ticks, stepKelvin);
-    apart.forEach((planned, index) => {
-      const { lamp, handle } = planned.reached;
-      opened.attempt(lamp, () => {
-        const askedKelvin = stepped[index] ?? planned.asked;
-        lamp.setTemperature(operation, handle, askedKelvin, askedKelvin);
+    // The temperature to set each lamp to. Lamps kept apart also get what they're asked for.
+    const targets = new Map<ReachedLamp<unknown>, TemperatureSet>();
+    if (typeof target === "number") {
+      for (const reached of before.keys()) {
+        targets.set(reached, { kelvin: target });
+      }
+    } else if (target.stepping === "together") {
+      const [first] = before.values();
+      if (first !== undefined) {
+        const stepped = stepOnGrid(first.kelvin, target.ticks, target.step, first.lowest, first.highest);
+        for (const reached of before.keys()) {
+          targets.set(reached, { kelvin: stepped });
+        }
+      }
+    } else {
+      const apart = [...before].map(([reached, { kelvin, lowest, highest }]) => ({
+        reached,
+        asked: reached.lamp.temperatureAsked ?? kelvin,
+        value: kelvin,
+        reach: (asked: number) => reached.lamp.snapKelvin(asked),
+        origin: lowest,
+        span: highest - lowest,
+      }));
+      const stepped = stepApart(apart, target.ticks, target.step);
+      apart.forEach(({ reached, asked }, index) => {
+        const kelvin = stepped[index] ?? asked;
+        targets.set(reached, { kelvin, asked: kelvin });
       });
-    });
+    }
+
+    for (const [{ lamp, handle }, { kelvin, asked }] of targets) {
+      opened.attempt(lamp, () => lamp.setTemperature(operation, handle, kelvin, asked));
+    }
     return opened.outcome();
   } finally {
     opened.close();

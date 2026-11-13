@@ -663,6 +663,12 @@ describe("the temperature a lamp allows nearest to another", () => {
     expect([lamp.snapKelvin(1000), lamp.snapKelvin(9000)]).toEqual([2700, 6500]);
   });
 
+  it("is an end of the range for an infinite temperature, which a step of lamps kept apart asks for (#145)", () => {
+    const lamp = inRange({ allowedKelvin: [6500, 2700, 4000] });
+
+    expect([lamp.snapKelvin(-Infinity), lamp.snapKelvin(Infinity)]).toEqual([2700, 6500]);
+  });
+
   it("is found in a list that isn't sorted", () => {
     expect(inRange({ allowedKelvin: [6500, 2700, 4000] }).snapKelvin(2800)).toBe(2700);
   });
