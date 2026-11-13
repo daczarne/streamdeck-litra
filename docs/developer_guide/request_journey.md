@@ -22,7 +22,7 @@ Deck key ─► Stream Deck app ─► WebSocket ─► SDK ─► BrightnessAct
   └► PresetKey.keyDown ─► setLampsBrightness("all", 100)
        └► wait for the brightness queue, and for any cap that may still come back
        └► openLamps: find the 4 lamps over HID, ask the LX for its serial, sort by id, reach each Lamp
-       └► make sure each lamp is on (the LX gets its old setting put back)
+       └► turn each lamp on, even one already on (one back at another setting, like the LX, gets it put back)
        └► write 400 lm to all 4, one after another
        └► sleep 250 ms
        └► read each lamp's brightness back, and learn a cap where a lamp fell short
@@ -58,12 +58,12 @@ For each lamp kept, [`Lamp.reach`][lamp-reach] marks it found and takes its rang
 
 ## 4. Turning on, and the Beam LX's put-back
 
-In [`moveLampsBrightness`][move-lamps-brightness], each lamp goes through [`ensureOn`][ensure-on]. One whose held state is off is turned on by [`switchPower`][switch-power]:
+In [`moveLampsBrightness`][move-lamps-brightness], each lamp is turned on by [`switchPower`][switch-power], even one whose held state is on, so a lamp turned off another way follows the plugin again:
 
 - **Write** `[0x11, 0xff, idx, 0x1c, 0x01]`, padded to 20 bytes. `idx` is `0x04` on a Beam and `0x06` on a Beam LX.
 - **Drain the ACK** ([`drainAck`][drain-ack]), so the next read gets its reply rather than the ACK.
 - **Read back** whether it's on.
-- **Put back** the setting it holds ([`putBackSetting`][put-back-setting]). A Beam turns on as it was, and nothing is written. A Beam LX turns on at the setting it saved about 500 ms after it was last switched off, so when its brightness or temperature differs from the held one, the held one is written back (#100).
+- **Put back** the setting it holds ([`putBackSetting`][put-back-setting]). A Beam turns on as it was, and nothing is written. A Beam LX turns on at the setting it saved about 500 ms after it was last switched off, so when its brightness or temperature differs from the held one, the held one is written back (#100). A lamp changed with its own buttons gets the held one back the same way.
 
 Every read goes through [`readBack`][read-back]: when it fails, it's tried again after 10 ms, and when it fails again, the value asked for is held, with a warning in the log.
 
@@ -107,7 +107,7 @@ Each one reads through [src/actions/shown.ts], which first awaits `lampsSettled(
 
 ## Timing
 
-A press normally takes about 250 ms plus a few ms for each HID round trip: 4 writes, 4 reads, and the LX's two requests for its serial number. It takes longer when another brightness change is still running, right after a cap was learned (up to 1.5 s), or when a lamp was off and has to be turned on, and put back on an LX.
+A press normally takes about 250 ms plus a few ms for each HID round trip: 8 writes and 16 reads, since each of the 4 lamps has its power and its brightness written, its power, brightness and temperature read as it's turned on, and its brightness read once it has settled, and the LX's two requests for its serial number. It takes longer when another brightness change is still running, right after a cap was learned (up to 1.5 s), or when a lamp has to be put back.
 
 Almost all of the HID work is synchronous, so it holds the plugin's event loop, except the 250 ms settle and the wait for a cap's window.
 
@@ -117,7 +117,7 @@ Almost all of the HID work is synchronous, so it holds the plugin's event loop, 
 
 1. at start-up: `Plugin started`, then a `start: … read, since it was first reached: …` line for each lamp;
 2. at the press: `Key pressed: preset 100%, on every lamp`;
-3. for each lamp that was off, a `put back to …` line on a Beam LX that lost its setting, then a `turned on` line;
+3. for each lamp, a `put back to …` line when it came back at another setting than the plugin holds, such as a Beam LX that lost its setting, then a `turned on` line when the plugin held it as off;
 4. a `sent … lm, reached … lm` line for each lamp;
 5. a `capped at … lm` line for each lamp that fell short.
 
@@ -129,7 +129,6 @@ Almost all of the HID work is synchronous, so it holds the plugin's event loop, 
 [brightness.ts]: ../../src/actions/brightness.ts
 [dial-lamps-changed]: ../../src/actions/measure.ts
 [drain-ack]: ../../src/lamp-connection.ts
-[ensure-on]: ../../src/litra-manager.ts
 [find-all]: ../../src/lamp-connection.ts
 [identify]: ../../src/lamp-connection.ts
 [lamp-reach]: ../../src/lamp.ts

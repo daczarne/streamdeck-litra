@@ -356,6 +356,26 @@ describe("a lamp's power (#198)", () => {
     expect(logged("debug")).toEqual(["turn off: Beam - 73cd is off"]);
   });
 
+  it("is sent again when the lamp holds it already, and logged at debug alone", () => {
+    const { lamp, handle } = reached();
+
+    lamp.setPower("turn on", handle, true);
+
+    expect(handle.written).toEqual(["power on"]);
+    expect(logged("info")).toEqual([]);
+    expect(logged("debug")).toEqual(["turn on: Beam - 73cd is on"]);
+  });
+
+  it("puts back the setting it holds when the lamp holds it on but was changed another way", () => {
+    const { lamp, handle } = reached();
+    Object.assign(handle, { on: false, lumen: 400 });
+
+    lamp.setPower("set brightness", handle, true);
+
+    expect(handle.written).toEqual(["power on", "215 lm"]);
+    expect(lamp.state).toEqual({ on: true, lumen: 215, kelvin: 4000 });
+  });
+
   it("turns a lamp on as it was, with nothing else written, when it turns on at the setting it holds", () => {
     const { lamp, handle } = reached(Object.assign(new FakeHandle(), { on: false }));
 

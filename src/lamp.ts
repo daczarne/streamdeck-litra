@@ -322,10 +322,17 @@ export class Lamp {
    * Turns the lamp on or off, and holds the power it then reports. A lamp turned on also reports its brightness and
    * temperature, and gets back the ones it holds, if it came back at others: a Beam LX turns on at the setting it saved
    * a few hundred ms after it was last switched off, and loses a temperature given while it was off (#100).
+   *
+   * It's sent the power even when it holds it already, so a lamp switched or changed another way, such as with its own
+   * buttons, follows the plugin again. Only a lamp that held the other power is logged as turned, at `info`: the read
+   * back, at `debug`, shows the others.
    */
   setPower(operation: string, handle: LampHandle, on: boolean): void {
+    const wasOn = this.held().on;
     this.switchPower(operation, handle, on);
-    logger.info(`${operation}: ${this.label} turned ${on ? "on" : "off"}`);
+    if (wasOn !== on) {
+      logger.info(`${operation}: ${this.label} turned ${on ? "on" : "off"}`);
+    }
   }
 
   /**
