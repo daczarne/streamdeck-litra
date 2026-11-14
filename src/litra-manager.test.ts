@@ -113,13 +113,20 @@ function beam(options: ConstructorParameters<typeof EmulatedLitra>[1] = {}): Emu
 }
 
 /**
- * Makes these the lamps plugged in, in the order litra finds them, and the lamps the plugin knows (#194), with
- * {@link MISSING_LAMP}, as finding them would.
+ * Makes these the lamps plugged in, in the order litra finds them, and the lamps the plugin knows (#194), as finding
+ * them would.
  */
 function connect(...lamps: EmulatedLitra[]): void {
   hid.connect(...lamps);
-  knowOnly([...lamps.map(identityOf), { id: MISSING_LAMP, model: MODEL }]);
+  knowOnly(lamps.map(identityOf));
   reachKnown(lamps);
+}
+
+/** Has the plugin also know {@link MISSING_LAMP}, a lamp that isn't plugged in, and gives its label. */
+function knowMissingLamp(): string {
+  const lamp = new Lamp({ id: MISSING_LAMP, model: MODEL });
+  known.set(MISSING_LAMP, lamp);
+  return lamp.label;
 }
 
 /**
@@ -656,6 +663,60 @@ describe.each([
     connect(first, newLamp({ on }));
 
     expect(await broadcast()).toEqual({ ok: false, lampCount: 2, failures: 1 });
+  });
+});
+
+describe("a lamp the plugin knows that isn't plugged in", () => {
+  it.each<[string, (found: string) => LampSelection]>([
+    ["given lamps", (found) => [found, MISSING_LAMP]],
+    ["every lamp", () => "all"],
+    ["every lamp but some", () => ({ except: [] })],
+  ])("fails an operation on %s that takes it in, which still acts on the lamps found", async (_name, selection) => {
+    const lamp = newLamp({ on: false });
+    connect(lamp);
+    knowMissingLamp();
+
+    expect(await manager.turnLampsOn(selection(idOf(lamp)))).toEqual({ ok: false, lampCount: 2, failures: 1 });
+    expect(lamp.on).toBe(true);
+  });
+
+  it("fails a scene when a group's lamps aren't plugged in, though another group's are", async () => {
+    const lamp = newLamp();
+    connect(lamp);
+    knowMissingLamp();
+
+    const result = await settled(
+      manager.setLampsScene([
+        { lamps: [idOf(lamp)], on: true, percentage: 40, kelvin: 4000 },
+        { lamps: [MISSING_LAMP], on: false, percentage: 0, kelvin: 2700 },
+      ]),
+    );
+
+    expect(result).toEqual({ ok: false, lampCount: 2, failures: 1 });
+    expect(lamp.brightnessInLumen).toBe(lumenAt(40));
+  });
+
+  it("leaves an operation that leaves it out to succeed", async () => {
+    connect(newLamp());
+    knowMissingLamp();
+
+    expect(await manager.turnLampsOn({ except: [MISSING_LAMP] })).toEqual({ ok: true, lampCount: 1, failures: 0 });
+  });
+
+  it("leaves a lamp the plugin doesn't know, such as a forgotten one a key still lists, out of the failures", async () => {
+    const lamp = newLamp();
+    connect(lamp);
+
+    expect(await manager.turnLampsOn([idOf(lamp), MISSING_LAMP])).toEqual({ ok: true, lampCount: 1, failures: 0 });
+  });
+
+  it("leaves the toggle's choice to the lamps found, so it can still turn them off", async () => {
+    const lamp = newLamp({ on: true });
+    connect(lamp);
+    knowMissingLamp();
+
+    expect(await manager.toggleLamps("all")).toMatchObject({ ok: false });
+    expect(lamp.on).toBe(false);
   });
 });
 
@@ -2393,14 +2454,15 @@ describe("logs", () => {
     ["adjust brightness", () => manager.adjustLampsBrightness([MISSING_LAMP], 1, 5)],
     ["adjust temperature", () => manager.adjustLampsTemperature([MISSING_LAMP], 1, 100)],
     ["set scene", () => manager.setLampsScene([{ lamps: [MISSING_LAMP], on: true, percentage: 50, kelvin: 4000 }])],
-  ])("warns, with its id, when the lamp to %s isn't connected", async (operation, operate) => {
+  ])("warns, with its label, when the lamp to %s isn't connected", async (operation, operate) => {
     connect(newLamp());
+    const label = knowMissingLamp();
 
     await run(operate);
 
     const message = onlyMessage("warn");
     expect(message).toContain(operation);
-    expect(message).toContain(MISSING_LAMP);
+    expect(message).toContain(label);
   });
 
   it.each<[string, () => unknown]>([

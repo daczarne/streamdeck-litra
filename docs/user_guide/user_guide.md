@@ -131,7 +131,8 @@ Under the lamps come how each lamp steps, for its brightness and its temperature
 
 A key or a dial shows Stream Deck's alert indicator when it can't do all it was asked:
 
-- None of its lamps is connected, or none of the lamps connected is one the plugin knows (see [The lamps the plugin controls](#the-lamps-the-plugin-controls)).
+- One of its lamps isn't connected: a lamp the plugin knows that it acts on, whether checked on its page, taken in with every lamp, or in any group of a scene. The lamps connected are still set. A lamp left unplugged makes every key and dial that acts on it show the alert, until it's plugged back in, or forgotten in [the plugin settings](#lamps).
+- None of the lamps connected is one the plugin knows (see [The lamps the plugin controls](#the-lamps-the-plugin-controls)).
 - Its settings page checks no lamp, or leaves out every lamp connected (see [Picking a key's lamps](#picking-a-keys-lamps)).
 - A lamp fails. The others don't wait for it: they're still set.
 - A Beam LX doesn't give its serial number, on a key that acts on every lamp, or on every lamp but some, since it could be one of them.
