@@ -243,7 +243,7 @@ describe("BrightnessAction", () => {
   it("shows an alert on a dial pushed when the lamps can't be toggled, and leaves its screen as it was", async () => {
     const dial = await deck.dial(BRIGHTNESS);
     clearCalls();
-    vi.mocked(toggleLamps).mockReturnValue({ ok: false, lampCount: 0, failures: 1 });
+    vi.mocked(toggleLamps).mockResolvedValue({ ok: false, lampCount: 0, failures: 1 });
 
     await deck.push(dial);
 
@@ -356,7 +356,7 @@ describe("BrightnessAction", () => {
     it("toggles only the lamp on screen on a push (#20)", async () => {
       const dial = await deck.dial(BRIGHTNESS);
       await deck.tap(dial);
-      vi.mocked(toggleLamps).mockReturnValue({ ok: true, lampCount: 1, failures: 0 });
+      vi.mocked(toggleLamps).mockResolvedValue({ ok: true, lampCount: 1, failures: 0 });
 
       await deck.push(dial);
 
@@ -368,7 +368,7 @@ describe("BrightnessAction", () => {
       const pushed = await deck.dial(BRIGHTNESS);
       const onLamp = await deck.dial(BRIGHTNESS);
       await deck.tap(onLamp);
-      vi.mocked(toggleLamps).mockReturnValue({ ok: true, lampCount: 1, failures: 0 });
+      vi.mocked(toggleLamps).mockResolvedValue({ ok: true, lampCount: 1, failures: 0 });
 
       await deck.push(pushed);
 
@@ -487,7 +487,7 @@ describe("BrightnessAction", () => {
 
   describe("logs", () => {
     beforeEach(() => {
-      vi.mocked(toggleLamps).mockReturnValue({ ok: true, lampCount: 1, failures: 0 });
+      vi.mocked(toggleLamps).mockResolvedValue({ ok: true, lampCount: 1, failures: 0 });
       vi.mocked(identifyLamp).mockResolvedValue({ ok: true, lampCount: 1, failures: 0 });
     });
 

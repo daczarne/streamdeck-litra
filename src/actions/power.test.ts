@@ -109,7 +109,7 @@ describe("PowerAction", () => {
     ])("in mode %s, switches the lamps, and leaves showing the result to the notice", async (mode, operation) => {
       const key = await deck.key(POWER, mode === undefined ? {} : { mode });
       clearCalls();
-      vi.mocked(operation).mockReturnValue(SWITCHED);
+      vi.mocked(operation).mockResolvedValue(SWITCHED);
 
       await deck.press(key);
 
@@ -124,7 +124,7 @@ describe("PowerAction", () => {
       expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("mode"));
 
       clearCalls();
-      vi.mocked(toggleLamps).mockReturnValue(SWITCHED);
+      vi.mocked(toggleLamps).mockResolvedValue(SWITCHED);
 
       await deck.press(key);
 
@@ -136,7 +136,7 @@ describe("PowerAction", () => {
       const key = await deck.key(POWER);
       const otherKey = await deck.key(POWER);
       clearCalls();
-      vi.mocked(toggleLamps).mockReturnValue({ ok: false, lampCount: 0, failures: 1 });
+      vi.mocked(toggleLamps).mockResolvedValue({ ok: false, lampCount: 0, failures: 1 });
 
       await deck.press(key);
 
@@ -153,7 +153,7 @@ describe("PowerAction", () => {
 
     it("shows a failed press's alert only once, with the redraw that follows the press", async () => {
       const key = await deck.key(POWER);
-      vi.mocked(toggleLamps).mockReturnValue({ ok: false, lampCount: 0, failures: 1 });
+      vi.mocked(toggleLamps).mockResolvedValue({ ok: false, lampCount: 0, failures: 1 });
       await deck.press(key);
       await lampsChanged();
       clearCalls();
@@ -167,7 +167,7 @@ describe("PowerAction", () => {
     it("logs the press, with the key's mode, before switching the lamps", async () => {
       const key = await deck.key(POWER, { mode: "off" });
       clearCalls();
-      vi.mocked(turnLampsOff).mockReturnValue(SWITCHED);
+      vi.mocked(turnLampsOff).mockResolvedValue(SWITCHED);
 
       await deck.press(key);
 
@@ -199,7 +199,7 @@ describe("PowerAction", () => {
     ])("in mode %s, switches the key's lamps alone", async (mode, operation) => {
       const key = await deck.key(POWER, { mode, lamps: [LAMP_1, LAMP_2] });
       clearCalls();
-      vi.mocked(operation).mockReturnValue(SWITCHED);
+      vi.mocked(operation).mockResolvedValue(SWITCHED);
 
       await deck.press(key);
 
@@ -209,7 +209,7 @@ describe("PowerAction", () => {
     it("switches every lamp from a key without lamps saved, set up before they could be picked", async () => {
       const key = await deck.key(POWER, { mode: "toggle" });
       clearCalls();
-      vi.mocked(toggleLamps).mockReturnValue(SWITCHED);
+      vi.mocked(toggleLamps).mockResolvedValue(SWITCHED);
 
       await deck.press(key);
 
@@ -253,7 +253,7 @@ describe("PowerAction", () => {
       const key = await deck.key(POWER, { mode: "on", lamps: [LAMP_1] });
       const everyLamp = await deck.key(POWER, { mode: "on" });
       clearCalls();
-      vi.mocked(turnLampsOn).mockReturnValue(SWITCHED);
+      vi.mocked(turnLampsOn).mockResolvedValue(SWITCHED);
 
       await deck.press(key);
       await deck.press(everyLamp);
@@ -273,7 +273,7 @@ describe("PowerAction", () => {
     it("switches every lamp but the ones its page left out, by default, so a lamp added later joins", async () => {
       const key = await deck.key(POWER, { mode: "on", lamps: [LAMP_1], leftOutLamps: [LAMP_2] });
       clearCalls();
-      vi.mocked(turnLampsOn).mockReturnValue(SWITCHED);
+      vi.mocked(turnLampsOn).mockResolvedValue(SWITCHED);
 
       await deck.press(key);
 
@@ -283,7 +283,7 @@ describe("PowerAction", () => {
     it("switches the lamps checked alone once it adds no new lamps, and shows their state at once", async () => {
       const key = await deck.key(POWER, { mode: "on", lamps: [LAMP_1], leftOutLamps: [LAMP_2] });
       clearCalls();
-      vi.mocked(turnLampsOn).mockReturnValue(SWITCHED);
+      vi.mocked(turnLampsOn).mockResolvedValue(SWITCHED);
 
       changeGlobalSettings({ addNewLamps: false });
       await vi.waitFor(() => expect(areLampsOn).toHaveBeenCalledWith([LAMP_1]));

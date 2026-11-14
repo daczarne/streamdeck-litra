@@ -160,7 +160,7 @@ class MeasureDial extends ActionInstance<{ step: number }, DialAction<JsonObject
   override async dialDown(): Promise<void> {
     const lamp = this.screen.lamp;
     this.logger.info(lamp === undefined ? "Dial pressed: toggle" : "Dial pressed on a lamp screen: toggle");
-    const result = toggleLamps(lamp === undefined ? "all" : [lamp]);
+    const result = await toggleLamps(lamp === undefined ? "all" : [lamp]);
     if (!result.ok) {
       await this.control.showAlert();
     }
