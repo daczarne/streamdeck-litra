@@ -108,7 +108,7 @@ Each one reads through [src/actions/shown.ts], which first awaits `lampsSettled(
 
 ## Timing
 
-A press normally takes about 250 ms plus a few ms for each HID round trip: 8 writes and 16 reads, since each of the 4 lamps has its power and its brightness written, its power, brightness and temperature read as it's turned on, and its brightness read once it has settled, and the LX's two requests for its serial number. It takes longer when another brightness change is still running, right after a cap was learned (up to 1.5 s), or when a lamp has to be put back.
+A press normally takes about 250 ms plus a few ms for each HID round trip: 8 writes and 16 reads, since each of the 4 lamps has its power and its brightness written, its power, brightness and temperature read as it's turned on, and its brightness read once it has settled, and the LX's two requests for its serial number. It takes longer when another operation is still running, right after a cap was learned (up to 1.5 s), or when a lamp has to be put back.
 
 Almost all of the HID work is synchronous, so it holds the plugin's event loop, except the 250 ms settle and the wait for a cap's window.
 
