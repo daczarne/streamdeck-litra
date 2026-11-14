@@ -26,7 +26,7 @@ This guide describes how to use the plugin once it's installed (see [the README]
 
 When the plugin starts knowing no lamps, as it does the first time, it finds the lamps connected, and controls those alone: a lamp plugged in later is left alone until **Find lamps**, in [the plugin settings](#lamps), finds it. Unplugging a lamp doesn't make the plugin forget it: only its trash can there does.
 
-Each key acts on the lamps picked on its settings page: every lamp the plugin knows, unless others are picked (see [Picking a key's lamps](#picking-a-keys-lamps)). A dial's main screen acts on every lamp, and its lamp screens on one lamp at a time (see [Lamp screens](#lamp-screens)). Wherever the plugin lists the lamps, it lists them in the order of the plugin settings' table.
+Each key acts on the lamps picked on its settings page: every lamp the plugin knows, unless others are picked (see [Picking a key's lamps](#picking-a-keys-lamps)). A dial's main screen acts on every lamp connected, and its lamp screens on one lamp at a time (see [Lamp screens](#lamp-screens)). Wherever the plugin lists the lamps, it lists them in the order of the plugin settings' table.
 
 Every Power key, Up and Down key, dial and lamp screen follows changes made by any key or dial. When the plugin starts, it reads every lamp it knows that's connected, and so does Find lamps with the lamps it adds, and from then on, the keys and dials show what the plugin last set each lamp to, as the lamp reported it.
 
@@ -131,7 +131,8 @@ Under the lamps come how each lamp steps, for its brightness and its temperature
 
 A key or a dial shows Stream Deck's alert indicator when it can't do all it was asked:
 
-- None of its lamps is connected, or none of the lamps connected is one the plugin knows (see [The lamps the plugin controls](#the-lamps-the-plugin-controls)).
+- One of a key's lamps isn't connected: a lamp the plugin knows that the key acts on, whether checked on its page, taken in with every lamp, or in any group of a scene. The lamps connected are still set. A lamp left unplugged makes every key that acts on it show the alert, until it's plugged back in, or forgotten in [the plugin settings](#lamps). A dial's main screen acts on the lamps connected, so a lamp unplugged makes it show none.
+- None of the lamps connected is one the plugin knows (see [The lamps the plugin controls](#the-lamps-the-plugin-controls)).
 - Its settings page checks no lamp, or leaves out every lamp connected (see [Picking a key's lamps](#picking-a-keys-lamps)).
 - A lamp fails. The others don't wait for it: they're still set.
 - A Beam LX doesn't give its serial number, on a key that acts on every lamp, or on every lamp but some, since it could be one of them.

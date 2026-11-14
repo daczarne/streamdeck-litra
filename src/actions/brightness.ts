@@ -59,7 +59,7 @@ const BRIGHTNESS: Measure = {
   readStepping: () => globalSettings.brightnessStepping,
   adjust: adjustLampsBrightness,
   readMainScreen: async () => {
-    const levels = await readLampsBrightness("all");
+    const levels = await readLampsBrightness("connected");
     const brightest = levels.length === 0 ? undefined : Math.max(...levels);
     return {
       title: "Brightness",

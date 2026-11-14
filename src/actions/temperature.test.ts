@@ -182,7 +182,7 @@ describe("TemperatureAction", () => {
 
       await deck.turn(dial, 2);
 
-      expect(adjustLampsTemperature).toHaveBeenCalledWith("all", 2, 100, "together");
+      expect(adjustLampsTemperature).toHaveBeenCalledWith("connected", 2, 100, "together");
       expect(dial.setFeedback).not.toHaveBeenCalled();
     });
 
@@ -204,7 +204,7 @@ describe("TemperatureAction", () => {
 
     await deck.turn(dial, 2);
 
-    expect(adjustLampsTemperature).toHaveBeenCalledExactlyOnceWith("all", 2, 200, "together");
+    expect(adjustLampsTemperature).toHaveBeenCalledExactlyOnceWith("connected", 2, 200, "together");
     expect(logger.warn).not.toHaveBeenCalled();
   });
 
@@ -281,7 +281,7 @@ describe("TemperatureAction", () => {
 
       await deck.turn(dial, 2);
 
-      expect(adjustLampsTemperature).toHaveBeenCalledExactlyOnceWith("all", 2, 300, "together");
+      expect(adjustLampsTemperature).toHaveBeenCalledExactlyOnceWith("connected", 2, 300, "together");
       expect(logger.warn).not.toHaveBeenCalled();
     });
   });
@@ -298,7 +298,7 @@ describe("TemperatureAction", () => {
 
       await deck.turn(dial, 2);
 
-      expect(adjustLampsTemperature).toHaveBeenCalledExactlyOnceWith("all", 2, 100, "each");
+      expect(adjustLampsTemperature).toHaveBeenCalledExactlyOnceWith("connected", 2, 100, "each");
       expect(logger.info).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("each lamp"));
     });
 
@@ -318,7 +318,7 @@ describe("TemperatureAction", () => {
 
       await deck.turn(dial, 2);
 
-      expect(adjustLampsTemperature).toHaveBeenCalledExactlyOnceWith("all", 2, 100, "together");
+      expect(adjustLampsTemperature).toHaveBeenCalledExactlyOnceWith("connected", 2, 100, "together");
     });
   });
 
@@ -373,7 +373,7 @@ describe("TemperatureAction", () => {
 
       await deck.push(pushed);
 
-      expect(toggleLamps).toHaveBeenCalledExactlyOnceWith("all");
+      expect(toggleLamps).toHaveBeenCalledExactlyOnceWith("connected");
     });
 
     it("moves only the lamp on screen when the dial is turned on a lamp screen (#20)", async () => {
@@ -406,7 +406,7 @@ describe("TemperatureAction", () => {
       }
 
       expect(vi.mocked(adjustLampsTemperature).mock.calls).toEqual([
-        ["all", 1, 100, "together"],
+        ["connected", 1, 100, "together"],
         [[BEAM.id], 2, 100, "together"],
         [[OTHER_BEAM.id], 3, 100, "together"],
       ]);

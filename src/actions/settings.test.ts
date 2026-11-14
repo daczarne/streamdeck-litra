@@ -151,6 +151,7 @@ describe("parseSettings", () => {
 describe("describeLamps", () => {
   it.each([
     ["all", "every lamp"],
+    ["connected", "every lamp connected"],
     [["0123456789abcdef"], "1 lamp"],
     [["0123456789abcdef", "fedcba9876543210"], "2 lamps"],
     [[], "0 lamps"],

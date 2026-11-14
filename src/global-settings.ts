@@ -16,7 +16,7 @@ import {
   type TextStyleName,
 } from "./actions/settings";
 import { Lamp } from "./lamp";
-import type { LampSelection } from "./lamp-selection";
+import type { KeyLampSelection } from "./lamp-selection";
 import type { Stepping } from "./litra-manager";
 import { logger as pluginLogger } from "./logging";
 
@@ -179,7 +179,7 @@ export class GlobalSettings {
    * The lamps an action key acts on (#147), from the lamps its page checked and left out: every lamp for a key saved
    * before it could pick them, every lamp but the left out ones for a key that adds new lamps, or the checked ones.
    */
-  actionKeyLamps(keyId: string, saved: { lamps: CheckedLamps; leftOutLamps: readonly string[] }): LampSelection {
+  actionKeyLamps(keyId: string, saved: { lamps: CheckedLamps; leftOutLamps: readonly string[] }): KeyLampSelection {
     if (saved.lamps === "all") {
       return "all";
     }

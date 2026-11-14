@@ -241,39 +241,41 @@ function findConnections(operation: string): Found {
 }
 
 /**
- * Opens the lamps an operation acts on, named in the logs, for each of its groups: every connected lamp the plugin
- * knows, the selected ones, or every one but the left out ones, each lamp with the first group that selects it, so a
- * lamp two groups select takes the first one's part. It closes the other lamps found, the ones the plugin doesn't know
- * included. A selection of none is logged only when every group selects none, since a group may lose its lamps to
- * another, and then no lamp is looked for.
+ * Opens the lamps an operation acts on, named in the logs, for each of its groups: every lamp the plugin knows, every
+ * one connected, the selected ones, or every one but the left out ones, each lamp with the first group that selects
+ * it, so a lamp two groups select takes the first one's part. It closes the other lamps found, the ones the plugin
+ * doesn't know included. A selection of none is logged only when every group selects none, since a group may lose its
+ * lamps to another, and then no lamp is looked for.
  *
  * A lamp whose serial number can't be read is counted when a group takes in every lamp, or every lamp but some, which
  * it could be one of: a Beam that fails counts as a failed lamp, and a Beam LX that can't even be told apart is one too
- * (#100). A group of given lamps can't tell whether it was one of them, and fails on its own when none of them is
- * found.
+ * (#100). A lamp the plugin knows that a group takes in, but that isn't found, is missing, and counts as a failed lamp
+ * too, however the group selects it, but with `"connected"`, so an operation that finds some of its lamps but not
+ * all still fails. A lamp that can't be told apart may be one of them, which {@link openLamps} counts once. A lamp the plugin doesn't know,
+ * such as a forgotten one a key still lists, isn't missing.
  */
 function openGroups<G extends { readonly lamps: LampSelection }>(
   operation: string,
   groups: readonly G[],
-): { connections: Map<LampConnection, G>; unidentified: number } {
+): { connections: Map<LampConnection, G>; unidentified: number; missing: number } {
   const opened = new Map<LampConnection, G>();
   if (groups.every(({ lamps }) => Array.isArray(lamps) && lamps.length === 0)) {
     logger.warn(`${operation}: no lamp selected`);
-    return { connections: opened, unidentified: 0 };
+    return { connections: opened, unidentified: 0, missing: 0 };
   }
   const found = findConnections(operation);
   const takesInAny = groups.some(({ lamps }) => !Array.isArray(lamps));
   const unidentified = takesInAny ? found.unidentified : 0;
   if (found.connections.length === 0) {
-    return { connections: opened, unidentified };
+    return { connections: opened, unidentified, missing: 0 };
   }
-  const connected: string[] = [];
+  const connected = new Set<string>();
   for (const connection of found.connections) {
     const { id } = connection;
     const known = knownLamps.has(id);
     const group = known ? groups.find(({ lamps }) => selects(lamps, id)) : undefined;
     if (known) {
-      connected.push(id);
+      connected.add(id);
     }
     if (group === undefined) {
       connection.close();
@@ -281,12 +283,19 @@ function openGroups<G extends { readonly lamps: LampSelection }>(
       opened.set(connection, group);
     }
   }
-  if (connected.length === 0) {
+  if (connected.size === 0) {
     logger.warn(`${operation}: none of the lamps connected is one of the plugin's lamps`);
-    return { connections: opened, unidentified };
+    return { connections: opened, unidentified, missing: 0 };
+  }
+  let missing = 0;
+  for (const lamp of knownLamps.values()) {
+    if (!connected.has(lamp.id) && groups.some(({ lamps }) => lamps !== "connected" && selects(lamps, lamp.id))) {
+      missing += 1;
+      logger.warn(`${operation}: ${lamp.label} not connected`);
+    }
   }
   for (const { lamps } of groups) {
-    if (lamps === "all") {
+    if (lamps === "all" || lamps === "connected") {
       continue;
     }
     if ("except" in lamps) {
@@ -298,12 +307,10 @@ function openGroups<G extends { readonly lamps: LampSelection }>(
     for (const id of lamps) {
       if (!knownLamps.has(id)) {
         logger.warn(`${operation}: lamp ${id} isn't one of the plugin's lamps`);
-      } else if (!connected.includes(id)) {
-        logger.warn(`${operation}: lamp ${id} not connected`);
       }
     }
   }
-  return { connections: opened, unidentified };
+  return { connections: opened, unidentified, missing };
 }
 
 /**
@@ -351,11 +358,11 @@ export function onConnectedChanged(listener: (ids: string[]) => void | Promise<v
 
 /**
  * What an operation did, from the lamps it acted on and how many of them failed, counting the lamps it couldn't tell
- * apart as failed lamps (see {@link openGroups}).
+ * apart or didn't find as failed lamps (see {@link openGroups}).
  */
-function outcome(lampCount: number, failures: number, unidentified: number): OperationResult {
-  const failed = failures + unidentified;
-  return { ok: failed === 0, lampCount: lampCount + unidentified, failures: failed };
+function outcome(lampCount: number, failures: number, unreached: number): OperationResult {
+  const failed = failures + unreached;
+  return { ok: failed === 0, lampCount: lampCount + unreached, failures: failed };
 }
 
 /** What an operation that opened no lamp did: it failed. */
@@ -385,14 +392,14 @@ type OpenedLamps<G> = {
 /**
  * Opens the lamps of an operation's groups, as {@link openGroups} does, and reaches each one, lending its `Lamp` a
  * handle, which reads the lamp the first time, and at another path (#198). A lamp that can't be reached counts as
- * failed, and is left out of the lamps the operation goes through. Gives undefined when it opens no lamp, which fails
+ * failed, and is left out of the lamps the operation goes through, as does a lamp it takes in that isn't connected. Gives undefined when it opens no lamp, which fails
  * the operation. The operation closes them once it's done.
  */
 function openLamps<G extends { readonly lamps: LampSelection }>(
   operation: string,
   groups: readonly G[],
 ): OpenedLamps<G> | undefined {
-  const { connections, unidentified } = openGroups(operation, groups);
+  const { connections, unidentified, missing } = openGroups(operation, groups);
   if (connections.size === 0) {
     return undefined;
   }
@@ -430,7 +437,8 @@ function openLamps<G extends { readonly lamps: LampSelection }>(
       }
     },
     fail,
-    outcome: () => outcome(connections.size, failed.size, unidentified),
+    // A lamp it couldn't tell apart may be one of the ones it didn't find, so it's counted once.
+    outcome: () => outcome(connections.size, failed.size, Math.max(unidentified, missing)),
     close() {
       for (const connection of connections.keys()) {
         connection.close();
@@ -470,7 +478,7 @@ export function forEachLamp(
  * show.
  */
 export function reachEveryLamp(operation: string): Promise<OperationResult> {
-  return queuedAndAnnounced(() => forEachLamp(operation, () => {}, "all"));
+  return queuedAndAnnounced(() => forEachLamp(operation, () => {}, "connected"));
 }
 
 /**
@@ -500,7 +508,8 @@ export function turnLampsOff(lamps: LampSelection): Promise<OperationResult> {
 /**
  * Turns the selected lamps off if every one is on, as the plugin holds them, and on otherwise, so lamps out of sync end
  * up in sync (#23). That's the opposite of what {@link areLampsOn} reports, which the Power key shows. A lamp that
- * couldn't be reached, or told apart, counts as off.
+ * couldn't be reached, or told apart, counts as off, while a lamp not found is left out of the choice, so the lamps found
+ * can still be turned off, though the toggle fails for it.
  */
 export function toggleLamps(lamps: LampSelection): Promise<OperationResult> {
   const operation = "toggle";
