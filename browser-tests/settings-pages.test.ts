@@ -306,7 +306,10 @@ function saved(control: Control, value: string): JsonValue {
 }
 
 /** Reads what a number field shows (#195): its value, then its unit, apart. */
-const NUMBER_SHOWN = `(field) => field.querySelector("input").value + " " + field.querySelector(".unit").textContent`;
+const NUMBER_SHOWN = `(field) => {
+  const unit = field.querySelector(".unit");
+  return field.querySelector("input").value + (unit.hidden ? "" : " " + unit.textContent);
+}`;
 
 /**
  * How far off center a number field shows its value and its unit together, in pixels: the space left of the value's
@@ -335,7 +338,7 @@ function numberOffCenter(page: Page, field: string): Promise<number | null> {
   })()`);
 }
 
-/** What the number field of a setting shows, its value and its unit. */
+/** What the number field of a setting shows: its value and its unit, or a dash alone while it's disabled. */
 function shownValue(page: Page, setting: string): Promise<string> {
   return page.evaluate(`(${NUMBER_SHOWN})(document.querySelector('[setting="${setting}"]'))`);
 }
@@ -1679,11 +1682,36 @@ describe("settings pages", () => {
       ["on", true],
       ["off", false],
     ])("lets the first group's presets be changed only while it turns its lamps on (%s)", async (power, usable) => {
-      const { page } = await openScene({ power });
+      const { page } = await openScene({ power, presetKelvin: 5000, presetPercentage: 40 });
 
       await expect.poll(async () => (await groupsOf(page)).firstPresets).toBe(usable);
-      // Greyed out rather than hidden, so the row keeps its shape.
+      // Greyed out rather than hidden, so the row keeps its shape, and showing a dash, with a note, rather than values
+      // that aren't applied.
       expect(await visibleSettings(page)).toEqual(["power", "presetKelvin", "presetPercentage"]);
+      expect([await shownValue(page, "presetKelvin"), await shownValue(page, "presetPercentage")]).toEqual(
+        usable ? ["5000 K", "40 %"] : ["—", "—"],
+      );
+      expect(await page.evaluate(`!document.getElementById("first-group-off-note").hidden`)).toBe(!usable);
+      if (!usable) {
+        // As wide as the row's three controls, from Power's left edge to Brightness's + button's right edge, centered.
+        expect(await offNoteAlignment(page, `document.querySelector(".scene-row")`)).toEqual({
+          left: 0,
+          right: 0,
+          textAlign: "center",
+        });
+      }
+      await page.close();
+    });
+
+    it("shows the first group's presets again, as saved, once its power is switched back on", async () => {
+      const { page } = await openScene({ power: "off", presetKelvin: 5000, presetPercentage: 40 });
+
+      await expect.poll(() => shownValue(page, "presetKelvin")).toBe("—");
+      await setControl(page, `document.getElementById("power")`, "on");
+
+      await expect.poll(() => shownValue(page, "presetKelvin")).toBe("5000 K");
+      expect(await shownValue(page, "presetPercentage")).toBe("40 %");
+      expect(await page.evaluate(`document.getElementById("first-group-off-note").hidden`)).toBe(true);
       await page.close();
     });
 
@@ -1707,7 +1735,7 @@ describe("settings pages", () => {
       await page.close();
     });
 
-    it("shows a saved group's power and lamps, and greys out its presets while it turns its lamps off", async () => {
+    it("shows a saved group's power and lamps, and a dash in its greyed out presets, with a note, while it's off", async () => {
       const { page } = await openScene({
         ...FIRST_HOLDS_NONE,
         addedGroups: [{ power: "off", presetPercentage: 40, presetKelvin: 5000, lamps: [savedLamp(SECOND)] }],
@@ -1720,8 +1748,9 @@ describe("settings pages", () => {
             heading: "Group 2",
             power: "off",
             presets: false,
-            brightness: "40 %",
-            temperature: "5000 K",
+            brightness: "—",
+            temperature: "—",
+            offNote: true,
             lamps: [
               { label: FIRST.label, checked: false, disabled: false, note: null },
               { label: SECOND.label, checked: true, disabled: false, note: null },
@@ -1729,6 +1758,11 @@ describe("settings pages", () => {
             remove: "Remove group 2",
           },
         ]);
+      expect(await offNoteAlignment(page, `document.querySelector("#added-groups .scene-row")`)).toEqual({
+        left: 0,
+        right: 0,
+        textAlign: "center",
+      });
       await page.close();
     });
 
@@ -1739,6 +1773,7 @@ describe("settings pages", () => {
       await setGroupControl(page, 2, "Power", "off");
       expect(await nextGroups(uuid, after)).toEqual([{ ...NEW_GROUP, power: "off" }]);
       await expect.poll(async () => at((await groupsOf(page)).groups, 0).presets).toBe(false);
+      expect(at((await groupsOf(page)).groups, 0)).toMatchObject({ brightness: "—", temperature: "—", offNote: true });
 
       after = streamDeck.messages.length;
       await setGroupControl(page, 2, "Power", "on");
@@ -1752,7 +1787,9 @@ describe("settings pages", () => {
 
       expect(saved).toEqual([{ ...NEW_GROUP, presetPercentage: 40, presetKelvin: 5000 }]);
       expect(readGroup(at(saved, 0))).toMatchObject({ valid: true });
-      expect(await groupsOf(page)).toMatchObject({ groups: [{ brightness: "40 %", temperature: "5000 K" }] });
+      expect(await groupsOf(page)).toMatchObject({
+        groups: [{ brightness: "40 %", temperature: "5000 K", offNote: false }],
+      });
       await page.close();
     });
 
@@ -2444,6 +2481,8 @@ type SceneGroupView = {
   presets: boolean;
   brightness: string;
   temperature: string;
+  /** Whether the note that its Temperature and Brightness aren't applied shows. */
+  offNote: boolean;
   lamps: ListedLampRow[];
   remove: string | null;
 };
@@ -2465,6 +2504,7 @@ function groupsOf(
       presets: usable([...group.querySelectorAll(".scene-row litra-number")]),
       brightness: (${NUMBER_SHOWN})(group.querySelector('.scene-row litra-number[unit="%"]')),
       temperature: (${NUMBER_SHOWN})(group.querySelector('.scene-row litra-number[unit="K"]')),
+      offNote: !group.querySelector(".off-note").hidden,
       lamps: rows(group),
       remove: group.querySelector("sdpi-button")?.textContent ?? null,
     }));
@@ -2474,6 +2514,25 @@ function groupsOf(
       groups,
       add: [...document.querySelectorAll("#added-groups > sdpi-item sdpi-button")].some(
         (button) => button.textContent === "Add a group"),
+    };
+  })()`);
+}
+
+/**
+ * How a Scene group's note lines up with its row, in pixels: how far its left edge is from the Power column's, and its
+ * right edge from Brightness's + button, rounded, and how it aligns its text. `row` is the expression of the row.
+ */
+function offNoteAlignment(page: Page, row: string): Promise<{ left: number; right: number; textAlign: string }> {
+  return page.evaluate(`(() => {
+    const row = ${row};
+    const box = (element) => element.getBoundingClientRect();
+    const note = row.querySelector(".off-note");
+    const power = Math.min(box(row.querySelector("span")).left, box(row.querySelector("litra-switch")).left);
+    const raise = box(row.querySelector('litra-number[unit="%"] button[aria-label="Raise"]')).right;
+    return {
+      left: Math.round(box(note).left - power),
+      right: Math.round(raise - box(note).right),
+      textAlign: getComputedStyle(note).textAlign,
     };
   })()`);
 }

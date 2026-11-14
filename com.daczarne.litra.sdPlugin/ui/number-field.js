@@ -3,7 +3,8 @@
 // own, an element named `litra-number`, drawn in the panel's look. − and + move the value by the setting's step, and
 // greyed out at the ends of its range, and holding one repeats it. A value typed in is taken on Enter, or once the field
 // is left, snapped to the step and kept within the range, and one that isn't a number goes back to the value shown.
-// The unit shows inside the field, after the value.
+// The unit shows inside the field, after the value. A disabled field is a setting that doesn't apply, such as a scene
+// group's presets while it turns its lamps off: it shows a dash in place of its value and unit, and keeps its value.
 //
 // With a `setting`, the field reads and saves it, an action's or, with `global`, the plugin's, as an sdpi-components
 // control does, and shows its `default` while the setting is missing. Without one, it saves nothing, and a script sets
@@ -102,12 +103,12 @@
       this.input.addEventListener("input", () => this.fit());
       this.input.addEventListener("keydown", (event) => this.onKey(event));
       this.input.addEventListener("blur", () => this.take(this.input.value, true));
-      const unit = document.createElement("span");
-      unit.className = "unit";
-      unit.textContent = this.getAttribute("unit") ?? "";
+      this.unit = document.createElement("span");
+      this.unit.className = "unit";
+      this.unit.textContent = this.getAttribute("unit") ?? "";
       const field = document.createElement("div");
       field.className = "entry";
-      field.append(this.input, unit);
+      field.append(this.input, this.unit);
       field.addEventListener("click", () => this.input.focus());
       this.append(this.minus, field, this.plus);
       if (this._value === undefined) {
@@ -145,7 +146,7 @@
       this.show();
     }
 
-    /** The disabled state, which greys out the buttons and the field. */
+    /** The disabled state, which greys out the buttons and the field, and shows a dash in place of the value. */
     get disabled() {
       return this.hasAttribute("disabled");
     }
@@ -279,13 +280,19 @@
       this.dispatchEvent(new Event("valuechange"));
     }
 
-    /** Shows the value, and greys out a button at its end of the range, or everything while it's disabled. */
+    /**
+     * Shows the value, and greys out a button at its end of the range, or everything while it's disabled, when it shows
+     * a dash instead of the value and its unit.
+     */
     show() {
       if (this.input === undefined) {
         return;
       }
-      // A value being typed is left as it is until it's taken.
-      if (document.activeElement !== this.input || this.changed) {
+      this.unit.hidden = this.disabled;
+      if (this.disabled) {
+        this.input.value = "—";
+      } else if (document.activeElement !== this.input || this.changed) {
+        // A value being typed is left as it is until it's taken.
         this.input.value = String(this._value);
       }
       this.fit();

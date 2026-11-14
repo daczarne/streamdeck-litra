@@ -42,6 +42,20 @@
         --number-field-width: 60px;
       }
 
+      /* That a group that turns its lamps off leaves their temperature and brightness as they are, on the last line of
+        its row, as wide as its three controls together, centered, in the Alert red and the weight of the plugin
+        settings' "No lamps found". Its width of 0 keeps its text from widening the row's columns, and its minimum width
+        then fills the three, so it wraps within them. */
+      .off-note {
+        grid-column: 1 / -1;
+        width: 0;
+        min-width: 100%;
+        margin: 0;
+        color: #ff6b6b;
+        font-weight: 600;
+        text-align: center;
+      }
+
       /* The groups' headings, as the plugin settings draw their sections. Outside sdpi-components' rows, so in its font
         and text color, written out. */
       .group-heading {
@@ -77,8 +91,9 @@
       (#146). -->
     <div id="plugin-settings"></div>
     <!-- The scene's first group, the key's own settings (#174): whether it turns its lamps on or off, and the presets it
-      turns them on at, the same as the Temperature and Brightness keys', which scene-groups.js greys out while it turns
-      them off, on one row. Its heading shows only once a group is added. -->
+      turns them on at, the same as the Temperature and Brightness keys', on one row. While it turns them off,
+      scene-groups.js greys out its presets, which then show a dash, and shows the note under the row's controls. Its heading shows
+      only once a group is added. -->
     <h2 id="first-group-heading" class="group-heading" hidden>Group 1</h2>
     <div class="scene-row">
       <span>Power</span>
@@ -103,6 +118,9 @@
         default="0"
         unit="%"
       ></litra-number>
+      <p id="first-group-off-note" class="off-note" hidden>
+        Temperature and Brightness aren't applied while Power is off
+      </p>
     </div>
     <!-- The lamps the key acts on, which lamp-picker.js lists and saves (#20), and whether lamps added later
       join them, which plugin-settings.js shows and saves (#147). -->
