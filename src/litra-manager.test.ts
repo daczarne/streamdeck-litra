@@ -1717,6 +1717,37 @@ describe("a lamp going back to its cap (#55)", () => {
     expect(plugged.writes("brightness")).toEqual([lumenAt(percentage), lumenAt(30)]);
     await settled(both);
   });
+
+  it("makes a change to a lamp wait for no other lamp's cap", async () => {
+    const [capped, other] = [newLamp({ capInLumen: 244 }), newLamp()];
+    connect(capped, other);
+
+    const both = Promise.all([
+      manager.setLampsBrightness([idOf(capped)], 100),
+      manager.setLampsBrightness([idOf(other)], 30),
+    ]);
+    await vi.advanceTimersByTimeAsync(250);
+
+    expect(other.writes("brightness")).toEqual([lumenAt(30)]);
+    await settled(both);
+  });
+
+  it("makes a scene wait for no lamp it turns off", async () => {
+    const [capped, other] = [newLamp({ capInLumen: 244 }), newLamp()];
+    connect(capped, other);
+
+    const both = Promise.all([
+      manager.setLampsBrightness([idOf(capped)], 100),
+      manager.setLampsScene([
+        { lamps: [idOf(capped)], on: false, percentage: 0, kelvin: 2700 },
+        { lamps: [idOf(other)], on: true, percentage: 30, kelvin: 2700 },
+      ]),
+    ]);
+    await vi.advanceTimersByTimeAsync(250);
+
+    expect([capped.on, other.writes("brightness")]).toEqual([false, [lumenAt(30)]]);
+    await settled(both);
+  });
 });
 
 describe("what the dials and step keys show of the brightness, from the Lamps the operations leave (#198)", () => {

@@ -20,8 +20,9 @@ A Brightness key whose preset is 100%, set to act on every lamp, with 3 Beams an
 ```text
 Deck key ─► Stream Deck app ─► WebSocket ─► SDK ─► BrightnessAction.onKeyDown
   └► PresetKey.keyDown ─► setLampsBrightness("all", 100)
-       └► wait for the operations queued before it, and for any cap that may still come back
+       └► wait for the operations queued before it
        └► openLamps: find the 4 lamps over HID, ask the LX for its serial, sort by id, reach each Lamp
+       └► wait for any of the 4 whose cap may still come back
        └► turn each lamp on, even one already on (one back at another setting, like the LX, gets it put back)
        └► write 400 lm to all 4, one after another
        └► sleep 250 ms
@@ -42,7 +43,7 @@ Deck key ─► Stream Deck app ─► WebSocket ─► SDK ─► BrightnessAct
 
 [`setLampsBrightness`][set-lamps-brightness] runs the change through [`oneOperationAtATime`][one-at-a-time], a promise chain that every operation on the lamps goes through. Any operation still running is waited for, such as a dial turn, a Power key's press or a blink: an operation holds the lamps open until it's done, and a lamp already open can't be opened again. A brightness change holds them while they settle, and its read-back would also take a later change's lower write for a cap. The `.finally(announceLampsChanged)` attached there is what tells the Deck at the end, whether the change worked or not.
 
-[`waitForCapReversal`][wait-for-cap-reversal] then waits, when a lamp learned a cap less than 1.5 s ago (`BRIGHTNESS_CAP_REVERSAL_WINDOW_MS`), until that window is over: until then, the lamp can still jump back to its cap and undo a lower value written in between.
+Once the lamps are open (see [3](#3-finding-and-opening-the-lamps)), [`waitForCapReversal`][wait-for-cap-reversal] waits, when one of them learned a cap less than 1.5 s ago (`BRIGHTNESS_CAP_REVERSAL_WINDOW_MS`), until that window is over: until then, the lamp can still jump back to its cap and undo a lower value written in between. A lamp the change doesn't send a brightness to isn't waited for, since its going back to its cap undoes nothing the change sends.
 
 ## 3. Finding and opening the lamps
 
@@ -108,7 +109,7 @@ Each one reads through [src/actions/shown.ts], which first awaits `lampsSettled(
 
 ## Timing
 
-A press normally takes about 250 ms plus a few ms for each HID round trip: 8 writes and 16 reads, since each of the 4 lamps has its power and its brightness written, its power, brightness and temperature read as it's turned on, and its brightness read once it has settled, and the LX's two requests for its serial number. It takes longer when another operation is still running, right after a cap was learned (up to 1.5 s), or when a lamp has to be put back.
+A press normally takes about 250 ms plus a few ms for each HID round trip: 8 writes and 16 reads, since each of the 4 lamps has its power and its brightness written, its power, brightness and temperature read as it's turned on, and its brightness read once it has settled, and the LX's two requests for its serial number. It takes longer when another operation is still running, right after one of its lamps learned a cap (up to 1.5 s), or when a lamp has to be put back.
 
 Almost all of the HID work is synchronous, so it holds the plugin's event loop, except the 250 ms settle and the wait for a cap's window.
 
