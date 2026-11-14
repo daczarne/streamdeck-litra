@@ -58,10 +58,8 @@ const logger = pluginLogger.createScope("Lamps");
 // A capped lamp applies its cap within about 100 ms of a write, and until then reports the brightness it was sent.
 const BRIGHTNESS_SETTLE_MS = 250;
 
-/**
- * The last brightness change, or blink, queued by {@link oneBrightnessChangeAtATime}, which the next one waits for.
- */
-let brightnessChanges: Promise<unknown> = Promise.resolve();
+/** The last operation queued by {@link oneOperationAtATime}, which the next one waits for. */
+let operations: Promise<unknown> = Promise.resolve();
 
 const lampsChangedListeners: Array<() => void | Promise<void>> = [];
 const connectedListeners: Array<(ids: string[]) => void | Promise<void>> = [];
@@ -125,12 +123,6 @@ function callListeners<A extends unknown[]>(
  */
 function announceLampsChanged(): void {
   callListeners(lampsChangedListeners, "Lamps changed");
-}
-
-/** Announces that the lamps changed, and passes on the result of the operation that changed them. */
-function announced<T>(result: T): T {
-  announceLampsChanged();
-  return result;
 }
 
 /**
@@ -474,33 +466,35 @@ export function forEachLamp(
  * Reaches every lamp the plugin knows that's connected, which marks each one connected or not, and reads one reached
  * for the first time or plugged in again (#198), so the plugin holds the lamps as they are: as it starts, when Find
  * lamps adds lamps, and on a tap on a dial's strip, which then never shows a lamp unplugged since the last operation
- * (#48). Waits for the brightness change in progress, if any, which holds the lamps open until it has read them back.
- * Tells every key and dial once it's done, since a lamp read, or found unplugged or plugged in, changes what they
+ * (#48). Tells every key and dial once it's done, since a lamp read, or found unplugged or plugged in, changes what they
  * show.
  */
-export async function reachEveryLamp(operation: string): Promise<OperationResult> {
-  await lampsSettled();
-  return announced(forEachLamp(operation, () => {}, "all"));
+export function reachEveryLamp(operation: string): Promise<OperationResult> {
+  return queuedAndAnnounced(() => forEachLamp(operation, () => {}, "all"));
 }
 
 /**
- * Waits for the brightness change in progress, if any, so that what the keys and dials show of the lamps is where it
- * leaves them, not partway (see `src/actions/shown.ts`).
+ * Waits for the operations queued, if any, so that what the keys and dials show of the lamps is where they leave them,
+ * not partway (see `src/actions/shown.ts`).
  */
 export async function lampsSettled(): Promise<void> {
-  await brightnessChanges;
+  await operations;
 }
 
 /** Turns the selected lamps on. */
-export function turnLampsOn(lamps: LampSelection): OperationResult {
+export function turnLampsOn(lamps: LampSelection): Promise<OperationResult> {
   const operation = "turn on";
-  return announced(forEachLamp(operation, ({ lamp, handle }) => lamp.setPower(operation, handle, true), lamps));
+  return queuedAndAnnounced(() =>
+    forEachLamp(operation, ({ lamp, handle }) => lamp.setPower(operation, handle, true), lamps),
+  );
 }
 
 /** Turns the selected lamps off. */
-export function turnLampsOff(lamps: LampSelection): OperationResult {
+export function turnLampsOff(lamps: LampSelection): Promise<OperationResult> {
   const operation = "turn off";
-  return announced(forEachLamp(operation, ({ lamp, handle }) => lamp.setPower(operation, handle, false), lamps));
+  return queuedAndAnnounced(() =>
+    forEachLamp(operation, ({ lamp, handle }) => lamp.setPower(operation, handle, false), lamps),
+  );
 }
 
 /**
@@ -508,36 +502,32 @@ export function turnLampsOff(lamps: LampSelection): OperationResult {
  * up in sync (#23). That's the opposite of what {@link areLampsOn} reports, which the Power key shows. A lamp that
  * couldn't be reached, or told apart, counts as off.
  */
-export function toggleLamps(lamps: LampSelection): OperationResult {
+export function toggleLamps(lamps: LampSelection): Promise<OperationResult> {
   const operation = "toggle";
-  const opened = openLamps(operation, [{ lamps }]);
-  if (opened === undefined) {
-    return announced(NO_LAMP);
-  }
-  try {
-    const allOn =
-      opened.lamps.every(({ lamp }) => stateOf(lamp).on) && opened.failures === 0 && opened.unidentified === 0;
-    for (const { lamp, handle } of opened.lamps) {
-      opened.attempt(lamp, () => lamp.setPower(operation, handle, !allOn));
+  return queuedAndAnnounced(() => {
+    const opened = openLamps(operation, [{ lamps }]);
+    if (opened === undefined) {
+      return NO_LAMP;
     }
-    return announced(opened.outcome());
-  } finally {
-    opened.close();
-  }
+    try {
+      const allOn =
+        opened.lamps.every(({ lamp }) => stateOf(lamp).on) && opened.failures === 0 && opened.unidentified === 0;
+      for (const { lamp, handle } of opened.lamps) {
+        opened.attempt(lamp, () => lamp.setPower(operation, handle, !allOn));
+      }
+      return opened.outcome();
+    } finally {
+      opened.close();
+    }
+  });
 }
 
 /**
  * Sets the selected lamps to the percentage, as {@link moveLampsBrightness} does. A lamp at its cap stays there, which
  * its `Lamp` holds.
  */
-export function setLampsBrightness(
-  lamps: LampSelection,
-  percentage: number,
-  settleMs = BRIGHTNESS_SETTLE_MS,
-): Promise<OperationResult> {
-  return oneBrightnessChangeAtATime(() => moveLampsBrightness("set brightness", lamps, percentage, settleMs)).finally(
-    announceLampsChanged,
-  );
+export function setLampsBrightness(lamps: LampSelection, percentage: number): Promise<OperationResult> {
+  return queuedAndAnnounced(() => moveLampsBrightness("set brightness", lamps, percentage));
 }
 
 /**
@@ -550,11 +540,10 @@ export function adjustLampsBrightness(
   ticks: number,
   stepPercentage: number,
   stepping: Stepping = "together",
-  settleMs = BRIGHTNESS_SETTLE_MS,
 ): Promise<OperationResult> {
-  return oneBrightnessChangeAtATime(() =>
-    moveLampsBrightness("adjust brightness", lamps, { stepping, ticks, step: stepPercentage }, settleMs),
-  ).finally(announceLampsChanged);
+  return queuedAndAnnounced(() =>
+    moveLampsBrightness("adjust brightness", lamps, { stepping, ticks, step: stepPercentage }),
+  );
 }
 
 /**
@@ -562,22 +551,31 @@ export function adjustLampsBrightness(
  * once, so everything the Deck shows follows the whole scene at once. A lamp two groups select takes the first one's
  * part.
  */
-export function setLampsScene(
-  groups: readonly SceneGroup[],
-  settleMs = BRIGHTNESS_SETTLE_MS,
-): Promise<OperationResult> {
-  return oneBrightnessChangeAtATime(() => setScene(groups, settleMs)).finally(announceLampsChanged);
+export function setLampsScene(groups: readonly SceneGroup[]): Promise<OperationResult> {
+  return queuedAndAnnounced(() => setScene(groups));
 }
 
 /**
- * Runs brightness changes one at a time, in the order they were asked for. A change holds the lamps open while they
- * settle, and its read-back would take a later change's lower write for a cap. {@link identifyLamp} goes through it
- * too, since it holds a lamp open during its blink.
+ * Runs the operations that open the lamps one at a time, in the order they were asked for. An operation holds its
+ * lamps open until it's done, which for a brightness change includes waiting for them to settle, or for a lamp that can
+ * still go back to its cap, and for a blink its length, and a lamp already open can't be opened again: an operation
+ * that overlapped another would find no lamp, and take every one for unplugged. Brightness changes also mustn't
+ * overlap each other, since a change's read-back would take a later change's lower write for a cap. And an operation
+ * that waited for its turn would otherwise run after one asked for later, such as a turn down after a Power key's off,
+ * which it would undo.
  */
-function oneBrightnessChangeAtATime(change: () => Promise<OperationResult>): Promise<OperationResult> {
-  const result = brightnessChanges.then(change);
-  brightnessChanges = result.catch(() => undefined);
+function oneOperationAtATime<T>(operation: () => T | Promise<T>): Promise<T> {
+  const result = operations.then(operation);
+  operations = result.catch(() => undefined);
   return result;
+}
+
+/**
+ * Runs an operation after the ones before it, as {@link oneOperationAtATime} does, then tells every key and dial,
+ * whether it succeeded or failed.
+ */
+function queuedAndAnnounced(operation: () => OperationResult | Promise<OperationResult>): Promise<OperationResult> {
+  return oneOperationAtATime(operation).finally(announceLampsChanged);
 }
 
 /**
@@ -602,7 +600,6 @@ async function sendBrightness(
   operation: string,
   targets: ReadonlyMap<OpenedLamp<unknown>, BrightnessSent>,
   attempt: (lamp: Lamp, step: () => void) => void,
-  settleMs: number,
 ): Promise<void> {
   const sent = new Map<OpenedLamp<unknown>, number>();
   const sentAt = Date.now();
@@ -613,7 +610,7 @@ async function sendBrightness(
         sent.set(reached, lamp.sendBrightness(operation, handle, percentage, asked));
       });
     }
-    await new Promise((resolve) => setTimeout(resolve, settleMs));
+    await new Promise((resolve) => setTimeout(resolve, BRIGHTNESS_SETTLE_MS));
   }
   for (const [{ lamp, handle }, lumen] of sent) {
     attempt(lamp, () => lamp.readBackBrightness(operation, handle, lumen, sentAt));
@@ -625,9 +622,9 @@ async function sendBrightness(
  * its lamps on, sets their temperature, snapped to one each lamp allows, then their brightness, as
  * {@link sendBrightness} sends it, caps included. Like {@link moveLampsBrightness}, it waits for a lamp that can still
  * go back to its cap, and holds the lamps open until it has read them back, so it goes through
- * {@link oneBrightnessChangeAtATime}.
+ * {@link oneOperationAtATime}.
  */
-async function setScene(groups: readonly SceneGroup[], settleMs: number): Promise<OperationResult> {
+async function setScene(groups: readonly SceneGroup[]): Promise<OperationResult> {
   const operation = "set scene";
   await waitForCapReversal(operation);
 
@@ -649,7 +646,7 @@ async function setScene(groups: readonly SceneGroup[], settleMs: number): Promis
         targets.set(reached, { percentage: group.percentage });
       });
     }
-    await sendBrightness(operation, targets, opened.attempt, settleMs);
+    await sendBrightness(operation, targets, opened.attempt);
     return opened.outcome();
   } finally {
     opened.close();
@@ -661,14 +658,9 @@ async function setScene(groups: readonly SceneGroup[], settleMs: number): Promis
  * brightest selected lamp's percentage or from each lamp's own, as the plugin holds them. Each lamp is sent the target
  * as {@link sendBrightness} sends it, caps included. Right after a lamp's cap is learned, the next change waits until
  * the lamp can no longer go back to its cap. The lamps stay open from the first step to the last, so calls mustn't
- * overlap: they go through {@link oneBrightnessChangeAtATime}.
+ * overlap: they go through {@link oneOperationAtATime}.
  */
-async function moveLampsBrightness(
-  operation: string,
-  lamps: LampSelection,
-  target: Target,
-  settleMs: number,
-): Promise<OperationResult> {
+async function moveLampsBrightness(operation: string, lamps: LampSelection, target: Target): Promise<OperationResult> {
   await waitForCapReversal(operation);
 
   const opened = openLamps(operation, [{ lamps }]);
@@ -718,7 +710,7 @@ async function moveLampsBrightness(
       }
     }
 
-    await sendBrightness(operation, targets, opened.attempt, settleMs);
+    await sendBrightness(operation, targets, opened.attempt);
     return opened.outcome();
   } finally {
     opened.close();
@@ -729,20 +721,19 @@ async function moveLampsBrightness(
  * Lists the connected lamps, the ones the plugin doesn't know included, in the order of their ids, as the lamp screens
  * list them (#20), each with what the keys' lamp pickers and the plugin settings show of it (#146). The plugin adds
  * them to the lamps it knows when it starts knowing none, and when Find lamps asks (#194). Lists none when finding them
- * fails.
- *
- * It doesn't wait for a brightness change in progress: finding a lamp only reads its model and serial number, from its
- * USB descriptor, or by asking a Beam LX for its serial (#170), and nothing that a change sets.
+ * fails. It opens every lamp, so it takes its turn after the operations before it.
  */
-export function findLamps(): FoundLamp[] {
-  const { connections } = findConnections("find lamps");
-  try {
-    return connections.map(({ id, model, label }) => ({ id, model, label }));
-  } finally {
-    for (const connection of connections) {
-      connection.close();
+export function findLamps(): Promise<FoundLamp[]> {
+  return oneOperationAtATime(() => {
+    const { connections } = findConnections("find lamps");
+    try {
+      return connections.map(({ id, model, label }) => ({ id, model, label }));
+    } finally {
+      for (const connection of connections) {
+        connection.close();
+      }
     }
-  }
+  });
 }
 
 /**
@@ -753,7 +744,7 @@ export function findLamps(): FoundLamp[] {
  * didn't changes nothing they show.
  */
 export async function identifyLamp(id: string, blinkMs: number): Promise<OperationResult> {
-  const result = await oneBrightnessChangeAtATime(async () => {
+  const result = await oneOperationAtATime(async () => {
     const operation = "identify";
     const opened = openLamps(operation, [{ lamps: [id] }]);
     if (opened === undefined) {
@@ -773,12 +764,15 @@ export async function identifyLamp(id: string, blinkMs: number): Promise<Operati
       opened.close();
     }
   });
-  return result.ok ? result : announced(result);
+  if (!result.ok) {
+    announceLampsChanged();
+  }
+  return result;
 }
 
 /** Sets the selected lamps to the allowed temperature nearest to `kelvin`. */
-export function setLampsTemperature(lamps: LampSelection, kelvin: number): OperationResult {
-  return announced(moveLampsTemperature("set temperature", lamps, kelvin));
+export function setLampsTemperature(lamps: LampSelection, kelvin: number): Promise<OperationResult> {
+  return queuedAndAnnounced(() => moveLampsTemperature("set temperature", lamps, kelvin));
 }
 
 /**
@@ -790,8 +784,10 @@ export function adjustLampsTemperature(
   ticks: number,
   stepKelvin: number,
   stepping: Stepping = "together",
-): OperationResult {
-  return announced(moveLampsTemperature("adjust temperature", lamps, { stepping, ticks, step: stepKelvin }));
+): Promise<OperationResult> {
+  return queuedAndAnnounced(() =>
+    moveLampsTemperature("adjust temperature", lamps, { stepping, ticks, step: stepKelvin }),
+  );
 }
 
 /**

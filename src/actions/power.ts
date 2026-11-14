@@ -62,13 +62,18 @@ class PowerKey extends ActionInstance<Parsed<typeof powerSettings>, KeyAction<Js
    * When a lamp fails, the key's alert waits for that redraw (#132): a state set right after an alert covers it, while
    * an alert shown after the state stays. Every operation sends the notice, the failed ones included.
    */
-  override keyDown(): void {
+  override async keyDown(): Promise<void> {
     const { mode } = this.config;
     const lamps = this.lamps();
     logger.info(`Key pressed: ${mode}, on ${describeLamps(lamps)}`);
-    const result = mode === "on" ? turnLampsOn(lamps) : mode === "off" ? turnLampsOff(lamps) : toggleLamps(lamps);
+    const result = await (mode === "on"
+      ? turnLampsOn(lamps)
+      : mode === "off"
+        ? turnLampsOff(lamps)
+        : toggleLamps(lamps));
 
-    // Before the notice, which litra-manager sends once the operation has returned.
+    // Before the key redraws: litra-manager sends the notice once the operation is done, and the redraw first waits for
+    // the operations queued.
     if (!result.ok) {
       this.owesAlert = true;
     }

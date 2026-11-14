@@ -7,7 +7,7 @@ import { type LampSelection, selects } from "./lamp-selection";
  * lamps' state, so showing a lamp reads nothing. Every function takes the `Lamp`s of the lamps the plugin knows, and
  * shows the ones a selection takes in among those the last operation found and that the plugin holds a state of, in the
  * order of their ids. It holds no state of its own: the keys and dials read it through `src/actions/shown.ts`, which
- * hands it the lamps once a brightness change in progress has left them where it goes.
+ * hands it the lamps once the operations queued have left them where they go.
  */
 
 /** A lamp's temperature as a dial shows it: in kelvin, and as its place between the lowest and the highest. */

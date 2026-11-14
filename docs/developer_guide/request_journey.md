@@ -20,7 +20,7 @@ A Brightness key whose preset is 100%, set to act on every lamp, with 3 Beams an
 ```text
 Deck key ─► Stream Deck app ─► WebSocket ─► SDK ─► BrightnessAction.onKeyDown
   └► PresetKey.keyDown ─► setLampsBrightness("all", 100)
-       └► wait for the brightness queue, and for any cap that may still come back
+       └► wait for the operations queued before it, and for any cap that may still come back
        └► openLamps: find the 4 lamps over HID, ask the LX for its serial, sort by id, reach each Lamp
        └► turn each lamp on, even one already on (one back at another setting, like the LX, gets it put back)
        └► write 400 lm to all 4, one after another
@@ -40,7 +40,7 @@ Deck key ─► Stream Deck app ─► WebSocket ─► SDK ─► BrightnessAct
 
 ## 2. Queueing and waiting
 
-[`setLampsBrightness`][set-lamps-brightness] runs the change through [`oneBrightnessChangeAtATime`][one-at-a-time], a promise chain. A dial turn, scene or blink still running is waited for: a change holds the lamps open while they settle, and its read-back would take a later change's lower write for a cap. The `.finally(announceLampsChanged)` attached there is what tells the Deck at the end, whether the change worked or not.
+[`setLampsBrightness`][set-lamps-brightness] runs the change through [`oneOperationAtATime`][one-at-a-time], a promise chain that every operation on the lamps goes through. Any operation still running is waited for, such as a dial turn, a Power key's press or a blink: an operation holds the lamps open until it's done, and a lamp already open can't be opened again. A brightness change holds them while they settle, and its read-back would also take a later change's lower write for a cap. The `.finally(announceLampsChanged)` attached there is what tells the Deck at the end, whether the change worked or not.
 
 [`waitForCapReversal`][wait-for-cap-reversal] then waits, when a lamp learned a cap less than 1.5 s ago (`BRIGHTNESS_CAP_REVERSAL_WINDOW_MS`), until that window is over: until then, the lamp can still jump back to its cap and undo a lower value written in between.
 
@@ -104,7 +104,7 @@ For each lamp, [`readBackBrightness`][read-back-brightness]:
 | Brightness and Temperature Up and Down keys | Their title, from the lamps' new values | [step-keys.ts][step-key-lamps-changed] |
 | Brightness, Temperature and Scene keys | Nothing | `ActionInstance`'s default |
 
-Each one reads through [src/actions/shown.ts], which first awaits `lampsSettled()` (the brightness queue, so the Deck never shows a change halfway), then works out what to show from the `Lamp`s' held state, in [src/lamps-shown.ts]. No lamp is read to redraw the Deck. `setState`, `setFeedback` and `setTitle` go back over the WebSocket, and Stream Deck draws them on the Deck.
+Each one reads through [src/actions/shown.ts], which first awaits `lampsSettled()` (the queue of operations, so the Deck never shows a change halfway), then works out what to show from the `Lamp`s' held state, in [src/lamps-shown.ts]. No lamp is read to redraw the Deck. `setState`, `setFeedback` and `setTitle` go back over the WebSocket, and Stream Deck draws them on the Deck.
 
 ## Timing
 

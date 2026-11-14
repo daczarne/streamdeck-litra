@@ -62,7 +62,7 @@ beforeEach(() => {
   vi.mocked(readLampsBrightness).mockResolvedValue(AT_THEIR_CAPS);
   vi.mocked(readLampsTemperature).mockResolvedValue(AT_4000_K);
   vi.mocked(adjustLampsBrightness).mockResolvedValue(DONE);
-  vi.mocked(adjustLampsTemperature).mockReturnValue(DONE);
+  vi.mocked(adjustLampsTemperature).mockResolvedValue(DONE);
   const actions = [
     new BrightnessUpAction(),
     new BrightnessDownAction(),
@@ -156,7 +156,7 @@ describe("the step keys", () => {
     ])("shows an alert on the key pressed when %s", async (_when, result) => {
       const pressed = await deck.key(TEMPERATURE_UP);
       const other = await deck.key(TEMPERATURE_UP);
-      vi.mocked(adjustLampsTemperature).mockReturnValue(result);
+      vi.mocked(adjustLampsTemperature).mockResolvedValue(result);
 
       await deck.press(pressed);
 

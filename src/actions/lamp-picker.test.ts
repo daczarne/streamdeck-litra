@@ -49,7 +49,7 @@ const LAMPS = [
 
 beforeEach(() => {
   ui.sendToPropertyInspector.mockResolvedValue();
-  vi.mocked(findLamps).mockReturnValue(LAMPS);
+  vi.mocked(findLamps).mockResolvedValue(LAMPS);
   vi.mocked(identifyLamp).mockResolvedValue({ ok: true, lampCount: 1, failures: 0 });
 });
 
@@ -82,7 +82,7 @@ describe("the lamp picker's answers (#20)", () => {
   });
 
   it("send an empty list when no lamp is connected", async () => {
-    vi.mocked(findLamps).mockReturnValue([]);
+    vi.mocked(findLamps).mockResolvedValue([]);
 
     await answer({ event: "lamps" });
 

@@ -65,7 +65,7 @@ Before the first line of `plugin.ts` runs, every module it imports is evaluated,
 - **The SDK's `Connection`** (`connection.js`) is created, not yet connected. Its `connection` promise is pending, so anything sent before the WebSocket opens waits for it.
 - **`litra`** imports `node-hid`, which loads its native binary from the plugin folder's `node_modules/`. A missing file there stops the plugin at this point.
 - **[src/logging.ts]** creates the plugin's logger, which writes to `logs/litra.log`, rotated by size. The file is created on the first entry.
-- **[src/litra-manager.ts]** sets up its module state: no known lamps yet, an already resolved `brightnessChanges` promise (the brightness queue), and empty listener lists.
+- **[src/litra-manager.ts]** sets up its module state: no known lamps yet, an already resolved `operations` promise (the queue every operation on the lamps goes through), and empty listener lists.
 - **[src/global-settings.ts]** creates the `globalSettings` instance, holding the settings' defaults and no lamps, which saves through `streamDeck.settings.setGlobalSettings`.
 - **The action classes** are defined. `@action({ UUID })` (`actions/decorators.js`) replaces each class with a subclass that has a `manifestId` field set to the UUID, such as `com.daczarne.litra.brightness` for `BrightnessAction` ([brightness.ts]).
 
@@ -120,7 +120,7 @@ Two things arrive, and nothing in the plugin depends on which comes first.
 
 1. [`globalSettings.read`][global-settings-read] reads the settings against their schema, and builds a `Lamp` for each saved lamp, from its id, model and name, none reached yet. Then it calls its `onChanged` listeners, so every control's `globalSettingsChanged` runs.
 2. The handler `plugin.ts` chained to the read runs. If the plugin knows no lamps, as on a first start, it finds the lamps connected with `findLamps`, and saves them with `addLamps`, which sends `setGlobalSettings` (#194).
-3. [`reachEveryLamp`][reach-every-lamp] waits for any brightness change in progress, of which there's none yet, then runs the operation `start` on every known lamp. It finds and opens them, asks a Beam LX for its serial number, and reaches each `Lamp`. This is the first time each one is reached, so it **reads** the lamp's power, brightness and temperature, and holds them. It then closes the lamps and announces that the lamps changed.
+3. [`reachEveryLamp`][reach-every-lamp] runs the operation `start` on every known lamp, in its turn after any operation queued before it, of which there's none yet. It finds and opens them, asks a Beam LX for its serial number, and reaches each `Lamp`. This is the first time each one is reached, so it **reads** the lamp's power, brightness and temperature, and holds them. It then closes the lamps and announces that the lamps changed.
 4. Every action's `onLampsChanged` listener runs, and every control redraws, now with the lamps' real state: the Power key shows on or off, the dial shows the brightest lamp's percentage, the step key its title.
 
 ## 7. Ready: what the plugin holds

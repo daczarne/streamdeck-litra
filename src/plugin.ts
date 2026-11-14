@@ -50,7 +50,7 @@ settingsRead.then(
     // On a first start, the plugin knows no lamps, and takes every one connected (#194).
     if (globalSettings.lamps.size === 0) {
       logger.info("No lamps known: finding the lamps connected");
-      await globalSettings.addLamps(findLamps());
+      await globalSettings.addLamps(await findLamps());
     }
     // Reads every lamp the plugin knows that's connected, so the Deck starts out showing them as they are (#198).
     await reachEveryLamp("start");

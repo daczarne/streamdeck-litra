@@ -32,7 +32,7 @@ export async function answer(payload: JsonValue): Promise<void> {
   }
   if (payload.event === "lamps") {
     logger.info("Settings page asked for the lamps");
-    const lamps = findLamps();
+    const lamps = await findLamps();
     await globalSettings.addLamps(lamps);
     // The lamps just added are read, as when the plugin starts, so the keys and dials show them (#198).
     await reachEveryLamp("find lamps");

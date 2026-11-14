@@ -6,7 +6,7 @@ import { lampsSettled, reachEveryLamp } from "../litra-manager";
 
 /**
  * What the keys and dials show of the lamps they act on, from the `Lamp`s the global settings hold, without reading the
- * lamps (#198). Each waits for the brightness change in progress, if any, so it shows where the change leaves the
+ * lamps (#198). Each waits for the operations queued, if any, so it shows where they leave the
  * lamps, not partway (see `src/lamps-shown.ts`).
  */
 

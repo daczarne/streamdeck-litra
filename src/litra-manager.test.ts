@@ -411,11 +411,11 @@ describe("a selection of lamps (#20)", () => {
     expect(asked(other)).toEqual([]);
   });
 
-  it("toggles the selected lamp alone", () => {
+  it("toggles the selected lamp alone", async () => {
     const [selected, other] = [newLamp({ on: true }), newLamp({ on: false })];
     connect(selected, other);
 
-    expect(manager.toggleLamps([Lamp.idOf(selected.serialNumber)])).toEqual({
+    expect(await manager.toggleLamps([Lamp.idOf(selected.serialNumber)])).toEqual({
       ok: true,
       lampCount: 1,
       failures: 0,
@@ -438,31 +438,31 @@ describe("a selection of lamps (#20)", () => {
     expect([selected.writes("brightness"), other.writes("brightness")]).toEqual([[lumenAt(30)], []]);
   });
 
-  it("steps the temperature of the selected lamp alone, from its own temperature", () => {
+  it("steps the temperature of the selected lamp alone, from its own temperature", async () => {
     const [other, selected] = [newLamp({ temperatureInKelvin: 3100 }), newLamp({ temperatureInKelvin: 5000 })];
     connect(other, selected);
 
-    expect(manager.adjustLampsTemperature([Lamp.idOf(selected.serialNumber)], 1, 200)).toMatchObject({
+    expect(await manager.adjustLampsTemperature([Lamp.idOf(selected.serialNumber)], 1, 200)).toMatchObject({
       ok: true,
       lampCount: 1,
     });
     expect([selected.writes("temperature"), other.writes("temperature")]).toEqual([[5100], []]);
   });
 
-  it("fails when no selected lamp is connected, and closes the lamps it found", () => {
+  it("fails when no selected lamp is connected, and closes the lamps it found", async () => {
     const other = newLamp();
     connect(other);
 
-    expect(manager.toggleLamps(["GONE"])).toEqual({ ok: false, lampCount: 0, failures: 1 });
+    expect(await manager.toggleLamps(["GONE"])).toEqual({ ok: false, lampCount: 0, failures: 1 });
     expect(other.writes("power")).toEqual([]);
     expect(closes(other)).toBe(1);
   });
 
-  it("acts on the selected lamps that are connected when another isn't", () => {
+  it("acts on the selected lamps that are connected when another isn't", async () => {
     const selected = newLamp({ on: true });
     connect(selected);
 
-    expect(manager.toggleLamps([Lamp.idOf(selected.serialNumber), "GONE"])).toEqual({
+    expect(await manager.toggleLamps([Lamp.idOf(selected.serialNumber), "GONE"])).toEqual({
       ok: true,
       lampCount: 1,
       failures: 0,
@@ -472,12 +472,12 @@ describe("a selection of lamps (#20)", () => {
 });
 
 describe("the lamps connected (#198)", () => {
-  it("are the lamps the plugin knows that the last operation found", () => {
+  it("are the lamps the plugin knows that the last operation found", async () => {
     const [first, second] = [newLamp(), newLamp()];
     connect(first, second);
     hid.connect(first);
 
-    manager.turnLampsOn("all");
+    await manager.turnLampsOn("all");
 
     expect(manager.connectedLamps()).toEqual([idOf(first)]);
   });
@@ -489,23 +489,23 @@ describe("the lamps connected (#198)", () => {
     manager.onConnectedChanged(listener);
 
     hid.connect(first);
-    manager.turnLampsOn("all");
+    await manager.turnLampsOn("all");
     await vi.waitFor(() => expect(listener).toHaveBeenCalledOnce());
     hid.connect(first, second);
-    manager.turnLampsOn("all");
+    await manager.turnLampsOn("all");
     await vi.waitFor(() => expect(listener).toHaveBeenCalledTimes(2));
 
     expect(listener.mock.calls).toEqual([[[idOf(first)]], [[idOf(first), idOf(second)]]]);
   });
 
-  it("are logged as an operation finds a lamp unplugged, and plugged back in", () => {
+  it("are logged as an operation finds a lamp unplugged, and plugged back in", async () => {
     const [first, second] = [newLamp(), newLamp()];
     connect(first, second);
 
     hid.connect(first);
-    manager.turnLampsOn("all");
+    await manager.turnLampsOn("all");
     hid.connect(first, second);
-    manager.turnLampsOff("all");
+    await manager.turnLampsOff("all");
 
     const label = labelOf(second);
     const found = logger.info.mock.calls
@@ -519,8 +519,8 @@ describe("the lamps connected (#198)", () => {
     const listener = vi.fn();
     manager.onConnectedChanged(listener);
 
-    manager.turnLampsOn("all");
-    manager.turnLampsOff("all");
+    await manager.turnLampsOn("all");
+    await manager.turnLampsOff("all");
     await vi.runAllTimersAsync();
 
     expect(listener).not.toHaveBeenCalled();
@@ -534,41 +534,41 @@ describe("the lamps the plugin knows (#194)", () => {
     knowOnly(knownLamps.map(identityOf));
   }
 
-  it("are the only ones an operation on every lamp acts on, and the others are closed unused", () => {
+  it("are the only ones an operation on every lamp acts on, and the others are closed unused", async () => {
     const [known, unknown] = [newLamp({ on: true }), newLamp({ on: true })];
     connectKnowing([known], unknown, known);
 
-    expect(manager.turnLampsOff("all")).toEqual({ ok: true, lampCount: 1, failures: 0 });
+    expect(await manager.turnLampsOff("all")).toEqual({ ok: true, lampCount: 1, failures: 0 });
     expect([known.on, unknown.on]).toEqual([false, true]);
     expect(asked(unknown)).toEqual([]);
     expect([closes(known), closes(unknown)]).toEqual([1, 1]);
   });
 
-  it("are the only ones every lamp but the left out ones takes in (#147)", () => {
+  it("are the only ones every lamp but the left out ones takes in (#147)", async () => {
     const [known, leftOut, unknown] = [newLamp({ on: true }), newLamp({ on: true }), newLamp({ on: true })];
     connectKnowing([known, leftOut], known, leftOut, unknown);
 
-    manager.turnLampsOff({ except: [Lamp.idOf(leftOut.serialNumber)] });
+    await manager.turnLampsOff({ except: [Lamp.idOf(leftOut.serialNumber)] });
 
     expect([known.on, leftOut.on, unknown.on]).toEqual([false, true, true]);
   });
 
-  it("leave alone a lamp selected by id that the plugin doesn't know, and log it", () => {
+  it("leave alone a lamp selected by id that the plugin doesn't know, and log it", async () => {
     const [known, unknown] = [newLamp({ on: true }), newLamp({ on: true })];
     connectKnowing([known], known, unknown);
     const unknownId = Lamp.idOf(unknown.serialNumber);
 
-    manager.turnLampsOff([Lamp.idOf(known.serialNumber), unknownId]);
+    await manager.turnLampsOff([Lamp.idOf(known.serialNumber), unknownId]);
 
     expect([known.on, unknown.on]).toEqual([false, true]);
     expect(logger.warn).toHaveBeenCalledExactlyOnceWith(`turn off: lamp ${unknownId} isn't one of the plugin's lamps`);
   });
 
-  it("make an operation on every lamp but some fail, and log it, when every lamp connected is left out (#147)", () => {
+  it("make an operation on every lamp but some fail, and log it, when every lamp connected is left out (#147)", async () => {
     const [first, second] = [newLamp({ on: true }), newLamp({ on: true })];
     connectKnowing([first, second], first, second);
 
-    const result = manager.turnLampsOff({
+    const result = await manager.turnLampsOff({
       except: [idOf(first), idOf(second)],
     });
 
@@ -597,11 +597,11 @@ describe("the lamps the plugin knows (#194)", () => {
     expect(lamps.map(({ id }) => id)).toEqual([idOf(known)]);
   });
 
-  it("make an operation fail, and log it, when none of the lamps connected is one of them", () => {
+  it("make an operation fail, and log it, when none of the lamps connected is one of them", async () => {
     const unknown = newLamp({ on: true });
     connectKnowing([], unknown);
 
-    expect(manager.turnLampsOff("all")).toEqual({ ok: false, lampCount: 0, failures: 1 });
+    expect(await manager.turnLampsOff("all")).toEqual({ ok: false, lampCount: 0, failures: 1 });
     expect(unknown.on).toBe(true);
     expect(closes(unknown)).toBe(1);
     expect(logger.warn).toHaveBeenCalledExactlyOnceWith(
@@ -609,19 +609,19 @@ describe("the lamps the plugin knows (#194)", () => {
     );
   });
 
-  it("are none until they're set, so nothing is acted on before the global settings are read", () => {
+  it("are none until they're set, so nothing is acted on before the global settings are read", async () => {
     const lamp = newLamp({ on: true });
     hid.connect(lamp);
 
-    expect(manager.turnLampsOff("all")).toMatchObject({ ok: false, lampCount: 0 });
+    expect(await manager.turnLampsOff("all")).toMatchObject({ ok: false, lampCount: 0 });
     expect(lamp.on).toBe(true);
   });
 
-  it("don't limit finding the lamps, which lists the ones the plugin doesn't know too", () => {
+  it("don't limit finding the lamps, which lists the ones the plugin doesn't know too", async () => {
     const [known, unknown] = [newLamp(), newLamp()];
     connectKnowing([known], known, unknown);
 
-    expect(manager.findLamps().map(({ id }) => id)).toEqual([idOf(known), idOf(unknown)]);
+    expect((await manager.findLamps()).map(({ id }) => id)).toEqual([idOf(known), idOf(unknown)]);
   });
 });
 
@@ -629,11 +629,11 @@ describe.each([
   ["turnLampsOn", () => manager.turnLampsOn("all"), false, 1],
   ["turnLampsOff", () => manager.turnLampsOff("all"), true, 0],
 ])("%s", (_name, broadcast, on, written) => {
-  it("sends the command to every lamp, then drains its ACK", () => {
+  it("sends the command to every lamp, then drains its ACK", async () => {
     const pair = [newLamp({ on }), newLamp({ on })];
     connect(...pair);
 
-    expect(broadcast()).toEqual({ ok: true, lampCount: 2, failures: 0 });
+    expect(await broadcast()).toEqual({ ok: true, lampCount: 2, failures: 0 });
     expect(pair.map((lamp) => lamp.writes("power"))).toEqual([[written], [written]]);
     expect(pair.map((lamp) => lamp.on)).toEqual([!on, !on]);
     expect(pair.map(drained)).toEqual([["power"], ["power"]]);
@@ -642,20 +642,20 @@ describe.each([
     }
   });
 
-  it("succeeds when there is no ACK to drain", () => {
+  it("succeeds when there is no ACK to drain", async () => {
     const lamp = newLamp({ on });
     lamp.fail("readTimeout");
     connect(lamp);
 
-    expect(broadcast()).toEqual({ ok: true, lampCount: 1, failures: 0 });
+    expect(await broadcast()).toEqual({ ok: true, lampCount: 1, failures: 0 });
   });
 
-  it("reports a lamp that fails", () => {
+  it("reports a lamp that fails", async () => {
     const first = newLamp({ on });
     first.failWrites("power");
     connect(first, newLamp({ on }));
 
-    expect(broadcast()).toEqual({ ok: false, lampCount: 2, failures: 1 });
+    expect(await broadcast()).toEqual({ ok: false, lampCount: 2, failures: 1 });
   });
 });
 
@@ -665,23 +665,23 @@ describe("a lamp without a serial number in its USB descriptor (#170)", () => {
     return new EmulatedLitra("Beam LX", { on: false });
   }
 
-  it("is told apart by the serial number it keeps, which it's asked for", () => {
+  it("is told apart by the serial number it keeps, which it's asked for", async () => {
     const [first, second] = [beamLx(), beamLx()];
     connect(second, first);
 
     expect([first.info.serialNumber, second.info.serialNumber]).toEqual(["", ""]);
-    expect(manager.findLamps().map(({ id }) => id)).toEqual([idOf(first), idOf(second)]);
+    expect((await manager.findLamps()).map(({ id }) => id)).toEqual([idOf(first), idOf(second)]);
 
-    manager.turnLampsOn([idOf(second)]);
+    await manager.turnLampsOn([idOf(second)]);
 
     expect([first.on, second.on]).toEqual([false, true]);
   });
 
-  it("is asked through Root for the index of Device Information, then for its serial number there", () => {
+  it("is asked through Root for the index of Device Information, then for its serial number there", async () => {
     const lamp = beamLx();
     connect(lamp);
 
-    manager.turnLampsOn("all");
+    await manager.turnLampsOn("all");
 
     expect(lamp.written.slice(0, 2)).toEqual([
       [0x11, 0xff, 0x00, 0x01, 0x00, 0x03, ...Array(14).fill(0)],
@@ -690,11 +690,11 @@ describe("a lamp without a serial number in its USB descriptor (#170)", () => {
     expect(lamp.on).toBe(true);
   });
 
-  it("is the only one asked, since a lamp whose descriptor gives its serial number is found with it", () => {
+  it("is the only one asked, since a lamp whose descriptor gives its serial number is found with it", async () => {
     const [lx, other] = [beamLx(), beam({ on: false })];
     connect(lx, other);
 
-    manager.turnLampsOn("all");
+    await manager.turnLampsOn("all");
 
     // The requests to Root and Device Information are the only ones that aren't about the lamp's light.
     const identifying = (lamp: EmulatedLitra) => lamp.written.filter((report) => kindOf(report) === undefined);
@@ -702,12 +702,12 @@ describe("a lamp without a serial number in its USB descriptor (#170)", () => {
     expect([lx.on, other.on]).toEqual([true, true]);
   });
 
-  it("is left out, closed and logged when its serial number can't be read, and the others go on", () => {
+  it("is left out, closed and logged when its serial number can't be read, and the others go on", async () => {
     const [lx, other] = [beamLx(), beam({ on: false })];
     lx.fail("identifying");
     connect(lx, other);
 
-    manager.turnLampsOn("all");
+    await manager.turnLampsOn("all");
 
     expect([lx.on, other.on]).toEqual([false, true]);
     expect(closes(lx)).toBe(1);
@@ -736,26 +736,26 @@ describe("a lamp without a serial number in its USB descriptor (#170)", () => {
       expect(other.on).toBe(true);
     });
 
-    it("counts as a failed lamp for every lamp but some, which it could be one of", () => {
+    it("counts as a failed lamp for every lamp but some, which it could be one of", async () => {
       unidentifiedWithBeam();
 
-      expect(manager.turnLampsOff({ except: [MISSING_LAMP] })).toEqual({ ok: false, lampCount: 2, failures: 1 });
+      expect(await manager.turnLampsOff({ except: [MISSING_LAMP] })).toEqual({ ok: false, lampCount: 2, failures: 1 });
     });
 
-    it("is left out unnoticed by an operation on given lamps, which can't tell whether it was one of them", () => {
+    it("is left out unnoticed by an operation on given lamps, which can't tell whether it was one of them", async () => {
       const { other } = unidentifiedWithBeam();
 
-      expect(manager.turnLampsOff([Lamp.idOf(other.serialNumber)])).toEqual({
+      expect(await manager.turnLampsOff([Lamp.idOf(other.serialNumber)])).toEqual({
         ok: true,
         lampCount: 1,
         failures: 0,
       });
     });
 
-    it("is left out unnoticed when the plugin finds the lamps, which lists the others", () => {
+    it("is left out unnoticed when the plugin finds the lamps, which lists the others", async () => {
       const { other } = unidentifiedWithBeam();
 
-      expect(manager.findLamps().map(({ id }) => id)).toEqual([Lamp.idOf(other.serialNumber)]);
+      expect((await manager.findLamps()).map(({ id }) => id)).toEqual([Lamp.idOf(other.serialNumber)]);
     });
   });
 
@@ -771,21 +771,21 @@ describe("a lamp without a serial number in its USB descriptor (#170)", () => {
       "Error 7 for function 2 of feature index 2",
     ],
     ["gives an empty serial number", { serialNumber: "" }, "Empty serial number"],
-  ])("is left out, and the reason logged, when it %s", (_name, options, reason) => {
+  ])("is left out, and the reason logged, when it %s", async (_name, options, reason) => {
     const lamp = new EmulatedLitra("Beam LX", { on: false, ...options });
     connect(lamp);
 
-    expect(manager.turnLampsOn("all")).toEqual({ ok: false, lampCount: 0, failures: 1 });
+    expect(await manager.turnLampsOn("all")).toEqual({ ok: false, lampCount: 0, failures: 1 });
     expect(lamp.on).toBe(false);
     expect(logger.error).toHaveBeenCalledExactlyOnceWith(`turn on: Beam LX failed: Error: ${reason}`);
   });
 
-  it("makes an operation fail when it's the only lamp, and its serial number can't be read", () => {
+  it("makes an operation fail when it's the only lamp, and its serial number can't be read", async () => {
     const lamp = beamLx();
     lamp.fail("identifying");
     connect(lamp);
 
-    expect(manager.turnLampsOn("all")).toEqual({ ok: false, lampCount: 0, failures: 1 });
+    expect(await manager.turnLampsOn("all")).toEqual({ ok: false, lampCount: 0, failures: 1 });
     expect(lamp.on).toBe(false);
     expect(closes(lamp)).toBe(1);
   });
@@ -831,7 +831,7 @@ describe("a lamp that turns on at the setting it saved once switched off (#100)"
   ])("turns on, through %s, at the temperature it was given while off", async (_name, turnOn) => {
     const lamp = beamLx({ on: false });
     connect(lamp);
-    manager.setLampsTemperature("all", 5000);
+    await manager.setLampsTemperature("all", 5000);
 
     await settled(Promise.resolve(turnOn()));
 
@@ -841,30 +841,30 @@ describe("a lamp that turns on at the setting it saved once switched off (#100)"
   it("keeps the temperature it was given while off through a blink, and turns on at it", async () => {
     const lamp = beamLx({ on: false });
     connect(lamp);
-    manager.setLampsTemperature("all", 5000);
+    await manager.setLampsTemperature("all", 5000);
 
     await identify(lamp);
-    manager.turnLampsOn("all");
+    await manager.turnLampsOn("all");
 
     expect([lamp.on, lamp.temperatureInKelvin]).toEqual([true, 5000]);
   });
 
-  it("isn't written to again when it turns on as it was, as a Beam does", () => {
+  it("isn't written to again when it turns on as it was, as a Beam does", async () => {
     const lamp = beam({ on: false });
     connect(lamp);
-    manager.setLampsTemperature("all", 5000);
+    await manager.setLampsTemperature("all", 5000);
 
-    manager.turnLampsOn("all");
+    await manager.turnLampsOn("all");
 
     expect([lamp.writes("temperature"), lamp.writes("brightness")]).toEqual([[5000], []]);
   });
 
-  it("is still turned on when it takes the command but can't report back, and holds it on, with warnings (#198)", () => {
+  it("is still turned on when it takes the command but can't report back, and holds it on, with warnings (#198)", async () => {
     const lamp = beam({ on: false });
     connect(lamp);
     lamp.fail("readSync");
 
-    expect(manager.turnLampsOn("all")).toEqual({ ok: true, lampCount: 1, failures: 0 });
+    expect(await manager.turnLampsOn("all")).toEqual({ ok: true, lampCount: 1, failures: 0 });
 
     expect(lamp.on).toBe(true);
     expect(known.get(idOf(lamp))?.state?.on).toBe(true);
@@ -874,49 +874,49 @@ describe("a lamp that turns on at the setting it saved once switched off (#100)"
     );
   });
 
-  it("is sent nothing, and fails, when it can't be read the first time it's reached (#198)", () => {
+  it("is sent nothing, and fails, when it can't be read the first time it's reached (#198)", async () => {
     const lamp = beam({ on: false });
     lamp.fail("readSync");
     connect(lamp);
 
-    expect(manager.turnLampsOn("all")).toEqual({ ok: false, lampCount: 1, failures: 1 });
+    expect(await manager.turnLampsOn("all")).toEqual({ ok: false, lampCount: 1, failures: 1 });
     expect(lamp.writes("power")).toEqual([]);
   });
 });
 
 describe("toggleLamps", () => {
-  it("turns every lamp off when every lamp is on, then drains each ACK", () => {
+  it("turns every lamp off when every lamp is on, then drains each ACK", async () => {
     const pair = [newLamp(), newLamp()];
     connect(...pair);
 
-    expect(manager.toggleLamps("all")).toEqual({ ok: true, lampCount: 2, failures: 0 });
+    expect(await manager.toggleLamps("all")).toEqual({ ok: true, lampCount: 2, failures: 0 });
     expect(pair.map((lamp) => lamp.writes("power"))).toEqual([[0], [0]]);
     expect(pair.map(drained)).toEqual([["power"], ["power"]]);
   });
 
-  it("turns every lamp on when one is on and one is off", () => {
+  it("turns every lamp on when one is on and one is off", async () => {
     const pair = [newLamp({ on: true }), newLamp({ on: false })];
     connect(...pair);
 
-    expect(manager.toggleLamps("all")).toEqual({ ok: true, lampCount: 2, failures: 0 });
+    expect(await manager.toggleLamps("all")).toEqual({ ok: true, lampCount: 2, failures: 0 });
     expect(pair.map((lamp) => lamp.writes("power"))).toEqual([[1], [1]]);
   });
 
-  it("turns every lamp on when every lamp is off", () => {
+  it("turns every lamp on when every lamp is off", async () => {
     const pair = [newLamp({ on: false }), newLamp({ on: false })];
     connect(...pair);
 
-    expect(manager.toggleLamps("all")).toEqual({ ok: true, lampCount: 2, failures: 0 });
+    expect(await manager.toggleLamps("all")).toEqual({ ok: true, lampCount: 2, failures: 0 });
     expect(pair.map((lamp) => lamp.writes("power"))).toEqual([[1], [1]]);
   });
 
-  it("chooses from the power it holds, without reading the lamps, which it reads back once set (#198)", () => {
+  it("chooses from the power it holds, without reading the lamps, which it reads back once set (#198)", async () => {
     const [first, second] = [newLamp(), newLamp()];
     connect(first, second);
     // Turned off with its own button, which the plugin doesn't follow.
     first.on = false;
 
-    manager.toggleLamps("all");
+    await manager.toggleLamps("all");
 
     const firstQuery = Math.min(
       ...positions(first, "write", "power query"),
@@ -927,53 +927,53 @@ describe("toggleLamps", () => {
     expect([first.writes("power"), second.writes("power")]).toEqual([[0], [0]]);
   });
 
-  it("turns every lamp off from the power it holds, even one that can't report back, which it holds as asked (#198)", () => {
+  it("turns every lamp off from the power it holds, even one that can't report back, which it holds as asked (#198)", async () => {
     const [first, second] = [newLamp(), newLamp()];
     connect(first, second);
     first.fail("readSync");
 
-    expect(manager.toggleLamps("all")).toEqual({ ok: true, lampCount: 2, failures: 0 });
+    expect(await manager.toggleLamps("all")).toEqual({ ok: true, lampCount: 2, failures: 0 });
     expect([first.on, second.on]).toEqual([false, false]);
     expect(known.get(idOf(first))?.state?.on).toBe(false);
   });
 
-  it("counts a lamp once when it can't be read nor written", () => {
+  it("counts a lamp once when it can't be read nor written", async () => {
     const first = newLamp();
     first.fail("everything");
     connect(first, newLamp());
 
-    expect(manager.toggleLamps("all")).toEqual({ ok: false, lampCount: 2, failures: 1 });
+    expect(await manager.toggleLamps("all")).toEqual({ ok: false, lampCount: 2, failures: 1 });
   });
 
-  it("reports a lamp that fails, and still sends the command to the others", () => {
+  it("reports a lamp that fails, and still sends the command to the others", async () => {
     const [first, second] = [newLamp(), newLamp()];
     first.failWrites("power");
     connect(first, second);
 
-    expect(manager.toggleLamps("all")).toEqual({ ok: false, lampCount: 2, failures: 1 });
+    expect(await manager.toggleLamps("all")).toEqual({ ok: false, lampCount: 2, failures: 1 });
     expect(second.writes("power")).toEqual([0]);
   });
 
-  it("closes every handle, including a failed lamp's", () => {
+  it("closes every handle, including a failed lamp's", async () => {
     const [first, second] = [newLamp(), newLamp()];
     first.failWrites("power");
     connect(first, second);
 
-    manager.toggleLamps("all");
+    await manager.toggleLamps("all");
 
     expect([closes(first), closes(second)]).toEqual([1, 1]);
   });
 
-  it("succeeds when there is no ACK to drain", () => {
+  it("succeeds when there is no ACK to drain", async () => {
     const lamp = newLamp();
     lamp.fail("readTimeout");
     connect(lamp);
 
-    expect(manager.toggleLamps("all")).toEqual({ ok: true, lampCount: 1, failures: 0 });
+    expect(await manager.toggleLamps("all")).toEqual({ ok: true, lampCount: 1, failures: 0 });
   });
 
-  it("fails when no lamp is connected", () => {
-    expect(manager.toggleLamps("all")).toEqual({ ok: false, lampCount: 0, failures: 1 });
+  it("fails when no lamp is connected", async () => {
+    expect(await manager.toggleLamps("all")).toEqual({ ok: false, lampCount: 0, failures: 1 });
   });
 });
 
@@ -996,7 +996,7 @@ describe("what a Power key shows, from the Lamps the operations leave (#198)", (
   it("leaves out a lamp the last operation didn't find, and fails when none is left (#198)", async () => {
     connect(newLamp());
     connect();
-    manager.turnLampsOn("all");
+    await manager.turnLampsOn("all");
 
     expect(await areLampsOn("all")).toBe(false);
   });
@@ -1103,22 +1103,24 @@ describe("onLampsChanged", () => {
     const listener = vi.fn();
     manager.onLampsChanged(listener);
 
-    manager.toggleLamps("all");
+    await manager.toggleLamps("all");
     await announced();
 
     expect(listener).toHaveBeenCalledOnce();
   });
 
-  it("calls the listeners once the operation has returned", async () => {
-    connect(newLamp());
-    const listener = vi.fn();
-    manager.onLampsChanged(listener);
+  it("calls the listeners once the operation has closed the lamps", async () => {
+    const lamp = newLamp();
+    connect(lamp);
+    const closedWhenCalled: number[] = [];
+    manager.onLampsChanged(() => {
+      closedWhenCalled.push(closes(lamp));
+    });
 
-    manager.toggleLamps("all");
-
-    expect(listener).not.toHaveBeenCalled();
+    await manager.toggleLamps("all");
     await announced();
-    expect(listener).toHaveBeenCalledOnce();
+
+    expect(closedWhenCalled).toEqual([1]);
   });
 
   it("keeps calling the other listeners when one fails", async () => {
@@ -1129,7 +1131,7 @@ describe("onLampsChanged", () => {
     const listener = vi.fn();
     manager.onLampsChanged(listener);
 
-    manager.turnLampsOn("all");
+    await manager.turnLampsOn("all");
     await announced();
 
     expect(listener).toHaveBeenCalledOnce();
@@ -1304,6 +1306,57 @@ describe("brightness changes", () => {
     await settled(manager.setLampsBrightness("all", 100));
 
     expect(at(lamp.writes("brightness"), -1)).toBe(MAX_LUMEN);
+  });
+});
+
+describe("operations", () => {
+  /** Whether every handle on the lamp was closed before the next one was opened. */
+  function openedOneAtATime(lamp: EmulatedLitra): boolean {
+    const calls = hid
+      .hidEvents()
+      .filter((event) => event.lamp === lamp && (event.call === "open" || event.call === "close"))
+      .map((event) => event.call);
+    return calls.every((call, index) => call === (index % 2 === 0 ? "open" : "close"));
+  }
+
+  it("run one at a time, whatever they are, so none opens a lamp another still holds open", async () => {
+    const lamp = newLamp();
+    connect(lamp);
+    const first = manager.setLampsBrightness("all", 100);
+    // The brightness change is now waiting for the lamp to settle, with the lamp open.
+    await vi.advanceTimersByTimeAsync(100);
+
+    await settled(
+      Promise.all([
+        first,
+        manager.turnLampsOff("all"),
+        manager.toggleLamps("all"),
+        manager.setLampsTemperature("all", 4000),
+        manager.adjustLampsTemperature("all", 1, 100),
+        manager.setLampsScene(everyLampAt(50, 5000)),
+        manager.identifyLamp(idOf(lamp), BLINK_MS),
+        manager.findLamps(),
+        manager.reachEveryLamp("lamp screen"),
+      ]),
+    );
+
+    expect(openedOneAtATime(lamp)).toBe(true);
+  });
+
+  it("run in the order they were asked for, so a power change isn't undone by a brightness change asked for before", async () => {
+    const lamp = newLamp();
+    connect(lamp);
+
+    const [, , off] = await settled(
+      Promise.all([
+        manager.setLampsBrightness("all", 100),
+        manager.adjustLampsBrightness("all", -2, 10),
+        manager.turnLampsOff("all"),
+      ]),
+    );
+
+    expect(off).toEqual({ ok: true, lampCount: 1, failures: 0 });
+    expect(lamp.on).toBe(false);
   });
 });
 
@@ -1804,11 +1857,11 @@ describe("setLampsScene", () => {
 });
 
 describe("setLampsTemperature", () => {
-  it("sets every lamp to the temperature, snapped to an allowed value, which the plugin then holds", () => {
+  it("sets every lamp to the temperature, snapped to an allowed value, which the plugin then holds", async () => {
     const pair = [newLamp(), newLamp()];
     connect(...pair);
 
-    expect(manager.setLampsTemperature("all", 4321)).toEqual({
+    expect(await manager.setLampsTemperature("all", 4321)).toEqual({
       ok: true,
       lampCount: 2,
       failures: 0,
@@ -1820,27 +1873,27 @@ describe("setLampsTemperature", () => {
     ]);
   });
 
-  it("drains each lamp's ACK", () => {
+  it("drains each lamp's ACK", async () => {
     const lamp = newLamp();
     connect(lamp);
 
-    manager.setLampsTemperature("all", 3000);
+    await manager.setLampsTemperature("all", 3000);
 
     expect(drained(lamp)).toEqual(["temperature"]);
   });
 
-  it("fails without writing when no lamp is connected", () => {
-    expect(manager.setLampsTemperature("all", 3000)).toEqual({ ok: false, lampCount: 0, failures: 1 });
+  it("fails without writing when no lamp is connected", async () => {
+    expect(await manager.setLampsTemperature("all", 3000)).toEqual({ ok: false, lampCount: 0, failures: 1 });
   });
 });
 
 describe("adjustLampsTemperature", () => {
-  it("moves every lamp to one target, stepped from the first lamp's temperature", () => {
+  it("moves every lamp to one target, stepped from the first lamp's temperature", async () => {
     const [first, second] = [newLamp({ temperatureInKelvin: 3100 }), newLamp({ temperatureInKelvin: 2700 })];
     connect(first, second);
 
     // 2 ticks of 200 K, one of the dial's step options.
-    expect(manager.adjustLampsTemperature("all", 2, 200)).toEqual({
+    expect(await manager.adjustLampsTemperature("all", 2, 200)).toEqual({
       ok: true,
       lampCount: 2,
       failures: 0,
@@ -1850,42 +1903,42 @@ describe("adjustLampsTemperature", () => {
     expect([first.queries("temperature"), second.queries("temperature")]).toEqual([1, 1]);
   });
 
-  it("steps from the lamp with the lowest id, whatever order the lamps are found in", () => {
+  it("steps from the lamp with the lowest id, whatever order the lamps are found in", async () => {
     const earlier = newLamp({ temperatureInKelvin: 3100 });
     const later = newLamp({ temperatureInKelvin: 5000 });
     connect(later, earlier);
 
-    manager.adjustLampsTemperature("all", 1, 200);
+    await manager.adjustLampsTemperature("all", 1, 200);
 
     expect([earlier.temperatureInKelvin, later.temperatureInKelvin]).toEqual([3300, 3300]);
   });
 
-  it("steps along the grid counted from the lowest allowed value (#16)", () => {
+  it("steps along the grid counted from the lowest allowed value (#16)", async () => {
     // The default preset, off the 200 K grid that starts at 2700 K.
     const lamp = newLamp({ temperatureInKelvin: 4000 });
     connect(lamp);
 
-    manager.adjustLampsTemperature("all", 1, 200);
-    manager.adjustLampsTemperature("all", -1, 200);
+    await manager.adjustLampsTemperature("all", 1, 200);
+    await manager.adjustLampsTemperature("all", -1, 200);
 
     expect(lamp.writes("temperature")).toEqual([4100, 3900]);
   });
 
-  it("steps down from the highest allowed value to the grid, when the step doesn't divide the range (#16)", () => {
+  it("steps down from the highest allowed value to the grid, when the step doesn't divide the range (#16)", async () => {
     const lamp = newLamp({ temperatureInKelvin: MAX_KELVIN });
     connect(lamp);
 
-    manager.adjustLampsTemperature("all", -1, 500);
+    await manager.adjustLampsTemperature("all", -1, 500);
 
     expect(heldTemperature(lamp)?.kelvin).toBe(6200);
   });
 
-  it("steps from the next lamp when the first can't be read", () => {
+  it("steps from the next lamp when the first can't be read", async () => {
     const [first, second] = [newLamp(), newLamp({ temperatureInKelvin: 3000 })];
     first.fail("readSync");
     connect(first, second);
 
-    expect(manager.adjustLampsTemperature("all", 1, 100)).toEqual({
+    expect(await manager.adjustLampsTemperature("all", 1, 100)).toEqual({
       ok: false,
       lampCount: 2,
       failures: 1,
@@ -1893,26 +1946,26 @@ describe("adjustLampsTemperature", () => {
     expect([first.writes("temperature"), second.writes("temperature")]).toEqual([[], [3100]]);
   });
 
-  it("moves down for negative ticks, and stops at the lowest allowed value", () => {
+  it("moves down for negative ticks, and stops at the lowest allowed value", async () => {
     const lamp = newLamp({ temperatureInKelvin: 3000 });
     connect(lamp);
 
-    manager.adjustLampsTemperature("all", -10, KELVIN_STEP);
+    await manager.adjustLampsTemperature("all", -10, KELVIN_STEP);
 
     expect(heldTemperature(lamp)).toEqual({ kelvin: MIN_KELVIN, percentage: 0 });
   });
 
-  it("stops at the highest allowed value", () => {
+  it("stops at the highest allowed value", async () => {
     const lamp = newLamp({ temperatureInKelvin: MAX_KELVIN - KELVIN_STEP });
     connect(lamp);
 
-    manager.adjustLampsTemperature("all", 3, KELVIN_STEP);
+    await manager.adjustLampsTemperature("all", 3, KELVIN_STEP);
 
     expect(heldTemperature(lamp)).toEqual({ kelvin: MAX_KELVIN, percentage: 100 });
   });
 
-  it("fails without writing when no lamp is connected", () => {
-    expect(manager.adjustLampsTemperature("all", 1, KELVIN_STEP)).toEqual({
+  it("fails without writing when no lamp is connected", async () => {
+    expect(await manager.adjustLampsTemperature("all", 1, KELVIN_STEP)).toEqual({
       ok: false,
       lampCount: 0,
       failures: 1,
@@ -1921,11 +1974,11 @@ describe("adjustLampsTemperature", () => {
 });
 
 describe("adjustLampsTemperature, each lamp from its own (#145)", () => {
-  it("steps every lamp from its own temperature, which the plugin then holds", () => {
+  it("steps every lamp from its own temperature, which the plugin then holds", async () => {
     const [first, second] = [newLamp({ temperatureInKelvin: 3100 }), newLamp({ temperatureInKelvin: 4700 })];
     connect(first, second);
 
-    expect(manager.adjustLampsTemperature("all", 2, 200, "each")).toEqual({
+    expect(await manager.adjustLampsTemperature("all", 2, 200, "each")).toEqual({
       ok: true,
       lampCount: 2,
       failures: 0,
@@ -1934,92 +1987,96 @@ describe("adjustLampsTemperature, each lamp from its own (#145)", () => {
     expect([heldTemperature(first)?.kelvin, heldTemperature(second)?.kelvin]).toEqual([3500, 5100]);
   });
 
-  it("keeps stepping the other lamps once one reaches an end of its range", () => {
+  it("keeps stepping the other lamps once one reaches an end of its range", async () => {
     const [warm, cool] = [newLamp({ temperatureInKelvin: 5700 }), newLamp({ temperatureInKelvin: 6300 })];
     connect(warm, cool);
 
-    manager.adjustLampsTemperature("all", 1, 200, "each");
-    manager.adjustLampsTemperature("all", 1, 200, "each");
+    await manager.adjustLampsTemperature("all", 1, 200, "each");
+    await manager.adjustLampsTemperature("all", 1, 200, "each");
 
     expect([warm.temperatureInKelvin, cool.temperatureInKelvin]).toEqual([6100, MAX_KELVIN]);
   });
 
-  it("keeps the lamps' difference through the end of the range, and does nothing once both are there", () => {
+  it("keeps the lamps' difference through the end of the range, and does nothing once both are there", async () => {
     const [warm, cool] = [newLamp({ temperatureInKelvin: 6100 }), newLamp({ temperatureInKelvin: 6300 })];
     connect(warm, cool);
     const temperatures = () => [warm.temperatureInKelvin, cool.temperatureInKelvin];
 
-    manager.adjustLampsTemperature("all", 4, 200, "each");
+    await manager.adjustLampsTemperature("all", 4, 200, "each");
 
     expect(temperatures()).toEqual([MAX_KELVIN, MAX_KELVIN]);
 
-    manager.adjustLampsTemperature("all", -1, 200, "each");
+    await manager.adjustLampsTemperature("all", -1, 200, "each");
 
     expect(temperatures()).toEqual([6300, MAX_KELVIN]);
 
-    manager.adjustLampsTemperature("all", -1, 200, "each");
+    await manager.adjustLampsTemperature("all", -1, 200, "each");
 
     expect(temperatures()).toEqual([6100, 6300]);
   });
 
-  it("steps a lamp set by anything else from where it is, rather than from its position", () => {
+  it("steps a lamp set by anything else from where it is, rather than from its position", async () => {
     const [warm, cool] = [newLamp({ temperatureInKelvin: 6100 }), newLamp({ temperatureInKelvin: 6300 })];
     connect(warm, cool);
-    manager.adjustLampsTemperature("all", 2, 200, "each");
+    await manager.adjustLampsTemperature("all", 2, 200, "each");
 
-    manager.setLampsTemperature("all", 5000);
-    manager.adjustLampsTemperature("all", 1, 200, "each");
+    await manager.setLampsTemperature("all", 5000);
+    await manager.adjustLampsTemperature("all", 1, 200, "each");
 
     expect([warm.temperatureInKelvin, cool.temperatureInKelvin]).toEqual([5100, 5100]);
   });
 
-  it("steps each lamp along the grid counted from the lowest allowed value (#16)", () => {
+  it("steps each lamp along the grid counted from the lowest allowed value (#16)", async () => {
     // The default preset, off the 200 K grid that starts at 2700 K, and a lamp on it.
     const [offGrid, onGrid] = [newLamp({ temperatureInKelvin: 4000 }), newLamp({ temperatureInKelvin: 3100 })];
     connect(offGrid, onGrid);
 
-    manager.adjustLampsTemperature("all", 1, 200, "each");
+    await manager.adjustLampsTemperature("all", 1, 200, "each");
 
     expect([offGrid.writes("temperature"), onGrid.writes("temperature")]).toEqual([[4100], [3300]]);
   });
 
-  it("fails without writing when no lamp is connected", () => {
-    expect(manager.adjustLampsTemperature("all", 1, 200, "each")).toEqual({ ok: false, lampCount: 0, failures: 1 });
+  it("fails without writing when no lamp is connected", async () => {
+    expect(await manager.adjustLampsTemperature("all", 1, 200, "each")).toEqual({
+      ok: false,
+      lampCount: 0,
+      failures: 1,
+    });
   });
 });
 
 describe("findLamps", () => {
-  it("lists every lamp by id, with its model and its label, in the order of their ids", () => {
+  it("lists every lamp by id, with its model and its label, in the order of their ids", async () => {
     const [first, second] = [new EmulatedLitra("Beam LX"), beam()];
     connect(second, first);
 
-    expect(manager.findLamps()).toEqual([
+    expect(await manager.findLamps()).toEqual([
       { id: idOf(first), label: `Beam LX - ${idOf(first).slice(-4)}`, model: "Beam LX" },
       { id: idOf(second), label: `Beam - ${idOf(second).slice(-4)}`, model: "Beam" },
     ]);
   });
 
-  it("asks a lamp nothing but the serial number its USB descriptor doesn't give, and closes every handle", () => {
+  it("asks a lamp nothing but the serial number its USB descriptor doesn't give, and closes every handle", async () => {
     const pair = [newLamp(), newLamp()];
     connect(...pair);
 
-    manager.findLamps();
+    await manager.findLamps();
 
     expect(pair.map(asked)).toEqual([[], []]);
     expect(pair.map(closes)).toEqual([1, 1]);
   });
 
-  it("lists none when no lamp is connected, or finding them fails", () => {
-    expect(manager.findLamps()).toEqual([]);
+  it("lists none when no lamp is connected, or finding them fails", async () => {
+    expect(await manager.findLamps()).toEqual([]);
 
     connect(newLamp());
     hid.failFindingLamps(new Error("HID enumeration failed"));
 
-    expect(manager.findLamps()).toEqual([]);
+    expect(await manager.findLamps()).toEqual([]);
   });
 });
 
-describe("reachLampsForLampScreen", () => {
+describe("reachEveryLamp", () => {
   it("reports every lamp in the order of their ids, and closes every handle", async () => {
     const first = new EmulatedLitra("Beam LX", { on: true, brightnessInLumen: 400, temperatureInKelvin: 2700 });
     const second = beam({ on: false, brightnessInLumen: lumenAt(50), temperatureInKelvin: 6500 });
@@ -2287,12 +2344,12 @@ describe("logs", () => {
     expect(message).toContain("Cannot write to hid device");
   });
 
-  it("warns, with the lamp and the error, when a handle fails to close", () => {
+  it("warns, with the lamp and the error, when a handle fails to close", async () => {
     const lamp = newLamp();
     lamp.fail("close");
     connect(lamp);
 
-    manager.turnLampsOn("all");
+    await manager.turnLampsOn("all");
 
     const message = onlyMessage("warn");
     expect(message).toContain(labelOf(lamp));
@@ -2443,9 +2500,9 @@ describe("logs", () => {
     lamp.fail("close");
     connect(lamp);
 
-    manager.turnLampsOn("all");
+    await manager.turnLampsOn("all");
     lamp.failWrites("power");
-    manager.turnLampsOff("all");
+    await manager.turnLampsOff("all");
     await readShownLamps();
 
     const everything = (["error", "warn", "info", "debug"] as const).flatMap(messages);
@@ -2453,12 +2510,12 @@ describe("logs", () => {
     expect(everything).not.toContainEqual(expect.stringContaining("ABCD"));
   });
 
-  it("logs nothing when there is no ACK to drain", () => {
+  it("logs nothing when there is no ACK to drain", async () => {
     const lamp = newLamp();
     lamp.fail("readTimeout");
     connect(lamp);
 
-    manager.turnLampsOn("all");
+    await manager.turnLampsOn("all");
 
     expect(logger.warn).not.toHaveBeenCalled();
     expect(logger.error).not.toHaveBeenCalled();
@@ -2471,7 +2528,7 @@ describe("logs", () => {
     });
     connect(newLamp());
 
-    manager.turnLampsOn("all");
+    await manager.turnLampsOn("all");
     await announced();
 
     expect(logger.error).toHaveBeenCalledExactlyOnceWith(expect.any(String), error);
