@@ -48,6 +48,7 @@ Restarting also clears the caps the plugin has learned, so the checks start from
 10. **The dial says what it does.** Both strips show "Brightness" at the top, above the icon and the value. If a strip shows none, check **Show Title** under the **T** menu of the dial's settings, which Stream Deck keeps for each dial. A title typed in the title field replaces it.
 11. **The bar shows where each lamp stops.** Press the 100% key: each strip's bar is white up to the dimmer lamp's cap, and light grey from there to the brightest lamp's cap, with a sharp edge between them ([#59]). Turn a dial down below the dimmer lamp's cap: the bar turns plain white.
 12. **The keys and the app's dial pictures show the strip's icon.** In the Stream Deck app, the round picture of each Brightness dial shows the white line sun from its touch strip ([#51]). So does a Brightness key or dial newly dragged onto the Deck. A key or dial given a custom image keeps it.
+13. **An unplugged lamp leaves the dial quiet.** Unplug one Beam, then turn a dial on its main screen, and push it: the other lamp moves, then toggles, and the strip doesn't flash red. Press the 30% key: the other lamp goes to 30%, and the key shows an alert, since one of its lamps isn't connected. Plug the lamp back in.
 
 [#14]: https://github.com/daczarne/streamdeck-litra/issues/14
 [#51]: https://github.com/daczarne/streamdeck-litra/issues/51

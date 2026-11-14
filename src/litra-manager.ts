@@ -250,8 +250,8 @@ function findConnections(operation: string): Found {
  * A lamp whose serial number can't be read is counted when a group takes in every lamp, or every lamp but some, which
  * it could be one of: a Beam that fails counts as a failed lamp, and a Beam LX that can't even be told apart is one too
  * (#100). A lamp the plugin knows that a group takes in, but that isn't found, is missing, and counts as a failed lamp
- * too, however the group selects it, so an operation that finds some of its lamps but not all still fails. A lamp
- * that can't be told apart may be one of them, which {@link openLamps} counts once. A lamp the plugin doesn't know,
+ * too, however the group selects it, but with `"connected"`, so an operation that finds some of its lamps but not
+ * all still fails. A lamp that can't be told apart may be one of them, which {@link openLamps} counts once. A lamp the plugin doesn't know,
  * such as a forgotten one a key still lists, isn't missing.
  */
 function openGroups<G extends { readonly lamps: LampSelection }>(
@@ -289,13 +289,13 @@ function openGroups<G extends { readonly lamps: LampSelection }>(
   }
   let missing = 0;
   for (const lamp of knownLamps.values()) {
-    if (!connected.has(lamp.id) && groups.some(({ lamps }) => selects(lamps, lamp.id))) {
+    if (!connected.has(lamp.id) && groups.some(({ lamps }) => lamps !== "connected" && selects(lamps, lamp.id))) {
       missing += 1;
       logger.warn(`${operation}: ${lamp.label} not connected`);
     }
   }
   for (const { lamps } of groups) {
-    if (lamps === "all") {
+    if (lamps === "all" || lamps === "connected") {
       continue;
     }
     if ("except" in lamps) {
@@ -478,7 +478,7 @@ export function forEachLamp(
  * show.
  */
 export function reachEveryLamp(operation: string): Promise<OperationResult> {
-  return queuedAndAnnounced(() => forEachLamp(operation, () => {}, "all"));
+  return queuedAndAnnounced(() => forEachLamp(operation, () => {}, "connected"));
 }
 
 /**

@@ -27,7 +27,7 @@ const TEMPERATURE: Measure = {
   readStepping: () => globalSettings.temperatureStepping,
   adjust: adjustLampsTemperature,
   readMainScreen: async () => {
-    const shown = await readLampsTemperature("all");
+    const shown = await readLampsTemperature("connected");
     return {
       title: "Temperature",
       value: shown === undefined ? "—" : `${Math.round(shown.kelvin)}`,

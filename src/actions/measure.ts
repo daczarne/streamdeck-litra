@@ -160,7 +160,7 @@ class MeasureDial extends ActionInstance<{ step: number }, DialAction<JsonObject
   override async dialDown(): Promise<void> {
     const lamp = this.screen.lamp;
     this.logger.info(lamp === undefined ? "Dial pressed: toggle" : "Dial pressed on a lamp screen: toggle");
-    const result = await toggleLamps(lamp === undefined ? "all" : [lamp]);
+    const result = await toggleLamps(lamp === undefined ? "connected" : [lamp]);
     if (!result.ok) {
       await this.control.showAlert();
     }
@@ -206,7 +206,7 @@ class MeasureDial extends ActionInstance<{ step: number }, DialAction<JsonObject
     const screen = lamp === undefined ? "" : " on a lamp screen";
     const each = stepping === "each" ? ", each lamp from its own" : "";
     this.logger.info(`Dial turned${screen}: ${ticks} ticks of ${step}${this.measure.unit}${each}`);
-    const result = await this.measure.adjust(lamp === undefined ? "all" : [lamp], ticks, step, stepping);
+    const result = await this.measure.adjust(lamp === undefined ? "connected" : [lamp], ticks, step, stepping);
     if (!result.ok) {
       await this.control.showAlert();
     }

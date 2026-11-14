@@ -190,7 +190,7 @@ describe("BrightnessAction", () => {
 
       await deck.turn(dial, 3);
 
-      expect(adjustLampsBrightness).toHaveBeenCalledWith("all", 3, 5, "together");
+      expect(adjustLampsBrightness).toHaveBeenCalledWith("connected", 3, 5, "together");
       expect(dial.setFeedback).not.toHaveBeenCalled();
     });
 
@@ -279,7 +279,7 @@ describe("BrightnessAction", () => {
 
       await deck.turn(dial, 3);
 
-      expect(adjustLampsBrightness).toHaveBeenCalledExactlyOnceWith("all", 3, 10, "together");
+      expect(adjustLampsBrightness).toHaveBeenCalledExactlyOnceWith("connected", 3, 10, "together");
       expect(logger.warn).not.toHaveBeenCalled();
     });
   });
@@ -296,7 +296,7 @@ describe("BrightnessAction", () => {
 
       await deck.turn(dial, 3);
 
-      expect(adjustLampsBrightness).toHaveBeenCalledExactlyOnceWith("all", 3, 5, "each");
+      expect(adjustLampsBrightness).toHaveBeenCalledExactlyOnceWith("connected", 3, 5, "each");
       expect(logger.info).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("each lamp"));
     });
 
@@ -316,7 +316,7 @@ describe("BrightnessAction", () => {
 
       await deck.turn(dial, 3);
 
-      expect(adjustLampsBrightness).toHaveBeenCalledExactlyOnceWith("all", 3, 5, "together");
+      expect(adjustLampsBrightness).toHaveBeenCalledExactlyOnceWith("connected", 3, 5, "together");
     });
   });
 
@@ -372,7 +372,7 @@ describe("BrightnessAction", () => {
 
       await deck.push(pushed);
 
-      expect(toggleLamps).toHaveBeenCalledExactlyOnceWith("all");
+      expect(toggleLamps).toHaveBeenCalledExactlyOnceWith("connected");
     });
 
     it("moves only the lamp on screen when the dial is turned on a lamp screen (#20)", async () => {
@@ -405,7 +405,7 @@ describe("BrightnessAction", () => {
       }
 
       expect(vi.mocked(adjustLampsBrightness).mock.calls).toEqual([
-        ["all", 1, 5, "together"],
+        ["connected", 1, 5, "together"],
         [[BEAM.id], 2, 5, "together"],
         [[OTHER_BEAM.id], 3, 5, "together"],
       ]);

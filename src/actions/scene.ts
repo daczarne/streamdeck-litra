@@ -1,7 +1,7 @@
 import { action, type KeyAction } from "@elgato/streamdeck";
 import type { JsonObject } from "@elgato/utils";
 import { globalSettings } from "../global-settings";
-import type { LampSelection } from "../lamp-selection";
+import type { KeyLampSelection, LampSelection } from "../lamp-selection";
 import { type SceneGroup, setLampsScene } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
 import { ActionInstance, type DeckControl, RoutingAction } from "./action-instance";
@@ -74,7 +74,7 @@ function sceneGroup(settings: {
 }
 
 /** A selection of lamps but the ones with these ids. */
-function without(lamps: LampSelection, ids: readonly string[]): LampSelection {
+function without(lamps: KeyLampSelection, ids: readonly string[]): KeyLampSelection {
   if (ids.length === 0) {
     return lamps;
   }

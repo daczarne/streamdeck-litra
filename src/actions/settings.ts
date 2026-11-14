@@ -198,6 +198,9 @@ export function describeLamps(lamps: LampSelection): string {
   if (lamps === "all") {
     return "every lamp";
   }
+  if (lamps === "connected") {
+    return "every lamp connected";
+  }
   if ("except" in lamps) {
     return lamps.except.length === 0 ? "every lamp" : `every lamp but ${count(lamps.except.length)}`;
   }

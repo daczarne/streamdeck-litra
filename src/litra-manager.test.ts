@@ -696,6 +696,24 @@ describe("a lamp the plugin knows that isn't plugged in", () => {
     expect(lamp.brightnessInLumen).toBe(lumenAt(40));
   });
 
+  it("leaves an operation on every lamp connected, as a dial's main screen asks for, to succeed unwarned", async () => {
+    const lamp = newLamp({ on: false });
+    connect(lamp);
+    knowMissingLamp();
+
+    expect(await manager.turnLampsOn("connected")).toEqual({ ok: true, lampCount: 1, failures: 0 });
+    expect(lamp.on).toBe(true);
+    expect(logger.warn).not.toHaveBeenCalled();
+  });
+
+  it("leaves reaching every lamp unwarned, as the plugin starts and on a tap on a dial's strip", async () => {
+    connect(newLamp());
+    knowMissingLamp();
+
+    expect(await manager.reachEveryLamp("lamp screen")).toMatchObject({ ok: true });
+    expect(logger.warn).not.toHaveBeenCalled();
+  });
+
   it("leaves an operation that leaves it out to succeed", async () => {
     connect(newLamp());
     knowMissingLamp();
