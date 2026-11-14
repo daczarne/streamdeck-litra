@@ -36,6 +36,9 @@ export type LampScreenCellContent = {
 
 const logger = pluginLogger.createScope("Global settings");
 
+/** Every global setting but the lamps, which their `Lamp`s hold. */
+type Settings = Omit<ParsedGlobalSettings, "lamps">;
+
 /**
  * The plugin's global settings, which every key and dial shares, and Stream Deck keeps (#144), with a single instance
  * (#198). It reads them as Stream Deck sends them, against their schema, and holds the lamps the plugin knows as
@@ -44,11 +47,12 @@ const logger = pluginLogger.createScope("Global settings");
  * the lamps into the settings as Stream Deck last sent them, which keeps what a page saved.
  */
 export class GlobalSettings {
-  // The global settings as Stream Deck last sent them, which a save of the lamps writes back.
+  // The global settings as Stream Deck last sent them, with the lamps as last saved, which a save of the lamps writes
+  // back whole.
   private sent: JsonObject = {};
-  // As read against their schema, their defaults until the first read, and the lamp screens' cells read from them, once
-  // per read, so an option that isn't valid is warned about once.
-  private parsed: ParsedGlobalSettings = parseSettings({}, globalSettingsSchema, logger);
+  // The other settings as read against their schema, their defaults until the first read, and the lamp screens' cells
+  // read from them, once per read, so an option that isn't valid is warned about once.
+  private parsed: Settings = parse({}).settings;
   private cells: Record<LampScreenCell, LampScreenCellContent> = readCells(this.parsed);
   private readonly knownLamps = new Map<string, Lamp>();
   private readonly listeners: Array<() => void | Promise<void>> = [];
@@ -63,23 +67,24 @@ export class GlobalSettings {
    */
   read(settings: JsonObject): void {
     this.sent = settings;
-    this.parsed = parseSettings(settings, globalSettingsSchema, logger);
-    this.cells = readCells(this.parsed);
+    const { lamps, settings: parsed } = parse(settings);
+    this.parsed = parsed;
+    this.cells = readCells(parsed);
     for (const id of [...this.knownLamps.keys()]) {
-      if (this.parsed.lamps[id] === undefined) {
+      if (lamps[id] === undefined) {
         this.knownLamps.delete(id);
       }
     }
-    for (const [id, saved] of Object.entries(this.parsed.lamps)) {
-      const lamp = this.knownLamps.get(id);
-      if (lamp === undefined) {
-        const known = new Lamp({ id, model: saved.model });
-        known.name = saved.name;
-        this.knownLamps.set(id, known);
-      } else if (lamp.name !== saved.name) {
-        lamp.name = saved.name;
-      }
+    for (const [id, saved] of Object.entries(lamps)) {
+      const lamp = this.knownLamps.get(id) ?? new Lamp({ id, model: saved.model });
+      lamp.name = saved.name;
+      this.knownLamps.set(id, lamp);
     }
+    this.tellListeners();
+  }
+
+  /** Calls every listener, each on its own, so one that fails is logged and the others still run. */
+  private tellListeners(): void {
     for (const listener of this.listeners) {
       Promise.resolve()
         .then(listener)
@@ -90,16 +95,12 @@ export class GlobalSettings {
   }
 
   /**
-   * Registers a listener called whenever the global settings are read, so that what the Deck shows from them can follow
-   * a settings page's changes, such as the lamp screens' cells (#177).
+   * Registers a listener called whenever the global settings are read, or the plugin saves the lamps, so that what the
+   * Deck shows from them can follow a settings page's changes, such as the lamp screens' cells (#177), and the lamps
+   * found, renamed or forgotten.
    */
   onChanged(listener: () => void | Promise<void>): void {
     this.listeners.push(listener);
-  }
-
-  /** The global settings as last read, or their defaults until the first read. */
-  get current(): ParsedGlobalSettings {
-    return this.parsed;
   }
 
   /** The lamps the plugin knows, by id, the only ones it acts on (#194). */
@@ -171,7 +172,7 @@ export class GlobalSettings {
    * Whether a key takes in lamps added later (#147): the plugin's setting, or the opposite for a key that chose
    * otherwise.
    */
-  addsNewLamps(keyId: string): boolean {
+  private addsNewLamps(keyId: string): boolean {
     return this.parsed.addNewLamps !== this.parsed.addNewLampsExceptions.includes(keyId);
   }
 
@@ -240,12 +241,14 @@ export class GlobalSettings {
 
   /**
    * Saves the lamps the plugin knows, as they were just changed, in the global settings as Stream Deck last sent them,
-   * and reads them back, so the settings as read, and the listeners, follow at once. The change stands even when saving
-   * fails, which is logged, until the plugin restarts.
+   * which the next save starts from, and calls the listeners, so the keys follow at once. The `Lamp`s are already as
+   * saved, so nothing is read back. The change stands even when saving fails, which is logged, until the plugin
+   * restarts.
    */
   private async saveLamps(): Promise<void> {
     const settings = { ...this.sent, lamps: this.savedLamps() };
-    this.read(settings);
+    this.sent = settings;
+    this.tellListeners();
     try {
       await this.save(settings);
     } catch (error) {
@@ -254,11 +257,17 @@ export class GlobalSettings {
   }
 }
 
+/** Reads the global settings as Stream Deck sent them against their schema: the lamps, and every other setting. */
+function parse(sent: JsonObject): { lamps: Record<string, SavedLamp>; settings: Settings } {
+  const { lamps, ...settings } = parseSettings(sent, globalSettingsSchema, logger);
+  return { lamps, settings };
+}
+
 /**
  * Reads each cell's item, and its options for that item against their schema, which take their defaults when they're
  * missing, and with a warning that names the cell when they aren't valid.
  */
-function readCells(settings: ParsedGlobalSettings): Record<LampScreenCell, LampScreenCellContent> {
+function readCells(settings: Settings): Record<LampScreenCell, LampScreenCellContent> {
   const items: Record<LampScreenCell, LampScreenItem> = {
     topLeft: settings.lampScreenTopLeft,
     topRight: settings.lampScreenTopRight,

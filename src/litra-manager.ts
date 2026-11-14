@@ -71,8 +71,8 @@ const connectedListeners: Array<(ids: string[]) => void | Promise<void>> = [];
 let knownLamps: ReadonlyMap<string, Lamp> = new Map();
 
 /**
- * Takes the lamps the plugin knows, as the global settings hold them (#198): the map itself, which they keep up to date,
- * so every operation from then on acts on them alone (#194), and asks each one's `Lamp` what it remembers.
+ * Takes the lamps the plugin knows, as the global settings hold them (#198): the map itself, which they keep up to
+ * date, so every operation from then on acts on them alone (#194), and asks each one's `Lamp` what it remembers.
  */
 export function useLamps(lamps: ReadonlyMap<string, Lamp>): void {
   knownLamps = lamps;
@@ -177,11 +177,12 @@ type ApartLamp = {
 
 /**
  * Plans the steps of lamps kept apart (#145), a tick at a time. A tick moves what every lamp is asked for along its
- * grid, step after step, until one of the lamps moves, and each lamp goes as far towards it as it can. So one stopped by
- * an end of its range or its cap stays there while the others keep going, and comes back with them once they've retraced
- * the way. Steps that move no lamp cost no tick, such as the ones every lamp was asked for past a cap it hadn't learned
- * yet. A turn stops at the first tick that moves no lamp across their whole ranges, so turning on once every lamp is at
- * its end does nothing, rather than piling up steps to undo. Returns the lamps, each with what it's asked for next.
+ * grid, step after step, until one of the lamps moves, and each lamp goes as far towards it as it can. So one stopped
+ * by an end of its range or its cap stays there while the others keep going, and comes back with them once they've
+ * retraced the way. Steps that move no lamp cost no tick, such as the ones every lamp was asked for past a cap it
+ * hadn't learned yet. A turn stops at the first tick that moves no lamp across their whole ranges, so turning on once
+ * every lamp is at its end does nothing, rather than piling up steps to undo. Returns the lamps, each with what it's
+ * asked for next.
  */
 function stepApart<T extends ApartLamp>(lamps: readonly T[], ticks: number, step: number): T[] {
   const direction = Math.sign(ticks);
@@ -242,17 +243,17 @@ function findConnections(operation: string): Found {
 
 /**
  * Opens the lamps an operation acts on, named in the logs, for each of its groups: every lamp the plugin knows, every
- * one connected, the selected ones, or every one but the left out ones, each lamp with the first group that selects
- * it, so a lamp two groups select takes the first one's part. It closes the other lamps found, the ones the plugin
- * doesn't know included. A selection of none is logged only when every group selects none, since a group may lose its
- * lamps to another, and then no lamp is looked for.
+ * one connected, the selected ones, or every one but the left out ones, each lamp with the first group that selects it,
+ * so a lamp two groups select takes the first one's part. It closes the other lamps found, the ones the plugin doesn't
+ * know included. A selection of none is logged only when every group selects none, since a group may lose its lamps to
+ * another, and then no lamp is looked for.
  *
  * A lamp whose serial number can't be read is counted when a group takes in every lamp, or every lamp but some, which
  * it could be one of: a Beam that fails counts as a failed lamp, and a Beam LX that can't even be told apart is one too
  * (#100). A lamp the plugin knows that a group takes in, but that isn't found, is missing, and counts as a failed lamp
- * too, however the group selects it, but with `"connected"`, so an operation that finds some of its lamps but not
- * all still fails. A lamp that can't be told apart may be one of them, which {@link openLamps} counts once. A lamp the plugin doesn't know,
- * such as a forgotten one a key still lists, isn't missing.
+ * too, however the group selects it, but with `"connected"`, so an operation that finds some of its lamps but not all
+ * still fails. A lamp that can't be told apart may be one of them, which {@link openLamps} counts once. A lamp the
+ * plugin doesn't know, such as a forgotten one a key still lists, isn't missing.
  */
 function openGroups<G extends { readonly lamps: LampSelection }>(
   operation: string,
@@ -392,8 +393,8 @@ type OpenedLamps<G> = {
 /**
  * Opens the lamps of an operation's groups, as {@link openGroups} does, and reaches each one, lending its `Lamp` a
  * handle, which reads the lamp the first time, and at another path (#198). A lamp that can't be reached counts as
- * failed, and is left out of the lamps the operation goes through, as does a lamp it takes in that isn't connected. Gives undefined when it opens no lamp, which fails
- * the operation. The operation closes them once it's done.
+ * failed, and is left out of the lamps the operation goes through, as does a lamp it takes in that isn't connected.
+ * Gives undefined when it opens no lamp, which fails the operation. The operation closes them once it's done.
  */
 function openLamps<G extends { readonly lamps: LampSelection }>(
   operation: string,
@@ -474,8 +475,8 @@ export function forEachLamp(
  * Reaches every lamp the plugin knows that's connected, which marks each one connected or not, and reads one reached
  * for the first time or plugged in again (#198), so the plugin holds the lamps as they are: as it starts, when Find
  * lamps adds lamps, and on a tap on a dial's strip, which then never shows a lamp unplugged since the last operation
- * (#48). Tells every key and dial once it's done, since a lamp read, or found unplugged or plugged in, changes what they
- * show.
+ * (#48). Tells every key and dial once it's done, since a lamp read, or found unplugged or plugged in, changes what
+ * they show.
  */
 export function reachEveryLamp(operation: string): Promise<OperationResult> {
   return queuedAndAnnounced(() => forEachLamp(operation, () => {}, "connected"));
@@ -508,8 +509,8 @@ export function turnLampsOff(lamps: LampSelection): Promise<OperationResult> {
 /**
  * Turns the selected lamps off if every one is on, as the plugin holds them, and on otherwise, so lamps out of sync end
  * up in sync (#23). That's the opposite of what {@link areLampsOn} reports, which the Power key shows. A lamp that
- * couldn't be reached, or told apart, counts as off, while a lamp not found is left out of the choice, so the lamps found
- * can still be turned off, though the toggle fails for it.
+ * couldn't be reached, or told apart, counts as off, while a lamp not found is left out of the choice, so the lamps
+ * found can still be turned off, though the toggle fails for it.
  */
 export function toggleLamps(lamps: LampSelection): Promise<OperationResult> {
   const operation = "toggle";
@@ -630,8 +631,8 @@ async function sendBrightness(
 /**
  * Sets each lamp to its group's part of a scene: a group that's off turns its lamps off, and a group that's on turns
  * its lamps on, sets their temperature, snapped to one each lamp allows, then their brightness, as
- * {@link sendBrightness} sends it, caps included. Like {@link moveLampsBrightness}, it first waits for a lamp of a group
- * that's on that can still go back to its cap, and holds the lamps open until it has read them back, so it goes
+ * {@link sendBrightness} sends it, caps included. Like {@link moveLampsBrightness}, it first waits for a lamp of a
+ * group that's on that can still go back to its cap, and holds the lamps open until it has read them back, so it goes
  * through {@link oneOperationAtATime}.
  */
 async function setScene(groups: readonly SceneGroup[]): Promise<OperationResult> {

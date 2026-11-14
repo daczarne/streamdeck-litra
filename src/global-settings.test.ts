@@ -30,36 +30,6 @@ beforeEach(() => {
   globalSettings = new GlobalSettings(save);
 });
 
-const DEFAULTS = {
-  addNewLamps: true,
-  addNewLampsExceptions: [],
-  blinkOnLampScreen: false,
-  blinkOnLampScreenExceptions: [],
-  keepBrightnessDifference: false,
-  keepTemperatureDifference: false,
-  identifyBlinkMs: 400,
-  lampScreenTopLeft: "identification",
-  lampScreenTopRight: "counter",
-  lampScreenMiddleLeft: "temperature",
-  lampScreenMiddleRight: "power",
-  lampScreenBottomLeft: "brightnessPercentage",
-  lampScreenBottomRight: "brightnessLumen",
-  lampScreenOptions: {},
-  lampScreenPrimaryColor: "#ffffff",
-  lampScreenPrimaryWeight: "normal",
-  lampScreenPrimarySize: 18,
-  lampScreenSecondaryColor: "#202020",
-  lampScreenSecondaryWeight: "normal",
-  lampScreenSecondarySize: 18,
-  lampScreenAccentColor: "#4dd0e1",
-  lampScreenAccentWeight: "normal",
-  lampScreenAccentSize: 18,
-  lampScreenAlertColor: "#ff6b6b",
-  lampScreenAlertWeight: "bold",
-  lampScreenAlertSize: 18,
-  lamps: {},
-};
-
 /** Each lamp the plugin knows, by id, as the global settings save it. */
 function savedLamps(): Record<string, object> {
   return Object.fromEntries(
@@ -70,24 +40,22 @@ function savedLamps(): Record<string, object> {
 //* Tests
 
 describe("the global settings (#144)", () => {
-  it("are their defaults before they're read", () => {
-    expect(globalSettings.current).toEqual(DEFAULTS);
-  });
-
   it("are the ones read, and the next ones read replace them", () => {
     globalSettings.read({ blinkOnLampScreen: true, keepBrightnessDifference: true });
 
-    expect(globalSettings.current).toEqual({ ...DEFAULTS, blinkOnLampScreen: true, keepBrightnessDifference: true });
+    expect(globalSettings.blinksOnLampScreen("dial")).toBe(true);
+    expect(globalSettings.brightnessStepping).toBe("each");
 
     globalSettings.read({});
 
-    expect(globalSettings.current).toEqual(DEFAULTS);
+    expect(globalSettings.blinksOnLampScreen("dial")).toBe(false);
+    expect(globalSettings.brightnessStepping).toBe("together");
   });
 
   it("take a setting's default, with a warning, when what is read isn't valid", () => {
     globalSettings.read({ blinkOnLampScreen: "yes" });
 
-    expect(globalSettings.current).toEqual(DEFAULTS);
+    expect(globalSettings.blinksOnLampScreen("dial")).toBe(false);
     expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("blinkOnLampScreen"));
   });
 
@@ -318,7 +286,6 @@ describe("the lamps an action key acts on (#147)", () => {
   const picked = { lamps: ["0000000000001111"], leftOutLamps: ["0000000000002222"] };
 
   it("are every lamp but the ones its page left out, by default, so lamps added later join it", () => {
-    expect(globalSettings.addsNewLamps("key")).toBe(true);
     expect(globalSettings.actionKeyLamps("key", picked)).toEqual({ except: ["0000000000002222"] });
   });
 
@@ -433,6 +400,34 @@ describe("the lamps the plugin knows (#194)", () => {
     expect(save).toHaveBeenCalledExactlyOnceWith({ lamps, keepBrightnessDifference: true });
     expect(savedLamps()).toEqual(lamps);
     expect(logger.info).toHaveBeenCalledExactlyOnceWith("Lamps added: Beam LX - 2222");
+  });
+
+  it.each([
+    ["found", () => globalSettings.addLamps([BEAM_LX])],
+    ["renamed", () => globalSettings.renameLamp("0000000000001111", "Key light")],
+    ["forgotten", () => globalSettings.forgetLamp("0000000000001111")],
+  ])("tell the listeners when a lamp is %s, without reading the settings again", async (_, change) => {
+    globalSettings.read({ lamps: { "0000000000001111": { model: "Beam" } }, blinkOnLampScreen: "yes" });
+    const listener = vi.fn();
+    globalSettings.onChanged(listener);
+    vi.mocked(logger.warn).mockClear();
+
+    await change();
+
+    await vi.waitFor(() => expect(listener).toHaveBeenCalledOnce());
+    expect(logger.warn).not.toHaveBeenCalled();
+  });
+
+  it("save a second change on top of the first, keeping both", async () => {
+    globalSettings.read({ lamps: { "0000000000001111": { model: "Beam" } }, identifyBlinkMs: 600 });
+
+    await globalSettings.addLamps([BEAM_LX]);
+    await globalSettings.renameLamp("0000000000002222", "Fill light");
+
+    expect(vi.mocked(save).mock.lastCall?.[0]).toEqual({
+      lamps: { "0000000000001111": { model: "Beam" }, "0000000000002222": { model: "Beam LX", name: "Fill light" } },
+      identifyBlinkMs: 600,
+    });
   });
 
   it("are taken even when saving them fails, which is logged with its error", async () => {
@@ -568,7 +563,7 @@ describe("syncing the global settings (#144)", () => {
 
     void synced.syncGlobalSettings();
 
-    expect(synced.globalSettings.current).toEqual(DEFAULTS);
+    expect(synced.globalSettings.blinksOnLampScreen("dial")).toBe(false);
   });
 
   it("are the ones saved, once read, and follow a settings page that changes them", async () => {
@@ -576,11 +571,12 @@ describe("syncing the global settings (#144)", () => {
 
     await synced.syncGlobalSettings();
 
-    expect(synced.globalSettings.current).toEqual({ ...DEFAULTS, blinkOnLampScreen: true });
+    expect(synced.globalSettings.blinksOnLampScreen("dial")).toBe(true);
 
     changeFromPage({ keepTemperatureDifference: true });
 
-    expect(synced.globalSettings.current).toEqual({ ...DEFAULTS, keepTemperatureDifference: true });
+    expect(synced.globalSettings.blinksOnLampScreen("dial")).toBe(false);
+    expect(synced.globalSettings.temperatureStepping).toBe("each");
   });
 
   it("keep the lamps the plugin knows in one map, which every read updates, as litra-manager holds it (#198)", async () => {
@@ -603,7 +599,7 @@ describe("syncing the global settings (#144)", () => {
 
     await expect(synced.syncGlobalSettings()).rejects.toBe(error);
 
-    expect(synced.globalSettings.current).toEqual(DEFAULTS);
+    expect(synced.globalSettings.blinksOnLampScreen("dial")).toBe(false);
   });
 
   it("save the lamps through Stream Deck, keeping the other settings", async () => {
