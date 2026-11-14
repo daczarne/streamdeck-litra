@@ -1,7 +1,8 @@
 // The groups of a scene (#174), each of which turns its lamps off, or on at its own brightness and temperature, on one
 // row: a switch for its power, and number fields for its presets. The first group is the page's own controls, which
-// save the key's settings as a scene with a single group saves them, and whose presets this greys out while its power
-// is off. The groups added after it are drawn here, under a heading each, and saved as `addedGroups`: each with its
+// save the key's settings as a scene with a single group saves them. While a group's power is off, its presets don't
+// apply: this greys them out, so they show a dash in place of their values, which they keep, and shows a note under
+// them that says so. The groups added after it are drawn here, under a heading each, and saved as `addedGroups`: each with its
 // power, its presets, and the ids of the lamps checked for it, among the lamps the plugin knows (#194), keeping the
 // ones it no longer knows, such as one forgotten. No two groups hold the same lamp: a lamp another group holds, the
 // first included, is greyed out, and says which group holds it, here and in the first group's lamp picker
@@ -30,13 +31,15 @@
   // The ids of the lamps the first group holds, as its lamp picker shows them.
   let firstGroupLamps = [];
 
-  // The first group's presets, greyed out while it turns its lamps off, since they don't apply.
+  // The first group's presets, greyed out with the note under them while it turns its lamps off.
   const power = document.getElementById("power");
   const firstPresets = document.querySelectorAll(".first-group-preset");
+  const firstOffNote = document.getElementById("first-group-off-note");
   const showFirstPresets = () => {
     for (const preset of firstPresets) {
       preset.disabled = power.value === "off";
     }
+    firstOffNote.hidden = power.value !== "off";
   };
   power.addEventListener("valuechange", showFirstPresets);
   showFirstPresets();
@@ -179,6 +182,14 @@
     return field;
   }
 
+  /** The note under a group's controls while it turns its lamps off, which the group shows and hides. */
+  function offNote() {
+    const element = document.createElement("p");
+    element.className = "off-note";
+    element.textContent = "Temperature and Brightness aren't applied while Power is off";
+    return element;
+  }
+
   /** A line of grey text. */
   function note(text) {
     const element = document.createElement("p");
@@ -258,10 +269,12 @@
       numberField(group.presetKelvin, { min: 2700, max: 6500, step: 100, unit: "K" }, change("presetKelvin")),
       numberField(group.presetPercentage, { min: 0, max: 100, step: 1, unit: "%" }, change("presetPercentage")),
     ];
+    const off = offNote();
     const showPresets = () => {
       for (const preset of presets) {
         preset.disabled = group.power === "off";
       }
+      off.hidden = group.power !== "off";
     };
     showPresets();
     const power = document.createElement("litra-switch");
@@ -270,7 +283,7 @@
       change("power")(power.value);
       showPresets();
     });
-    // The group's power and presets on one row, under their labels, as the first group's.
+    // The group's power and presets on one row, under their labels, and the note under them, as the first group's.
     const row = document.createElement("div");
     row.className = "scene-row";
     for (const label of ["Power", "Temperature", "Brightness"]) {
@@ -278,7 +291,7 @@
       element.textContent = label;
       row.append(element);
     }
-    row.append(power, ...presets);
+    row.append(power, ...presets, off);
     const list = document.createElement("div");
     list.className = "group-lamps";
     list.append(...lampRows(group, number));

@@ -48,7 +48,7 @@ Brightness and Temperature keys set their lamps to the preset in their settings.
 
 ### Scene
 
-A Scene key sets its lamps in one press, so one key goes to a setup and another comes back: it turns them on, then sets their temperature and brightness, or turns them off, as its Power switch says. A group's power, temperature and brightness sit on one row.
+A Scene key sets its lamps in one press, so one key goes to a setup and another comes back: it turns them on, then sets their temperature and brightness, or turns them off, as its Power switch says. A group's power, temperature and brightness sit on one row. A group that turns its lamps off leaves their temperature and brightness as they are, so while its Power is off, its Temperature and Brightness are greyed out and show a dash, with a note under them that they aren't applied. They keep their values, which show again once Power is back on.
 
 **Add a group**, on its settings page, adds a group of lamps with its own power, brightness and temperature, such as a key light brighter than a fill light, and **Remove group** takes it away. A lamp is in one group at most: the other groups show it greyed out, with the group that holds it, and it moves once it's unchecked there. The first group picks its lamps as every key does, lamps added later included (see [Picking a key's lamps](#picking-a-keys-lamps)), and a lamp no group holds is left as it is. Its All means every lamp the plugin knows, so it's unchecked and greyed out while another group holds a lamp.
 

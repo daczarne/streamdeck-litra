@@ -579,14 +579,15 @@ function queuedAndAnnounced(operation: () => OperationResult | Promise<Operation
 }
 
 /**
- * Waits, right after a lamp's cap was learned, until no lamp can go back to its cap (see
- * {@link Lamp.brightnessCapReversalEndsAt}), so a change that asks for less isn't undone.
+ * Waits, right after the cap of one of the lamps an operation is about to send a brightness was learned, until none of
+ * them can go back to its cap (see {@link Lamp.brightnessCapReversalEndsAt}), so a lower brightness sent to it isn't
+ * undone. The other lamps aren't waited for: one going back to its cap undoes nothing the operation sends.
  */
-async function waitForCapReversal(operation: string): Promise<void> {
-  const endsAt = Math.max(0, ...[...knownLamps.values()].map((lamp) => lamp.brightnessCapReversalEndsAt));
+async function waitForCapReversal(operation: string, lamps: readonly OpenedLamp<unknown>[]): Promise<void> {
+  const endsAt = Math.max(0, ...lamps.map(({ lamp }) => lamp.brightnessCapReversalEndsAt));
   const reversalMs = endsAt - Date.now();
   if (reversalMs > 0) {
-    logger.debug(`${operation}: waiting ${reversalMs} ms, until no lamp can go back to its cap`);
+    logger.debug(`${operation}: waiting ${reversalMs} ms, until no lamp it sends a brightness can go back to its cap`);
     await new Promise((resolve) => setTimeout(resolve, reversalMs));
   }
 }
@@ -620,19 +621,22 @@ async function sendBrightness(
 /**
  * Sets each lamp to its group's part of a scene: a group that's off turns its lamps off, and a group that's on turns
  * its lamps on, sets their temperature, snapped to one each lamp allows, then their brightness, as
- * {@link sendBrightness} sends it, caps included. Like {@link moveLampsBrightness}, it waits for a lamp that can still
- * go back to its cap, and holds the lamps open until it has read them back, so it goes through
- * {@link oneOperationAtATime}.
+ * {@link sendBrightness} sends it, caps included. Like {@link moveLampsBrightness}, it first waits for a lamp of a group
+ * that's on that can still go back to its cap, and holds the lamps open until it has read them back, so it goes
+ * through {@link oneOperationAtATime}.
  */
 async function setScene(groups: readonly SceneGroup[]): Promise<OperationResult> {
   const operation = "set scene";
-  await waitForCapReversal(operation);
-
   const opened = openLamps(operation, groups);
   if (opened === undefined) {
     return NO_LAMP;
   }
   try {
+    await waitForCapReversal(
+      operation,
+      opened.lamps.filter(({ group }) => group.on),
+    );
+
     const targets = new Map<OpenedLamp<unknown>, BrightnessSent>();
     for (const reached of opened.lamps) {
       const { lamp, handle, group } = reached;
@@ -656,18 +660,18 @@ async function setScene(groups: readonly SceneGroup[]): Promise<OperationResult>
 /**
  * Moves the selected lamps to their target, and lets them settle. The target is a percentage, or a step from the
  * brightest selected lamp's percentage or from each lamp's own, as the plugin holds them. Each lamp is sent the target
- * as {@link sendBrightness} sends it, caps included. Right after a lamp's cap is learned, the next change waits until
- * the lamp can no longer go back to its cap. The lamps stay open from the first step to the last, so calls mustn't
- * overlap: they go through {@link oneOperationAtATime}.
+ * as {@link sendBrightness} sends it, caps included. Right after the cap of one of its lamps is learned, it first waits
+ * until the lamp can no longer go back to its cap. The lamps stay open from the first step to the last, so calls
+ * mustn't overlap: they go through {@link oneOperationAtATime}.
  */
 async function moveLampsBrightness(operation: string, lamps: LampSelection, target: Target): Promise<OperationResult> {
-  await waitForCapReversal(operation);
-
   const opened = openLamps(operation, [{ lamps }]);
   if (opened === undefined) {
     return NO_LAMP;
   }
   try {
+    await waitForCapReversal(operation, opened.lamps);
+
     // The lamps, each told to turn on, even one the plugin holds as on, so one turned off another way follows the
     // plugin again, then ready for their brightness, each with its brightness in lumens before the change.
     const before = new Map<OpenedLamp<unknown>, number>();

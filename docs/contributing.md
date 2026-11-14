@@ -117,7 +117,7 @@ A text that the plugin itself would show in another style, such as a brightness 
 
 ## Numbers are set with a number field
 
-A setting that takes a number within a range, on a step, such as a brightness, a temperature, a step or a length of time, is set on its page with the plugin's number field (`litra-number`, in `ui/number-field.js`), not a slider: it sets an exact value by clicks or by typing, and takes no more room than it needs ([#195]). Its `min`, `max`, `step` and `default` are the setting's in `src/actions/settings.ts`, which the browser tests check, and its unit goes in `unit`. A choice among a few values that aren't steps of one range, such as the lamp screens' text sizes, stays a list.
+A setting that takes a number within a range, on a step, such as a brightness, a temperature, a step or a length of time, is set on its page with the plugin's number field (`litra-number`, in `ui/number-field.js`), not a slider: it sets an exact value by clicks or by typing, and takes no more room than it needs ([#195]). Its `min`, `max`, `step` and `default` are the setting's in `src/actions/settings.ts`, which the browser tests check, and its unit goes in `unit`. A number that doesn't apply, such as a scene group's presets while it turns its lamps off, is greyed out with `disabled`, which shows a dash in place of its value and unit, rather than a value that wouldn't be used, and keeps its value for when it applies again. A choice among a few values that aren't steps of one range, such as the lamp screens' text sizes, stays a list.
 
 [#9]: https://github.com/daczarne/streamdeck-litra/issues/9
 [#13]: https://github.com/daczarne/streamdeck-litra/issues/13
