@@ -241,11 +241,11 @@ function findConnections(operation: string): Found {
 }
 
 /**
- * Opens the lamps an operation acts on, named in the logs, for each of its groups: every connected lamp the plugin
- * knows, the selected ones, or every one but the left out ones, each lamp with the first group that selects it, so a
- * lamp two groups select takes the first one's part. It closes the other lamps found, the ones the plugin doesn't know
- * included. A selection of none is logged only when every group selects none, since a group may lose its lamps to
- * another, and then no lamp is looked for.
+ * Opens the lamps an operation acts on, named in the logs, for each of its groups: every lamp the plugin knows, every
+ * one connected, the selected ones, or every one but the left out ones, each lamp with the first group that selects
+ * it, so a lamp two groups select takes the first one's part. It closes the other lamps found, the ones the plugin
+ * doesn't know included. A selection of none is logged only when every group selects none, since a group may lose its
+ * lamps to another, and then no lamp is looked for.
  *
  * A lamp whose serial number can't be read is counted when a group takes in every lamp, or every lamp but some, which
  * it could be one of: a Beam that fails counts as a failed lamp, and a Beam LX that can't even be told apart is one too
