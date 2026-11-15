@@ -14,13 +14,13 @@ import { findLampsShown, lampsShown } from "./shown";
 import { type TextStyle, type TextStyles, textStyle, textStylesOf } from "./text-styles";
 
 /** What a lamp screen uses of its dial, whichever action it belongs to. */
-export type LampScreenDial = Pick<
+type LampScreenDial = Pick<
   TouchTapEvent["action"],
   "id" | "setFeedback" | "setFeedbackLayout" | "setTriggerDescription" | "showAlert"
 >;
 
 /** What only a dial's action knows: how to draw its main screen, and what turning the dial adjusts. */
-export type DialOwner = {
+type DialOwner = {
   showMain: () => Promise<void>;
   /** What turning the dial adjusts, which the app shows as the description of a turn. */
   adjusts: string;
@@ -46,8 +46,9 @@ const LAMP_TRIGGER_DESCRIPTIONS = { push: "Power", touch: "Next lamp", longTouch
  * a global setting, the same on every dial (#177).
  *
  * Its dial redraws it whenever the lamps change, whichever action changed them, and whenever the global settings do.
- * Operations run one at a time, since each reads the lamps and changes what the dial shows, and never reject: failures
- * are logged. A blink is part of the operation that asked for it, so a tap during a blink waits for it to end.
+ * Operations run one at a time, since each changes what the dial shows, and a tap or a blink goes through the lamps.
+ * They never reject: failures are logged. A blink is part of the operation that asked for it, so a tap during a blink
+ * waits for it to end.
  */
 export class LampScreen {
   // The id of the lamp on screen, or undefined on the main screen.
@@ -165,9 +166,9 @@ export class LampScreen {
   }
 }
 
-// The icons of the items that can show one, wherever they're shown: the lumens share the brightness's sun (#177). Each is
-// drawn in its text's color (#153), as an SVG a layout's pixmap takes as a data URL, at the size of the glyph@2x.png the
-// dials' main screens show, and kept once drawn, by item and color.
+// The icons of the items that can show one, wherever they're shown: the lumens share the brightness's sun (#177).
+// Each is drawn in its text's color (#153), as an SVG a layout's pixmap takes as a data URL, at the size of the
+// glyph@2x.png the dials' main screens show, and kept once drawn, by item and color.
 const ICONS: Partial<Record<LampScreenItem, (size: number, options: { color: string }) => string>> = {
   temperature: temperatureGlyph,
   brightnessPercentage: brightnessGlyph,
@@ -190,7 +191,7 @@ async function blink(dial: LampScreenDial, lampId: string): Promise<void> {
   }
 }
 
-/** What a cell shows: its text, with its look, and its icon and the side it's on, if it has one. */
+/** What a cell shows: its text, with its look, and its icon, if it has one. */
 type Shown = { text: { value: string } & TextStyle; icon?: string };
 
 /**
