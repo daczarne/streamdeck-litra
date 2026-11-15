@@ -16,7 +16,7 @@ const FAINTEST_BAR_GREY = 0x80;
  * bar's filled part, which ends at the brightest lamp's level, so each level is placed as a share of that one. Two
  * stops 0.001 apart draw a sharp edge.
  */
-export function barFill(levels: number[]): string {
+export function barFill(levels: readonly number[]): string {
   const brightest = Math.max(0, ...levels);
   const distinct = [...new Set(levels)].filter((level) => level > 0).sort((a, b) => a - b);
   if (distinct.length === 0 || (distinct.length === 1 && levels.every((level) => level === brightest))) {
