@@ -7,6 +7,7 @@
 - [Features update the user guide](#features-update-the-user-guide)
 - [Dependencies](#dependencies)
 - [Unused code](#unused-code)
+- [A module goes in its layer](#a-module-goes-in-its-layer)
 - [Before 1.0, settings change without a migration](#before-10-settings-change-without-a-migration)
 - [Supported lamps](#supported-lamps)
 - [By default, lamps are managed together](#by-default-lamps-are-managed-together)
@@ -69,6 +70,10 @@ Every dependency is pinned, and every upgrade is a deliberate change of its own.
 ## Unused code
 
 Code or configuration that is unused, misleading or contradicts a decision already made is removed. For example, an entry relying on install scripts, now that `.npmrc` sets `ignore-scripts=true`, would contradict that decision even if it did nothing.
+
+## A module goes in its layer
+
+`src/` is in layers, a folder each, and a module imports only from its own folder and the ones below it: `actions/` and `controls/` are the frontend, what the Deck takes in and displays, and `settings/` and `lamps/` the backend, what Stream Deck keeps and the physical lamps. So the frontend calls the backend, never the other way round, and nothing in the backend knows how the Deck displays what it holds: storing a setting about what the Deck shows is the backend's work, and what the value turns into on the Deck the frontend's. `src/actions/` holds one module per action, and what several actions share goes in `src/controls/`. A new module goes in the folder of its layer, and a change to what a folder holds updates its `README.md`, which `src/README.md` lists.
 
 ## Before 1.0, settings change without a migration
 
