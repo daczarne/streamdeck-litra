@@ -105,7 +105,7 @@ For each lamp, [`readBackBrightness`][read-back-brightness]:
 | Brightness and Temperature Up and Down keys | Their title, from the lamps' new values | [step-keys.ts][step-key-lamps-changed] |
 | Brightness, Temperature and Scene keys | Nothing | `ActionInstance`'s default |
 
-Each one reads through [src/actions/shown.ts], which first awaits `lampsSettled()` (the queue of operations, so the Deck never shows a change halfway), then works out what to show from the `Lamp`s' held state, in [src/lamps-shown.ts]. No lamp is read to redraw the Deck. `setState`, `setFeedback` and `setTitle` go back over the WebSocket, and Stream Deck draws them on the Deck.
+Each one reads through [src/actions/shown.ts], which first awaits `lampsSettled()` (the queue of operations, so the Deck never shows a change halfway), then works out what to show from the `Lamp`s' held state. No lamp is read to redraw the Deck. `setState`, `setFeedback` and `setTitle` go back over the WebSocket, and Stream Deck draws them on the Deck.
 
 ## Timing
 
@@ -153,7 +153,6 @@ Almost all of the HID work is synchronous, so it holds the plugin's event loop, 
 [send-brightness]: ../../src/litra-manager.ts
 [set-lamps-brightness]: ../../src/litra-manager.ts
 [src/actions/shown.ts]: ../../src/actions/shown.ts
-[src/lamps-shown.ts]: ../../src/lamps-shown.ts
 [start-up]: start_up.md
 [start-up-register]: start_up.md#4-the-body-of-plugints
 [step-key-lamps-changed]: ../../src/actions/step-keys.ts
