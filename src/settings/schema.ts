@@ -1,8 +1,6 @@
 import type { JsonObject, JsonValue } from "@elgato/utils";
 import type { Logger } from "@elgato/utils/logging";
 
-import type { LampSelection } from "../lamps/selection";
-
 /**
  * A setting an action reads: the value it takes when the setting is missing or invalid, what a valid value is, and how
  * to read one. `parse` returns undefined for a value that isn't valid.
@@ -190,21 +188,6 @@ function checkedLamps(): Setting<CheckedLamps> {
     expected: '"all", or a list of lamp ids',
     parse: (value) => (value === "all" ? "all" : list.parse(value)),
   };
-}
-
-/** The lamps a key acts on, as its log line says it. */
-export function describeLamps(lamps: LampSelection): string {
-  const count = (n: number): string => (n === 1 ? "1 lamp" : `${n} lamps`);
-  if (lamps === "all") {
-    return "every lamp";
-  }
-  if (lamps === "connected") {
-    return "every lamp connected";
-  }
-  if ("except" in lamps) {
-    return lamps.except.length === 0 ? "every lamp" : `every lamp but ${count(lamps.except.length)}`;
-  }
-  return count(lamps.length);
 }
 
 //* The actions' settings
