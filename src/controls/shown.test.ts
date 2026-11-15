@@ -3,7 +3,7 @@ import { Lamp, type LampState } from "../lamps/lamp";
 import { lampsSettled, reachEveryLamp } from "../lamps/manager";
 import { at } from "../test-support/at";
 import { reachedLamp } from "../test-support/reached-lamps";
-import { areLampsOn, findShownLamps, readLampsBrightness, readLampsTemperature, readShownLamps } from "./shown";
+import { areLampsOn, brightnessShown, findLampsShown, lampsShown, temperatureShown } from "./shown";
 
 //* Fakes
 
@@ -49,9 +49,9 @@ describe("what the Deck shows of the lamps (#198)", () => {
     held("00000000000c3333");
     const earlier = held("00000000000a1111", { lumen: 30 });
 
-    expect(await readLampsBrightness("all")).toEqual([0, 100, 50]);
-    expect(await readLampsBrightness([later.id, earlier.id])).toEqual([0, 100]);
-    expect(await readLampsBrightness({ except: [earlier.id] })).toEqual([100, 50]);
+    expect(await brightnessShown("all")).toEqual([0, 100, 50]);
+    expect(await brightnessShown([later.id, earlier.id])).toEqual([0, 100]);
+    expect(await brightnessShown({ except: [earlier.id] })).toEqual([100, 50]);
   });
 
   it("leaves out a lamp the last operation didn't find, and one never reached, which has no state", async () => {
@@ -59,14 +59,14 @@ describe("what the Deck shows of the lamps (#198)", () => {
     held("00000000000b2222").setFound(false);
     neverReached("00000000000c3333");
 
-    expect(await readLampsBrightness("all")).toEqual([50]);
+    expect(await brightnessShown("all")).toEqual([50]);
   });
 
   it.each([
     ["whether the lamps are on", () => areLampsOn("all")],
-    ["their brightness", () => readLampsBrightness("all")],
-    ["their temperature", () => readLampsTemperature("all")],
-    ["the lamps the lamp screens show", () => readShownLamps()],
+    ["their brightness", () => brightnessShown("all")],
+    ["their temperature", () => temperatureShown("all")],
+    ["the lamps the lamp screens show", () => lampsShown()],
   ])("shows %s once the operations queued are done, so not partway", async (_, show) => {
     held("00000000000a1111");
     let settle = (): void => {};
@@ -114,11 +114,21 @@ describe("what the Deck shows of the lamps (#198)", () => {
       held("00000000000b2222", { kelvin: 5000 });
       held("00000000000a1111", { kelvin: 3500 });
 
-      expect(await readLampsTemperature("all")).toEqual({ kelvin: 3500, percentage: 21 });
+      expect(await temperatureShown("all")).toEqual({ kelvin: 3500, percentage: 21 });
+    });
+
+    it("puts the lowest temperature the lamp allows at 0, and the highest at 100", async () => {
+      const lamp = held("00000000000a1111", { kelvin: 2700 });
+
+      expect(await temperatureShown("all")).toEqual({ kelvin: 2700, percentage: 0 });
+
+      known.set(lamp.id, reachedLamp(lamp.id, { ...HALF, kelvin: 6500 }));
+
+      expect(await temperatureShown("all")).toEqual({ kelvin: 6500, percentage: 100 });
     });
 
     it("is none without a lamp", async () => {
-      expect(await readLampsTemperature("all")).toBeUndefined();
+      expect(await temperatureShown("all")).toBeUndefined();
     });
   });
 
@@ -127,7 +137,7 @@ describe("what the Deck shows of the lamps (#198)", () => {
       const lamp = held("00000000000a1111", { on: false, lumen: 400, kelvin: 6500 });
       neverReached("00000000000b2222");
 
-      const shown = await readShownLamps();
+      const shown = await lampsShown();
 
       expect(shown).toHaveLength(1);
       expect(at(shown, 0)).toBe(lamp);
@@ -141,7 +151,7 @@ describe("what the Deck shows of the lamps (#198)", () => {
         return { ok: true, lampCount: 0, failures: 0 };
       });
 
-      expect(await findShownLamps()).toEqual([]);
+      expect(await findLampsShown()).toEqual([]);
       expect(reachEveryLamp).toHaveBeenCalledExactlyOnceWith("lamp screen");
     });
   });

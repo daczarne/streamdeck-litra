@@ -10,7 +10,7 @@ import { at } from "../test-support/at";
 import { FakeDeck } from "../test-support/fake-deck";
 import { changeGlobalSettings } from "../test-support/fake-stream-deck";
 import { createDebouncer } from "./debouncer";
-import { readLampsBrightness, readLampsTemperature } from "./shown";
+import { brightnessShown, temperatureShown } from "./shown";
 
 //* Fakes
 
@@ -23,7 +23,7 @@ vi.mock("../logging", () => import("../test-support/fake-logging"));
 vi.mock("./debouncer", () => ({ createDebouncer: vi.fn() }));
 
 // What the keys and dials show of the lamps, which each test sets.
-vi.mock("./shown", () => ({ readLampsBrightness: vi.fn(), readLampsTemperature: vi.fn() }));
+vi.mock("./shown", () => ({ brightnessShown: vi.fn(), temperatureShown: vi.fn() }));
 
 // The real lamp manager loads node-hid's native binary on import and talks to real lamps.
 vi.mock("../lamps/manager", () => ({
@@ -62,8 +62,8 @@ beforeEach(() => {
   changeGlobalSettings({});
   // The debouncer flushes every press at once: its own timing is debouncer.test.ts's to check.
   vi.mocked(createDebouncer).mockImplementation((flush) => (presses) => void flush(presses));
-  vi.mocked(readLampsBrightness).mockResolvedValue(AT_THEIR_CAPS);
-  vi.mocked(readLampsTemperature).mockResolvedValue(AT_4000_K);
+  vi.mocked(brightnessShown).mockResolvedValue(AT_THEIR_CAPS);
+  vi.mocked(temperatureShown).mockResolvedValue(AT_4000_K);
   vi.mocked(adjustLampsBrightness).mockResolvedValue(DONE);
   vi.mocked(adjustLampsTemperature).mockResolvedValue(DONE);
   const actions = [
@@ -180,8 +180,8 @@ describe("the step keys", () => {
     it("on every key, whichever key or dial changed the lamps", async () => {
       const keys = [await deck.key(BRIGHTNESS_UP), await deck.key(BRIGHTNESS_UP), await deck.key(TEMPERATURE_UP)];
       clearCalls();
-      vi.mocked(readLampsBrightness).mockResolvedValue([40, 50]);
-      vi.mocked(readLampsTemperature).mockResolvedValue({ kelvin: 3300, percentage: 16 });
+      vi.mocked(brightnessShown).mockResolvedValue([40, 50]);
+      vi.mocked(temperatureShown).mockResolvedValue({ kelvin: 3300, percentage: 16 });
 
       await lampsChanged();
 
@@ -189,8 +189,8 @@ describe("the step keys", () => {
     });
 
     it("as a dash when none of their lamps is connected", async () => {
-      vi.mocked(readLampsBrightness).mockResolvedValue([]);
-      vi.mocked(readLampsTemperature).mockResolvedValue(undefined);
+      vi.mocked(brightnessShown).mockResolvedValue([]);
+      vi.mocked(temperatureShown).mockResolvedValue(undefined);
       const brightnessKey = await deck.key(BRIGHTNESS_UP);
       const temperatureKey = await deck.key(TEMPERATURE_UP);
 
@@ -203,8 +203,8 @@ describe("the step keys", () => {
 
       await lampsChanged();
 
-      expect(readLampsBrightness).toHaveBeenCalledOnce();
-      expect(readLampsTemperature).not.toHaveBeenCalled();
+      expect(brightnessShown).toHaveBeenCalledOnce();
+      expect(temperatureShown).not.toHaveBeenCalled();
     });
   });
 
@@ -302,24 +302,24 @@ describe("the step keys", () => {
       const onSecond = await deck.key(BRIGHTNESS_UP, { lamps: [LAMP_2] });
       clearCalls();
       // Lamp 1 at 63%, lamp 2 at 79%.
-      vi.mocked(readLampsBrightness).mockImplementation(async (lamps) =>
+      vi.mocked(brightnessShown).mockImplementation(async (lamps) =>
         Array.isArray(lamps) ? lamps.map((id) => (id === LAMP_1 ? 63 : 79)) : [63, 79],
       );
 
       await lampsChanged();
 
       expect([onEvery, onFirst, alsoOnFirst, onSecond].map(titleOf)).toEqual(["79%", "63%", "63%", "79%"]);
-      expect(vi.mocked(readLampsBrightness).mock.calls).toEqual([["all"], [[LAMP_1]], [[LAMP_1]], [[LAMP_2]]]);
+      expect(vi.mocked(brightnessShown).mock.calls).toEqual([["all"], [[LAMP_1]], [[LAMP_1]], [[LAMP_2]]]);
     });
 
     it("shows what the key's new lamps are at once they're changed on the settings page", async () => {
       const key = await deck.key(TEMPERATURE_UP);
       clearCalls();
-      vi.mocked(readLampsTemperature).mockResolvedValue({ kelvin: 6500, percentage: 100 });
+      vi.mocked(temperatureShown).mockResolvedValue({ kelvin: 6500, percentage: 100 });
 
       await deck.changeSettings(key, { lamps: [LAMP_2] });
 
-      expect(readLampsTemperature).toHaveBeenCalledExactlyOnceWith([LAMP_2]);
+      expect(temperatureShown).toHaveBeenCalledExactlyOnceWith([LAMP_2]);
       expect(titleOf(key)).toBe("6500");
     });
 

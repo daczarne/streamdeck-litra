@@ -565,16 +565,6 @@ describe("a lamp's range (#198)", () => {
     ]);
   });
 
-  it("places a temperature between the lowest and highest it allows", () => {
-    const { lamp } = reached();
-
-    expect([
-      lamp.temperaturePercentage(2700),
-      lamp.temperaturePercentage(4600),
-      lamp.temperaturePercentage(6500),
-    ]).toEqual([0, 50, 100]);
-  });
-
   it("isn't known before the lamp is reached", () => {
     const lamp = knownLamp();
 
@@ -582,10 +572,11 @@ describe("a lamp's range (#198)", () => {
     expect(() => lamp.lowestKelvin).toThrow("Beam - 73cd has no range before it's reached");
   });
 
-  it("can't place a temperature for a lamp that allows none", () => {
+  it("has no lowest or highest temperature for a lamp that allows none", () => {
     const { lamp } = reached(Object.assign(new FakeHandle(), { range: { ...RANGE, allowedKelvin: [] } }));
 
-    expect(() => lamp.temperaturePercentage(4000)).toThrow("Beam - 73cd reports no allowed temperatures");
+    expect(() => lamp.lowestKelvin).toThrow("Beam - 73cd reports no allowed temperatures");
+    expect(() => lamp.highestKelvin).toThrow("Beam - 73cd reports no allowed temperatures");
   });
 });
 

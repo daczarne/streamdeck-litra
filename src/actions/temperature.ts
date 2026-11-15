@@ -1,6 +1,6 @@
 import { action } from "@elgato/streamdeck";
 import { type Measure, MeasureAction, type Preset } from "../controls/measure";
-import { readLampsTemperature } from "../controls/shown";
+import { temperatureShown } from "../controls/shown";
 import { adjustLampsTemperature, setLampsTemperature } from "../lamps/manager";
 import { logger as pluginLogger } from "../logging";
 import { globalSettings } from "../settings/global-settings";
@@ -27,7 +27,7 @@ const TEMPERATURE: Measure = {
   readStepping: () => globalSettings.temperatureStepping,
   adjust: adjustLampsTemperature,
   readMainScreen: async () => {
-    const shown = await readLampsTemperature("connected");
+    const shown = await temperatureShown("connected");
     return {
       title: "Temperature",
       value: shown === undefined ? "—" : `${Math.round(shown.kelvin)}`,
