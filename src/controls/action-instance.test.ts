@@ -15,9 +15,9 @@ vi.mock("../lamps/manager", () => ({ onLampsChanged: vi.fn() }));
 
 vi.mock("../settings/global-settings", () => ({ globalSettings: { onChanged: vi.fn() } }));
 
-const TESTED = "com.daczarne.litra.tested";
+const FAKE = "com.daczarne.litra.fake-routing";
 
-/** How the tested instances read their settings: the step alone, which every instance reads through this spy. */
+/** How the fake instances read their settings: the step alone, which every instance reads through this spy. */
 const read = vi.fn((settings: JsonObject) => ({ step: typeof settings.step === "number" ? settings.step : 1 }));
 
 /** An instance that records each call it gets, with the step its settings had then. */
@@ -86,8 +86,8 @@ class Recorder extends ActionInstance<{ step: number }> {
 }
 
 /** An action whose instances record what they get, and which places none on a dial when told to. */
-@action({ UUID: TESTED })
-class TestedAction extends RoutingAction<Recorder> {
+@action({ UUID: FAKE })
+class FakeRoutingAction extends RoutingAction<Recorder> {
   readonly created: Recorder[] = [];
   keysOnly = false;
 
@@ -102,14 +102,14 @@ class TestedAction extends RoutingAction<Recorder> {
   }
 }
 
-let tested: TestedAction;
+let fake: FakeRoutingAction;
 let deck: FakeDeck;
 
 beforeEach(() => {
   vi.useFakeTimers();
   vi.clearAllMocks();
-  tested = new TestedAction();
-  deck = new FakeDeck([tested]);
+  fake = new FakeRoutingAction();
+  deck = new FakeDeck([fake]);
 });
 
 afterEach(() => {
@@ -129,15 +129,15 @@ function listenerOf(subscribe: (listener: () => void | Promise<void>) => unknown
 
 describe("RoutingAction", () => {
   it("creates an instance for each key or dial as it appears, with its settings, and lets it draw itself", async () => {
-    await deck.key(TESTED, { step: 5 });
-    await deck.dial(TESTED);
+    await deck.key(FAKE, { step: 5 });
+    await deck.dial(FAKE);
 
-    expect(tested.created.map((instance) => instance.calls)).toEqual([["appear 5"], ["appear 1"]]);
+    expect(fake.created.map((instance) => instance.calls)).toEqual([["appear 5"], ["appear 1"]]);
   });
 
   it("hands each event to the instance of its own key or dial", async () => {
-    const key = await deck.key(TESTED);
-    const dial = await deck.dial(TESTED);
+    const key = await deck.key(FAKE);
+    const dial = await deck.dial(FAKE);
 
     await deck.press(key);
     await deck.push(dial);
@@ -145,7 +145,7 @@ describe("RoutingAction", () => {
     await deck.tap(dial);
     await deck.hold(dial);
 
-    const [keyInstance, dialInstance] = tested.created;
+    const [keyInstance, dialInstance] = fake.created;
     expect(keyInstance?.calls).toEqual(["appear 1", "keyDown 1"]);
     expect(dialInstance?.calls).toEqual([
       "appear 1",
@@ -157,16 +157,16 @@ describe("RoutingAction", () => {
   });
 
   it("hands an instance its new settings, and lets it redraw", async () => {
-    const key = await deck.key(TESTED);
+    const key = await deck.key(FAKE);
 
     await deck.changeSettings(key, { step: 5 });
     await deck.press(key);
 
-    expect(tested.created[0]?.calls).toEqual(["appear 1", "settingsChanged 5", "keyDown 5"]);
+    expect(fake.created[0]?.calls).toEqual(["appear 1", "settingsChanged 5", "keyDown 5"]);
   });
 
   it("reads the settings again only when they change, so a setting that isn't valid is warned once", async () => {
-    const key = await deck.key(TESTED, { step: 5 });
+    const key = await deck.key(FAKE, { step: 5 });
 
     await deck.press(key);
     await deck.press(key);
@@ -179,39 +179,39 @@ describe("RoutingAction", () => {
   });
 
   it("hands every instance the notice that the lamps changed, or the global settings", async () => {
-    await deck.key(TESTED);
-    await deck.dial(TESTED);
+    await deck.key(FAKE);
+    await deck.dial(FAKE);
 
     await listenerOf(onLampsChanged)();
     await listenerOf(globalSettings.onChanged)();
 
-    for (const instance of tested.created) {
+    for (const instance of fake.created) {
       expect(instance.calls).toEqual(["appear 1", "lampsChanged 1", "globalSettingsChanged 1"]);
     }
   });
 
   it("redraws every instance when one fails, then fails with its error, for the listener to log", async () => {
-    await deck.key(TESTED);
-    await deck.key(TESTED);
-    await deck.dial(TESTED);
+    await deck.key(FAKE);
+    await deck.key(FAKE);
+    await deck.dial(FAKE);
     const failure = new Error("setTitle failed");
-    const first = tested.created[0];
+    const first = fake.created[0];
     if (first !== undefined) {
       first.failure = failure;
     }
 
     await expect(listenerOf(onLampsChanged)()).rejects.toBe(failure);
 
-    for (const instance of tested.created) {
+    for (const instance of fake.created) {
       expect(instance.calls).toEqual(["appear 1", "lampsChanged 1"]);
     }
   });
 
   it("fails with every error when several instances fail", async () => {
-    await deck.key(TESTED);
-    await deck.key(TESTED);
+    await deck.key(FAKE);
+    await deck.key(FAKE);
     const failures = [new Error("first failed"), new Error("second failed")];
-    tested.created.forEach((instance, index) => {
+    fake.created.forEach((instance, index) => {
       instance.failure = failures[index];
     });
 
@@ -222,8 +222,8 @@ describe("RoutingAction", () => {
     "drops the instance of a key that disappears, once it let go of what it holds, " +
       "and no longer hands it anything",
     async () => {
-      const key = await deck.key(TESTED);
-      const instance = tested.created[0];
+      const key = await deck.key(FAKE);
+      const instance = fake.created[0];
 
       await deck.remove(key);
       await listenerOf(onLampsChanged)();
@@ -233,22 +233,22 @@ describe("RoutingAction", () => {
   );
 
   it("ignores an event of a key that disappeared, which the SDK doesn't send", async () => {
-    const key = await deck.key(TESTED);
+    const key = await deck.key(FAKE);
     await deck.remove(key);
 
     await deck.changeSettings(key, { step: 5 });
     await deck.press(key);
 
-    expect(tested.created.map((instance) => instance.calls)).toEqual([["appear 1", "disappear 1"]]);
+    expect(fake.created.map((instance) => instance.calls)).toEqual([["appear 1", "disappear 1"]]);
   });
 
   it("ignores a key or dial it creates no instance for", async () => {
-    tested.keysOnly = true;
-    const dial = await deck.dial(TESTED);
+    fake.keysOnly = true;
+    const dial = await deck.dial(FAKE);
 
     await deck.turn(dial, 1);
     await listenerOf(onLampsChanged)();
 
-    expect(tested.created).toEqual([]);
+    expect(fake.created).toEqual([]);
   });
 });

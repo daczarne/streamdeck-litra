@@ -29,7 +29,7 @@ vi.mock("./shown", () => ({ findLampsShown: vi.fn(), lampsShown: vi.fn() }));
 // The real lamp manager loads node-hid's native binary on import and talks to real lamps.
 vi.mock("../lamps/manager", () => ({ identifyLamp: vi.fn(), onLampsChanged: vi.fn(), toggleLamps: vi.fn() }));
 
-const TESTED = "com.daczarne.litra.tested-measure";
+const FAKE = "com.daczarne.litra.fake-measure";
 
 /** How an operation on two Beams went. */
 const DONE: OperationResult = { ok: true, lampCount: 2, failures: 0 };
@@ -43,10 +43,10 @@ const BEAM = reachedLamp("00000000000000a1", AT_ITS_CAP);
 
 const OTHER_BEAM = reachedLamp("00000000000000b2", AT_ITS_CAP);
 
-/** What the tested dials' main screen shows, whatever the lamps are at. */
-const MAIN: FeedbackPayload = { title: "Tested", value: "42 u", indicator: 42 };
+/** What the fake dials' main screen shows, whatever the lamps are at. */
+const MAIN: FeedbackPayload = { title: "Fake", value: "42 u", indicator: 42 };
 
-/** What the tested keys set: the preset in their settings, or 50, on the lamps checked, or every lamp. */
+/** What the fake keys set: the preset in their settings, or 50, on the lamps checked, or every lamp. */
 const PRESET = {
   read: vi.fn((settings: JsonObject) => ({
     preset: typeof settings.preset === "number" ? settings.preset : 50,
@@ -57,9 +57,9 @@ const PRESET = {
   set: vi.fn<Preset["set"]>(),
 } satisfies Preset;
 
-/** What the tested dials step: by the step in their settings, or 2, and what they show. */
+/** What the fake dials step: by the step in their settings, or 2, and what they show. */
 const MEASURE = {
-  name: "Tested",
+  name: "Fake",
   readStep: vi.fn((settings: JsonObject) => (typeof settings.step === "number" ? settings.step : 2)),
   unit: " u",
   stepping: vi.fn<Measure["stepping"]>(),
@@ -68,8 +68,8 @@ const MEASURE = {
 } satisfies Measure;
 
 /** An action built on MeasureAction, as the Brightness and Temperature actions are, with fakes for what's theirs. */
-@action({ UUID: TESTED })
-class TestedMeasureAction extends MeasureAction {
+@action({ UUID: FAKE })
+class FakeMeasureAction extends MeasureAction {
   /** Sets and steps through the fakes. */
   constructor() {
     super(logger, PRESET, MEASURE);
@@ -98,13 +98,13 @@ beforeEach(() => {
   vi.mocked(findLampsShown).mockImplementation(() => lampsShown());
   vi.mocked(toggleLamps).mockResolvedValue({ ok: true, lampCount: 1, failures: 0 });
   vi.mocked(identifyLamp).mockResolvedValue({ ok: true, lampCount: 1, failures: 0 });
-  const tested = new TestedMeasureAction();
+  const fake = new FakeMeasureAction();
   const listener = vi.mocked(onLampsChanged).mock.lastCall?.[0];
   if (listener === undefined) {
-    throw new Error("The tested action didn't listen for lamp changes");
+    throw new Error("The fake action didn't listen for lamp changes");
   }
   lampsChanged = async () => listener();
-  deck = new FakeDeck([tested]);
+  deck = new FakeDeck([fake]);
 });
 
 afterEach(() => {
@@ -120,20 +120,20 @@ function clearCalls(): void {
 
 describe("a key of a MeasureAction", () => {
   it("reads its settings through what it sets, and shows its preset as its title when it appears", async () => {
-    const key = await deck.key(TESTED, { preset: 40 });
+    const key = await deck.key(FAKE, { preset: 40 });
 
     expect(PRESET.read).toHaveBeenCalledExactlyOnceWith({ preset: 40 }, logger);
     expect(key.setTitle).toHaveBeenCalledExactlyOnceWith("40");
   });
 
   it("shows a preset off the pages' grid rounded, as its title", async () => {
-    const key = await deck.key(TESTED, { preset: 33.5 });
+    const key = await deck.key(FAKE, { preset: 33.5 });
 
     expect(key.setTitle).toHaveBeenCalledExactlyOnceWith("34");
   });
 
   it("shows its new preset once the settings page changes it", async () => {
-    const key = await deck.key(TESTED, { preset: 40 });
+    const key = await deck.key(FAKE, { preset: 40 });
 
     await deck.changeSettings(key, { preset: 70 });
 
@@ -141,8 +141,8 @@ describe("a key of a MeasureAction", () => {
   });
 
   it("sets every lamp to its preset, and leaves showing the result to the notice", async () => {
-    const key = await deck.key(TESTED, { preset: 40 });
-    const dial = await deck.dial(TESTED);
+    const key = await deck.key(FAKE, { preset: 40 });
+    const dial = await deck.dial(FAKE);
     clearCalls();
 
     await deck.press(key);
@@ -155,7 +155,7 @@ describe("a key of a MeasureAction", () => {
   it("sets its lamps alone, picked on the settings page (#20)", async () => {
     // A key that adds no new lamps acts on the lamps checked alone (#147).
     changeGlobalSettings({ addNewLamps: false });
-    const key = await deck.key(TESTED, { preset: 40, lamps: ["lamp-1"] });
+    const key = await deck.key(FAKE, { preset: 40, lamps: ["lamp-1"] });
     clearCalls();
 
     await deck.press(key);
@@ -168,7 +168,7 @@ describe("a key of a MeasureAction", () => {
     ["a lamp fails", FAILED],
     ["no lamp is connected", NO_LAMP],
   ])("shows an alert when %s", async (_when, result) => {
-    const key = await deck.key(TESTED);
+    const key = await deck.key(FAKE);
     PRESET.set.mockResolvedValue(result);
 
     await deck.press(key);
@@ -177,7 +177,7 @@ describe("a key of a MeasureAction", () => {
   });
 
   it("follows no change to the lamps", async () => {
-    const key = await deck.key(TESTED);
+    const key = await deck.key(FAKE);
     clearCalls();
 
     await lampsChanged();
@@ -189,7 +189,7 @@ describe("a key of a MeasureAction", () => {
 describe("a dial of a MeasureAction", () => {
   describe("on its main screen", () => {
     it("reads its step through what it steps, and starts on the main screen when it appears", async () => {
-      const dial = await deck.dial(TESTED, { step: 5 });
+      const dial = await deck.dial(FAKE, { step: 5 });
 
       expect(MEASURE.readStep).toHaveBeenCalledExactlyOnceWith({ step: 5 }, logger);
       expect(dial.setFeedbackLayout).toHaveBeenCalledExactlyOnceWith("$B1");
@@ -197,8 +197,8 @@ describe("a dial of a MeasureAction", () => {
     });
 
     it("redraws on every dial when the lamps change (#29)", async () => {
-      const dial = await deck.dial(TESTED);
-      const otherDial = await deck.dial(TESTED);
+      const dial = await deck.dial(FAKE);
+      const otherDial = await deck.dial(FAKE);
       clearCalls();
 
       await lampsChanged();
@@ -208,7 +208,7 @@ describe("a dial of a MeasureAction", () => {
     });
 
     it("redraws once the settings page changes its step", async () => {
-      const dial = await deck.dial(TESTED, { step: 5 });
+      const dial = await deck.dial(FAKE, { step: 5 });
       clearCalls();
 
       await deck.changeSettings(dial, { step: 10 });
@@ -218,7 +218,7 @@ describe("a dial of a MeasureAction", () => {
     });
 
     it("moves every lamp connected by its step, and leaves showing the result to the notice", async () => {
-      const dial = await deck.dial(TESTED, { step: 5 });
+      const dial = await deck.dial(FAKE, { step: 5 });
       clearCalls();
 
       await deck.turn(dial, 3);
@@ -229,7 +229,7 @@ describe("a dial of a MeasureAction", () => {
 
     it("steps each lamp from its own value when the global settings say so (#145), and logs it", async () => {
       MEASURE.stepping.mockReturnValue("each");
-      const dial = await deck.dial(TESTED, { step: 5 });
+      const dial = await deck.dial(FAKE, { step: 5 });
       clearCalls();
 
       await deck.turn(dial, 3);
@@ -239,8 +239,8 @@ describe("a dial of a MeasureAction", () => {
     });
 
     it("shows an alert on the dial turned when a lamp fails", async () => {
-      const turned = await deck.dial(TESTED);
-      const otherDial = await deck.dial(TESTED);
+      const turned = await deck.dial(FAKE);
+      const otherDial = await deck.dial(FAKE);
       MEASURE.adjust.mockResolvedValue(FAILED);
 
       await deck.turn(turned, 3);
@@ -250,8 +250,8 @@ describe("a dial of a MeasureAction", () => {
     });
 
     it("toggles every lamp connected on a push", async () => {
-      const pushed = await deck.dial(TESTED);
-      const onLamp = await deck.dial(TESTED);
+      const pushed = await deck.dial(FAKE);
+      const onLamp = await deck.dial(FAKE);
       await deck.tap(onLamp);
       clearCalls();
 
@@ -261,7 +261,7 @@ describe("a dial of a MeasureAction", () => {
     });
 
     it("shows an alert on a push when the lamps can't be toggled, and leaves its screen as it was", async () => {
-      const dial = await deck.dial(TESTED);
+      const dial = await deck.dial(FAKE);
       clearCalls();
       vi.mocked(toggleLamps).mockResolvedValue({ ok: false, lampCount: 0, failures: 1 });
 
@@ -272,7 +272,7 @@ describe("a dial of a MeasureAction", () => {
     });
 
     it("does nothing on a hold", async () => {
-      const dial = await deck.dial(TESTED);
+      const dial = await deck.dial(FAKE);
       clearCalls();
 
       await deck.hold(dial);
@@ -284,7 +284,7 @@ describe("a dial of a MeasureAction", () => {
 
   describe("with lamp screens", () => {
     it("shows a lamp screen on a tap, and the main screen again after the last lamp", async () => {
-      const dial = await deck.dial(TESTED);
+      const dial = await deck.dial(FAKE);
 
       await deck.tap(dial);
       expect(dial.setFeedbackLayout).toHaveBeenLastCalledWith("layouts/lamp.json");
@@ -295,7 +295,7 @@ describe("a dial of a MeasureAction", () => {
     });
 
     it("works out no main screen while every dial shows a lamp screen", async () => {
-      const onLamp = await deck.dial(TESTED);
+      const onLamp = await deck.dial(FAKE);
       await deck.tap(onLamp);
       clearCalls();
 
@@ -306,7 +306,7 @@ describe("a dial of a MeasureAction", () => {
     });
 
     it("blinks the lamp on screen on a hold, and stays on its screen (#20)", async () => {
-      const dial = await deck.dial(TESTED);
+      const dial = await deck.dial(FAKE);
       await deck.tap(dial);
 
       await deck.hold(dial);
@@ -316,7 +316,7 @@ describe("a dial of a MeasureAction", () => {
     });
 
     it("toggles only the lamp on screen on a push (#20)", async () => {
-      const dial = await deck.dial(TESTED);
+      const dial = await deck.dial(FAKE);
       await deck.tap(dial);
 
       await deck.push(dial);
@@ -327,7 +327,7 @@ describe("a dial of a MeasureAction", () => {
 
     it("moves only the lamp on screen, together whatever the global settings say (#20, #145)", async () => {
       MEASURE.stepping.mockReturnValue("each");
-      const dial = await deck.dial(TESTED, { step: 5 });
+      const dial = await deck.dial(FAKE, { step: 5 });
       await deck.tap(dial);
 
       await deck.turn(dial, 3);
@@ -342,7 +342,7 @@ describe("a dial of a MeasureAction", () => {
         waiting.push(() => flush(ticks));
       });
       vi.mocked(lampsShown).mockResolvedValue([BEAM, OTHER_BEAM]);
-      const dial = await deck.dial(TESTED, { step: 5 });
+      const dial = await deck.dial(FAKE, { step: 5 });
 
       await deck.turn(dial, 1);
       await deck.tap(dial);
@@ -361,8 +361,8 @@ describe("a dial of a MeasureAction", () => {
     });
 
     it("redraws the lamp on screen when the lamps change, not the main screen", async () => {
-      const onLamp = await deck.dial(TESTED);
-      const onMain = await deck.dial(TESTED);
+      const onLamp = await deck.dial(FAKE);
+      const onMain = await deck.dial(FAKE);
       await deck.tap(onLamp);
       clearCalls();
 
@@ -375,7 +375,7 @@ describe("a dial of a MeasureAction", () => {
     });
 
     it("goes back to the main screen when the lamp on screen is no longer connected", async () => {
-      const dial = await deck.dial(TESTED);
+      const dial = await deck.dial(FAKE);
       await deck.tap(dial);
       vi.mocked(lampsShown).mockResolvedValue([OTHER_BEAM]);
 
@@ -386,8 +386,8 @@ describe("a dial of a MeasureAction", () => {
     });
 
     it("redraws the lamp on screen when the global settings change, and leaves the main screens", async () => {
-      const onLamp = await deck.dial(TESTED);
-      const onMain = await deck.dial(TESTED);
+      const onLamp = await deck.dial(FAKE);
+      const onMain = await deck.dial(FAKE);
       await deck.tap(onLamp);
       clearCalls();
 
@@ -399,7 +399,7 @@ describe("a dial of a MeasureAction", () => {
     });
 
     it("no longer redraws a dial that disappeared", async () => {
-      const dial = await deck.dial(TESTED);
+      const dial = await deck.dial(FAKE);
       await deck.tap(dial);
       await deck.remove(dial);
       clearCalls();
@@ -411,7 +411,7 @@ describe("a dial of a MeasureAction", () => {
     });
 
     it("keeps a lamp screen drawn when the dial's settings change, and turns its lamp by the new step", async () => {
-      const dial = await deck.dial(TESTED, { step: 5 });
+      const dial = await deck.dial(FAKE, { step: 5 });
       await deck.tap(dial);
       clearCalls();
 
@@ -429,7 +429,7 @@ describe("a dial of a MeasureAction", () => {
 
 describe("a MeasureAction logs", () => {
   it("a key press, with the key's preset in its unit, before changing the lamps", async () => {
-    const key = await deck.key(TESTED, { preset: 40 });
+    const key = await deck.key(FAKE, { preset: 40 });
 
     await deck.press(key);
 
@@ -440,7 +440,7 @@ describe("a MeasureAction logs", () => {
   });
 
   it("a dial turn, with its ticks and the dial's step in its unit", async () => {
-    const dial = await deck.dial(TESTED, { step: 5 });
+    const dial = await deck.dial(FAKE, { step: 5 });
 
     await deck.turn(dial, 3);
 
@@ -448,7 +448,7 @@ describe("a MeasureAction logs", () => {
   });
 
   it("a single tick of a dial turn as one tick, either way", async () => {
-    const dial = await deck.dial(TESTED, { step: 5 });
+    const dial = await deck.dial(FAKE, { step: 5 });
 
     await deck.turn(dial, 1);
     await deck.turn(dial, -1);
@@ -460,7 +460,7 @@ describe("a MeasureAction logs", () => {
   });
 
   it("a dial turn on a lamp screen, with its ticks", async () => {
-    const dial = await deck.dial(TESTED, { step: 5 });
+    const dial = await deck.dial(FAKE, { step: 5 });
     await deck.tap(dial);
     vi.mocked(logger.info).mockClear();
 
@@ -472,7 +472,7 @@ describe("a MeasureAction logs", () => {
   });
 
   it("a dial push, with what it does", async () => {
-    const dial = await deck.dial(TESTED);
+    const dial = await deck.dial(FAKE);
 
     await deck.push(dial);
     await deck.tap(dial);
@@ -486,7 +486,7 @@ describe("a MeasureAction logs", () => {
   });
 
   it("a tap and a hold on the strip, with what the hold does", async () => {
-    const dial = await deck.dial(TESTED);
+    const dial = await deck.dial(FAKE);
 
     await deck.hold(dial);
     await deck.tap(dial);

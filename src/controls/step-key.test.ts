@@ -35,8 +35,8 @@ vi.mock("../lamps/manager", () => ({
   onLampsChanged: vi.fn(),
 }));
 
-const UP = "com.daczarne.litra.tested-up";
-const DOWN = "com.daczarne.litra.tested-down";
+const FAKE_UP = "com.daczarne.litra.fake-step-up";
+const FAKE_DOWN = "com.daczarne.litra.fake-step-down";
 
 /** How an operation on two Beams went. */
 const DONE: OperationResult = { ok: true, lampCount: 2, failures: 0 };
@@ -49,7 +49,7 @@ const LAMP_2 = "lamp-2";
 
 type Stepped = typeof BRIGHTNESS;
 
-/** What the tested keys step: by the step in their settings, or 2, on the lamps checked, or every lamp. */
+/** What the fake keys step: by the step in their settings, or 2, on the lamps checked, or every lamp. */
 const STEPPED = {
   read: vi.fn((settings: JsonObject) => ({
     step: typeof settings.step === "number" ? settings.step : 2,
@@ -63,8 +63,8 @@ const STEPPED = {
 } satisfies Stepped;
 
 /** A step action stepping up, as Brightness Up and Temperature Up are, with fakes for what it steps. */
-@action({ UUID: UP })
-class TestedUpAction extends StepKeyAction {
+@action({ UUID: FAKE_UP })
+class FakeStepUpAction extends StepKeyAction {
   /** Steps up through the fakes. */
   constructor() {
     super(logger, STEPPED, 1);
@@ -72,8 +72,8 @@ class TestedUpAction extends StepKeyAction {
 }
 
 /** A step action stepping down, as Brightness Down and Temperature Down are. */
-@action({ UUID: DOWN })
-class TestedDownAction extends StepKeyAction {
+@action({ UUID: FAKE_DOWN })
+class FakeStepDownAction extends StepKeyAction {
   /** Steps down through the fakes. */
   constructor() {
     super(logger, STEPPED, -1);
@@ -96,7 +96,7 @@ beforeEach(() => {
   STEPPED.stepping.mockReturnValue("together");
   STEPPED.adjust.mockResolvedValue(DONE);
   STEPPED.title.mockResolvedValue("42 u");
-  const actions = [new TestedUpAction(), new TestedDownAction()];
+  const actions = [new FakeStepUpAction(), new FakeStepDownAction()];
   const listeners = vi.mocked(onLampsChanged).mock.calls.map(([listener]) => listener);
   if (listeners.length !== actions.length) {
     throw new Error("Not every step action listened for lamp changes");
@@ -128,8 +128,8 @@ function titleOf(key: Awaited<ReturnType<FakeDeck["key"]>>): string | undefined 
 describe("a key of a StepKeyAction", () => {
   describe("on a press", () => {
     it.each([
-      ["up", UP, 1],
-      ["down", DOWN, -1],
+      ["up", FAKE_UP, 1],
+      ["down", FAKE_DOWN, -1],
     ])("moves every lamp one step %s, as a dial's tick does", async (_way, uuid, ticks) => {
       const key = await deck.key(uuid, { step: 5 });
       clearCalls();
@@ -152,7 +152,7 @@ describe("a key of a StepKeyAction", () => {
           pending += presses;
         };
       });
-      const key = await deck.key(DOWN, { step: 5 });
+      const key = await deck.key(FAKE_DOWN, { step: 5 });
 
       await deck.press(key);
       await deck.press(key);
@@ -164,7 +164,7 @@ describe("a key of a StepKeyAction", () => {
 
     it("steps each lamp from its own value when the global settings say so (#145), and logs it", async () => {
       STEPPED.stepping.mockReturnValue("each");
-      const key = await deck.key(UP);
+      const key = await deck.key(FAKE_UP);
       clearCalls();
 
       await deck.press(key);
@@ -177,8 +177,8 @@ describe("a key of a StepKeyAction", () => {
       ["a lamp fails", FAILED],
       ["no lamp is connected", NO_LAMP],
     ])("shows an alert on the key pressed when %s", async (_when, result) => {
-      const pressed = await deck.key(UP);
-      const other = await deck.key(UP);
+      const pressed = await deck.key(FAKE_UP);
+      const other = await deck.key(FAKE_UP);
       STEPPED.adjust.mockResolvedValue(result);
 
       await deck.press(pressed);
@@ -188,7 +188,7 @@ describe("a key of a StepKeyAction", () => {
     });
 
     it("logs the presses and the key's step, in its unit, before changing the lamps", async () => {
-      const key = await deck.key(UP, { step: 15 });
+      const key = await deck.key(FAKE_UP, { step: 15 });
 
       await deck.press(key);
 
@@ -201,7 +201,7 @@ describe("a key of a StepKeyAction", () => {
 
   describe("shows what its lamps are at as its title", () => {
     it("when placed, read through what it steps", async () => {
-      const key = await deck.key(UP, { step: 5 });
+      const key = await deck.key(FAKE_UP, { step: 5 });
 
       expect(STEPPED.read).toHaveBeenCalledWith({ step: 5 }, logger);
       expect(STEPPED.title).toHaveBeenCalledWith("all");
@@ -209,7 +209,7 @@ describe("a key of a StepKeyAction", () => {
     });
 
     it("on every key, whichever key or dial changed the lamps", async () => {
-      const keys = [await deck.key(UP), await deck.key(UP), await deck.key(DOWN)];
+      const keys = [await deck.key(FAKE_UP), await deck.key(FAKE_UP), await deck.key(FAKE_DOWN)];
       clearCalls();
       STEPPED.title.mockResolvedValue("50 u");
 
@@ -219,7 +219,7 @@ describe("a key of a StepKeyAction", () => {
     });
 
     it("once a page changes the global settings, which choose its lamps (#147)", async () => {
-      const key = await deck.key(UP);
+      const key = await deck.key(FAKE_UP);
       STEPPED.title.mockResolvedValue("50 u");
 
       changeGlobalSettings({ addNewLamps: false });
@@ -236,7 +236,7 @@ describe("a key of a StepKeyAction", () => {
     });
 
     it("steps the key's lamps alone, and logs how many", async () => {
-      const key = await deck.key(UP, { lamps: [LAMP_1, LAMP_2] });
+      const key = await deck.key(FAKE_UP, { lamps: [LAMP_1, LAMP_2] });
       clearCalls();
 
       await deck.press(key);
@@ -246,9 +246,9 @@ describe("a key of a StepKeyAction", () => {
     });
 
     it("shows on each key what its own lamps are at", async () => {
-      await deck.key(UP);
-      await deck.key(UP, { lamps: [LAMP_1] });
-      await deck.key(DOWN, { lamps: [LAMP_2] });
+      await deck.key(FAKE_UP);
+      await deck.key(FAKE_UP, { lamps: [LAMP_1] });
+      await deck.key(FAKE_DOWN, { lamps: [LAMP_2] });
       clearCalls();
 
       await lampsChanged();
@@ -257,7 +257,7 @@ describe("a key of a StepKeyAction", () => {
     });
 
     it("shows what the key's new lamps are at once they're changed on the settings page", async () => {
-      const key = await deck.key(UP);
+      const key = await deck.key(FAKE_UP);
       clearCalls();
 
       await deck.changeSettings(key, { lamps: [LAMP_2] });
