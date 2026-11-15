@@ -4,7 +4,12 @@ import type { Logger } from "@elgato/utils/logging";
 import { adjustLampsBrightness, adjustLampsTemperature, type OperationResult, type Stepping } from "../lamps/manager";
 import type { LampSelection } from "../lamps/selection";
 import { globalSettings } from "../settings/global-settings";
-import { brightnessStepSettings, type CheckedLamps, parseSettings, temperatureStepSettings } from "../settings/schema";
+import {
+  brightnessStepSettingsSchema,
+  type CheckedLamps,
+  parseSettings,
+  temperatureStepSettingsSchema,
+} from "../settings/schema";
 import { ActionInstance, type DeckControl, RoutingAction } from "./action-instance";
 import { createDebouncer } from "./debouncer";
 import { describeLamps } from "./describe-lamps";
@@ -31,7 +36,7 @@ type Stepped = {
  */
 export const BRIGHTNESS: Stepped = {
   read: (settings, logger) => {
-    const { stepPercentage, ...lamps } = parseSettings(settings, brightnessStepSettings, logger);
+    const { stepPercentage, ...lamps } = parseSettings(settings, brightnessStepSettingsSchema, logger);
     return { step: stepPercentage, ...lamps };
   },
   stepping: () => globalSettings.brightnessStepping,
@@ -46,7 +51,7 @@ export const BRIGHTNESS: Stepped = {
  */
 export const TEMPERATURE: Stepped = {
   read: (settings, logger) => {
-    const { stepKelvin, ...lamps } = parseSettings(settings, temperatureStepSettings, logger);
+    const { stepKelvin, ...lamps } = parseSettings(settings, temperatureStepSettingsSchema, logger);
     return { step: stepKelvin, ...lamps };
   },
   stepping: () => globalSettings.temperatureStepping,

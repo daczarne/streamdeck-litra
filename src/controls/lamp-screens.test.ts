@@ -5,7 +5,7 @@ import type { LampState, ReachedLamp } from "../lamps/lamp";
 import { identifyLamp } from "../lamps/manager";
 import { logger } from "../logging";
 import { syncGlobalSettings } from "../settings/global-settings";
-import { globalSettings } from "../settings/schema";
+import { globalSettingsSchema } from "../settings/schema";
 import { at } from "../test-support/at";
 import { changeGlobalSettings, createFakeDial } from "../test-support/fake-stream-deck";
 import { reachedLamp } from "../test-support/reached-lamps";
@@ -31,7 +31,7 @@ vi.mock("../lamps/manager", () => ({
 const LAMP_LAYOUT = "layouts/lamp.json";
 
 // How long a blink lasts unless the plugin settings say otherwise.
-const BLINK_MS = globalSettings.identifyBlinkMs.default;
+const BLINK_MS = globalSettingsSchema.identifyBlinkMs.default;
 
 /** A Beam on a Stream Deck + XL's USB hub, at its cap: 324 lm, 79% of its range, unless a test says otherwise. */
 const AT_ITS_CAP: LampState = { on: true, lumen: 324, kelvin: 2700 };

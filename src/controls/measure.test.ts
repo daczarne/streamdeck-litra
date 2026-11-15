@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { identifyLamp, type OperationResult, onLampsChanged, toggleLamps } from "../lamps/manager";
 import { logger } from "../logging";
 import { syncGlobalSettings } from "../settings/global-settings";
-import { globalSettings } from "../settings/schema";
+import { globalSettingsSchema } from "../settings/schema";
 import { at } from "../test-support/at";
 import { FakeDeck } from "../test-support/fake-deck";
 import { changeGlobalSettings } from "../test-support/fake-stream-deck";
@@ -311,7 +311,7 @@ describe("a dial of a MeasureAction", () => {
 
       await deck.hold(dial);
 
-      expect(identifyLamp).toHaveBeenCalledExactlyOnceWith(BEAM.id, globalSettings.identifyBlinkMs.default);
+      expect(identifyLamp).toHaveBeenCalledExactlyOnceWith(BEAM.id, globalSettingsSchema.identifyBlinkMs.default);
       expect(dial.setFeedbackLayout).toHaveBeenLastCalledWith("layouts/lamp.json");
     });
 

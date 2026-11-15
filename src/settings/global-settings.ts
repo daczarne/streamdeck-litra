@@ -6,14 +6,14 @@ import type { KeyLampSelection } from "../lamps/selection";
 import { logger as pluginLogger } from "../logging";
 import {
   type CheckedLamps,
-  globalSettings as globalSettingsSchema,
+  globalSettingsSchema,
   LAMP_SCREEN_CELLS,
   type LampScreenCell,
   type LampScreenItem,
   type LampScreenItemOptions,
-  lampScreenItemOptions,
+  lampScreenItemOptionsSchema,
   MAX_LAMP_NAME_LENGTH,
-  type GlobalSettings as ParsedGlobalSettings,
+  type ParsedGlobalSettings,
   parseSettings,
   type SavedLamp,
   type SavedTextStyle,
@@ -281,7 +281,7 @@ function readCells(settings: Settings): Record<LampScreenCell, LampScreenCellCon
     // The schema matches the item, which TypeScript can't follow through the lookup.
     return {
       item,
-      options: parseSettings(saved, lampScreenItemOptions[item], {
+      options: parseSettings(saved, lampScreenItemOptionsSchema[item], {
         warn: (...data) => logger.warn(`Lamp screens' ${cell} cell, ${item}:`, ...data),
       }),
     } as LampScreenCellContent;

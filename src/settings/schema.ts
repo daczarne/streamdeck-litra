@@ -201,20 +201,20 @@ function checkedLamps(): Setting<CheckedLamps> {
 const lamps = checkedLamps();
 const leftOutLamps = lampList();
 
-export const powerSettings = {
+export const powerSettingsSchema = {
   mode: oneOf(["toggle", "on", "off"], "toggle"),
   lamps,
   leftOutLamps,
 };
 
-export const brightnessSettings = {
+export const brightnessSettingsSchema = {
   presetPercentage: numberFrom(0, 100, 0),
   stepPercentage: wholeNumberFrom(1, 25, 10),
   lamps,
   leftOutLamps,
 };
 
-export const temperatureSettings = {
+export const temperatureSettingsSchema = {
   presetKelvin: numberFrom(2700, 6500, 2700),
   stepKelvin: steppedFrom(100, 500, 100, 300),
   lamps,
@@ -222,38 +222,38 @@ export const temperatureSettings = {
 };
 
 // The step keys step as the dials do, by the same steps.
-export const brightnessStepSettings = {
-  stepPercentage: brightnessSettings.stepPercentage,
+export const brightnessStepSettingsSchema = {
+  stepPercentage: brightnessSettingsSchema.stepPercentage,
   lamps,
   leftOutLamps,
 };
 
-export const temperatureStepSettings = {
-  stepKelvin: temperatureSettings.stepKelvin,
+export const temperatureStepSettingsSchema = {
+  stepKelvin: temperatureSettingsSchema.stepKelvin,
   lamps,
   leftOutLamps,
 };
 
 // A scene is made of groups, each of which turns its lamps off, or on at its own brightness and temperature, taken as
 // the Brightness and Temperature keys take their presets (#174). The first group is the key's own settings, as a scene
-// saved before groups had them, and picks its lamps as every key does, lamps added later included. Each group
-// added after it is saved with its power, its presets and the lamps checked for it, read against sceneGroupSettings,
+// saved before groups had them, and picks its lamps as every key does, lamps added later included. Each group added
+// after it is saved with its power, its presets and the lamps checked for it, read against sceneGroupSettingsSchema,
 // and a lamp it checks leaves the first group. A group turns its lamps on by default, as every scene did.
 const scenePower = oneOf(["on", "off"], "on");
 
-export const sceneSettings = {
+export const sceneSettingsSchema = {
   power: scenePower,
-  presetPercentage: brightnessSettings.presetPercentage,
-  presetKelvin: temperatureSettings.presetKelvin,
+  presetPercentage: brightnessSettingsSchema.presetPercentage,
+  presetKelvin: temperatureSettingsSchema.presetKelvin,
   lamps,
   leftOutLamps,
   addedGroups: objectList(),
 };
 
-export const sceneGroupSettings = {
+export const sceneGroupSettingsSchema = {
   power: scenePower,
-  presetPercentage: brightnessSettings.presetPercentage,
-  presetKelvin: temperatureSettings.presetKelvin,
+  presetPercentage: brightnessSettingsSchema.presetPercentage,
+  presetKelvin: temperatureSettingsSchema.presetKelvin,
   lamps: lampList(),
 };
 
@@ -308,7 +308,7 @@ export type FontWeight = (typeof WEIGHTS)[number];
 /** One of the lamp screens' text styles, as the settings keep it: a color, a weight and a size in px (#153). */
 export type SavedTextStyle = { color: string; weight: FontWeight; size: number };
 
-export const lampScreenItemOptions = {
+export const lampScreenItemOptionsSchema = {
   identification: {
     first: oneOf(IDENTIFICATION_PARTS, "model"),
     second: oneOf(IDENTIFICATION_PARTS, "id"),
@@ -337,11 +337,11 @@ export const lampScreenItemOptions = {
 } satisfies Record<LampScreenItem, Schema>;
 
 export type LampScreenItemOptions = {
-  [Item in LampScreenItem]: Parsed<(typeof lampScreenItemOptions)[Item]>;
+  [Item in LampScreenItem]: Parsed<(typeof lampScreenItemOptionsSchema)[Item]>;
 };
 
 // The plugin's own settings, which every dial and key shares rather than each saving its own.
-export const globalSettings = {
+export const globalSettingsSchema = {
   // A key that adds new lamps acts on every lamp but the ones its page left unchecked, so a lamp added later joins it,
   // and one that doesn't acts on the lamps checked (#147). Every key adds them by default, as every key did before, and
   // the keys that chose otherwise on their own page are kept by id, as the dials that chose otherwise about the blink
@@ -368,7 +368,7 @@ export const globalSettings = {
   identifyBlinkMs: wholeNumberFrom(300, 1500, 400),
   // What each cell of the lamp screens shows is the same on every dial, and the defaults are what the lamp screens
   // showed before it could be chosen (#177). How each cell shows its item is kept by cell and by item, read against
-  // lampScreenItemOptions.
+  // lampScreenItemOptionsSchema.
   lampScreenTopLeft: oneOf(LAMP_SCREEN_ITEMS, "identification"),
   lampScreenTopRight: oneOf(LAMP_SCREEN_ITEMS, "counter"),
   lampScreenMiddleLeft: oneOf(LAMP_SCREEN_ITEMS, "temperature"),
@@ -399,7 +399,7 @@ export const globalSettings = {
   lamps: lampsById(),
 };
 
-export type GlobalSettings = Parsed<typeof globalSettings>;
+export type ParsedGlobalSettings = Parsed<typeof globalSettingsSchema>;
 
 /**
  * Reads an action's settings, or the plugin's global ones, as Stream Deck sent them, against their schema (#22). A setting that is missing
