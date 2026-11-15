@@ -28,8 +28,9 @@ vi.mock("../logging", () => import("../test-support/fake-logging"));
 // The debouncer gathers what each test says, without the timing its own tests check.
 vi.mock("../controls/debouncer", () => ({ createDebouncer: vi.fn() }));
 
-// What the keys and dials show of the lamps, which each test sets.
-vi.mock("../controls/shown", () => ({
+// What the keys and dials show of the lamps, which each test sets, with the real text it's shown as.
+vi.mock("../controls/shown", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../controls/shown")>()),
   findLampsShown: vi.fn(),
   lampsShown: vi.fn(),
   brightnessShown: vi.fn(),
