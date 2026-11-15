@@ -71,7 +71,7 @@ describe("SceneAction", () => {
       expect(key.showAlert).toHaveBeenCalledOnce();
     });
 
-    it("sets the lamps to the default brightness and temperature, 0% at 2700 K, when the key has no settings", async () => {
+    it("sets the lamps to the defaults, 0% at 2700 K, when the key has no settings", async () => {
       const key = await deck.key(SCENE);
       vi.mocked(setLampsScene).mockResolvedValue(SET);
 
@@ -107,7 +107,7 @@ describe("SceneAction", () => {
     const LAMP_2 = "lamp-2";
     const LAMP_3 = "lamp-3";
 
-    it("sets each group's lamps to its own power, brightness and temperature, and leaves them out of the first", async () => {
+    it("sets each group's lamps to its own power, brightness and temperature, not the first group's", async () => {
       const key = await deck.key(SCENE, {
         presetPercentage: 50,
         presetKelvin: 5000,
@@ -127,7 +127,7 @@ describe("SceneAction", () => {
       ]);
     });
 
-    it("leaves the groups' lamps out of the lamps the first group checked, for a key that adds no new lamps", async () => {
+    it("leaves the groups' lamps out of the first group's checked ones, on a key that adds no new lamps", async () => {
       changeGlobalSettings({ addNewLamps: false });
       const key = await deck.key(SCENE, {
         presetPercentage: 50,
@@ -142,7 +142,7 @@ describe("SceneAction", () => {
       expect(setLampsScene).toHaveBeenCalledExactlyOnceWith([onAt(["lamp-1"], 50, 5000), onAt(["lamp-2"], 30, 3000)]);
     });
 
-    it("leaves the groups' lamps out along with the ones the first group left out, for a key that adds new lamps", async () => {
+    it("leaves the groups' lamps out with the first group's left-out ones, on a key that adds new lamps", async () => {
       const key = await deck.key(SCENE, {
         presetPercentage: 50,
         presetKelvin: 5000,
@@ -160,7 +160,7 @@ describe("SceneAction", () => {
       ]);
     });
 
-    it("turns a group's lamps on, at the default brightness and temperature, for a group with no settings but its lamps", async () => {
+    it("turns a group's lamps on at the defaults, for a group with no settings but its lamps", async () => {
       const key = await deck.key(SCENE, {
         presetPercentage: 50,
         presetKelvin: 5000,
@@ -194,7 +194,7 @@ describe("SceneAction", () => {
       expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("presetPercentage"));
     });
 
-    it("uses the default of a group's setting that isn't valid, keeps the group's others, and warns (#174)", async () => {
+    it("uses the default of a group's setting that isn't valid, keeps its others, and warns (#174)", async () => {
       const lamps = ["lamp-2"];
       const key = await deck.key(SCENE, { addedGroups: [{ presetPercentage: 150, presetKelvin: 3000, lamps }] });
       vi.mocked(setLampsScene).mockResolvedValue(SET);
