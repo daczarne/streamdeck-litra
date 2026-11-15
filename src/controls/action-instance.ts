@@ -123,40 +123,55 @@ export abstract class RoutingAction<Instance extends ActionInstance<unknown>> ex
 
   /** Hands the key's or dial's instance its new settings, and lets it redraw. */
   override async onDidReceiveSettings(ev: DidReceiveSettingsEvent): Promise<void> {
-    await this.take(ev)?.settingsChanged();
+    await this.instanceFor(ev)?.settingsChanged();
   }
 
   /** Hands a key's press to its instance. */
   override async onKeyDown(ev: KeyDownEvent): Promise<void> {
-    await this.take(ev)?.keyDown();
+    await this.instanceFor(ev)?.keyDown();
   }
 
   /** Hands a dial's push to its instance. */
   override async onDialDown(ev: DialDownEvent): Promise<void> {
-    await this.take(ev)?.dialDown();
+    await this.instanceFor(ev)?.dialDown();
   }
 
   /** Hands a dial's turn to its instance. */
   override async onDialRotate(ev: DialRotateEvent): Promise<void> {
-    await this.take(ev)?.dialRotate(ev.payload.ticks);
+    await this.instanceFor(ev)?.dialRotate(ev.payload.ticks);
   }
 
   /** Hands a tap on a dial's part of the touch strip, or holding it, to its instance. */
   override async onTouchTap(ev: TouchTapEvent): Promise<void> {
-    await this.take(ev)?.touchTap(ev.payload.hold);
+    await this.instanceFor(ev)?.touchTap(ev.payload.hold);
   }
 
   /** The instance of an event's key or dial, once it took the settings the event carries. */
-  private take(ev: { action: { id: string }; payload: { settings: JsonObject } }): Instance | undefined {
+  private instanceFor(ev: { action: { id: string }; payload: { settings: JsonObject } }): Instance | undefined {
     const instance = this.instances.get(ev.action.id);
     instance?.take(ev.payload.settings);
     return instance;
   }
 
-  /** Runs something on every instance, one after the other. */
+  /**
+   * Runs something on every instance, one after the other. One that fails doesn't stop the others, so a key or dial
+   * that can't redraw leaves the rest drawn. Once every instance has run, it throws what failed, for the listener that
+   * called it to log: the error itself, or every one of them when several failed.
+   */
   private async forEachInstance(run: (instance: Instance) => Promise<void> | void): Promise<void> {
+    const failures: unknown[] = [];
     for (const instance of [...this.instances.values()]) {
-      await run(instance);
+      try {
+        await run(instance);
+      } catch (error) {
+        failures.push(error);
+      }
+    }
+    if (failures.length === 1) {
+      throw failures[0];
+    }
+    if (failures.length > 1) {
+      throw new AggregateError(failures, `${failures.length} keys or dials failed`);
     }
   }
 }

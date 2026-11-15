@@ -23,6 +23,8 @@ const read = vi.fn((settings: JsonObject) => ({ step: typeof settings.step === "
 /** An instance that records each call it gets, with the step its settings had then. */
 class Recorder extends ActionInstance<{ step: number }> {
   readonly calls: string[] = [];
+  /** The error its redraw after a change to the lamps fails with, if a test gives it one. */
+  failure: Error | undefined;
 
   /** Takes the key or dial and its settings. */
   constructor(control: DeckControl, settings: JsonObject) {
@@ -49,9 +51,12 @@ class Recorder extends ActionInstance<{ step: number }> {
     this.record("settingsChanged");
   }
 
-  /** Records it. */
+  /** Records it, then fails if the test says so. */
   override lampsChanged(): void {
     this.record("lampsChanged");
+    if (this.failure !== undefined) {
+      throw this.failure;
+    }
   }
 
   /** Records it. */
@@ -160,7 +165,7 @@ describe("RoutingAction", () => {
     expect(tested.created[0]?.calls).toEqual(["appear 1", "settingsChanged 5", "keyDown 5"]);
   });
 
-  it("reads the settings again only when they changed, so a setting that isn't valid is warned about once", async () => {
+  it("reads the settings again only when they change, so a setting that isn't valid is warned once", async () => {
     const key = await deck.key(TESTED, { step: 5 });
 
     await deck.press(key);
@@ -185,15 +190,47 @@ describe("RoutingAction", () => {
     }
   });
 
-  it("drops the instance of a key that disappears, once it let go of what it holds, and no longer hands it anything", async () => {
-    const key = await deck.key(TESTED);
-    const instance = tested.created[0];
+  it("redraws every instance when one fails, then fails with its error, for the listener to log", async () => {
+    await deck.key(TESTED);
+    await deck.key(TESTED);
+    await deck.dial(TESTED);
+    const failure = new Error("setTitle failed");
+    const first = tested.created[0];
+    if (first !== undefined) {
+      first.failure = failure;
+    }
 
-    await deck.remove(key);
-    await listenerOf(onLampsChanged)();
+    await expect(listenerOf(onLampsChanged)()).rejects.toBe(failure);
 
-    expect(instance?.calls).toEqual(["appear 1", "disappear 1"]);
+    for (const instance of tested.created) {
+      expect(instance.calls).toEqual(["appear 1", "lampsChanged 1"]);
+    }
   });
+
+  it("fails with every error when several instances fail", async () => {
+    await deck.key(TESTED);
+    await deck.key(TESTED);
+    const failures = [new Error("first failed"), new Error("second failed")];
+    tested.created.forEach((instance, index) => {
+      instance.failure = failures[index];
+    });
+
+    await expect(listenerOf(onLampsChanged)()).rejects.toEqual(new AggregateError(failures, "2 keys or dials failed"));
+  });
+
+  it(
+    "drops the instance of a key that disappears, once it let go of what it holds, " +
+      "and no longer hands it anything",
+    async () => {
+      const key = await deck.key(TESTED);
+      const instance = tested.created[0];
+
+      await deck.remove(key);
+      await listenerOf(onLampsChanged)();
+
+      expect(instance?.calls).toEqual(["appear 1", "disappear 1"]);
+    },
+  );
 
   it("ignores an event of a key that disappeared, which the SDK doesn't send", async () => {
     const key = await deck.key(TESTED);
