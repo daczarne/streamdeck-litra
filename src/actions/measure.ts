@@ -5,7 +5,7 @@ import { globalSettings } from "../global-settings";
 import type { LampSelection } from "../lamp-selection";
 import { type OperationResult, type Stepping, toggleLamps } from "../litra-manager";
 import { ActionInstance, type DeckControl, RoutingAction } from "./action-instance";
-import { createDialDebouncer } from "./debouncer";
+import { createDebouncer } from "./debouncer";
 import { LampScreen } from "./lamp-screens";
 import { type CheckedLamps, describeLamps } from "./settings";
 
@@ -192,7 +192,7 @@ class MeasureDial extends ActionInstance<{ step: number }, DialAction<JsonObject
     const queueId = lamp ?? "all";
     let queue = this.queues.get(queueId);
     if (queue === undefined) {
-      queue = createDialDebouncer((gathered) => this.step(lamp, gathered), this.logger);
+      queue = createDebouncer((gathered) => this.step(lamp, gathered), this.logger);
       this.queues.set(queueId, queue);
     }
     queue(ticks);

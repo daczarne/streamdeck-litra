@@ -14,7 +14,7 @@ import { FakeDeck } from "../test-support/fake-deck";
 import { changeGlobalSettings } from "../test-support/fake-stream-deck";
 import { reachedLamp } from "../test-support/reached-lamps";
 import { BrightnessAction, barFill } from "./brightness";
-import { createDialDebouncer } from "./debouncer";
+import { createDebouncer } from "./debouncer";
 import { globalSettings } from "./settings";
 import { findShownLamps, readLampsBrightness, readShownLamps } from "./shown";
 
@@ -26,7 +26,7 @@ vi.mock("@elgato/streamdeck", () => import("../test-support/fake-stream-deck"));
 vi.mock("../logging", () => import("../test-support/fake-logging"));
 
 // The debouncer gathers what each test says, without the timing its own tests check.
-vi.mock("./debouncer", () => ({ createDialDebouncer: vi.fn() }));
+vi.mock("./debouncer", () => ({ createDebouncer: vi.fn() }));
 
 // What the keys and dials show of the lamps, which each test sets.
 vi.mock("./shown", () => ({ findShownLamps: vi.fn(), readShownLamps: vi.fn(), readLampsBrightness: vi.fn() }));
@@ -77,7 +77,7 @@ beforeEach(() => {
   vi.useFakeTimers();
   changeGlobalSettings({});
   // The debouncer flushes every turn at once: its own timing is debouncer.test.ts's to check.
-  vi.mocked(createDialDebouncer).mockImplementation((flush) => (ticks) => void flush(ticks));
+  vi.mocked(createDebouncer).mockImplementation((flush) => (ticks) => void flush(ticks));
   // The lamps, as a dial that appears or returns to its main screen reads them, and as the lamp screens read them.
   vi.mocked(readLampsBrightness).mockResolvedValue(AT_THEIR_CAPS);
   vi.mocked(readShownLamps).mockResolvedValue([BEAM]);
@@ -388,7 +388,7 @@ describe("BrightnessAction", () => {
     it("moves the lamps that were on screen as the dial turned, even when the strip is tapped before (#20)", async () => {
       // Each turn waits to be applied, as the debouncer holds the ticks for a moment.
       const waiting: Array<() => void | Promise<void>> = [];
-      vi.mocked(createDialDebouncer).mockImplementation((flush) => (ticks) => {
+      vi.mocked(createDebouncer).mockImplementation((flush) => (ticks) => {
         waiting.push(() => flush(ticks));
       });
       vi.mocked(readShownLamps).mockResolvedValue([BEAM, OTHER_BEAM]);

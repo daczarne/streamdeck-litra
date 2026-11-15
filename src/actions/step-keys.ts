@@ -6,7 +6,7 @@ import type { LampSelection } from "../lamp-selection";
 import { adjustLampsBrightness, adjustLampsTemperature, type OperationResult, type Stepping } from "../litra-manager";
 import { logger as pluginLogger } from "../logging";
 import { ActionInstance, type DeckControl, RoutingAction } from "./action-instance";
-import { createDialDebouncer } from "./debouncer";
+import { createDebouncer } from "./debouncer";
 import {
   brightnessStepSettings,
   type CheckedLamps,
@@ -104,7 +104,7 @@ class StepKey extends ActionInstance<StepConfig, KeyAction<JsonObject>> {
     private readonly direction: 1 | -1,
   ) {
     super(control, settings, (saved) => stepped.read(saved, logger));
-    this.presses = createDialDebouncer((presses) => this.step(presses), logger);
+    this.presses = createDebouncer((presses) => this.step(presses), logger);
   }
 
   /** Shows what its lamps are at as soon as the key is placed or shown. */
