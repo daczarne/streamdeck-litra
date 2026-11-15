@@ -2,9 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { connectedLamps, findLamps, identifyLamp, onConnectedChanged, reachEveryLamp } from "../lamps/manager";
 import { logger } from "../logging";
 import { at } from "../test-support/at";
-import { globalSettings as pluginSettings } from "./global-settings";
+import { globalSettings } from "./global-settings";
 import { answer, answerPluginSettingsPage } from "./plugin-settings-page";
-import { globalSettings } from "./schema";
+import { globalSettings as globalSettingsSchema } from "./schema";
 
 //* Fakes
 
@@ -30,12 +30,12 @@ vi.mock("../lamps/manager", () => ({
 
 // The lamps the plugin knows, which the real global settings save through Stream Deck.
 vi.mock("./global-settings", async () => {
-  const { globalSettings } = await import("./schema");
+  const { globalSettings: globalSettingsSchema } = await import("./schema");
   return {
     globalSettings: {
       addLamps: vi.fn(async () => {}),
       forgetLamp: vi.fn(async () => {}),
-      identifyBlinkMs: globalSettings.identifyBlinkMs.default,
+      identifyBlinkMs: globalSettingsSchema.identifyBlinkMs.default,
       renameLamp: vi.fn(async () => {}),
     },
   };
@@ -55,7 +55,7 @@ beforeEach(() => {
 //* Tests
 
 describe("the plugin settings page's answers (#146)", () => {
-  it("send a page that asks for the lamps the ones connected now, by id, label, model and serial end", async () => {
+  it("send a page that asks for the lamps the ones connected now, by id, label and model", async () => {
     await answer({ event: "lamps" });
 
     expect(findLamps).toHaveBeenCalledOnce();
@@ -65,8 +65,8 @@ describe("the plugin settings page's answers (#146)", () => {
   it("add the lamps found to the ones the plugin knows, before answering (#194)", async () => {
     await answer({ event: "lamps" });
 
-    expect(pluginSettings.addLamps).toHaveBeenCalledExactlyOnceWith(LAMPS);
-    expect(vi.mocked(pluginSettings.addLamps).mock.invocationCallOrder[0]).toBeLessThan(
+    expect(globalSettings.addLamps).toHaveBeenCalledExactlyOnceWith(LAMPS);
+    expect(at(vi.mocked(globalSettings.addLamps).mock.invocationCallOrder, 0)).toBeLessThan(
       at(ui.sendToPropertyInspector.mock.invocationCallOrder, 0),
     );
   });
@@ -75,7 +75,7 @@ describe("the plugin settings page's answers (#146)", () => {
     await answer({ event: "lamps" });
 
     expect(reachEveryLamp).toHaveBeenCalledExactlyOnceWith("find lamps");
-    expect(at(vi.mocked(pluginSettings.addLamps).mock.invocationCallOrder, 0)).toBeLessThan(
+    expect(at(vi.mocked(globalSettings.addLamps).mock.invocationCallOrder, 0)).toBeLessThan(
       at(vi.mocked(reachEveryLamp).mock.invocationCallOrder, 0),
     );
   });
@@ -91,21 +91,21 @@ describe("the plugin settings page's answers (#146)", () => {
   it("blink the lamp whose Identify button was pressed", async () => {
     await answer({ event: "identify", id: "lamp-2" });
 
-    expect(identifyLamp).toHaveBeenCalledExactlyOnceWith("lamp-2", globalSettings.identifyBlinkMs.default);
+    expect(identifyLamp).toHaveBeenCalledExactlyOnceWith("lamp-2", globalSettingsSchema.identifyBlinkMs.default);
     expect(ui.sendToPropertyInspector).not.toHaveBeenCalled();
   });
 
   it("have the plugin name the lamp a page renamed (#146)", async () => {
     await answer({ event: "rename", id: "lamp-2", name: "Fill light" });
 
-    expect(pluginSettings.renameLamp).toHaveBeenCalledExactlyOnceWith("lamp-2", "Fill light");
+    expect(globalSettings.renameLamp).toHaveBeenCalledExactlyOnceWith("lamp-2", "Fill light");
     expect(ui.sendToPropertyInspector).not.toHaveBeenCalled();
   });
 
   it("have the plugin forget the lamp a page asked it to (#194)", async () => {
     await answer({ event: "forget", id: "lamp-1" });
 
-    expect(pluginSettings.forgetLamp).toHaveBeenCalledExactlyOnceWith("lamp-1");
+    expect(globalSettings.forgetLamp).toHaveBeenCalledExactlyOnceWith("lamp-1");
     expect(ui.sendToPropertyInspector).not.toHaveBeenCalled();
   });
 
@@ -121,10 +121,10 @@ describe("the plugin settings page's answers (#146)", () => {
     await answer(payload);
 
     expect(findLamps).not.toHaveBeenCalled();
-    expect(pluginSettings.addLamps).not.toHaveBeenCalled();
+    expect(globalSettings.addLamps).not.toHaveBeenCalled();
     expect(identifyLamp).not.toHaveBeenCalled();
-    expect(pluginSettings.renameLamp).not.toHaveBeenCalled();
-    expect(pluginSettings.forgetLamp).not.toHaveBeenCalled();
+    expect(globalSettings.renameLamp).not.toHaveBeenCalled();
+    expect(globalSettings.forgetLamp).not.toHaveBeenCalled();
     expect(ui.sendToPropertyInspector).not.toHaveBeenCalled();
   });
 

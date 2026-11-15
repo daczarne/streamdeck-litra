@@ -24,7 +24,7 @@ export function answerPluginSettingsPage(): void {
   onConnectedChanged((ids) => streamDeck.ui.sendToPropertyInspector({ event: "connected", ids }));
 }
 
-/** Answers one message from a settings page. Messages the picker doesn't send are ignored. */
+/** Answers one message from a settings page. Messages a page doesn't send are ignored. */
 export async function answer(payload: JsonValue): Promise<void> {
   if (typeof payload !== "object" || payload === null || Array.isArray(payload)) {
     return;
