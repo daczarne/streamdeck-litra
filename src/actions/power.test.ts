@@ -66,6 +66,17 @@ await syncGlobalSettings();
 //* Tests
 
 describe("PowerAction", () => {
+  it("toggles every lamp from a key with no settings, and warns about nothing", async () => {
+    const key = await deck.key(POWER);
+    clearCalls();
+    vi.mocked(toggleLamps).mockResolvedValue(SWITCHED);
+
+    await deck.press(key);
+
+    expect(toggleLamps).toHaveBeenCalledExactlyOnceWith("all");
+    expect(logger.warn).not.toHaveBeenCalled();
+  });
+
   describe("when the lamps change", () => {
     it("shows the lamps' state on every Power key, not only the one pressed (#57)", async () => {
       const key = await deck.key(POWER);
@@ -118,7 +129,7 @@ describe("PowerAction", () => {
       expect(key.showAlert).not.toHaveBeenCalled();
     });
 
-    it("toggles the lamps in a mode that isn't valid, with a warning as the key appears, not at every press (#22)", async () => {
+    it("toggles in a mode that isn't valid, with a warning as the key appears, not at every press (#22)", async () => {
       const key = await deck.key(POWER, { mode: "blink" });
 
       expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("mode"));
@@ -132,7 +143,7 @@ describe("PowerAction", () => {
       expect(logger.warn).not.toHaveBeenCalled();
     });
 
-    it("shows an alert when a lamp fails, once the notice has redrawn the key's state, so the state doesn't cover it (#132)", async () => {
+    it("shows a failed press's alert after the notice redraws its state, which would cover it (#132)", async () => {
       const key = await deck.key(POWER);
       const otherKey = await deck.key(POWER);
       clearCalls();

@@ -3,13 +3,19 @@ import type { JsonObject } from "@elgato/utils";
 import { ActionInstance, type DeckControl, RoutingAction } from "../controls/action-instance";
 import { describeLamps } from "../controls/describe-lamps";
 import { areLampsOn } from "../controls/shown";
-import { toggleLamps, turnLampsOff, turnLampsOn } from "../lamps/manager";
+import { type OperationResult, toggleLamps, turnLampsOff, turnLampsOn } from "../lamps/manager";
 import type { LampSelection } from "../lamps/selection";
 import { logger as pluginLogger } from "../logging";
 import { globalSettings } from "../settings/global-settings";
 import { type Parsed, parseSettings, powerSettings } from "../settings/schema";
 
 const logger = pluginLogger.createScope("Power");
+
+/** What a press does to the key's lamps, by the key's mode. */
+const OPERATIONS = { on: turnLampsOn, off: turnLampsOff, toggle: toggleLamps } satisfies Record<
+  Parsed<typeof powerSettings>["mode"],
+  (lamps: LampSelection) => Promise<OperationResult>
+>;
 
 /** The Power action, which gives each Power key its {@link PowerKey}. */
 @action({ UUID: "com.daczarne.litra.power" })
@@ -59,22 +65,18 @@ class PowerKey extends ActionInstance<Parsed<typeof powerSettings>, KeyAction<Js
   }
 
   /**
-   * Turns the key's lamps on or off, or toggles them, as its mode says. The key follows through the lamp manager's notice.
-   * When a lamp fails, the key's alert waits for that redraw (#132): a state set right after an alert covers it, while
-   * an alert shown after the state stays. Every operation sends the notice, the failed ones included.
+   * Turns the key's lamps on or off, or toggles them, as its mode says. The key follows through the lamp manager's
+   * notice. When a lamp fails, the key's alert waits for that redraw (#132): a state set right after an alert covers
+   * it, while an alert shown after the state stays. Every operation sends the notice, the failed ones included.
    */
   override async keyDown(): Promise<void> {
     const { mode } = this.config;
     const lamps = this.lamps();
     logger.info(`Key pressed: ${mode}, on ${describeLamps(lamps)}`);
-    const result = await (mode === "on"
-      ? turnLampsOn(lamps)
-      : mode === "off"
-        ? turnLampsOff(lamps)
-        : toggleLamps(lamps));
+    const result = await OPERATIONS[mode](lamps);
 
-    // Before the key redraws: the lamp manager sends the notice once the operation is done, and the redraw first waits for
-    // the operations queued.
+    // Before the key redraws: the lamp manager sends the notice once the operation is done, and the redraw first waits
+    // for the operations queued.
     if (!result.ok) {
       this.owesAlert = true;
     }
