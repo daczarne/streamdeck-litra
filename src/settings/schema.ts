@@ -16,6 +16,11 @@ type Schema = Record<string, Setting<unknown>>;
 /** Settings as {@link parseSettings} reads them against their schema: each one valid, or its default. */
 export type Parsed<S extends Schema> = { [Name in keyof S]: S[Name] extends Setting<infer T> ? T : never };
 
+/** Whether a value is an object, rather than a list, `null`, a number, a text or a boolean. */
+function isJsonObject(value: JsonValue): value is JsonObject {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 /**
  * A number, or text that is one, since a select on a settings page saves its value as text. Anything else is refused,
  * where `Number()` would turn an empty text, `null` or `false` into 0, and `true` into 1.
@@ -114,24 +119,23 @@ function lampsById(): Setting<Readonly<Record<string, SavedLamp>>> {
     default: {},
     expected: "lamps by id, each with its model",
     parse: (value) =>
-      typeof value === "object" && value !== null && !Array.isArray(value)
+      isJsonObject(value)
         ? Object.fromEntries(
-            Object.entries(value).flatMap(([id, lamp]) =>
-              typeof lamp === "object" && lamp !== null && !Array.isArray(lamp) && typeof lamp.model === "string"
-                ? [
-                    [
-                      id,
-                      {
-                        model: lamp.model,
-                        ...(typeof lamp.name === "string" ? { name: lamp.name } : {}),
-                      },
-                    ],
-                  ]
-                : [],
-            ),
+            Object.entries(value).flatMap(([id, entry]) => {
+              const lamp = savedLamp(entry);
+              return lamp === undefined ? [] : [[id, lamp]];
+            }),
           )
         : undefined,
   };
+}
+
+/** One entry of the lamps the plugin knows, or undefined when it has no model, as text. */
+function savedLamp(entry: JsonValue): SavedLamp | undefined {
+  if (!isJsonObject(entry) || typeof entry.model !== "string") {
+    return undefined;
+  }
+  return typeof entry.name === "string" ? { model: entry.model, name: entry.name } : { model: entry.model };
 }
 
 /** A setting that takes any object, which whoever uses it reads further against a schema of its own. */
@@ -139,7 +143,7 @@ function anObject(): Setting<JsonObject> {
   return {
     default: {},
     expected: "an object",
-    parse: (value) => (typeof value === "object" && value !== null && !Array.isArray(value) ? value : undefined),
+    parse: (value) => (isJsonObject(value) ? value : undefined),
   };
 }
 
@@ -148,11 +152,7 @@ function objectList(): Setting<readonly JsonObject[]> {
   return {
     default: [],
     expected: "a list of objects",
-    parse: (value) =>
-      Array.isArray(value) &&
-      value.every((item): item is JsonObject => typeof item === "object" && item !== null && !Array.isArray(item))
-        ? value
-        : undefined,
+    parse: (value) => (Array.isArray(value) && value.every(isJsonObject) ? value : undefined),
   };
 }
 
@@ -340,39 +340,35 @@ export type LampScreenItemOptions = {
   [Item in LampScreenItem]: Parsed<(typeof lampScreenItemOptions)[Item]>;
 };
 
-// The plugin's own settings, which every dial and key shares rather than each saving its own. A key that adds new lamps
-// acts on every lamp but the ones its page left unchecked, so a lamp added later joins it, and one that doesn't acts
-// on the lamps checked (#147). Every key adds them by default, as every key did before, and the keys that chose
-// otherwise on their own page are kept by id, as the dials that chose otherwise about the blink are. With the blink on, tapping
-// a dial through its lamp screens blinks each lamp as its screen appears (#144). It's off by default, since every lamp
-// then blinks in turn, which shows on camera. A dial can choose otherwise on its own page: the dials that do are kept
-// here too, by id, rather than in their own settings, so the plugin settings can tell when the dials differ, and reset
-// every dial at once, even the ones not on screen. With a difference kept, a turn on a dial's main screen and a step key's
-// press step each lamp from its own value, instead of bringing the lamps back in sync (#145). Brightness and
-// temperature each have their own, so lamps can keep their brightness apart while their colors stay matched. Both are
-// off by default: the lamps are managed together (see docs/contributing.md). Every blink that identifies a lamp, from
-// the plugin settings or on a lamp screen, lasts as long as the plugin settings say, in ms (#171). A lamp fades out
-// when switched off, in about 750 ms at any brightness, so a blink much shorter than the fade brings the lamp back
-// before it has dimmed enough to notice among lamps that stay on, while one as long as the whole fade makes each tap
-// through the lamp screens wait longer than it needs to. The default suits dim lamps, and a bright lamp among others
-// needs a longer one. The longest is twice the fade. What each cell of the lamp screens shows is the same on every dial,
-// and the defaults are what the lamp screens showed before it could be chosen (#177). How each cell shows its item is
-// kept by cell and by item, read against lampScreenItemOptions. The lamp screens' text takes four styles, the same on every
-// dial, each named for its role rather than its look (see docs/contributing.md, #153): Primary, Secondary, Accent and
-// Alert. Each has a color, a weight and a size, which a layout's text takes, and nothing else: no font family. The sizes
-// stop at 16 px, below which text is hard to read on the strip (#8), and at 22 px, which still fits the 26 px rows of
-// layouts/lamp.json. Only Primary and Secondary are used by default, which draws what the lamp screens showed before.
-// The lamps the plugin knows are the only ones it acts on (#194), each with the name the plugin settings gave it (#146),
-// which the lamp screens' cells show. Unlike the others, the plugin writes them, and no page does: a page asks it to
-// find the lamps, and to rename or forget one.
+// The plugin's own settings, which every dial and key shares rather than each saving its own.
 export const globalSettings = {
+  // A key that adds new lamps acts on every lamp but the ones its page left unchecked, so a lamp added later joins it,
+  // and one that doesn't acts on the lamps checked (#147). Every key adds them by default, as every key did before, and
+  // the keys that chose otherwise on their own page are kept by id, as the dials that chose otherwise about the blink
+  // are.
   addNewLamps: flag(true),
   addNewLampsExceptions: textList(),
+  // With the blink on, tapping a dial through its lamp screens blinks each lamp as its screen appears (#144). It's off
+  // by default, since every lamp then blinks in turn, which shows on camera. A dial can choose otherwise on its own
+  // page: the dials that do are kept here too, by id, rather than in their own settings, so the plugin settings can
+  // tell when the dials differ, and reset every dial at once, even the ones not on screen.
   blinkOnLampScreen: flag(false),
   blinkOnLampScreenExceptions: textList(),
+  // With a difference kept, a turn on a dial's main screen and a step key's press step each lamp from its own value,
+  // instead of bringing the lamps back in sync (#145). Brightness and temperature each have their own, so lamps can
+  // keep their brightness apart while their colors stay matched. Both are off by default: the lamps are managed
+  // together (see docs/contributing.md).
   keepBrightnessDifference: flag(false),
   keepTemperatureDifference: flag(false),
+  // Every blink that identifies a lamp, from the plugin settings or on a lamp screen, lasts as long as the plugin
+  // settings say, in ms (#171). A lamp fades out when switched off, in about 750 ms at any brightness, so a blink much
+  // shorter than the fade brings the lamp back before it has dimmed enough to notice among lamps that stay on, while
+  // one as long as the whole fade makes each tap through the lamp screens wait longer than it needs to. The default
+  // suits dim lamps, and a bright lamp among others needs a longer one. The longest is twice the fade.
   identifyBlinkMs: wholeNumberFrom(300, 1500, 400),
+  // What each cell of the lamp screens shows is the same on every dial, and the defaults are what the lamp screens
+  // showed before it could be chosen (#177). How each cell shows its item is kept by cell and by item, read against
+  // lampScreenItemOptions.
   lampScreenTopLeft: oneOf(LAMP_SCREEN_ITEMS, "identification"),
   lampScreenTopRight: oneOf(LAMP_SCREEN_ITEMS, "counter"),
   lampScreenMiddleLeft: oneOf(LAMP_SCREEN_ITEMS, "temperature"),
@@ -380,6 +376,11 @@ export const globalSettings = {
   lampScreenBottomLeft: oneOf(LAMP_SCREEN_ITEMS, "brightnessPercentage"),
   lampScreenBottomRight: oneOf(LAMP_SCREEN_ITEMS, "brightnessLumen"),
   lampScreenOptions: anObject(),
+  // The lamp screens' text takes four styles, the same on every dial, each named for its role rather than its look (see
+  // docs/contributing.md, #153): Primary, Secondary, Accent and Alert. Each has a color, a weight and a size, which a
+  // layout's text takes, and nothing else: no font family. The sizes stop at 16 px, below which text is hard to read on
+  // the strip (#8), and at 22 px, which still fits the 26 px rows of layouts/lamp.json. Only Primary and Secondary are
+  // used by default, which draws what the lamp screens showed before.
   lampScreenPrimaryColor: hexColor("#ffffff"),
   lampScreenPrimaryWeight: oneOf(WEIGHTS, "normal"),
   lampScreenPrimarySize: wholeNumberFrom(16, 22, 18),
@@ -392,6 +393,9 @@ export const globalSettings = {
   lampScreenAlertColor: hexColor("#ff6b6b"),
   lampScreenAlertWeight: oneOf(WEIGHTS, "bold"),
   lampScreenAlertSize: wholeNumberFrom(16, 22, 18),
+  // The lamps the plugin knows are the only ones it acts on (#194), each with the name the plugin settings gave it
+  // (#146), which the lamp screens' cells show. Unlike the others, the plugin writes them, and no page does: a page
+  // asks it to find the lamps, and to rename or forget one.
   lamps: lampsById(),
 };
 
@@ -411,7 +415,8 @@ export function parseSettings<S extends Schema>(
     const value = settings[name];
     const valid = value === undefined ? undefined : setting.parse(value);
     if (value !== undefined && valid === undefined) {
-      logger.warn(`Setting ${name} is ${JSON.stringify(value)}, not ${setting.expected}: using ${setting.default}`);
+      const fallback = JSON.stringify(setting.default);
+      logger.warn(`Setting ${name} is ${JSON.stringify(value)}, not ${setting.expected}: using ${fallback}`);
     }
     parsed[name] = valid ?? setting.default;
   }

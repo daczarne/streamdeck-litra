@@ -1,5 +1,6 @@
 import type { JsonValue } from "@elgato/utils";
 import { assert, describe, expect, it, vi } from "vitest";
+import { at } from "../test-support/at";
 
 import { brightnessSettings, parseSettings, powerSettings, temperatureSettings } from "./schema";
 
@@ -109,10 +110,10 @@ describe("parseSettings", () => {
       expect(parseSettings({ [name]: value }, schema, logger)).toMatchObject({ [name]: fallback });
 
       expect(logger.warn).toHaveBeenCalledOnce();
-      const message = logger.warn.mock.calls[0]?.[0];
+      const [message] = at(logger.warn.mock.calls, 0);
       expect(message).toContain(name);
       expect(message).toContain(JSON.stringify(value));
-      expect(message).toContain(String(fallback));
+      expect(message).toContain(JSON.stringify(fallback));
     });
   });
 
