@@ -18,7 +18,7 @@ import {
   type SavedLamp,
   type SavedTextStyle,
   type TextStyleName,
-} from "./schema";
+} from "./schemas";
 
 /** What a cell of the lamp screens shows, and how (#177). */
 export type LampScreenCellContent = {

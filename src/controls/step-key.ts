@@ -9,7 +9,7 @@ import {
   type CheckedLamps,
   parseSettings,
   temperatureStepSettingsSchema,
-} from "../settings/schema";
+} from "../settings/schemas";
 import { ActionInstance, type DeckControl, RoutingAction } from "./action-instance";
 import { createDebouncer } from "./debouncer";
 import { describeLamps } from "./describe-lamps";

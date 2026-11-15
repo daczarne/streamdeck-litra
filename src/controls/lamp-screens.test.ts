@@ -5,7 +5,7 @@ import type { LampState, ReachedLamp } from "../lamps/lamp";
 import { identifyLamp } from "../lamps/manager";
 import { logger } from "../logging";
 import { syncGlobalSettings } from "../settings/global-settings";
-import { globalSettingsSchema } from "../settings/schema";
+import { globalSettingsSchema } from "../settings/schemas";
 import { at } from "../test-support/at";
 import { changeGlobalSettings, createFakeDial } from "../test-support/fake-stream-deck";
 import { reachedLamp } from "../test-support/reached-lamps";

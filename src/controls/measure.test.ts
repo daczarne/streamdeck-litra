@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { identifyLamp, type OperationResult, onLampsChanged, toggleLamps } from "../lamps/manager";
 import { logger } from "../logging";
 import { syncGlobalSettings } from "../settings/global-settings";
-import { globalSettingsSchema } from "../settings/schema";
+import { globalSettingsSchema } from "../settings/schemas";
 import { at } from "../test-support/at";
 import { FakeDeck } from "../test-support/fake-deck";
 import { changeGlobalSettings } from "../test-support/fake-stream-deck";

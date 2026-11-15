@@ -7,7 +7,7 @@ import { type OperationResult, toggleLamps, turnLampsOff, turnLampsOn } from "..
 import type { LampSelection } from "../lamps/selection";
 import { logger as pluginLogger } from "../logging";
 import { globalSettings } from "../settings/global-settings";
-import { type Parsed, parseSettings, powerSettingsSchema } from "../settings/schema";
+import { type Parsed, parseSettings, powerSettingsSchema } from "../settings/schemas";
 
 const logger = pluginLogger.createScope("Power");
 

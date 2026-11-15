@@ -6,7 +6,7 @@ import { type SceneGroup, setLampsScene } from "../lamps/manager";
 import type { KeyLampSelection, LampSelection } from "../lamps/selection";
 import { logger as pluginLogger } from "../logging";
 import { globalSettings } from "../settings/global-settings";
-import { type Parsed, parseSettings, sceneGroupSettingsSchema, sceneSettingsSchema } from "../settings/schema";
+import { type Parsed, parseSettings, sceneGroupSettingsSchema, sceneSettingsSchema } from "../settings/schemas";
 
 const logger = pluginLogger.createScope("Scene");
 

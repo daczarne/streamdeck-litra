@@ -1,4 +1,4 @@
-import type { FontWeight, SavedTextStyle, TextStyleName } from "../settings/schema";
+import type { FontWeight, SavedTextStyle, TextStyleName } from "../settings/schemas";
 
 /** A text's look on the lamp screens, as a layout's text slot takes it: its color, and its font's size and weight. */
 export type TextStyle = { color: string; font: { size: number; weight: number } };

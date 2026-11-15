@@ -4,7 +4,7 @@ import type { Logger } from "@elgato/utils/logging";
 import { type OperationResult, type Stepping, toggleLamps } from "../lamps/manager";
 import type { LampSelection } from "../lamps/selection";
 import { globalSettings } from "../settings/global-settings";
-import type { CheckedLamps } from "../settings/schema";
+import type { CheckedLamps } from "../settings/schemas";
 import { ActionInstance, type DeckControl, RoutingAction } from "./action-instance";
 import { createDebouncer } from "./debouncer";
 import { describeLamps } from "./describe-lamps";

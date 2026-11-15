@@ -9,7 +9,7 @@ import {
   type LampScreenCell,
   type LampScreenItem,
   type LampScreenItemOptions,
-} from "../settings/schema";
+} from "../settings/schemas";
 import { findLampsShown, lampsShown } from "./shown";
 import { type TextStyle, type TextStyles, textStyle, textStylesOf } from "./text-styles";
 

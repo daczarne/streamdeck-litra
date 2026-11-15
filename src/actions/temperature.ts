@@ -4,7 +4,7 @@ import { temperatureShown, temperatureText } from "../controls/shown";
 import { adjustLampsTemperature, setLampsTemperature } from "../lamps/manager";
 import { logger as pluginLogger } from "../logging";
 import { globalSettings } from "../settings/global-settings";
-import { parseSettings, temperatureSettingsSchema } from "../settings/schema";
+import { parseSettings, temperatureSettingsSchema } from "../settings/schemas";
 
 /** What a Temperature key sets its lamps to: its preset, in kelvin, which each lamp snaps to one it allows. */
 const PRESET: Preset = {

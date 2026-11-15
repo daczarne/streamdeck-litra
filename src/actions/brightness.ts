@@ -4,7 +4,7 @@ import { brightnessShown, brightnessText } from "../controls/shown";
 import { adjustLampsBrightness, setLampsBrightness } from "../lamps/manager";
 import { logger as pluginLogger } from "../logging";
 import { globalSettings } from "../settings/global-settings";
-import { brightnessSettingsSchema, parseSettings } from "../settings/schema";
+import { brightnessSettingsSchema, parseSettings } from "../settings/schemas";
 
 // Where fewer lamps reach, the bar fades from white towards this grey, never as far as the bar's own background, and
 // light enough to read on the strip.

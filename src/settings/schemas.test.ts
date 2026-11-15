@@ -2,7 +2,7 @@ import type { JsonValue } from "@elgato/utils";
 import { assert, describe, expect, it, vi } from "vitest";
 import { at } from "../test-support/at";
 
-import { brightnessSettingsSchema, parseSettings, powerSettingsSchema, temperatureSettingsSchema } from "./schema";
+import { brightnessSettingsSchema, parseSettings, powerSettingsSchema, temperatureSettingsSchema } from "./schemas";
 
 //* Fakes
 
