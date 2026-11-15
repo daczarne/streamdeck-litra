@@ -10,5 +10,6 @@ A control, here, is a key or a dial on the Deck, as an action places it: each on
 4. `lamp-screens.ts`: a dial's lamp screens, one per lamp.
 5. `debouncer.ts`: gathers a dial's ticks and a step key's presses.
 6. `shown.ts`: what a key or a dial shows of its lamps, once the operations queued are done.
+7. `describe-lamps.ts`: the lamps a key acts on, as its log line names them.
 
 [actions]: ../actions/README.md

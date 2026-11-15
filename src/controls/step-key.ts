@@ -4,15 +4,10 @@ import type { Logger } from "@elgato/utils/logging";
 import { adjustLampsBrightness, adjustLampsTemperature, type OperationResult, type Stepping } from "../lamps/manager";
 import type { LampSelection } from "../lamps/selection";
 import { globalSettings } from "../settings/global-settings";
-import {
-  brightnessStepSettings,
-  type CheckedLamps,
-  describeLamps,
-  parseSettings,
-  temperatureStepSettings,
-} from "../settings/schema";
+import { brightnessStepSettings, type CheckedLamps, parseSettings, temperatureStepSettings } from "../settings/schema";
 import { ActionInstance, type DeckControl, RoutingAction } from "./action-instance";
 import { createDebouncer } from "./debouncer";
+import { describeLamps } from "./describe-lamps";
 import { brightnessShown, temperatureShown } from "./shown";
 
 /** A step key's settings: its step, and its lamps. */

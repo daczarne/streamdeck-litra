@@ -1,11 +1,12 @@
 import { action, type KeyAction } from "@elgato/streamdeck";
 import type { JsonObject } from "@elgato/utils";
 import { ActionInstance, type DeckControl, RoutingAction } from "../controls/action-instance";
+import { describeLamps } from "../controls/describe-lamps";
 import { type SceneGroup, setLampsScene } from "../lamps/manager";
 import type { KeyLampSelection, LampSelection } from "../lamps/selection";
 import { logger as pluginLogger } from "../logging";
 import { globalSettings } from "../settings/global-settings";
-import { describeLamps, type Parsed, parseSettings, sceneGroupSettings, sceneSettings } from "../settings/schema";
+import { type Parsed, parseSettings, sceneGroupSettings, sceneSettings } from "../settings/schema";
 
 const logger = pluginLogger.createScope("Scene");
 
