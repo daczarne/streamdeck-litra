@@ -19,7 +19,7 @@ It's read from the plugin's code and from `@elgato/streamdeck` 3.0.3. What Strea
 ```text
 Stream Deck starts ─► reads manifest.json ─► spawns Node 24 on bin/plugin.js, with -port -pluginUUID -registerEvent -info
   └► imports run: SDK services, node-hid's binary, the logger, globalSettings, the action classes (@action)
-  └► plugin.ts: registerAction × 8, answerLampPickers, useLamps, syncGlobalSettings, connect
+  └► plugin.ts: registerAction × 8, answerPluginSettingsPage, useLamps, syncGlobalSettings, connect
   └► WebSocket opens ─► { event: registerEvent, uuid } ─► queued getGlobalSettings goes out
   └► Stream Deck sends willAppear for each key and dial on screen ─► each gets its ActionInstance and draws
   └► didReceiveGlobalSettings ─► a Lamp for each known lamp ─► reachEveryLamp reads each lamp ─► every control redraws
@@ -65,8 +65,8 @@ Before the first line of `plugin.ts` runs, every module it imports is evaluated,
 - **The SDK's `Connection`** (`connection.js`) is created, not yet connected. Its `connection` promise is pending, so anything sent before the WebSocket opens waits for it.
 - **`litra`** imports `node-hid`, which loads its native binary from the plugin folder's `node_modules/`. A missing file there stops the plugin at this point.
 - **[src/logging.ts]** creates the plugin's logger, which writes to `logs/litra.log`, rotated by size. The file is created on the first entry.
-- **[src/litra-manager.ts]** sets up its module state: no known lamps yet, an already resolved `operations` promise (the queue every operation on the lamps goes through), and empty listener lists.
-- **[src/global-settings.ts]** creates the `globalSettings` instance, holding the settings' defaults and no lamps, which saves through `streamDeck.settings.setGlobalSettings`.
+- **[src/lamps/manager.ts]** sets up its module state: no known lamps yet, an already resolved `operations` promise (the queue every operation on the lamps goes through), and empty listener lists.
+- **[src/settings/global-settings.ts]** creates the `globalSettings` instance, holding the settings' defaults and no lamps, which saves through `streamDeck.settings.setGlobalSettings`.
 - **The action classes** are defined. `@action({ UUID })` (`actions/decorators.js`) replaces each class with a subclass that has a `manifestId` field set to the UUID, such as `com.daczarne.litra.brightness` for `BrightnessAction` ([brightness.ts]).
 
 ## 4. The body of plugin.ts
@@ -75,13 +75,13 @@ Before the first line of `plugin.ts` runs, every module it imports is evaluated,
 
 1. **Logging.** It sets the SDK's logger to `info`, and logs `Plugin started` to `litra.log`, which marks where each run starts.
 2. **8 × `registerAction(new XAction())`.** For each action:
-   - `new XAction()` runs the [`RoutingAction` constructor][action-instance-constructor], which subscribes once to `onLampsChanged` (litra-manager) and to `globalSettings.onChanged`. These two subscriptions are how every key and dial of the action follows a change later. `BrightnessAction` also passes its logger scope, its `PRESET` (what a key sets) and its `BRIGHTNESS` measure (what a dial steps and shows) to `MeasureAction`.
+   - `new XAction()` runs the [`RoutingAction` constructor][action-instance-constructor], which subscribes once to `onLampsChanged` (the lamp manager) and to `globalSettings.onChanged`. These two subscriptions are how every key and dial of the action follows a change later. `BrightnessAction` also passes its logger scope, its `PRESET` (what a key sets) and its `BRIGHTNESS` measure (what a dial steps and shows) to `MeasureAction`.
    - `registerAction` (`actions/service.js`) checks the `manifestId`. It throws when the id is missing, or when `manifest.json` doesn't list it, which stops the plugin as it starts.
    - It then routes the action's events. For each handler the action has (a `RoutingAction` has `onWillAppear`, `onWillDisappear`, `onDidReceiveSettings`, `onKeyDown`, `onDialDown`, `onDialRotate` and `onTouchTap`), it subscribes a listener to that event on the connection, which calls the handler only when the event's `manifestId` is the action's own.
 
    So 8 listeners hear every `keyDown`, and only the one whose `manifestId` matches calls its action. See [the SDK's actions][elgato-sdk-actions] for what that means for the actions.
-3. **[`answerLampPickers`][lamp-picker].** It subscribes to `sendToPlugin`, the messages the settings pages send (Find lamps, Identify, rename, forget, which lamps are connected), and to `onConnectedChanged`, which tells the page shown when a lamp is plugged in or unplugged.
-4. **`useLamps(globalSettings.lamps)`** hands litra-manager the map of known lamps, empty for now. It's the same `Map` object the global settings keep up to date, so litra-manager always sees the current lamps. `plugin.ts` makes the call, so that litra-manager doesn't depend on the global settings, and its tests can hand it lamps of their own.
+3. **[`answerPluginSettingsPage`][plugin-settings-page].** It subscribes to `sendToPlugin`, the messages the settings pages send (Find lamps, Identify, rename, forget, which lamps are connected), and to `onConnectedChanged`, which tells the page shown when a lamp is plugged in or unplugged.
+4. **`useLamps(globalSettings.lamps)`** hands the lamp manager the map of known lamps, empty for now. It's the same `Map` object the global settings keep up to date, so the lamp manager always sees the current lamps. `plugin.ts` makes the call, so that the lamp manager doesn't depend on the global settings, and its tests can hand it lamps of their own.
 5. **[`syncGlobalSettings`][sync-global-settings].**
    - It subscribes to `onDidReceiveGlobalSettings`, so a settings page's change is read again.
    - It calls `getGlobalSettings()`, which waits for a `didReceiveGlobalSettings` carrying its request's id, and sends the request through `connection.send`. That waits for the connection, so the request is queued until the WebSocket opens.
@@ -143,19 +143,19 @@ Once that's done, the plugin waits for events, holding:
 - `manifest.js`: the manifest, read from the working directory.
 - `logging/index.js`: the SDK's own log files.
 
-[action-instance-appear]: ../../src/actions/action-instance.ts
-[action-instance-constructor]: ../../src/actions/action-instance.ts
+[action-instance-appear]: ../../src/controls/action-instance.ts
+[action-instance-constructor]: ../../src/controls/action-instance.ts
 [brightness.ts]: ../../src/actions/brightness.ts
 [elgato-sdk-actions]: ../elgato_sdk/actions.md
-[global-settings-read]: ../../src/global-settings.ts
-[lamp-picker]: ../../src/actions/lamp-picker.ts
+[global-settings-read]: ../../src/settings/global-settings.ts
 [manifest.json]: ../../com.daczarne.litra.sdPlugin/manifest.json
-[measure-create]: ../../src/actions/measure.ts
-[reach-every-lamp]: ../../src/litra-manager.ts
+[measure-create]: ../../src/controls/measure.ts
+[plugin-settings-page]: ../../src/settings/plugin-settings-page.ts
+[reach-every-lamp]: ../../src/lamps/manager.ts
 [request-journey]: request_journey.md
 [rollup.config.mjs]: ../../rollup.config.mjs
-[src/global-settings.ts]: ../../src/global-settings.ts
-[src/litra-manager.ts]: ../../src/litra-manager.ts
+[src/lamps/manager.ts]: ../../src/lamps/manager.ts
 [src/logging.ts]: ../../src/logging.ts
 [src/plugin.ts]: ../../src/plugin.ts
-[sync-global-settings]: ../../src/global-settings.ts
+[src/settings/global-settings.ts]: ../../src/settings/global-settings.ts
+[sync-global-settings]: ../../src/settings/global-settings.ts

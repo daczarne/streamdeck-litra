@@ -1,13 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { syncGlobalSettings } from "../global-settings";
-import { adjustLampsBrightness, adjustLampsTemperature, type OperationResult, onLampsChanged } from "../litra-manager";
+import { BrightnessDownAction } from "../actions/brightness-down";
+import { BrightnessUpAction } from "../actions/brightness-up";
+import { TemperatureDownAction } from "../actions/temperature-down";
+import { TemperatureUpAction } from "../actions/temperature-up";
+import { adjustLampsBrightness, adjustLampsTemperature, type OperationResult, onLampsChanged } from "../lamps/manager";
 import { logger } from "../logging";
+import { syncGlobalSettings } from "../settings/global-settings";
 import { at } from "../test-support/at";
 import { FakeDeck } from "../test-support/fake-deck";
 import { changeGlobalSettings } from "../test-support/fake-stream-deck";
 import { createDebouncer } from "./debouncer";
 import { readLampsBrightness, readLampsTemperature } from "./shown";
-import { BrightnessDownAction, BrightnessUpAction, TemperatureDownAction, TemperatureUpAction } from "./step-keys";
 
 //* Fakes
 
@@ -22,8 +25,8 @@ vi.mock("./debouncer", () => ({ createDebouncer: vi.fn() }));
 // What the keys and dials show of the lamps, which each test sets.
 vi.mock("./shown", () => ({ readLampsBrightness: vi.fn(), readLampsTemperature: vi.fn() }));
 
-// The real litra-manager loads node-hid's native binary on import and talks to real lamps.
-vi.mock("../litra-manager", () => ({
+// The real lamp manager loads node-hid's native binary on import and talks to real lamps.
+vi.mock("../lamps/manager", () => ({
   adjustLampsBrightness: vi.fn(),
   adjustLampsTemperature: vi.fn(),
   onLampsChanged: vi.fn(),
@@ -48,7 +51,7 @@ const LAMP_1 = "lamp-1";
 const LAMP_2 = "lamp-2";
 
 let deck: FakeDeck;
-// What each action does when litra-manager announces that the lamps changed, in the order they were created.
+// What each action does when the lamp manager announces that the lamps changed, in the order they were created.
 let lampsChanged: () => Promise<void>;
 
 // The global settings, which the tests change as a settings page does (#145).
@@ -114,7 +117,7 @@ describe("the step keys", () => {
 
         expect(adjust).toHaveBeenCalledExactlyOnceWith(...args);
         expect(key.showAlert).not.toHaveBeenCalled();
-        // The keys follow through the notice, which litra-manager sends.
+        // The keys follow through the notice, which the lamp manager sends.
         expect(key.setTitle).not.toHaveBeenCalled();
       },
     );

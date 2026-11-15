@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { Lamp, type LampState } from "../lamp";
-import { lampsSettled, reachEveryLamp } from "../litra-manager";
+import { Lamp, type LampState } from "../lamps/lamp";
+import { lampsSettled, reachEveryLamp } from "../lamps/manager";
 import { at } from "../test-support/at";
 import { reachedLamp } from "../test-support/reached-lamps";
 import { areLampsOn, findShownLamps, readLampsBrightness, readLampsTemperature, readShownLamps } from "./shown";
@@ -13,10 +13,10 @@ vi.mock("../logging", () => import("../test-support/fake-logging"));
 // The lamps the plugin knows, which each test fills, as the global settings hold them. The real global settings load
 // the SDK.
 const known = vi.hoisted(() => new Map<string, unknown>());
-vi.mock("../global-settings", () => ({ globalSettings: { lamps: known } }));
+vi.mock("../settings/global-settings", () => ({ globalSettings: { lamps: known } }));
 
-// The real litra-manager loads node-hid's native binary on import and talks to real lamps.
-vi.mock("../litra-manager", () => ({ lampsSettled: vi.fn(), reachEveryLamp: vi.fn() }));
+// The real lamp manager loads node-hid's native binary on import and talks to real lamps.
+vi.mock("../lamps/manager", () => ({ lampsSettled: vi.fn(), reachEveryLamp: vi.fn() }));
 
 beforeEach(() => {
   known.clear();

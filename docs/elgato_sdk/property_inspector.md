@@ -9,6 +9,9 @@
 
 An action's settings page is its Property Inspector: an HTML page from the plugin folder, which Stream Deck shows when the action is selected. This document collects what was learnt about how Stream Deck loads and runs these pages, so that a change to them can be tested without rediscovering it.
 
+> [!NOTE]
+> Here, a control is a field on a page, as sdpi-components calls it, such as a checkbox or a slider. In the plugin's code, a control is a key or a dial on the Deck, as an action places it (see [`src/controls/`][controls]).
+
 ## How Stream Deck loads a page
 
 - Stream Deck renders the pages with Qt WebEngine, which is Chromium. A page that works in Chrome generally works there too.
@@ -99,4 +102,5 @@ Checked while adding the lamps the plugin knows ([#194]): the plugin's save of t
 [#194]: https://github.com/daczarne/streamdeck-litra/issues/194
 [#195]: https://github.com/daczarne/streamdeck-litra/issues/195
 [#198]: https://github.com/daczarne/streamdeck-litra/issues/198
+[controls]: ../../src/controls/README.md
 [manual-test]: ../manual_testing/settings_pages.md

@@ -1,12 +1,11 @@
 import { afterEach, beforeEach, describe, expect, inject, it, vi } from "vitest";
-
+import { at } from "../test-support/at";
+import { loadOnEmulatedLamps } from "../test-support/emulated-lamps";
+import { EmulatedLitra, isIdentifying, kindOf, type ReportKind } from "../test-support/emulated-litra";
+import type { HidCall } from "../test-support/fake-node-hid";
 import type { ReachedLamp } from "./lamp";
-import type { LampSelection } from "./lamp-selection";
-import type { OperationResult, SceneGroup } from "./litra-manager";
-import { at } from "./test-support/at";
-import { loadOnEmulatedLamps } from "./test-support/emulated-lamps";
-import { EmulatedLitra, isIdentifying, kindOf, type ReportKind } from "./test-support/emulated-litra";
-import type { HidCall } from "./test-support/fake-node-hid";
+import type { OperationResult, SceneGroup } from "./manager";
+import type { LampSelection } from "./selection";
 
 //* Fakes
 
@@ -25,28 +24,28 @@ const MISSING_LAMP = "0123456789abcdef";
 // How long a blink lasts, in ms, the plugin settings' default.
 const BLINK_MS = 400;
 
-let manager: typeof import("./litra-manager");
-// The Lamp class loaded with litra-manager, whose cap logs reach the fake logger.
+let manager: typeof import("./manager");
+// The Lamp class loaded with the lamp manager, whose cap logs reach the fake logger.
 let Lamp: typeof import("./lamp").Lamp;
-// The connections loaded with litra-manager, which reach the lamps as the plugin does when it starts.
-let LampConnection: typeof import("./lamp-connection").LampConnection;
+// The connections loaded with the lamp manager, which reach the lamps as the plugin does when it starts.
+let LampConnection: typeof import("./connection").LampConnection;
 // The lamps the plugin knows, as the global settings hold them and hand them over, keeping their Lamps.
 let known: Map<string, InstanceType<typeof Lamp>>;
-let hid: typeof import("./test-support/fake-node-hid");
-let logger: typeof import("./test-support/fake-logging").logger;
+let hid: typeof import("../test-support/fake-node-hid");
+let logger: typeof import("../test-support/fake-logging").logger;
 
 beforeEach(async () => {
   // The emulated lamps take time to reach their cap, and the brightness changes wait for them, as on the Deck.
   vi.useFakeTimers();
-  // A fresh litra-manager for every test: no learned caps, listeners or brightness changes carried over.
+  // A fresh lamp manager for every test: no learned caps, listeners or brightness changes carried over.
   ({
     loaded: { manager, Lamp, LampConnection },
     hid,
     logger,
   } = await loadOnEmulatedLamps(async () => ({
-    manager: await import("./litra-manager"),
+    manager: await import("./manager"),
     Lamp: (await import("./lamp")).Lamp,
-    LampConnection: (await import("./lamp-connection")).LampConnection,
+    LampConnection: (await import("./connection")).LampConnection,
   })));
   known = new Map();
   manager.useLamps(known);
@@ -56,7 +55,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-// What an operation leaves for the keys and dials: the Lamps of the lamps the plugin knows, which src/actions/shown.ts
+// What an operation leaves for the keys and dials: the Lamps of the lamps the plugin knows, which src/controls/shown.ts
 // shows, and whose own tests check how.
 
 /** The Lamps the last operation found, that an operation has reached, in the order of their ids. */
@@ -315,7 +314,7 @@ describe("stepOnGrid", () => {
 //* Broadcasting to lamps
 
 /** A lamp an operation reached, as {@link manager.forEachLamp} gives it to each step. */
-type Reached = Parameters<Parameters<typeof import("./litra-manager").forEachLamp>[1]>[0];
+type Reached = Parameters<Parameters<typeof import("./manager").forEachLamp>[1]>[0];
 
 describe("forEachLamp", () => {
   /** An operation that fails on one lamp, as a lamp failing mid-operation would. */

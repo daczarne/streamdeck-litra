@@ -9,8 +9,8 @@ import {
   type WillDisappearEvent,
 } from "@elgato/streamdeck";
 import type { JsonObject } from "@elgato/utils";
-import { globalSettings } from "../global-settings";
-import { onLampsChanged } from "../litra-manager";
+import { onLampsChanged } from "../lamps/manager";
+import { globalSettings } from "../settings/global-settings";
 
 /** A key or a dial, as the SDK hands it to an action: what the plugin shows on it, and its alert. */
 export type DeckControl = WillAppearEvent["action"];

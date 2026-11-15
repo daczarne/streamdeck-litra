@@ -1,9 +1,9 @@
 import { defineConfig } from "vitest/config";
 
-// The tests that run litra-manager on emulated lamps, which run once on Beams and once on Beam LXs (#100). The Beam LX
+// The tests that run the lamp manager on emulated lamps, which run once on Beams and once on Beam LXs (#100). The Beam LX
 // differs where a Beam doesn't need the plugin's help, such as its serial number and how it turns on, so every
 // scenario is checked on both. `src/integration/litra.test.ts` goes through every model on its own.
-const ON_EMULATED_LAMPS = ["src/litra-manager.test.ts", "src/integration/actions.test.ts"];
+const ON_EMULATED_LAMPS = ["src/lamps/manager.test.ts", "src/integration/actions.test.ts"];
 
 export default defineConfig({
   // Oxc can't lower standard decorators yet, only TypeScript's legacy ones, and Node can't run them. The actions'

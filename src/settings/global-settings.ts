@@ -1,6 +1,9 @@
 import streamDeck from "@elgato/streamdeck";
 import type { JsonObject } from "@elgato/utils";
-
+import { Lamp } from "../lamps/lamp";
+import type { Stepping } from "../lamps/manager";
+import type { KeyLampSelection } from "../lamps/selection";
+import { logger as pluginLogger } from "../logging";
 import {
   type CheckedLamps,
   globalSettings as globalSettingsSchema,
@@ -14,11 +17,7 @@ import {
   parseSettings,
   type SavedLamp,
   type TextStyleName,
-} from "./actions/settings";
-import { Lamp } from "./lamp";
-import type { KeyLampSelection } from "./lamp-selection";
-import type { Stepping } from "./litra-manager";
-import { logger as pluginLogger } from "./logging";
+} from "./schema";
 
 /** A text's look on the lamp screens: its color, and its font's size and weight (#153). */
 export type TextStyle = { color: string; font: { size: number; weight: number } };

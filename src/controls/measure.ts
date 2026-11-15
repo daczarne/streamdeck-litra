@@ -1,13 +1,13 @@
 import type { DialAction, FeedbackPayload, KeyAction } from "@elgato/streamdeck";
 import type { JsonObject } from "@elgato/utils";
 import type { Logger } from "@elgato/utils/logging";
-import { globalSettings } from "../global-settings";
-import type { LampSelection } from "../lamp-selection";
-import { type OperationResult, type Stepping, toggleLamps } from "../litra-manager";
+import { type OperationResult, type Stepping, toggleLamps } from "../lamps/manager";
+import type { LampSelection } from "../lamps/selection";
+import { globalSettings } from "../settings/global-settings";
+import { type CheckedLamps, describeLamps } from "../settings/schema";
 import { ActionInstance, type DeckControl, RoutingAction } from "./action-instance";
 import { createDebouncer } from "./debouncer";
 import { LampScreen } from "./lamp-screens";
-import { type CheckedLamps, describeLamps } from "./settings";
 
 /**
  * What a Brightness or Temperature key does: how it reads its preset and its lamps from its settings, the unit its log
@@ -90,7 +90,7 @@ class PresetKey extends ActionInstance<ReturnType<Preset["read"]>, KeyAction<Jso
   }
 
   /**
-   * Sets the key's lamps to its preset. The dials follow through litra-manager's notice, with what the lamps reached,
+   * Sets the key's lamps to its preset. The dials follow through the lamp manager's notice, with what the lamps reached,
    * which is less for a lamp at its cap, or a temperature snapped to one it allows.
    */
   override async keyDown(): Promise<void> {
@@ -185,7 +185,7 @@ class MeasureDial extends ActionInstance<{ step: number }, DialAction<JsonObject
    * Steps by the dial's ticks, gathered for a moment so a quick turn moves the lamps once, by the step the dial has
    * when they're applied. Ticks go to what the dial showed as it turned: every lamp from the main screen, together or
    * each from its own as the global settings say (#145), or the lamp on screen, even when the strip is tapped before
-   * they're applied, since each lamp gets its own queue. The dials follow through litra-manager's notice.
+   * they're applied, since each lamp gets its own queue. The dials follow through the lamp manager's notice.
    */
   override dialRotate(ticks: number): void {
     const lamp = this.screen.lamp;

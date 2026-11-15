@@ -102,10 +102,10 @@ For each lamp, [`readBackBrightness`][read-back-brightness]:
 | Brightness dial, main screen | The brightest lamp's % as text, and a bar that fades where fewer lamps reach, such as `[100, 100, 100, 72]` when one is capped | [measure.ts][dial-lamps-changed], [brightness.ts] |
 | A dial on a lamp screen | Redraws its lamp, or goes back to the main screen when the lamp wasn't found | [lamp-screens.ts][lamp-screen-refresh] |
 | Temperature dial | Redraws: the temperature didn't change, but the power may have | [measure.ts][dial-lamps-changed] |
-| Brightness and Temperature Up and Down keys | Their title, from the lamps' new values | [step-keys.ts][step-key-lamps-changed] |
+| Brightness and Temperature Up and Down keys | Their title, from the lamps' new values | [step-key.ts][step-key-lamps-changed] |
 | Brightness, Temperature and Scene keys | Nothing | `ActionInstance`'s default |
 
-Each one reads through [src/actions/shown.ts], which first awaits `lampsSettled()` (the queue of operations, so the Deck never shows a change halfway), then works out what to show from the `Lamp`s' held state. No lamp is read to redraw the Deck. `setState`, `setFeedback` and `setTitle` go back over the WebSocket, and Stream Deck draws them on the Deck.
+Each one reads through [src/controls/shown.ts], which first awaits `lampsSettled()` (the queue of operations, so the Deck never shows a change halfway), then works out what to show from the `Lamp`s' held state. No lamp is read to redraw the Deck. `setState`, `setFeedback` and `setTitle` go back over the WebSocket, and Stream Deck draws them on the Deck.
 
 ## Timing
 
@@ -123,38 +123,38 @@ Almost all of the HID work is synchronous, so it holds the plugin's event loop, 
 4. a `sent … lm, reached … lm` line for each lamp;
 5. a `capped at … lm` line for each lamp that fell short.
 
-[action-instance-keydown]: ../../src/actions/action-instance.ts
-[action-key-lamps]: ../../src/global-settings.ts
-[announce]: ../../src/litra-manager.ts
-[brightness-reached]: ../../src/lamp.ts
-[brightness-safe]: ../../src/lamp-connection.ts
+[action-instance-keydown]: ../../src/controls/action-instance.ts
+[action-key-lamps]: ../../src/settings/global-settings.ts
+[announce]: ../../src/lamps/manager.ts
+[brightness-reached]: ../../src/lamps/lamp.ts
+[brightness-safe]: ../../src/lamps/connection.ts
 [brightness.ts]: ../../src/actions/brightness.ts
-[dial-lamps-changed]: ../../src/actions/measure.ts
-[drain-ack]: ../../src/lamp-connection.ts
-[find-all]: ../../src/lamp-connection.ts
-[find-connections]: ../../src/litra-manager.ts
-[identify]: ../../src/lamp-connection.ts
-[lamp-reach]: ../../src/lamp.ts
-[lamp-screen-refresh]: ../../src/actions/lamp-screens.ts
-[lamp-send-brightness]: ../../src/lamp.ts
-[mark-found]: ../../src/litra-manager.ts
-[move-lamps-brightness]: ../../src/litra-manager.ts
-[one-at-a-time]: ../../src/litra-manager.ts
-[open-groups]: ../../src/litra-manager.ts
-[open-lamps]: ../../src/litra-manager.ts
-[outcome]: ../../src/litra-manager.ts
-[percentage-to-lumen]: ../../src/lamp.ts
+[dial-lamps-changed]: ../../src/controls/measure.ts
+[drain-ack]: ../../src/lamps/connection.ts
+[find-all]: ../../src/lamps/connection.ts
+[find-connections]: ../../src/lamps/manager.ts
+[identify]: ../../src/lamps/connection.ts
+[lamp-reach]: ../../src/lamps/lamp.ts
+[lamp-screen-refresh]: ../../src/controls/lamp-screens.ts
+[lamp-send-brightness]: ../../src/lamps/lamp.ts
+[mark-found]: ../../src/lamps/manager.ts
+[move-lamps-brightness]: ../../src/lamps/manager.ts
+[one-at-a-time]: ../../src/lamps/manager.ts
+[open-groups]: ../../src/lamps/manager.ts
+[open-lamps]: ../../src/lamps/manager.ts
+[outcome]: ../../src/lamps/manager.ts
+[percentage-to-lumen]: ../../src/lamps/lamp.ts
 [power-lamps-changed]: ../../src/actions/power.ts
-[preset-key-down]: ../../src/actions/measure.ts
-[put-back-setting]: ../../src/lamp.ts
-[read-back]: ../../src/lamp.ts
-[read-back-brightness]: ../../src/lamp.ts
-[read-serial-number]: ../../src/lamp-connection.ts
-[send-brightness]: ../../src/litra-manager.ts
-[set-lamps-brightness]: ../../src/litra-manager.ts
-[src/actions/shown.ts]: ../../src/actions/shown.ts
+[preset-key-down]: ../../src/controls/measure.ts
+[put-back-setting]: ../../src/lamps/lamp.ts
+[read-back]: ../../src/lamps/lamp.ts
+[read-back-brightness]: ../../src/lamps/lamp.ts
+[read-serial-number]: ../../src/lamps/connection.ts
+[send-brightness]: ../../src/lamps/manager.ts
+[set-lamps-brightness]: ../../src/lamps/manager.ts
+[src/controls/shown.ts]: ../../src/controls/shown.ts
 [start-up]: start_up.md
 [start-up-register]: start_up.md#4-the-body-of-plugints
-[step-key-lamps-changed]: ../../src/actions/step-keys.ts
-[switch-power]: ../../src/lamp.ts
-[wait-for-cap-reversal]: ../../src/litra-manager.ts
+[step-key-lamps-changed]: ../../src/controls/step-key.ts
+[switch-power]: ../../src/lamps/lamp.ts
+[wait-for-cap-reversal]: ../../src/lamps/manager.ts

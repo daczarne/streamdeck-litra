@@ -23,7 +23,7 @@ Stream Deck sends the events of every key and dial of an action type to the one 
 
 The SDK keeps an object of its own for each key and dial on screen, the `KeyAction` or `DialAction` that every event carries as `ev.action`: it creates it as the key or dial appears, and drops it as it disappears, along with the settings it cached for it. It sends a key's or dial's events, its settings changed on its page included, only while it holds that object, so a key or dial not on screen never gets an event. With the settings' legacy behavior off, the default, `onDidReceiveSettings` also leaves out the answers to `getSettings`, so it only reports a page's changes.
 
-The plugin builds on this ([#198]): each action is a `RoutingAction` (`src/actions/action-instance.ts`), which creates an object of the plugin's own for each key or dial as it appears, an `ActionInstance`, drops it as it disappears, and hands it the events of its key or dial. No event of a key or dial can come before its instance, nor after it was dropped.
+The plugin builds on this ([#198]): each action is a `RoutingAction` (`src/controls/action-instance.ts`), which creates an object of the plugin's own for each key or dial as it appears, an `ActionInstance`, drops it as it disappears, and hands it the events of its key or dial. No event of a key or dial can come before its instance, nor after it was dropped.
 
 ## A key's or dial's id
 

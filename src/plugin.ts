@@ -1,19 +1,17 @@
 import streamDeck from "@elgato/streamdeck";
 
 import { BrightnessAction } from "./actions/brightness";
-import { answerLampPickers } from "./actions/lamp-picker";
+import { BrightnessDownAction } from "./actions/brightness-down";
+import { BrightnessUpAction } from "./actions/brightness-up";
 import { PowerAction } from "./actions/power";
 import { SceneAction } from "./actions/scene";
-import {
-  BrightnessDownAction,
-  BrightnessUpAction,
-  TemperatureDownAction,
-  TemperatureUpAction,
-} from "./actions/step-keys";
 import { TemperatureAction } from "./actions/temperature";
-import { globalSettings, syncGlobalSettings } from "./global-settings";
-import { findLamps, reachEveryLamp, useLamps } from "./litra-manager";
+import { TemperatureDownAction } from "./actions/temperature-down";
+import { TemperatureUpAction } from "./actions/temperature-up";
+import { findLamps, reachEveryLamp, useLamps } from "./lamps/manager";
 import { logger } from "./logging";
+import { globalSettings, syncGlobalSettings } from "./settings/global-settings";
+import { answerPluginSettingsPage } from "./settings/plugin-settings-page";
 
 // The SDK's own logger, which only records what the SDK reports itself, in files of its own.
 streamDeck.logger.setLevel("info");
@@ -29,9 +27,9 @@ streamDeck.actions.registerAction(new BrightnessUpAction());
 streamDeck.actions.registerAction(new BrightnessDownAction());
 streamDeck.actions.registerAction(new TemperatureUpAction());
 streamDeck.actions.registerAction(new TemperatureDownAction());
-answerLampPickers();
+answerPluginSettingsPage();
 
-// litra-manager acts on the lamps the global settings hold, handed to it rather than imported, so it doesn't depend on
+// The lamp manager acts on the lamps the global settings hold, handed to it rather than imported, so it doesn't depend on
 // the global settings, and its tests hand it lamps of their own. It's the same map, which every read keeps up to date.
 useLamps(globalSettings.lamps);
 

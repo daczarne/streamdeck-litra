@@ -1,7 +1,7 @@
-import { globalSettings } from "../global-settings";
-import { Lamp, type ReachedLamp } from "../lamp";
-import { type LampSelection, selects } from "../lamp-selection";
-import { lampsSettled, reachEveryLamp } from "../litra-manager";
+import { Lamp, type ReachedLamp } from "../lamps/lamp";
+import { lampsSettled, reachEveryLamp } from "../lamps/manager";
+import { type LampSelection, selects } from "../lamps/selection";
+import { globalSettings } from "../settings/global-settings";
 
 /**
  * What the keys and dials show of the lamps (#198): whether a Power key is on, a step key's title, and a Brightness or

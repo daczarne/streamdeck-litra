@@ -7,8 +7,8 @@ import { EmulatedLitra, type LitraModel } from "../test-support/emulated-litra";
 //* Fakes
 
 let litra: typeof import("litra");
-let deviceModule: typeof import("../lamp-connection");
-let lampModule: typeof import("../lamp");
+let deviceModule: typeof import("../lamps/connection");
+let lampModule: typeof import("../lamps/lamp");
 let connect: (...lamps: EmulatedLitra[]) => void;
 
 beforeEach(async () => {
@@ -17,8 +17,8 @@ beforeEach(async () => {
     hid: { connect },
   } = await loadOnEmulatedLamps(async () => ({
     litra: await import("litra"),
-    deviceModule: await import("../lamp-connection"),
-    lampModule: await import("../lamp"),
+    deviceModule: await import("../lamps/connection"),
+    lampModule: await import("../lamps/lamp"),
   })));
 });
 
@@ -287,7 +287,7 @@ describe("litra", () => {
 
 //* What the plugin takes for granted
 
-describe("what litra-manager assumes about litra", () => {
+describe("what the lamp manager assumes about litra", () => {
   describe.each(MODELS)("on a $name", ({ model, productId, maxLumen }) => {
     it("a Lamp's lumenAt gives the lumens litra sends for every percentage", () => {
       const { lamp, device } = plugIn(model, { productId });

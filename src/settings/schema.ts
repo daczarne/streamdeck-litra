@@ -1,7 +1,7 @@
 import type { JsonObject, JsonValue } from "@elgato/utils";
 import type { Logger } from "@elgato/utils/logging";
 
-import type { LampSelection } from "../lamp-selection";
+import type { LampSelection } from "../lamps/selection";
 
 /**
  * A setting an action reads: the value it takes when the setting is missing or invalid, what a valid value is, and how

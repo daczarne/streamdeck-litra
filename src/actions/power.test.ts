@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { syncGlobalSettings } from "../global-settings";
-import { onLampsChanged, toggleLamps, turnLampsOff, turnLampsOn } from "../litra-manager";
+import { areLampsOn } from "../controls/shown";
+import { onLampsChanged, toggleLamps, turnLampsOff, turnLampsOn } from "../lamps/manager";
 import { logger } from "../logging";
+import { syncGlobalSettings } from "../settings/global-settings";
 import { at } from "../test-support/at";
 import { FakeDeck } from "../test-support/fake-deck";
 import { changeGlobalSettings } from "../test-support/fake-stream-deck";
 import { PowerAction } from "./power";
-import { areLampsOn } from "./shown";
 
 //* Fakes
 
@@ -16,10 +16,10 @@ vi.mock("@elgato/streamdeck", () => import("../test-support/fake-stream-deck"));
 vi.mock("../logging", () => import("../test-support/fake-logging"));
 
 // What the keys and dials show of the lamps, which each test sets.
-vi.mock("./shown", () => ({ areLampsOn: vi.fn() }));
+vi.mock("../controls/shown", () => ({ areLampsOn: vi.fn() }));
 
-// The real litra-manager loads node-hid's native binary on import and talks to real lamps.
-vi.mock("../litra-manager", () => ({
+// The real lamp manager loads node-hid's native binary on import and talks to real lamps.
+vi.mock("../lamps/manager", () => ({
   onLampsChanged: vi.fn(),
   toggleLamps: vi.fn(),
   turnLampsOff: vi.fn(),
@@ -35,7 +35,7 @@ const LAMP_1 = "lamp-1";
 const LAMP_2 = "lamp-2";
 
 let deck: FakeDeck;
-// What the action does when litra-manager announces that the lamps changed.
+// What the action does when the lamp manager announces that the lamps changed.
 let lampsChanged: () => Promise<void>;
 
 beforeEach(() => {

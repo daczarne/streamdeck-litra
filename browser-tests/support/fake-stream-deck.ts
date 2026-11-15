@@ -128,7 +128,7 @@ export class FakeStreamDeck {
 
   /**
    * Answers a page that asks for the global settings, a moment later, and keeps the ones it saves, as Stream Deck
-   * does, and a page that asks the plugin for the lamps, or to rename or forget one, as `src/actions/lamp-picker.ts`
+   * does, and a page that asks the plugin for the lamps, or to rename or forget one, as `src/settings/plugin-settings-page.ts`
    * does.
    */
   private answer(message: StreamDeckMessage, socket: Socket): void {

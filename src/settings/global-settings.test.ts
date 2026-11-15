@@ -1,9 +1,8 @@
 import type { JsonObject } from "@elgato/utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-
+import { logger } from "../logging";
+import { at } from "../test-support/at";
 import { GlobalSettings } from "./global-settings";
-import { logger } from "./logging";
-import { at } from "./test-support/at";
 
 //* Fakes
 
@@ -18,7 +17,7 @@ const settings = vi.hoisted(() => ({
 vi.mock("@elgato/streamdeck", () => ({ default: { settings } }));
 
 // The real logger writes to a logs/ folder.
-vi.mock("./logging", () => import("./test-support/fake-logging"));
+vi.mock("../logging", () => import("../test-support/fake-logging"));
 
 // What the global settings save through, which sends them to Stream Deck.
 const save = vi.fn<(settings: JsonObject) => Promise<void>>();
@@ -579,9 +578,9 @@ describe("syncing the global settings (#144)", () => {
     expect(synced.globalSettings.temperatureStepping).toBe("each");
   });
 
-  it("keep the lamps the plugin knows in one map, which every read updates, as litra-manager holds it (#198)", async () => {
+  it("keep the lamps the plugin knows in one map, which every read updates, as the lamp manager holds it (#198)", async () => {
     settings.getGlobalSettings.mockResolvedValue({ lamps: { "0000000000001111": { model: "Beam" } } });
-    // The map as litra-manager is handed it, before the first read.
+    // The map as the lamp manager is handed it, before the first read.
     const { lamps } = synced.globalSettings;
 
     await synced.syncGlobalSettings();

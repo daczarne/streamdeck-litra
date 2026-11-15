@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
+import { logger } from "../test-support/fake-logging";
+import type { LampHandle, LampRange } from "./connection";
 import { BRIGHTNESS_CAP_REVERSAL_WINDOW_MS, Lamp } from "./lamp";
-import type { LampHandle, LampRange } from "./lamp-connection";
-import { logger } from "./test-support/fake-logging";
 
-vi.mock("./logging", () => import("./test-support/fake-logging"));
+vi.mock("../logging", () => import("../test-support/fake-logging"));
 
 const SERIAL = "2541AB017K98";
 const PATH = "path-1";

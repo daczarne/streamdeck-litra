@@ -26,18 +26,18 @@ vi.mock("@elgato/streamdeck", async () => ({
 }));
 // The real logger writes to a logs/ folder.
 vi.mock("./logging", () => import("./test-support/fake-logging"));
-// The real litra loads node-hid's native binary on import, so only what litra-manager.ts reads when it loads is needed.
+// The real litra loads node-hid's native binary on import, so only what lamps/manager.ts reads when it loads is needed.
 vi.mock("litra", () => ({
   DeviceType: { LitraGlow: "litra_glow", LitraBeam: "litra_beam", LitraBeamLX: "litra_beam_lx" },
 }));
-// The real litra-manager, but for what plugin.ts calls on it, which would reach the lamps plugged in.
+// The real lamp manager, but for what plugin.ts calls on it, which would reach the lamps plugged in.
 const manager = vi.hoisted(() => ({
   useLamps: vi.fn(),
   findLamps: vi.fn<() => { id: string; label: string; model: string }[]>(() => []),
   reachEveryLamp: vi.fn(),
 }));
-vi.mock("./litra-manager", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("./litra-manager")>()),
+vi.mock("./lamps/manager", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./lamps/manager")>()),
   ...manager,
 }));
 
@@ -95,12 +95,12 @@ describe("plugin", () => {
     );
   });
 
-  it("hands litra-manager the lamps the global settings hold, before it connects (#198)", async () => {
+  it("hands the lamp manager the lamps the global settings hold, before it connects (#198)", async () => {
     streamDeck.connect.mockResolvedValue();
 
     await start();
 
-    const { globalSettings } = await import("./global-settings");
+    const { globalSettings } = await import("./settings/global-settings");
     expect(manager.useLamps).toHaveBeenCalledExactlyOnceWith(globalSettings.lamps);
     expect(at(manager.useLamps.mock.invocationCallOrder, 0)).toBeLessThan(
       at(streamDeck.connect.mock.invocationCallOrder, 0),

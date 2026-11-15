@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
-import type { LampHandle, LampRange } from "./lamp-connection";
-import { logger as pluginLogger } from "./logging";
+import { logger as pluginLogger } from "../logging";
+import type { LampHandle, LampRange } from "./connection";
 
 const logger = pluginLogger.createScope("Lamps");
 

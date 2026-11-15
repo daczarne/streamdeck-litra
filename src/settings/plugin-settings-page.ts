@@ -1,11 +1,10 @@
 import streamDeck from "@elgato/streamdeck";
 import type { JsonValue } from "@elgato/utils";
-
-import { globalSettings } from "../global-settings";
-import { connectedLamps, findLamps, identifyLamp, onConnectedChanged, reachEveryLamp } from "../litra-manager";
+import { connectedLamps, findLamps, identifyLamp, onConnectedChanged, reachEveryLamp } from "../lamps/manager";
 import { logger as pluginLogger } from "../logging";
+import { globalSettings } from "./global-settings";
 
-const logger = pluginLogger.createScope("Lamp picker");
+const logger = pluginLogger.createScope("Plugin settings");
 
 /**
  * Answers the plugin settings on every page (#146, `ui/plugin-settings.js`), whichever action's page they're on: the
@@ -15,7 +14,7 @@ const logger = pluginLogger.createScope("Lamp picker");
  * plugged in or unplugged. The keys' lamp pickers (#20, `ui/lamp-picker.js`) ask for nothing: they list the lamps the plugin knows, from its global
  * settings.
  */
-export function answerLampPickers(): void {
+export function answerPluginSettingsPage(): void {
   streamDeck.ui.onSendToPlugin((ev) => {
     answer(ev.payload).catch((error: unknown) => {
       logger.error("Answering a settings page failed", error);
@@ -42,7 +41,7 @@ export async function answer(payload: JsonValue): Promise<void> {
     await streamDeck.ui.sendToPropertyInspector({ event: "connected", ids: connectedLamps() });
   } else if (payload.event === "identify" && typeof payload.id === "string") {
     logger.info("Identify pressed on a settings page");
-    // The page has no alert to show: litra-manager logs a lamp it can't find or blink.
+    // The page has no alert to show: the lamp manager logs a lamp it can't find or blink.
     await identifyLamp(payload.id, globalSettings.identifyBlinkMs);
   } else if (payload.event === "rename" && typeof payload.id === "string" && typeof payload.name === "string") {
     await globalSettings.renameLamp(payload.id, payload.name);
