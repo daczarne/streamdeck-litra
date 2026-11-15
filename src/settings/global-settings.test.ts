@@ -248,14 +248,14 @@ describe("how each cell of the lamp screens shows its item (#177)", () => {
 describe("the lamp screens' text styles (#153)", () => {
   it("are white, dark grey, cyan and a bold soft red, at 18 px, by default", () => {
     expect(globalSettings.textStyles).toEqual({
-      primary: { color: "#ffffff", font: { size: 18, weight: 400 } },
-      secondary: { color: "#202020", font: { size: 18, weight: 400 } },
-      accent: { color: "#4dd0e1", font: { size: 18, weight: 400 } },
-      alert: { color: "#ff6b6b", font: { size: 18, weight: 700 } },
+      primary: { color: "#ffffff", weight: "normal", size: 18 },
+      secondary: { color: "#202020", weight: "normal", size: 18 },
+      accent: { color: "#4dd0e1", weight: "normal", size: 18 },
+      alert: { color: "#ff6b6b", weight: "bold", size: 18 },
     });
   });
 
-  it("are the ones the plugin settings saved, with the weight as a layout's text takes it", () => {
+  it("are the ones the plugin settings saved", () => {
     globalSettings.read({
       lampScreenPrimaryColor: "#ffcc00",
       lampScreenPrimaryWeight: "bold",
@@ -266,17 +266,17 @@ describe("the lamp screens' text styles (#153)", () => {
     });
 
     expect(globalSettings.textStyles).toEqual({
-      primary: { color: "#ffcc00", font: { size: 22, weight: 700 } },
-      secondary: { color: "#202020", font: { size: 16, weight: 400 } },
-      accent: { color: "#4dd0e1", font: { size: 18, weight: 700 } },
-      alert: { color: "#ff0000", font: { size: 18, weight: 700 } },
+      primary: { color: "#ffcc00", weight: "bold", size: 22 },
+      secondary: { color: "#202020", weight: "normal", size: 16 },
+      accent: { color: "#4dd0e1", weight: "bold", size: 18 },
+      alert: { color: "#ff0000", weight: "bold", size: 18 },
     });
   });
 
   it.each([15, 23, 18.5])("take the default size, with a warning, for a size of %s", (size) => {
     globalSettings.read({ lampScreenPrimarySize: size });
 
-    expect(globalSettings.textStyles.primary.font.size).toBe(18);
+    expect(globalSettings.textStyles.primary.size).toBe(18);
     expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("lampScreenPrimarySize"));
   });
 });

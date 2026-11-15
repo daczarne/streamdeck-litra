@@ -3,13 +3,7 @@ import type { TouchTapEvent } from "@elgato/streamdeck";
 import { Lamp, type ReachedLamp } from "../lamps/lamp";
 import { identifyLamp } from "../lamps/manager";
 import { logger as pluginLogger } from "../logging";
-import {
-  FONT_WEIGHTS,
-  globalSettings,
-  type LampScreenCellContent,
-  type TextStyle,
-  type TextStyles,
-} from "../settings/global-settings";
+import { globalSettings, type LampScreenCellContent } from "../settings/global-settings";
 import {
   LAMP_SCREEN_CELLS,
   type LampScreenCell,
@@ -17,6 +11,7 @@ import {
   type LampScreenItemOptions,
 } from "../settings/schema";
 import { findLampsShown, lampsShown } from "./shown";
+import { type TextStyle, type TextStyles, textStyle, textStylesOf } from "./text-styles";
 
 /** What a lamp screen uses of its dial, whichever action it belongs to. */
 export type LampScreenDial = Pick<
@@ -299,7 +294,7 @@ function power(options: LampScreenItemOptions["power"], on: boolean, styles: Tex
   if (style !== "custom") {
     return { value, ...styles[style] };
   }
-  return { value, color, font: { size: styles.primary.font.size, weight: FONT_WEIGHTS[weight] } };
+  return { value, ...textStyle({ color, weight, size: styles.primary.font.size }) };
 }
 
 /**
@@ -323,7 +318,7 @@ function cellSlots(cell: LampScreenCell, shown: Shown | undefined) {
 /** Fills the slots of the lamp layout, each cell with what the global settings give it, and how (#177). */
 async function draw(dial: LampScreenDial, lamp: ReachedLamp, lamps: ReachedLamp[]): Promise<void> {
   const cells = globalSettings.lampScreenCells;
-  const styles = globalSettings.textStyles;
+  const styles = textStylesOf(globalSettings.textStyles);
   await dial.setFeedback(
     Object.assign({}, ...LAMP_SCREEN_CELLS.map((cell) => cellSlots(cell, shownIn(cells[cell], lamp, lamps, styles)))),
   );
