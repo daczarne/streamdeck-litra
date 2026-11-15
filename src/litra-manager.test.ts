@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, inject, it, vi } from "vitest";
 
+import type { ReachedLamp } from "./lamp";
 import type { LampSelection } from "./lamp-selection";
-import { allLampsOn, brightnessPercentages, shownLamps, temperatureShown } from "./lamps-shown";
 import type { OperationResult, SceneGroup } from "./litra-manager";
 import { at } from "./test-support/at";
 import { loadOnEmulatedLamps } from "./test-support/emulated-lamps";
@@ -56,34 +56,29 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-// What the keys and dials show, read as src/actions/shown.ts reads it: from the Lamps of the lamps the plugin knows,
-// once the brightness change in progress, if any, is done.
+// What an operation leaves for the keys and dials: the Lamps of the lamps the plugin knows, which src/actions/shown.ts
+// shows, and whose own tests check how.
 
-/** Whether every lamp a selection takes in is on, as a Power key shows it. */
-async function areLampsOn(lamps: LampSelection): Promise<boolean> {
-  await manager.lampsSettled();
-  return allLampsOn(known.values(), lamps);
+/** The Lamps the last operation found, that an operation has reached, in the order of their ids. */
+function reached(): ReachedLamp[] {
+  const lamps: ReachedLamp[] = [];
+  for (const lamp of known.values()) {
+    if (lamp.isConnected && lamp.isReached()) {
+      lamps.push(lamp);
+    }
+  }
+  return lamps.sort((a, b) => Lamp.byId(a.id, b.id));
 }
 
-/** Each lamp's brightness, in % of its range, as the dials and step keys show it. */
-async function readLampsBrightness(lamps: LampSelection): Promise<number[]> {
-  await manager.lampsSettled();
-  return brightnessPercentages(known.values(), lamps);
+/** The brightness each of those Lamps holds, in % of its lamp's range. */
+function brightnessHeld(): number[] {
+  return reached().map((lamp) => lamp.brightnessPercentage(lamp.state.lumen));
 }
 
-/** The first lamp's temperature, as the dials and step keys show it. */
-async function readLampsTemperature(lamps: LampSelection) {
-  await manager.lampsSettled();
-  return temperatureShown(known.values(), lamps);
-}
-
-/**
- * What a tap on a dial's strip finds, and how finding them went: each lamp shown, by what the lamp screens show of it,
- * its name, its state, and its brightness as a percentage of its range.
- */
-async function readShownLamps() {
+/** Reaches every lamp, as a tap on a dial's strip does, and what it leaves: each Lamp's name and state. */
+async function reachEvery() {
   const { ok } = await manager.reachEveryLamp("lamp screen");
-  const lamps = shownLamps(known.values(), "all").map((lamp) => ({
+  const lamps = reached().map((lamp) => ({
     id: lamp.id,
     model: lamp.model,
     label: lamp.label,
@@ -595,15 +590,6 @@ describe("the lamps the plugin knows (#194)", () => {
     expect(asked(unknown)).toEqual([]);
   });
 
-  it("are the only ones the lamp screens read", async () => {
-    const [known, unknown] = [newLamp(), newLamp()];
-    connectKnowing([known], known, unknown);
-
-    const { lamps } = await settled(readShownLamps());
-
-    expect(lamps.map(({ id }) => id)).toEqual([idOf(known)]);
-  });
-
   it("make an operation fail, and log it, when none of the lamps connected is one of them", async () => {
     const unknown = newLamp({ on: true });
     connectKnowing([], unknown);
@@ -1056,37 +1042,50 @@ describe("toggleLamps", () => {
   });
 });
 
-describe("what a Power key shows, from the Lamps the operations leave (#198)", () => {
-  it("reports on when every lamp is on, from what the plugin holds, without reading the lamps (#198)", async () => {
-    connect(newLamp(), newLamp());
-
-    expect(await areLampsOn("all")).toBe(true);
-    expect(hid.hidEvents()).toEqual([]);
-  });
-
-  it("still reports a lamp turned off with its own button on, as the plugin last set it (#198)", async () => {
+describe("the Lamps an operation leaves (#198)", () => {
+  it("hold a lamp turned off with its own button as on, as the plugin last set it (#198)", () => {
     const lamp = newLamp();
     connect(lamp);
     lamp.on = false;
 
-    expect(await areLampsOn("all")).toBe(true);
+    expect(at(reached(), 0).state.on).toBe(true);
   });
 
-  it("leaves out a lamp the last operation didn't find, and fails when none is left (#198)", async () => {
-    connect(newLamp());
-    connect();
+  it("mark a lamp the last operation didn't find as not connected (#198)", async () => {
+    const lamp = newLamp();
+    connect(lamp);
+    // Unplugged, while the plugin still knows it.
+    hid.connect();
     await manager.turnLampsOn("all");
 
-    expect(await areLampsOn("all")).toBe(false);
+    expect(known.get(idOf(lamp))?.isConnected).toBe(false);
+    expect(reached()).toEqual([]);
   });
+});
 
-  it("waits for the brightness change in progress", async () => {
+describe("lampsSettled", () => {
+  it("waits for the brightness change in progress, which turns the lamp on first", async () => {
     connect(newLamp({ on: false }));
 
-    const [, power] = await settled(Promise.all([manager.setLampsBrightness("all", 100), areLampsOn("all")]));
+    const [, held] = await settled(
+      Promise.all([manager.setLampsBrightness("all", 40), manager.lampsSettled().then(() => at(reached(), 0).state)]),
+    );
 
-    // The change turns the lamp on first, which the report follows.
-    expect(power).toBe(true);
+    expect(held.on).toBe(true);
+    expect(brightnessHeld()).toEqual([40]);
+  });
+
+  it("waits for the scene in progress", async () => {
+    connect(newLamp());
+
+    const [, kelvin] = await settled(
+      Promise.all([
+        manager.setLampsScene(everyLampAt(100, 6500)),
+        manager.lampsSettled().then(() => at(reached(), 0).state.kelvin),
+      ]),
+    );
+
+    expect(kelvin).toBe(6500);
   });
 });
 
@@ -1114,16 +1113,12 @@ describe("onLampsChanged", () => {
     expect(otherListener).toHaveBeenCalledOnce();
   });
 
-  it.each([
-    ["areLampsOn", () => areLampsOn("all")],
-    ["readLampsBrightness", () => readLampsBrightness("all")],
-    ["readLampsTemperature", () => readLampsTemperature("all")],
-  ])("doesn't call the listeners after %s", async (_, operation) => {
+  it("doesn't call the listeners when waiting for the operations queued", async () => {
     connect(newLamp(), newLamp());
     const listener = vi.fn();
     manager.onLampsChanged(listener);
 
-    await settled(Promise.resolve(operation()));
+    await settled(manager.lampsSettled());
     await announced();
 
     expect(listener).not.toHaveBeenCalled();
@@ -1229,7 +1224,7 @@ describe("setLampsBrightness", () => {
       lampCount: 2,
       failures: 0,
     });
-    expect(await readLampsBrightness("all")).toEqual([40, 40]);
+    expect(brightnessHeld()).toEqual([40, 40]);
     expect(pair.map((lamp) => lamp.writes("brightness"))).toEqual([[178], [178]]);
   });
 
@@ -1238,9 +1233,9 @@ describe("setLampsBrightness", () => {
     connect(lamp);
 
     await set(150);
-    expect(await readLampsBrightness("all")).toEqual([100]);
+    expect(brightnessHeld()).toEqual([100]);
     await set(-10);
-    expect(await readLampsBrightness("all")).toEqual([0]);
+    expect(brightnessHeld()).toEqual([0]);
     expect(lamp.writes("brightness")).toEqual([MAX_LUMEN, MIN_LUMEN]);
   });
 
@@ -1250,7 +1245,7 @@ describe("setLampsBrightness", () => {
 
     await set(100);
 
-    expect(await readLampsBrightness("all")).toEqual([58, 79]);
+    expect(brightnessHeld()).toEqual([58, 79]);
   });
 
   it("learns a lamp's cap, and sends it no more than its cap afterwards", async () => {
@@ -1516,7 +1511,7 @@ describe("adjustLampsBrightness", () => {
 
     await adjust(20, 5);
 
-    expect(await readLampsBrightness("all")).toEqual([58, 79]);
+    expect(brightnessHeld()).toEqual([58, 79]);
   });
 
   it("learns a lamp's cap, and sends it no more than its cap afterwards", async () => {
@@ -1617,7 +1612,7 @@ describe("adjustLampsBrightness, each lamp from its own (#145)", () => {
       failures: 0,
     });
     expect([first.writes("brightness"), second.writes("brightness")]).toEqual([[lumenAt(30)], [lumenAt(60)]]);
-    expect(await readLampsBrightness("all")).toEqual([30, 60]);
+    expect(brightnessHeld()).toEqual([30, 60]);
   });
 
   it("keeps stepping the other lamps once one reaches an end of its range, and comes back with their difference", async () => {
@@ -1826,23 +1821,6 @@ describe("a lamp going back to its cap (#55)", () => {
 
     expect([capped.on, other.writes("brightness")]).toEqual([false, [lumenAt(30)]]);
     await settled(both);
-  });
-});
-
-describe("what the dials and step keys show of the brightness, from the Lamps the operations leave (#198)", () => {
-  it("reports each lamp's brightness, from what the plugin holds, without reading the lamps (#198)", async () => {
-    connect(newLamp({ brightnessInLumen: lumenAt(20) }), newLamp({ brightnessInLumen: lumenAt(50) }));
-
-    expect(await readLampsBrightness("all")).toEqual([20, 50]);
-    expect(hid.hidEvents()).toEqual([]);
-  });
-
-  it("waits for the brightness change in progress", async () => {
-    connect(newLamp());
-
-    const [, read] = await settled(Promise.all([manager.setLampsBrightness("all", 40), readLampsBrightness("all")]));
-
-    expect(read).toEqual([40]);
   });
 });
 
@@ -2192,7 +2170,7 @@ describe("reachEveryLamp", () => {
     const second = beam({ on: false, brightnessInLumen: lumenAt(50), temperatureInKelvin: 6500 });
     connect(second, first);
 
-    expect(await readShownLamps()).toEqual({
+    expect(await reachEvery()).toEqual({
       ok: true,
       lamps: [
         {
@@ -2223,20 +2201,20 @@ describe("reachEveryLamp", () => {
     unreadable.fail("readSync");
     connect(unreadable, readable);
 
-    const result = await readShownLamps();
+    const result = await reachEvery();
 
     expect(result.ok).toBe(false);
     expect(result.lamps.map(({ id }) => id)).toEqual([idOf(readable)]);
   });
 
   it("reports no lamps when none is connected", async () => {
-    expect(await readShownLamps()).toEqual({ ok: false, lamps: [] });
+    expect(await reachEvery()).toEqual({ ok: false, lamps: [] });
   });
 
   it("waits for the brightness change in progress", async () => {
     connect(newLamp());
 
-    const [, shown] = await settled(Promise.all([manager.setLampsBrightness("all", 100), readShownLamps()]));
+    const [, shown] = await settled(Promise.all([manager.setLampsBrightness("all", 100), reachEvery()]));
 
     expect(at(shown.lamps, 0).lumen).toBe(MAX_LUMEN);
   });
@@ -2317,33 +2295,6 @@ describe("identifyLamp", () => {
     // The change turns its lamp on and reads its brightness back before the blink switches it off: each turn on reads
     // the brightness, and the change reads it again once it has settled.
     expect(at(positions(lamp, "write", "brightness query"), 1)).toBeLessThan(at(positions(lamp, "write", "power"), 1));
-  });
-});
-
-describe("what the dials and step keys show of the temperature, from the Lamps the operations leave (#198)", () => {
-  it("reports the first lamp, with its place in the range, from what the plugin holds, without reading (#198)", async () => {
-    connect(newLamp({ temperatureInKelvin: 3500 }), newLamp({ temperatureInKelvin: 5000 }));
-
-    expect(await readLampsTemperature("all")).toEqual({ kelvin: 3500, percentage: 21 });
-    expect(hid.hidEvents()).toEqual([]);
-  });
-
-  it("reports the lamp with the lowest id, whatever order the lamps are found in", async () => {
-    const earlier = newLamp({ temperatureInKelvin: 3500 });
-    const later = newLamp({ temperatureInKelvin: 5000 });
-    connect(later, earlier);
-
-    expect(await readLampsTemperature("all")).toMatchObject({ kelvin: 3500 });
-  });
-
-  it("waits for the brightness change in progress", async () => {
-    connect(newLamp());
-
-    const [, read] = await settled(
-      Promise.all([manager.setLampsScene(everyLampAt(100, 6500)), readLampsTemperature("all")]),
-    );
-
-    expect(read?.kelvin).toBe(6500);
   });
 });
 
@@ -2594,14 +2545,10 @@ describe("logs", () => {
     expect(messages("info")).toContainEqual(expect.stringContaining("turned on"));
   });
 
-  it.each([
-    ["power", () => areLampsOn("all")],
-    ["brightness", () => readLampsBrightness("all")],
-    ["temperature", () => readLampsTemperature("all")],
-  ])("logs nothing when the keys and dials ask for the %s the plugin holds (#198)", async (_value, operate) => {
+  it("logs nothing when waiting for the operations queued (#198)", async () => {
     connect(newLamp());
 
-    await run(operate);
+    await run(() => manager.lampsSettled());
 
     expect([logger.error, logger.warn, logger.info, logger.debug].flatMap((log) => log.mock.calls)).toEqual([]);
   });
@@ -2614,7 +2561,7 @@ describe("logs", () => {
     await manager.turnLampsOn("all");
     lamp.failWrites("power");
     await manager.turnLampsOff("all");
-    await readShownLamps();
+    await reachEvery();
 
     const everything = (["error", "warn", "info", "debug"] as const).flatMap(messages);
     expect(everything).toContainEqual(expect.stringContaining(` - ${idOf(lamp).slice(-4)}`));

@@ -1,37 +1,48 @@
 import { globalSettings } from "../global-settings";
-import type { ReachedLamp } from "../lamp";
-import type { LampSelection } from "../lamp-selection";
-import { allLampsOn, brightnessPercentages, shownLamps, type TemperatureShown, temperatureShown } from "../lamps-shown";
+import { Lamp, type ReachedLamp } from "../lamp";
+import { type LampSelection, selects } from "../lamp-selection";
 import { lampsSettled, reachEveryLamp } from "../litra-manager";
 
 /**
- * What the keys and dials show of the lamps they act on, from the `Lamp`s the global settings hold, without reading the
- * lamps (#198). Each waits for the operations queued, if any, so it shows where they leave the
- * lamps, not partway (see `src/lamps-shown.ts`).
+ * What the keys and dials show of the lamps (#198): whether a Power key is on, a step key's title, and a Brightness or
+ * Temperature dial's main screen and lamp screens. It's worked out from the `Lamp`s of the lamps the plugin knows, which
+ * the global settings hold, and which hold the lamps' state, so showing a lamp reads nothing. Each function waits for
+ * the operations queued, if any, so it shows where they leave the lamps, not partway, and shows the lamps a selection
+ * takes in among those the last operation found and reached, in the order of their ids.
  */
 
-/** Whether every lamp a selection takes in is on, which a Power key shows, and none is off when there's none. */
+/** A lamp's temperature as a dial shows it: in kelvin, and as its place between the lowest and the highest. */
+export type TemperatureShown = {
+  readonly kelvin: number;
+  readonly percentage: number;
+};
+
+/** Whether a Power key shows on: only when the selection takes in a lamp shown, and every one is on. */
 export async function areLampsOn(lamps: LampSelection): Promise<boolean> {
   await lampsSettled();
-  return allLampsOn(globalSettings.lamps.values(), lamps);
+  const shown = shownLamps(lamps);
+  return shown.length > 0 && shown.every(({ state }) => state.on);
 }
 
 /** Each lamp's brightness, in % of its range, which a dial or a step key shows the brightest of. */
 export async function readLampsBrightness(lamps: LampSelection): Promise<number[]> {
   await lampsSettled();
-  return brightnessPercentages(globalSettings.lamps.values(), lamps);
+  return shownLamps(lamps).map((lamp) => lamp.brightnessPercentage(lamp.state.lumen));
 }
 
 /** The first lamp's temperature, which a dial or a step key shows, or undefined with none. */
 export async function readLampsTemperature(lamps: LampSelection): Promise<TemperatureShown | undefined> {
   await lampsSettled();
-  return temperatureShown(globalSettings.lamps.values(), lamps);
+  const first = shownLamps(lamps)[0];
+  return first === undefined
+    ? undefined
+    : { kelvin: first.state.kelvin, percentage: first.temperaturePercentage(first.state.kelvin) };
 }
 
-/** Every lamp shown, which the lamp screens show, in the order a tap steps through them. */
+/** Every lamp shown, which the lamp screens show, each as its `Lamp`, in the order a tap steps through them. */
 export async function readShownLamps(): Promise<ReachedLamp[]> {
   await lampsSettled();
-  return shownLamps(globalSettings.lamps.values(), "all");
+  return shownLamps("connected");
 }
 
 /**
@@ -40,5 +51,16 @@ export async function readShownLamps(): Promise<ReachedLamp[]> {
  */
 export async function findShownLamps(): Promise<ReachedLamp[]> {
   await reachEveryLamp("lamp screen");
-  return shownLamps(globalSettings.lamps.values(), "all");
+  return shownLamps("connected");
+}
+
+/** The lamps a selection takes in that are shown: connected as of the last operation, and reached since the start. */
+function shownLamps(selection: LampSelection): ReachedLamp[] {
+  const shown: ReachedLamp[] = [];
+  for (const lamp of globalSettings.lamps.values()) {
+    if (lamp.isConnected && lamp.isReached() && selects(selection, lamp.id)) {
+      shown.push(lamp);
+    }
+  }
+  return shown.sort((a, b) => Lamp.byId(a.id, b.id));
 }
