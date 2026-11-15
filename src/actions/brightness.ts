@@ -56,9 +56,9 @@ const BRIGHTNESS: Measure = {
   name: "Brightness",
   readStep: (settings, logger) => parseSettings(settings, brightnessSettings, logger).stepPercentage,
   unit: "%",
-  readStepping: () => globalSettings.brightnessStepping,
+  stepping: () => globalSettings.brightnessStepping,
   adjust: adjustLampsBrightness,
-  readMainScreen: async () => {
+  mainScreen: async () => {
     const levels = await brightnessShown("connected");
     return {
       title: "Brightness",
