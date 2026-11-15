@@ -5,7 +5,7 @@ import { logger } from "../logging";
 import { at } from "../test-support/at";
 import { FakeDeck } from "../test-support/fake-deck";
 import { changeGlobalSettings } from "../test-support/fake-stream-deck";
-import { createDialDebouncer } from "./debouncer";
+import { createDebouncer } from "./debouncer";
 import { readLampsBrightness, readLampsTemperature } from "./shown";
 import { BrightnessDownAction, BrightnessUpAction, TemperatureDownAction, TemperatureUpAction } from "./step-keys";
 
@@ -17,7 +17,7 @@ vi.mock("@elgato/streamdeck", () => import("../test-support/fake-stream-deck"));
 vi.mock("../logging", () => import("../test-support/fake-logging"));
 
 // The debouncer gathers what each test says, without the timing its own tests check.
-vi.mock("./debouncer", () => ({ createDialDebouncer: vi.fn() }));
+vi.mock("./debouncer", () => ({ createDebouncer: vi.fn() }));
 
 // What the keys and dials show of the lamps, which each test sets.
 vi.mock("./shown", () => ({ readLampsBrightness: vi.fn(), readLampsTemperature: vi.fn() }));
@@ -58,7 +58,7 @@ beforeEach(() => {
   vi.useFakeTimers();
   changeGlobalSettings({});
   // The debouncer flushes every press at once: its own timing is debouncer.test.ts's to check.
-  vi.mocked(createDialDebouncer).mockImplementation((flush) => (presses) => void flush(presses));
+  vi.mocked(createDebouncer).mockImplementation((flush) => (presses) => void flush(presses));
   vi.mocked(readLampsBrightness).mockResolvedValue(AT_THEIR_CAPS);
   vi.mocked(readLampsTemperature).mockResolvedValue(AT_4000_K);
   vi.mocked(adjustLampsBrightness).mockResolvedValue(DONE);
@@ -133,7 +133,7 @@ describe("the step keys", () => {
     it("moves the lamps by every press gathered, with the step the key has by then", async () => {
       // Gathers the presses until the test flushes them, as the debouncer gathers quick ones.
       let flushPending = async (): Promise<void> => {};
-      vi.mocked(createDialDebouncer).mockImplementation((flush) => {
+      vi.mocked(createDebouncer).mockImplementation((flush) => {
         let pending = 0;
         flushPending = async () => flush(pending);
         return (presses) => {

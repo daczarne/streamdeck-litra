@@ -1,17 +1,18 @@
 import type { Logger } from "@elgato/utils/logging";
 
-const DIAL_DEBOUNCE_MS = 60;
+// How long the ticks are gathered for after the last one.
+const DEBOUNCE_MS = 60;
 
 /**
  * Gathers a dial's ticks, or a step key's presses, for a short window, then flushes them once, so a quick turn moves
- * the lamps once. A flush waits for the previous one to finish, since both would use the lamps, and takes every tick
- * received until it starts. A flush that fails is logged with the logger of the key or dial it gathers for, and the next
- * one runs as usual (#46).
+ * the lamps once. A flush waits for the previous one to finish, and takes every tick received until it starts, so the
+ * ticks that come while a step is applied, such as one waiting for a lamp's cap, move the lamps once more, rather than
+ * once each. A flush that fails is logged with the logger of the key or dial it gathers for, and the next one runs as
+ * usual (#46).
  */
-export function createDialDebouncer(
+export function createDebouncer(
   flush: (ticks: number) => void | Promise<void>,
   logger: Pick<Logger, "error">,
-  delayMs = DIAL_DEBOUNCE_MS,
 ): (ticks: number) => void {
   let pending = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -35,8 +36,8 @@ export function createDialDebouncer(
     timer = setTimeout(() => {
       timer = undefined;
       running = running.then(run).catch((error: unknown) => {
-        logger.error("Dial flush failed", error);
+        logger.error("Flush failed", error);
       });
-    }, delayMs);
+    }, DEBOUNCE_MS);
   };
 }
