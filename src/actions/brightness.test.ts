@@ -175,7 +175,7 @@ describe("barFill", () => {
     expect(barFill([50, 50])).toBe("white");
   });
 
-  it("is plain white when no lamp is lit or none could be read", () => {
+  it("is plain white when no lamp is lit or none is shown", () => {
     expect(barFill([0, 0])).toBe("white");
     expect(barFill([])).toBe("white");
   });
