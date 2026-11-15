@@ -1,8 +1,6 @@
+import { action } from "@elgato/streamdeck";
+import type { JsonObject } from "@elgato/utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { BrightnessDownAction } from "../actions/brightness-down";
-import { BrightnessUpAction } from "../actions/brightness-up";
-import { TemperatureDownAction } from "../actions/temperature-down";
-import { TemperatureUpAction } from "../actions/temperature-up";
 import { adjustLampsBrightness, adjustLampsTemperature, type OperationResult, onLampsChanged } from "../lamps/manager";
 import { logger } from "../logging";
 import { syncGlobalSettings } from "../settings/global-settings";
@@ -11,6 +9,7 @@ import { FakeDeck } from "../test-support/fake-deck";
 import { changeGlobalSettings } from "../test-support/fake-stream-deck";
 import { createDebouncer } from "./debouncer";
 import { brightnessShown, temperatureShown } from "./shown";
+import { BRIGHTNESS, StepKeyAction, TEMPERATURE } from "./step-key";
 
 //* Fakes
 
@@ -22,7 +21,7 @@ vi.mock("../logging", () => import("../test-support/fake-logging"));
 // The debouncer gathers what each test says, without the timing its own tests check.
 vi.mock("./debouncer", () => ({ createDebouncer: vi.fn() }));
 
-// What the keys and dials show of the lamps, which each test sets, with the real text it's shown as.
+// What the keys show of the lamps, which each test sets, with the real text it's shown as.
 vi.mock("./shown", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./shown")>()),
   brightnessShown: vi.fn(),
@@ -36,16 +35,10 @@ vi.mock("../lamps/manager", () => ({
   onLampsChanged: vi.fn(),
 }));
 
-const BRIGHTNESS_UP = "com.daczarne.litra.brightness-up";
-const BRIGHTNESS_DOWN = "com.daczarne.litra.brightness-down";
-const TEMPERATURE_UP = "com.daczarne.litra.temperature-up";
-const TEMPERATURE_DOWN = "com.daczarne.litra.temperature-down";
+const UP = "com.daczarne.litra.tested-up";
+const DOWN = "com.daczarne.litra.tested-down";
 
-/** Two Beams on a Stream Deck + XL's USB hub, at 63% and 79%, both at 4000 K, as the plugin holds them. */
-const AT_THEIR_CAPS = [63, 79];
-const AT_4000_K = { kelvin: 4000, percentage: 34 };
-
-/** How an operation on the two Beams went. */
+/** How an operation on two Beams went. */
 const DONE: OperationResult = { ok: true, lampCount: 2, failures: 0 };
 const FAILED: OperationResult = { ...DONE, ok: false, failures: 1 };
 const NO_LAMP: OperationResult = { ok: false, lampCount: 0, failures: 1 };
@@ -54,31 +47,59 @@ const NO_LAMP: OperationResult = { ok: false, lampCount: 0, failures: 1 };
 const LAMP_1 = "lamp-1";
 const LAMP_2 = "lamp-2";
 
+type Stepped = typeof BRIGHTNESS;
+
+/** What the tested keys step: by the step in their settings, or 2, on the lamps checked, or every lamp. */
+const STEPPED = {
+  read: vi.fn((settings: JsonObject) => ({
+    step: typeof settings.step === "number" ? settings.step : 2,
+    lamps: Array.isArray(settings.lamps) ? settings.lamps.filter((id) => typeof id === "string") : ("all" as const),
+    leftOutLamps: [],
+  })),
+  stepping: vi.fn<Stepped["stepping"]>(),
+  unit: " u",
+  adjust: vi.fn<Stepped["adjust"]>(),
+  title: vi.fn<Stepped["title"]>(),
+} satisfies Stepped;
+
+/** A step action stepping up, as Brightness Up and Temperature Up are, with fakes for what it steps. */
+@action({ UUID: UP })
+class TestedUpAction extends StepKeyAction {
+  /** Steps up through the fakes. */
+  constructor() {
+    super(logger, STEPPED, 1);
+  }
+}
+
+/** A step action stepping down, as Brightness Down and Temperature Down are. */
+@action({ UUID: DOWN })
+class TestedDownAction extends StepKeyAction {
+  /** Steps down through the fakes. */
+  constructor() {
+    super(logger, STEPPED, -1);
+  }
+}
+
 let deck: FakeDeck;
-// What each action does when the lamp manager announces that the lamps changed, in the order they were created.
+// What both actions do when the lamp manager announces that the lamps changed.
 let lampsChanged: () => Promise<void>;
 
-// The global settings, which the tests change as a settings page does (#145).
+// The global settings, which the tests change as a settings page does (#145, #147).
 await syncGlobalSettings();
 
 beforeEach(() => {
   vi.useFakeTimers();
+  vi.clearAllMocks();
   changeGlobalSettings({});
   // The debouncer flushes every press at once: its own timing is debouncer.test.ts's to check.
   vi.mocked(createDebouncer).mockImplementation((flush) => (presses) => void flush(presses));
-  vi.mocked(brightnessShown).mockResolvedValue(AT_THEIR_CAPS);
-  vi.mocked(temperatureShown).mockResolvedValue(AT_4000_K);
-  vi.mocked(adjustLampsBrightness).mockResolvedValue(DONE);
-  vi.mocked(adjustLampsTemperature).mockResolvedValue(DONE);
-  const actions = [
-    new BrightnessUpAction(),
-    new BrightnessDownAction(),
-    new TemperatureUpAction(),
-    new TemperatureDownAction(),
-  ];
+  STEPPED.stepping.mockReturnValue("together");
+  STEPPED.adjust.mockResolvedValue(DONE);
+  STEPPED.title.mockResolvedValue("42 u");
+  const actions = [new TestedUpAction(), new TestedDownAction()];
   const listeners = vi.mocked(onLampsChanged).mock.calls.map(([listener]) => listener);
   if (listeners.length !== actions.length) {
-    throw new Error("Not every step key listened for lamp changes");
+    throw new Error("Not every step action listened for lamp changes");
   }
   lampsChanged = async () => {
     for (const listener of listeners) {
@@ -104,37 +125,21 @@ function titleOf(key: Awaited<ReturnType<FakeDeck["key"]>>): string | undefined 
 
 //* Tests
 
-describe("the step keys", () => {
-  describe("on a key press", () => {
+describe("a key of a StepKeyAction", () => {
+  describe("on a press", () => {
     it.each([
-      ["Brightness Up", BRIGHTNESS_UP, { stepPercentage: 5 }, adjustLampsBrightness, ["all", 1, 5, "together"]],
-      ["Brightness Down", BRIGHTNESS_DOWN, { stepPercentage: 5 }, adjustLampsBrightness, ["all", -1, 5, "together"]],
-      ["Temperature Up", TEMPERATURE_UP, { stepKelvin: 200 }, adjustLampsTemperature, ["all", 1, 200, "together"]],
-      ["Temperature Down", TEMPERATURE_DOWN, { stepKelvin: 200 }, adjustLampsTemperature, ["all", -1, 200, "together"]],
-    ])(
-      "%s moves the lamps one step of the key's, as a dial's tick does",
-      async (_name, uuid, settings, adjust, args) => {
-        const key = await deck.key(uuid, settings);
-        clearCalls();
-
-        await deck.press(key);
-
-        expect(adjust).toHaveBeenCalledExactlyOnceWith(...args);
-        expect(key.showAlert).not.toHaveBeenCalled();
-        // The keys follow through the notice, which the lamp manager sends.
-        expect(key.setTitle).not.toHaveBeenCalled();
-      },
-    );
-
-    it.each([
-      ["Brightness Up", BRIGHTNESS_UP, adjustLampsBrightness, ["all", 1, 10, "together"]],
-      ["Temperature Down", TEMPERATURE_DOWN, adjustLampsTemperature, ["all", -1, 300, "together"]],
-    ])("%s steps by the dials' default step when the key has no settings", async (_name, uuid, adjust, args) => {
-      const key = await deck.key(uuid);
+      ["up", UP, 1],
+      ["down", DOWN, -1],
+    ])("moves every lamp one step %s, as a dial's tick does", async (_way, uuid, ticks) => {
+      const key = await deck.key(uuid, { step: 5 });
+      clearCalls();
 
       await deck.press(key);
 
-      expect(adjust).toHaveBeenCalledExactlyOnceWith(...args);
+      expect(STEPPED.adjust).toHaveBeenCalledExactlyOnceWith("all", ticks, 5, "together");
+      expect(key.showAlert).not.toHaveBeenCalled();
+      // The keys follow through the notice, which the lamp manager sends.
+      expect(key.setTitle).not.toHaveBeenCalled();
     });
 
     it("moves the lamps by every press gathered, with the step the key has by then", async () => {
@@ -147,137 +152,80 @@ describe("the step keys", () => {
           pending += presses;
         };
       });
-      const key = await deck.key(BRIGHTNESS_DOWN, { stepPercentage: 5 });
+      const key = await deck.key(DOWN, { step: 5 });
 
       await deck.press(key);
       await deck.press(key);
-      await deck.changeSettings(key, { stepPercentage: 10 });
+      await deck.changeSettings(key, { step: 10 });
       await flushPending();
 
-      expect(adjustLampsBrightness).toHaveBeenCalledExactlyOnceWith("all", -2, 10, "together");
+      expect(STEPPED.adjust).toHaveBeenCalledExactlyOnceWith("all", -2, 10, "together");
+    });
+
+    it("steps each lamp from its own value when the global settings say so (#145), and logs it", async () => {
+      STEPPED.stepping.mockReturnValue("each");
+      const key = await deck.key(UP);
+      clearCalls();
+
+      await deck.press(key);
+
+      expect(STEPPED.adjust).toHaveBeenCalledExactlyOnceWith("all", 1, 2, "each");
+      expect(logger.info).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("each lamp"));
     });
 
     it.each([
       ["a lamp fails", FAILED],
       ["no lamp is connected", NO_LAMP],
     ])("shows an alert on the key pressed when %s", async (_when, result) => {
-      const pressed = await deck.key(TEMPERATURE_UP);
-      const other = await deck.key(TEMPERATURE_UP);
-      vi.mocked(adjustLampsTemperature).mockResolvedValue(result);
+      const pressed = await deck.key(UP);
+      const other = await deck.key(UP);
+      STEPPED.adjust.mockResolvedValue(result);
 
       await deck.press(pressed);
 
       expect(pressed.showAlert).toHaveBeenCalledOnce();
       expect(other.showAlert).not.toHaveBeenCalled();
     });
+
+    it("logs the presses and the key's step, in its unit, before changing the lamps", async () => {
+      const key = await deck.key(UP, { step: 15 });
+
+      await deck.press(key);
+
+      expect(logger.info).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("1 step of 15 u, on every lamp"));
+      expect(at(vi.mocked(logger.info).mock.invocationCallOrder, 0)).toBeLessThan(
+        at(STEPPED.adjust.mock.invocationCallOrder, 0),
+      );
+    });
   });
 
-  describe("show what the lamps are at as their title", () => {
-    it("when placed: the brightest lamp's %, or the first lamp's temperature, as the dials show them", async () => {
-      const brightnessKey = await deck.key(BRIGHTNESS_UP);
-      const temperatureKey = await deck.key(TEMPERATURE_DOWN);
+  describe("shows what its lamps are at as its title", () => {
+    it("when placed, read through what it steps", async () => {
+      const key = await deck.key(UP, { step: 5 });
 
-      expect(titleOf(brightnessKey)).toBe("79%");
-      expect(titleOf(temperatureKey)).toBe("4000");
+      expect(STEPPED.read).toHaveBeenCalledWith({ step: 5 }, logger);
+      expect(STEPPED.title).toHaveBeenCalledWith("all");
+      expect(titleOf(key)).toBe("42 u");
     });
 
     it("on every key, whichever key or dial changed the lamps", async () => {
-      const keys = [await deck.key(BRIGHTNESS_UP), await deck.key(BRIGHTNESS_UP), await deck.key(TEMPERATURE_UP)];
+      const keys = [await deck.key(UP), await deck.key(UP), await deck.key(DOWN)];
       clearCalls();
-      vi.mocked(brightnessShown).mockResolvedValue([40, 50]);
-      vi.mocked(temperatureShown).mockResolvedValue({ kelvin: 3300, percentage: 16 });
+      STEPPED.title.mockResolvedValue("50 u");
 
       await lampsChanged();
 
-      expect(keys.map(titleOf)).toEqual(["50%", "50%", "3300"]);
+      expect(keys.map(titleOf)).toEqual(["50 u", "50 u", "50 u"]);
     });
 
-    it("as a dash when none of their lamps is connected", async () => {
-      vi.mocked(brightnessShown).mockResolvedValue([]);
-      vi.mocked(temperatureShown).mockResolvedValue(undefined);
-      const brightnessKey = await deck.key(BRIGHTNESS_UP);
-      const temperatureKey = await deck.key(TEMPERATURE_UP);
+    it("once a page changes the global settings, which choose its lamps (#147)", async () => {
+      const key = await deck.key(UP);
+      STEPPED.title.mockResolvedValue("50 u");
 
-      expect([titleOf(brightnessKey), titleOf(temperatureKey)]).toEqual(["—", "—"]);
-    });
+      changeGlobalSettings({ addNewLamps: false });
+      await vi.runAllTimersAsync();
 
-    it("and read nothing for an action without a key on the Deck", async () => {
-      await deck.key(BRIGHTNESS_UP);
-      clearCalls();
-
-      await lampsChanged();
-
-      expect(brightnessShown).toHaveBeenCalledOnce();
-      expect(temperatureShown).not.toHaveBeenCalled();
-    });
-  });
-
-  describe("with the lamps' difference kept (#145)", () => {
-    it.each([
-      ["Brightness Up", BRIGHTNESS_UP, "keepBrightnessDifference", adjustLampsBrightness, ["all", 1, 10, "each"]],
-      [
-        "Temperature Down",
-        TEMPERATURE_DOWN,
-        "keepTemperatureDifference",
-        adjustLampsTemperature,
-        ["all", -1, 300, "each"],
-      ],
-    ])("%s steps each lamp from its own, and logs it", async (_name, uuid, setting, adjust, args) => {
-      changeGlobalSettings({ [setting]: true });
-      const key = await deck.key(uuid);
-      clearCalls();
-
-      await deck.press(key);
-
-      expect(adjust).toHaveBeenCalledExactlyOnceWith(...args);
-      expect(logger.info).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("each lamp"));
-    });
-
-    it.each([
-      ["Brightness Up", BRIGHTNESS_UP, "keepTemperatureDifference", adjustLampsBrightness, ["all", 1, 10, "together"]],
-      [
-        "Temperature Down",
-        TEMPERATURE_DOWN,
-        "keepBrightnessDifference",
-        adjustLampsTemperature,
-        ["all", -1, 300, "together"],
-      ],
-    ])(
-      "%s steps the lamps together when only the other's difference is kept",
-      async (_name, uuid, setting, adjust, args) => {
-        changeGlobalSettings({ [setting]: true });
-        const key = await deck.key(uuid);
-
-        await deck.press(key);
-
-        expect(adjust).toHaveBeenCalledExactlyOnceWith(...args);
-      },
-    );
-  });
-
-  describe("with a setting that isn't valid (#22)", () => {
-    it("uses the default step and warns", async () => {
-      const key = await deck.key(TEMPERATURE_UP, { stepKelvin: 250 });
-
-      await deck.press(key);
-
-      expect(adjustLampsTemperature).toHaveBeenCalledExactlyOnceWith("all", 1, 300, "together");
-      expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("stepKelvin"));
-    });
-  });
-
-  describe("logs", () => {
-    it("the presses and the key's step, before changing the lamps", async () => {
-      const key = await deck.key(BRIGHTNESS_UP, { stepPercentage: 15 });
-
-      await deck.press(key);
-
-      const message = String(at(vi.mocked(logger.info).mock.calls, 0)[0]);
-      expect(message).toContain("1 step");
-      expect(message).toContain("15%");
-      expect(at(vi.mocked(logger.info).mock.invocationCallOrder, 0)).toBeLessThan(
-        at(vi.mocked(adjustLampsBrightness).mock.invocationCallOrder, 0),
-      );
+      expect(titleOf(key)).toBe("50 u");
     });
   });
 
@@ -287,53 +235,108 @@ describe("the step keys", () => {
       changeGlobalSettings({ addNewLamps: false });
     });
 
-    it.each([
-      ["Brightness Up", BRIGHTNESS_UP, { stepPercentage: 5 }, adjustLampsBrightness, 5],
-      ["Temperature Down", TEMPERATURE_DOWN, { stepKelvin: 200 }, adjustLampsTemperature, 200],
-    ])("%s steps the key's lamps alone", async (_name, uuid, settings, adjust, step) => {
-      const key = await deck.key(uuid, { ...settings, lamps: [LAMP_1] });
+    it("steps the key's lamps alone, and logs how many", async () => {
+      const key = await deck.key(UP, { lamps: [LAMP_1, LAMP_2] });
       clearCalls();
 
       await deck.press(key);
 
-      expect(adjust).toHaveBeenCalledExactlyOnceWith([LAMP_1], expect.any(Number), step, "together");
+      expect(STEPPED.adjust).toHaveBeenCalledExactlyOnceWith([LAMP_1, LAMP_2], 1, 2, "together");
+      expect(logger.info).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("2 lamps"));
     });
 
     it("shows on each key what its own lamps are at", async () => {
-      const onEvery = await deck.key(BRIGHTNESS_UP);
-      const onFirst = await deck.key(BRIGHTNESS_UP, { lamps: [LAMP_1] });
-      const alsoOnFirst = await deck.key(BRIGHTNESS_UP, { lamps: [LAMP_1] });
-      const onSecond = await deck.key(BRIGHTNESS_UP, { lamps: [LAMP_2] });
+      await deck.key(UP);
+      await deck.key(UP, { lamps: [LAMP_1] });
+      await deck.key(DOWN, { lamps: [LAMP_2] });
       clearCalls();
-      // Lamp 1 at 63%, lamp 2 at 79%.
-      vi.mocked(brightnessShown).mockImplementation(async (lamps) =>
-        Array.isArray(lamps) ? lamps.map((id) => (id === LAMP_1 ? 63 : 79)) : [63, 79],
-      );
 
       await lampsChanged();
 
-      expect([onEvery, onFirst, alsoOnFirst, onSecond].map(titleOf)).toEqual(["79%", "63%", "63%", "79%"]);
-      expect(vi.mocked(brightnessShown).mock.calls).toEqual([["all"], [[LAMP_1]], [[LAMP_1]], [[LAMP_2]]]);
+      expect(STEPPED.title.mock.calls).toEqual([["all"], [[LAMP_1]], [[LAMP_2]]]);
     });
 
     it("shows what the key's new lamps are at once they're changed on the settings page", async () => {
-      const key = await deck.key(TEMPERATURE_UP);
+      const key = await deck.key(UP);
       clearCalls();
-      vi.mocked(temperatureShown).mockResolvedValue({ kelvin: 6500, percentage: 100 });
 
       await deck.changeSettings(key, { lamps: [LAMP_2] });
 
-      expect(temperatureShown).toHaveBeenCalledExactlyOnceWith([LAMP_2]);
-      expect(titleOf(key)).toBe("6500");
+      expect(STEPPED.title).toHaveBeenCalledExactlyOnceWith([LAMP_2]);
     });
+  });
+});
 
-    it("logs how many lamps a press steps", async () => {
-      const key = await deck.key(BRIGHTNESS_DOWN, { lamps: [LAMP_1, LAMP_2] });
-      clearCalls();
-
-      await deck.press(key);
-
-      expect(logger.info).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("2 lamps"));
+describe("BRIGHTNESS, what the Brightness Up and Down keys step", () => {
+  it("reads the step, the dials' default of 10% without one, and the key's lamps", () => {
+    expect(BRIGHTNESS.read({}, logger)).toEqual({ step: 10, lamps: "all", leftOutLamps: [] });
+    expect(BRIGHTNESS.read({ stepPercentage: 5, lamps: [LAMP_1] }, logger)).toMatchObject({
+      step: 5,
+      lamps: [LAMP_1],
     });
+    expect(logger.warn).not.toHaveBeenCalled();
+  });
+
+  it("takes the default step, with a warning that names it, for one that isn't valid (#22)", () => {
+    expect(BRIGHTNESS.read({ stepPercentage: 0 }, logger)).toMatchObject({ step: 10 });
+    expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("stepPercentage"));
+  });
+
+  it("steps the brightness, in %, each lamp from its own once the brightness's difference is kept (#145)", () => {
+    expect(BRIGHTNESS.adjust).toBe(adjustLampsBrightness);
+    expect(BRIGHTNESS.unit).toBe("%");
+    expect(BRIGHTNESS.stepping()).toBe("together");
+
+    changeGlobalSettings({ keepTemperatureDifference: true });
+    expect(BRIGHTNESS.stepping()).toBe("together");
+
+    changeGlobalSettings({ keepBrightnessDifference: true });
+    expect(BRIGHTNESS.stepping()).toBe("each");
+  });
+
+  it("shows the brightest of its lamps, as the dials do, or a dash with none", async () => {
+    vi.mocked(brightnessShown).mockResolvedValue([63, 79]);
+    expect(await BRIGHTNESS.title([LAMP_1, LAMP_2])).toBe("79%");
+    expect(brightnessShown).toHaveBeenCalledExactlyOnceWith([LAMP_1, LAMP_2]);
+
+    vi.mocked(brightnessShown).mockResolvedValue([]);
+    expect(await BRIGHTNESS.title("all")).toBe("—");
+  });
+});
+
+describe("TEMPERATURE, what the Temperature Up and Down keys step", () => {
+  it("reads the step, the dials' default of 300 K without one, and the key's lamps", () => {
+    expect(TEMPERATURE.read({}, logger)).toEqual({ step: 300, lamps: "all", leftOutLamps: [] });
+    expect(TEMPERATURE.read({ stepKelvin: "200", lamps: [LAMP_1] }, logger)).toMatchObject({
+      step: 200,
+      lamps: [LAMP_1],
+    });
+    expect(logger.warn).not.toHaveBeenCalled();
+  });
+
+  it("takes the default step, with a warning that names it, for one that isn't valid (#22)", () => {
+    expect(TEMPERATURE.read({ stepKelvin: 250 }, logger)).toMatchObject({ step: 300 });
+    expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("stepKelvin"));
+  });
+
+  it("steps the temperature, in kelvin, each lamp from its own once its difference is kept (#145)", () => {
+    expect(TEMPERATURE.adjust).toBe(adjustLampsTemperature);
+    expect(TEMPERATURE.unit).toBe(" K");
+    expect(TEMPERATURE.stepping()).toBe("together");
+
+    changeGlobalSettings({ keepBrightnessDifference: true });
+    expect(TEMPERATURE.stepping()).toBe("together");
+
+    changeGlobalSettings({ keepTemperatureDifference: true });
+    expect(TEMPERATURE.stepping()).toBe("each");
+  });
+
+  it("shows the first of its lamps, as the dials do, or a dash with none", async () => {
+    vi.mocked(temperatureShown).mockResolvedValue({ kelvin: 4000, percentage: 34 });
+    expect(await TEMPERATURE.title([LAMP_1])).toBe("4000");
+    expect(temperatureShown).toHaveBeenCalledExactlyOnceWith([LAMP_1]);
+
+    vi.mocked(temperatureShown).mockResolvedValue(undefined);
+    expect(await TEMPERATURE.title("all")).toBe("—");
   });
 });
