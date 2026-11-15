@@ -20,7 +20,7 @@ export type Preset = {
     logger: Logger,
   ) => { preset: number; lamps: CheckedLamps; leftOutLamps: readonly string[] };
   unit: string;
-  set: (lamps: LampSelection, preset: number) => OperationResult | Promise<OperationResult>;
+  set: (lamps: LampSelection, preset: number) => Promise<OperationResult>;
 };
 
 /**
@@ -32,14 +32,9 @@ export type Measure = {
   name: string;
   readStep: (settings: JsonObject, logger: Logger) => number;
   unit: string;
-  readStepping: () => Stepping;
-  adjust: (
-    lamps: LampSelection,
-    ticks: number,
-    step: number,
-    stepping: Stepping,
-  ) => OperationResult | Promise<OperationResult>;
-  readMainScreen: () => Promise<FeedbackPayload>;
+  stepping: () => Stepping;
+  adjust: (lamps: LampSelection, ticks: number, step: number, stepping: Stepping) => Promise<OperationResult>;
+  mainScreen: () => Promise<FeedbackPayload>;
 };
 
 /**
@@ -203,10 +198,11 @@ class MeasureDial extends ActionInstance<{ step: number }, DialAction<JsonObject
   private async step(lamp: string | undefined, ticks: number): Promise<void> {
     const { step } = this.config;
     // A lamp screen turns its lamp alone, and the main screen every lamp, together or each from its own (#145).
-    const stepping = lamp === undefined ? this.measure.readStepping() : "together";
+    const stepping = lamp === undefined ? this.measure.stepping() : "together";
     const screen = lamp === undefined ? "" : " on a lamp screen";
     const each = stepping === "each" ? ", each lamp from its own" : "";
-    this.logger.info(`Dial turned${screen}: ${ticks} ticks of ${step}${this.measure.unit}${each}`);
+    const turned = `${ticks} ${Math.abs(ticks) === 1 ? "tick" : "ticks"} of ${step}${this.measure.unit}`;
+    this.logger.info(`Dial turned${screen}: ${turned}${each}`);
     const result = await this.measure.adjust(lamp === undefined ? "connected" : [lamp], ticks, step, stepping);
     if (!result.ok) {
       await this.control.showAlert();
@@ -215,14 +211,14 @@ class MeasureDial extends ActionInstance<{ step: number }, DialAction<JsonObject
 
   /**
    * Fills the main screen's layout with what the lamps are at, unless the dial shows a lamp screen, which has another
-   * layout, which its lamp screen draws. Nothing is read then.
+   * layout, which its lamp screen draws. Nothing is worked out then.
    */
   private async showMainScreen(): Promise<void> {
     if (this.screen.isShowing) {
       return;
     }
-    const feedback = await this.measure.readMainScreen();
-    // A tap may have shown a lamp screen during the read.
+    const feedback = await this.measure.mainScreen();
+    // A tap may have shown a lamp screen while the main screen was worked out, after the operations queued.
     if (!this.screen.isShowing) {
       await this.control.setFeedback(feedback);
     }

@@ -24,9 +24,9 @@ const TEMPERATURE: Measure = {
   name: "Temperature",
   readStep: (settings, logger) => parseSettings(settings, temperatureSettings, logger).stepKelvin,
   unit: " K",
-  readStepping: () => globalSettings.temperatureStepping,
+  stepping: () => globalSettings.temperatureStepping,
   adjust: adjustLampsTemperature,
-  readMainScreen: async () => {
+  mainScreen: async () => {
     const shown = await temperatureShown("connected");
     return {
       title: "Temperature",

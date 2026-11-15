@@ -391,7 +391,7 @@ describe("TemperatureAction", () => {
       expect(adjustLampsTemperature).toHaveBeenCalledExactlyOnceWith([BEAM.id], 3, 100, "together");
     });
 
-    it("moves the lamps that were on screen as the dial turned, even when the strip is tapped before (#20)", async () => {
+    it("moves the lamps on screen as the dial turned, even when the strip is tapped before (#20)", async () => {
       // Each turn waits to be applied, as the debouncer holds the ticks for a moment.
       const waiting: Array<() => void | Promise<void>> = [];
       vi.mocked(createDebouncer).mockImplementation((flush) => (ticks) => {
@@ -467,7 +467,7 @@ describe("TemperatureAction", () => {
       expect(lampsShown).not.toHaveBeenCalled();
     });
 
-    it("keeps a lamp screen drawn when the dial's settings change on it, and turns its lamp by the new step", async () => {
+    it("keeps a lamp screen drawn when the dial's settings change, and turns its lamp by the new step", async () => {
       const dial = await deck.dial(TEMPERATURE, { stepKelvin: 100 });
       await deck.tap(dial);
       clearCalls();

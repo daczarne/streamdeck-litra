@@ -390,7 +390,7 @@ describe("BrightnessAction", () => {
       expect(adjustLampsBrightness).toHaveBeenCalledExactlyOnceWith([BEAM.id], 3, 5, "together");
     });
 
-    it("moves the lamps that were on screen as the dial turned, even when the strip is tapped before (#20)", async () => {
+    it("moves the lamps on screen as the dial turned, even when the strip is tapped before (#20)", async () => {
       // Each turn waits to be applied, as the debouncer holds the ticks for a moment.
       const waiting: Array<() => void | Promise<void>> = [];
       vi.mocked(createDebouncer).mockImplementation((flush) => (ticks) => {
@@ -466,7 +466,7 @@ describe("BrightnessAction", () => {
       expect(lampsShown).not.toHaveBeenCalled();
     });
 
-    it("keeps a lamp screen drawn when the dial's settings change on it, and turns its lamp by the new step", async () => {
+    it("keeps a lamp screen drawn when the dial's settings change, and turns its lamp by the new step", async () => {
       const dial = await deck.dial(BRIGHTNESS, { stepPercentage: 5 });
       await deck.tap(dial);
       clearCalls();
@@ -517,6 +517,19 @@ describe("BrightnessAction", () => {
       const [message] = at(vi.mocked(logger.info).mock.calls, 0);
       expect(message).toContain("3 ticks");
       expect(message).toContain("5%");
+    });
+
+    it("a single tick of a dial turn as one tick, either way", async () => {
+      const dial = await deck.dial(BRIGHTNESS, { stepPercentage: 5 });
+      vi.mocked(adjustLampsBrightness).mockResolvedValue(DONE);
+
+      await deck.turn(dial, 1);
+      await deck.turn(dial, -1);
+
+      expect(vi.mocked(logger.info).mock.calls).toEqual([
+        [expect.stringContaining(": 1 tick of 5%")],
+        [expect.stringContaining(": -1 tick of 5%")],
+      ]);
     });
 
     it("a dial turn on a lamp screen, with its ticks and the dial's step", async () => {
