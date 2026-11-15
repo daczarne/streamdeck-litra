@@ -3,7 +3,15 @@ import { Lamp, type LampState } from "../lamps/lamp";
 import { lampsSettled, reachEveryLamp } from "../lamps/manager";
 import { at } from "../test-support/at";
 import { reachedLamp } from "../test-support/reached-lamps";
-import { areLampsOn, brightnessShown, findLampsShown, lampsShown, temperatureShown } from "./shown";
+import {
+  areLampsOn,
+  brightnessShown,
+  brightnessText,
+  findLampsShown,
+  lampsShown,
+  temperatureShown,
+  temperatureText,
+} from "./shown";
 
 //* Fakes
 
@@ -154,5 +162,17 @@ describe("what the Deck shows of the lamps (#198)", () => {
       expect(await findLampsShown()).toEqual([]);
       expect(reachEveryLamp).toHaveBeenCalledExactlyOnceWith("lamp screen");
     });
+  });
+});
+
+describe("the text a dial's main screen and a step key's title show (#129)", () => {
+  it("is the brightest lamp's %, or a dash with no lamp", () => {
+    expect(brightnessText([40, 72, 55])).toBe("72%");
+    expect(brightnessText([])).toBe("—");
+  });
+
+  it("is the first lamp's temperature, in kelvin, or a dash with no lamp", () => {
+    expect(temperatureText({ kelvin: 3500, percentage: 21 })).toBe("3500");
+    expect(temperatureText(undefined)).toBe("—");
   });
 });

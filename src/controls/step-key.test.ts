@@ -22,8 +22,12 @@ vi.mock("../logging", () => import("../test-support/fake-logging"));
 // The debouncer gathers what each test says, without the timing its own tests check.
 vi.mock("./debouncer", () => ({ createDebouncer: vi.fn() }));
 
-// What the keys and dials show of the lamps, which each test sets.
-vi.mock("./shown", () => ({ brightnessShown: vi.fn(), temperatureShown: vi.fn() }));
+// What the keys and dials show of the lamps, which each test sets, with the real text it's shown as.
+vi.mock("./shown", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./shown")>()),
+  brightnessShown: vi.fn(),
+  temperatureShown: vi.fn(),
+}));
 
 // The real lamp manager loads node-hid's native binary on import and talks to real lamps.
 vi.mock("../lamps/manager", () => ({

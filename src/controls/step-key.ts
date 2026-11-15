@@ -8,56 +8,51 @@ import { brightnessStepSettings, type CheckedLamps, parseSettings, temperatureSt
 import { ActionInstance, type DeckControl, RoutingAction } from "./action-instance";
 import { createDebouncer } from "./debouncer";
 import { describeLamps } from "./describe-lamps";
-import { brightnessShown, temperatureShown } from "./shown";
+import { brightnessShown, brightnessText, temperatureShown, temperatureText } from "./shown";
 
 /** A step key's settings: its step, and its lamps. */
 type StepConfig = { step: number; lamps: CheckedLamps; leftOutLamps: readonly string[] };
 
 /**
- * What a step key moves: how it reads its settings, and how the global settings step several lamps (#145), moves the
- * lamps by its step, and reads what they're at for its title.
+ * What a step key moves: how it reads its settings, how the global settings step several lamps (#145), how it moves
+ * the lamps by its step, and the title it shows of them.
  */
 type Stepped = {
   read: (settings: JsonObject, logger: Logger) => StepConfig;
-  readStepping: () => Stepping;
+  stepping: () => Stepping;
   unit: string;
-  adjust: (
-    lamps: LampSelection,
-    ticks: number,
-    step: number,
-    stepping: Stepping,
-  ) => OperationResult | Promise<OperationResult>;
-  readTitle: (lamps: LampSelection) => Promise<string>;
+  adjust: (lamps: LampSelection, ticks: number, step: number, stepping: Stepping) => Promise<OperationResult>;
+  title: (lamps: LampSelection) => Promise<string>;
 };
 
-/** The brightness, which a Brightness Up or Down key steps, and shows as the dials do: the brightest lamp's %, or "—" when no lamp can be read. */
+/**
+ * The brightness, which a Brightness Up or Down key steps, and shows as the dials do: the brightest of its lamps shown,
+ * in %, or a dash with none.
+ */
 export const BRIGHTNESS: Stepped = {
   read: (settings, logger) => {
     const { stepPercentage, ...lamps } = parseSettings(settings, brightnessStepSettings, logger);
     return { step: stepPercentage, ...lamps };
   },
-  readStepping: () => globalSettings.brightnessStepping,
+  stepping: () => globalSettings.brightnessStepping,
   unit: "%",
   adjust: adjustLampsBrightness,
-  readTitle: async (lamps) => {
-    const levels = await brightnessShown(lamps);
-    return levels.length === 0 ? "—" : `${Math.round(Math.max(...levels))}%`;
-  },
+  title: async (lamps) => brightnessText(await brightnessShown(lamps)),
 };
 
-/** The temperature, which a Temperature Up or Down key steps, and shows as the dials do: the first lamp that answers, in kelvin, or "—" without one. */
+/**
+ * The temperature, which a Temperature Up or Down key steps, and shows as the dials do: the first of its lamps shown,
+ * in the order of their ids, in kelvin, or a dash with none.
+ */
 export const TEMPERATURE: Stepped = {
   read: (settings, logger) => {
     const { stepKelvin, ...lamps } = parseSettings(settings, temperatureStepSettings, logger);
     return { step: stepKelvin, ...lamps };
   },
-  readStepping: () => globalSettings.temperatureStepping,
+  stepping: () => globalSettings.temperatureStepping,
   unit: " K",
   adjust: adjustLampsTemperature,
-  readTitle: async (lamps) => {
-    const kelvin = (await temperatureShown(lamps))?.kelvin;
-    return kelvin === undefined ? "—" : `${Math.round(kelvin)}`;
-  },
+  title: async (lamps) => temperatureText(await temperatureShown(lamps)),
 };
 
 /**
@@ -134,7 +129,7 @@ class StepKey extends ActionInstance<StepConfig, KeyAction<JsonObject>> {
    */
   private async step(presses: number): Promise<void> {
     const { step } = this.config;
-    const stepping = this.stepped.readStepping();
+    const stepping = this.stepped.stepping();
     const lamps = this.lamps();
     const steps = `${presses} ${presses === 1 ? "step" : "steps"} of ${step}${this.stepped.unit}`;
     const each = stepping === "each" ? ", each lamp from its own" : "";
@@ -152,6 +147,6 @@ class StepKey extends ActionInstance<StepConfig, KeyAction<JsonObject>> {
 
   /** Shows what the key's lamps are at as its title. */
   private async showTitle(): Promise<void> {
-    await this.control.setTitle(await this.stepped.readTitle(this.lamps()));
+    await this.control.setTitle(await this.stepped.title(this.lamps()));
   }
 }

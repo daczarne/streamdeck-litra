@@ -42,6 +42,22 @@ export async function temperatureShown(lamps: LampSelection): Promise<Temperatur
       };
 }
 
+/**
+ * The brightness as a dial's main screen and a step key's title show it, so both read the same (#129): the brightest
+ * lamp's %, or a dash with no lamp.
+ */
+export function brightnessText(levels: readonly number[]): string {
+  return levels.length === 0 ? "—" : `${Math.max(...levels)}%`;
+}
+
+/**
+ * The temperature as a dial's main screen and a step key's title show it, so both read the same (#129): the first
+ * lamp's, in kelvin, or a dash with no lamp.
+ */
+export function temperatureText(shown: TemperatureShown | undefined): string {
+  return shown === undefined ? "—" : `${shown.kelvin}`;
+}
+
 /** Every lamp shown, which the lamp screens show, each as its `Lamp`, in the order a tap steps through them. */
 export async function lampsShown(): Promise<ReachedLamp[]> {
   await lampsSettled();

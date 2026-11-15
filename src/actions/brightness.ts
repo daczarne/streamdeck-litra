@@ -1,6 +1,6 @@
 import { action } from "@elgato/streamdeck";
 import { type Measure, MeasureAction, type Preset } from "../controls/measure";
-import { brightnessShown } from "../controls/shown";
+import { brightnessShown, brightnessText } from "../controls/shown";
 import { adjustLampsBrightness, setLampsBrightness } from "../lamps/manager";
 import { logger as pluginLogger } from "../logging";
 import { globalSettings } from "../settings/global-settings";
@@ -60,11 +60,10 @@ const BRIGHTNESS: Measure = {
   adjust: adjustLampsBrightness,
   readMainScreen: async () => {
     const levels = await brightnessShown("connected");
-    const brightest = levels.length === 0 ? undefined : Math.max(...levels);
     return {
       title: "Brightness",
-      value: brightest === undefined ? "—" : `${Math.round(brightest)}%`,
-      indicator: { value: brightest ?? 0, bar_fill_c: barFill(levels) },
+      value: brightnessText(levels),
+      indicator: { value: Math.max(0, ...levels), bar_fill_c: barFill(levels) },
     };
   },
 };
