@@ -1,5 +1,5 @@
-import { Lamp, type LampState, type ReachedLamp } from "../lamp";
-import type { LampHandle, LampRange } from "../lamp-connection";
+import type { LampHandle, LampRange } from "../lamps/connection";
+import { Lamp, type LampState, type ReachedLamp } from "../lamps/lamp";
 
 /**
  * `Lamp`s as an operation leaves them, for the tests of what the Deck shows, which need no lamp: each is reached

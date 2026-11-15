@@ -15,7 +15,7 @@ import {
   sceneGroupSettings,
   sceneSettings,
   temperatureSettings,
-} from "../src/actions/settings";
+} from "../src/settings/schema";
 import { at } from "../src/test-support/at";
 import { Chrome, type ExceptionDetails, type Page } from "./support/chrome";
 import { FakeStreamDeck, type KnownLamp, type ListedLamp } from "./support/fake-stream-deck";

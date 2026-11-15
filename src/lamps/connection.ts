@@ -19,9 +19,8 @@ import {
   turnOff,
   turnOn,
 } from "litra";
-
+import { logger as pluginLogger } from "../logging";
 import { Lamp } from "./lamp";
-import { logger as pluginLogger } from "./logging";
 
 /** What a lamp can be set to: its brightness, from its dimmest to its brightest, in lumens, and its temperatures. */
 export type LampRange = {

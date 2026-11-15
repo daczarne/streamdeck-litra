@@ -1,17 +1,21 @@
 import { brightnessGlyph, svgDoc, temperatureGlyph } from "@daczarne/streamdeck-icons";
 import type { TouchTapEvent } from "@elgato/streamdeck";
-
+import { Lamp, type ReachedLamp } from "../lamps/lamp";
+import { identifyLamp } from "../lamps/manager";
+import { logger as pluginLogger } from "../logging";
 import {
   FONT_WEIGHTS,
   globalSettings,
   type LampScreenCellContent,
   type TextStyle,
   type TextStyles,
-} from "../global-settings";
-import { Lamp, type ReachedLamp } from "../lamp";
-import { identifyLamp } from "../litra-manager";
-import { logger as pluginLogger } from "../logging";
-import { LAMP_SCREEN_CELLS, type LampScreenCell, type LampScreenItem, type LampScreenItemOptions } from "./settings";
+} from "../settings/global-settings";
+import {
+  LAMP_SCREEN_CELLS,
+  type LampScreenCell,
+  type LampScreenItem,
+  type LampScreenItemOptions,
+} from "../settings/schema";
 import { findShownLamps, readShownLamps } from "./shown";
 
 /** What a lamp screen uses of its dial, whichever action it belongs to. */

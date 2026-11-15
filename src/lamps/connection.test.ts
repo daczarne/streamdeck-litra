@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { at } from "../test-support/at";
+import { loadOnEmulatedLamps } from "../test-support/emulated-lamps";
+import { EmulatedLitra, type LitraModel } from "../test-support/emulated-litra";
+import type { LampConnection } from "./connection";
 import { Lamp } from "./lamp";
-import type { LampConnection } from "./lamp-connection";
-import { at } from "./test-support/at";
-import { loadOnEmulatedLamps } from "./test-support/emulated-lamps";
-import { EmulatedLitra, type LitraModel } from "./test-support/emulated-litra";
 
 //* Fakes
 
@@ -15,7 +15,7 @@ beforeEach(async () => {
   ({
     loaded: Connection,
     hid: { connect },
-  } = await loadOnEmulatedLamps(async () => (await import("./lamp-connection")).LampConnection));
+  } = await loadOnEmulatedLamps(async () => (await import("./connection")).LampConnection));
 });
 
 /** A Beam, on, at 4000 K, and at its lowest brightness unless the options say otherwise. */

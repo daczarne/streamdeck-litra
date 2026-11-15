@@ -1,7 +1,7 @@
 import type { JsonObject } from "@elgato/utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { globalSettings } from "../global-settings";
-import { onLampsChanged } from "../litra-manager";
+import { onLampsChanged } from "../lamps/manager";
+import { globalSettings } from "../settings/global-settings";
 import { FakeDeck } from "../test-support/fake-deck";
 import { action } from "../test-support/fake-stream-deck";
 import { ActionInstance, type DeckControl, RoutingAction } from "./action-instance";
@@ -10,10 +10,10 @@ import { ActionInstance, type DeckControl, RoutingAction } from "./action-instan
 
 vi.mock("@elgato/streamdeck", () => import("../test-support/fake-stream-deck"));
 
-// The real litra-manager loads node-hid's native binary on import and talks to real lamps.
-vi.mock("../litra-manager", () => ({ onLampsChanged: vi.fn() }));
+// The real lamp manager loads node-hid's native binary on import and talks to real lamps.
+vi.mock("../lamps/manager", () => ({ onLampsChanged: vi.fn() }));
 
-vi.mock("../global-settings", () => ({ globalSettings: { onChanged: vi.fn() } }));
+vi.mock("../settings/global-settings", () => ({ globalSettings: { onChanged: vi.fn() } }));
 
 const TESTED = "com.daczarne.litra.tested";
 
@@ -111,7 +111,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-/** The listener the action registered with a subscription, such as litra-manager's notice. */
+/** The listener the action registered with a subscription, such as the lamp manager's notice. */
 function listenerOf(subscribe: (listener: () => void | Promise<void>) => unknown): () => void | Promise<void> {
   const listener = vi.mocked(subscribe).mock.lastCall?.[0];
   if (listener === undefined) {

@@ -1,16 +1,15 @@
 import { brightnessGlyph, svgDoc, temperatureGlyph } from "@daczarne/streamdeck-icons";
 import type { JsonObject } from "@elgato/utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-
-import { syncGlobalSettings } from "../global-settings";
-import type { LampState, ReachedLamp } from "../lamp";
-import { identifyLamp } from "../litra-manager";
+import type { LampState, ReachedLamp } from "../lamps/lamp";
+import { identifyLamp } from "../lamps/manager";
 import { logger } from "../logging";
+import { syncGlobalSettings } from "../settings/global-settings";
+import { globalSettings } from "../settings/schema";
 import { at } from "../test-support/at";
 import { changeGlobalSettings, createFakeDial } from "../test-support/fake-stream-deck";
 import { reachedLamp } from "../test-support/reached-lamps";
 import { LampScreen, MAIN_LAYOUT } from "./lamp-screens";
-import { globalSettings } from "./settings";
 import { findShownLamps, readShownLamps } from "./shown";
 
 //* Fakes
@@ -24,8 +23,8 @@ vi.mock("../logging", () => import("../test-support/fake-logging"));
 // What the keys and dials show of the lamps, which each test sets.
 vi.mock("./shown", () => ({ findShownLamps: vi.fn(), readShownLamps: vi.fn() }));
 
-// The real litra-manager loads node-hid's native binary on import and talks to real lamps.
-vi.mock("../litra-manager", () => ({
+// The real lamp manager loads node-hid's native binary on import and talks to real lamps.
+vi.mock("../lamps/manager", () => ({
   identifyLamp: vi.fn(),
 }));
 

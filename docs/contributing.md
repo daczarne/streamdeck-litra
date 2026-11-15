@@ -7,6 +7,7 @@
 - [Features update the user guide](#features-update-the-user-guide)
 - [Dependencies](#dependencies)
 - [Unused code](#unused-code)
+- [A module goes in its layer](#a-module-goes-in-its-layer)
 - [Before 1.0, settings change without a migration](#before-10-settings-change-without-a-migration)
 - [Supported lamps](#supported-lamps)
 - [By default, lamps are managed together](#by-default-lamps-are-managed-together)
@@ -70,6 +71,10 @@ Every dependency is pinned, and every upgrade is a deliberate change of its own.
 
 Code or configuration that is unused, misleading or contradicts a decision already made is removed. For example, an entry relying on install scripts, now that `.npmrc` sets `ignore-scripts=true`, would contradict that decision even if it did nothing.
 
+## A module goes in its layer
+
+`src/` is in layers, a folder each, and a module imports only from its own folder and the ones below it: `actions/` and `controls/` are the frontend, what the Deck takes in and displays, and `settings/` and `lamps/` the backend, what Stream Deck keeps and the physical lamps. So the frontend calls the backend, never the other way round, and nothing in the backend knows how the Deck displays what it holds: storing a setting about what the Deck shows is the backend's work, and what the value turns into on the Deck the frontend's. `src/actions/` holds one module per action, and what several actions share goes in `src/controls/`. A new module goes in the folder of its layer, and a change to what a folder holds updates its `README.md`, which `src/README.md` lists.
+
 ## Before 1.0, settings change without a migration
 
 The plugin is at 0.x, and isn't on Elgato's Marketplace. Until 1.0, a change to what a key or a dial saves, or to what a saved setting means, needs no migration: a key or dial saved before the change may act differently until its page saves it again, and the pull request says so.
@@ -117,7 +122,7 @@ A text that the plugin itself would show in another style, such as a brightness 
 
 ## Numbers are set with a number field
 
-A setting that takes a number within a range, on a step, such as a brightness, a temperature, a step or a length of time, is set on its page with the plugin's number field (`litra-number`, in `ui/number-field.js`), not a slider: it sets an exact value by clicks or by typing, and takes no more room than it needs ([#195]). Its `min`, `max`, `step` and `default` are the setting's in `src/actions/settings.ts`, which the browser tests check, and its unit goes in `unit`. A number that doesn't apply, such as a scene group's presets while it turns its lamps off, is greyed out with `disabled`, which shows a dash in place of its value and unit, rather than a value that wouldn't be used, and keeps its value for when it applies again. A choice among a few values that aren't steps of one range, such as the lamp screens' text sizes, stays a list.
+A setting that takes a number within a range, on a step, such as a brightness, a temperature, a step or a length of time, is set on its page with the plugin's number field (`litra-number`, in `ui/number-field.js`), not a slider: it sets an exact value by clicks or by typing, and takes no more room than it needs ([#195]). Its `min`, `max`, `step` and `default` are the setting's in `src/settings/schema.ts`, which the browser tests check, and its unit goes in `unit`. A number that doesn't apply, such as a scene group's presets while it turns its lamps off, is greyed out with `disabled`, which shows a dash in place of its value and unit, rather than a value that wouldn't be used, and keeps its value for when it applies again. A choice among a few values that aren't steps of one range, such as the lamp screens' text sizes, stays a list.
 
 [#9]: https://github.com/daczarne/streamdeck-litra/issues/9
 [#13]: https://github.com/daczarne/streamdeck-litra/issues/13

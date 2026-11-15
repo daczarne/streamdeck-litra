@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { syncGlobalSettings } from "../global-settings";
+import { createDebouncer } from "../controls/debouncer";
+import { findShownLamps, readLampsBrightness, readShownLamps } from "../controls/shown";
 import {
   adjustLampsBrightness,
   identifyLamp,
@@ -7,16 +8,15 @@ import {
   onLampsChanged,
   setLampsBrightness,
   toggleLamps,
-} from "../litra-manager";
+} from "../lamps/manager";
 import { logger } from "../logging";
+import { syncGlobalSettings } from "../settings/global-settings";
+import { globalSettings } from "../settings/schema";
 import { at } from "../test-support/at";
 import { FakeDeck } from "../test-support/fake-deck";
 import { changeGlobalSettings } from "../test-support/fake-stream-deck";
 import { reachedLamp } from "../test-support/reached-lamps";
 import { BrightnessAction, barFill } from "./brightness";
-import { createDebouncer } from "./debouncer";
-import { globalSettings } from "./settings";
-import { findShownLamps, readLampsBrightness, readShownLamps } from "./shown";
 
 //* Fakes
 
@@ -26,13 +26,17 @@ vi.mock("@elgato/streamdeck", () => import("../test-support/fake-stream-deck"));
 vi.mock("../logging", () => import("../test-support/fake-logging"));
 
 // The debouncer gathers what each test says, without the timing its own tests check.
-vi.mock("./debouncer", () => ({ createDebouncer: vi.fn() }));
+vi.mock("../controls/debouncer", () => ({ createDebouncer: vi.fn() }));
 
 // What the keys and dials show of the lamps, which each test sets.
-vi.mock("./shown", () => ({ findShownLamps: vi.fn(), readShownLamps: vi.fn(), readLampsBrightness: vi.fn() }));
+vi.mock("../controls/shown", () => ({
+  findShownLamps: vi.fn(),
+  readShownLamps: vi.fn(),
+  readLampsBrightness: vi.fn(),
+}));
 
-// The real litra-manager loads node-hid's native binary on import and talks to real lamps.
-vi.mock("../litra-manager", () => ({
+// The real lamp manager loads node-hid's native binary on import and talks to real lamps.
+vi.mock("../lamps/manager", () => ({
   adjustLampsBrightness: vi.fn(),
   identifyLamp: vi.fn(),
   onLampsChanged: vi.fn(),
@@ -67,7 +71,7 @@ const BEAM = reachedLamp("00000000000000a1", AT_ITS_CAP);
 const OTHER_BEAM = reachedLamp("00000000000000b2", AT_ITS_CAP);
 
 let deck: FakeDeck;
-// What the action does when litra-manager announces that the lamps changed.
+// What the action does when the lamp manager announces that the lamps changed.
 let lampsChanged: () => Promise<void>;
 
 // The global settings, which the tests change as a settings page does (#145).

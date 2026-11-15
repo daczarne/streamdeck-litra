@@ -1,11 +1,11 @@
 import { action, type KeyAction } from "@elgato/streamdeck";
 import type { JsonObject } from "@elgato/utils";
-import { globalSettings } from "../global-settings";
-import type { KeyLampSelection, LampSelection } from "../lamp-selection";
-import { type SceneGroup, setLampsScene } from "../litra-manager";
+import { ActionInstance, type DeckControl, RoutingAction } from "../controls/action-instance";
+import { type SceneGroup, setLampsScene } from "../lamps/manager";
+import type { KeyLampSelection, LampSelection } from "../lamps/selection";
 import { logger as pluginLogger } from "../logging";
-import { ActionInstance, type DeckControl, RoutingAction } from "./action-instance";
-import { describeLamps, type Parsed, parseSettings, sceneGroupSettings, sceneSettings } from "./settings";
+import { globalSettings } from "../settings/global-settings";
+import { describeLamps, type Parsed, parseSettings, sceneGroupSettings, sceneSettings } from "../settings/schema";
 
 const logger = pluginLogger.createScope("Scene");
 
@@ -34,7 +34,7 @@ function readScene(settings: JsonObject): SceneConfig {
  * A Scene key: sets its lamps to its scene, in one press (#86). A scene is made of groups, each of which turns its
  * lamps off, or on at its own brightness and temperature (#174). The first group takes the lamps the key picks, but
  * the ones the groups added after it check. It shows only its image, and the dials and Power keys follow the lamps
- * through litra-manager's notice.
+ * through the lamp manager's notice.
  */
 class SceneKey extends ActionInstance<SceneConfig, KeyAction<JsonObject>> {
   /** Takes the key and its settings. */
@@ -58,7 +58,7 @@ class SceneKey extends ActionInstance<SceneConfig, KeyAction<JsonObject>> {
   }
 }
 
-/** A group as litra-manager takes it, from its settings. */
+/** A group as the lamp manager takes it, from its settings. */
 function sceneGroup(settings: {
   power: "on" | "off";
   presetPercentage: number;

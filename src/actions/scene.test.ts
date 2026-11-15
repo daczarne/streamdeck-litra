@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { syncGlobalSettings } from "../global-settings";
-import type { LampSelection } from "../lamp-selection";
-import { setLampsScene } from "../litra-manager";
+import { setLampsScene } from "../lamps/manager";
+import type { LampSelection } from "../lamps/selection";
 import { logger } from "../logging";
+import { syncGlobalSettings } from "../settings/global-settings";
 import { at } from "../test-support/at";
 import { FakeDeck } from "../test-support/fake-deck";
 import { changeGlobalSettings } from "../test-support/fake-stream-deck";
@@ -15,8 +15,8 @@ vi.mock("@elgato/streamdeck", () => import("../test-support/fake-stream-deck"));
 // The real logger writes to a logs/ folder.
 vi.mock("../logging", () => import("../test-support/fake-logging"));
 
-// The real litra-manager loads node-hid's native binary on import and talks to real lamps.
-vi.mock("../litra-manager", () => ({
+// The real lamp manager loads node-hid's native binary on import and talks to real lamps.
+vi.mock("../lamps/manager", () => ({
   onLampsChanged: vi.fn(),
   setLampsScene: vi.fn(),
 }));
@@ -25,7 +25,7 @@ const SCENE = "com.daczarne.litra.scene";
 
 const SET = { ok: true, lampCount: 2, failures: 0 };
 
-/** A group of a scene, as the key hands it to litra-manager, which turns its lamps on at these values. */
+/** A group of a scene, as the key hands it to the lamp manager, which turns its lamps on at these values. */
 function onAt(lamps: LampSelection, percentage: number, kelvin: number) {
   return { lamps, on: true, percentage, kelvin };
 }

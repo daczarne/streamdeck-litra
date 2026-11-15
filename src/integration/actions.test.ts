@@ -2,9 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import type { JsonObject } from "@elgato/utils";
 import { afterEach, beforeEach, describe, expect, inject, it, vi } from "vitest";
-
-import { LAMP_SCREEN_CELLS } from "../actions/settings";
-import { Lamp } from "../lamp";
+import { Lamp } from "../lamps/lamp";
+import { LAMP_SCREEN_CELLS } from "../settings/schema";
 import { at } from "../test-support/at";
 import { loadOnEmulatedLamps } from "../test-support/emulated-lamps";
 import { EmulatedLitra } from "../test-support/emulated-litra";

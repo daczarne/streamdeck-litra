@@ -1,7 +1,7 @@
+import { logger as pluginLogger } from "../logging";
+import { LampConnection, type LampHandle } from "./connection";
 import { Lamp, type LampState } from "./lamp";
-import { LampConnection, type LampHandle } from "./lamp-connection";
-import { type LampSelection, selects } from "./lamp-selection";
-import { logger as pluginLogger } from "./logging";
+import { type LampSelection, selects } from "./selection";
 
 /**
  * How an operation went: whether every lamp it acted on did its part, how many lamps it acted on, the ones it couldn't
@@ -484,7 +484,7 @@ export function reachEveryLamp(operation: string): Promise<OperationResult> {
 
 /**
  * Waits for the operations queued, if any, so that what the keys and dials show of the lamps is where they leave them,
- * not partway (see `src/actions/shown.ts`).
+ * not partway (see `src/controls/shown.ts`).
  */
 export async function lampsSettled(): Promise<void> {
   await operations;

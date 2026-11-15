@@ -1,12 +1,12 @@
 import { action, type KeyAction } from "@elgato/streamdeck";
 import type { JsonObject } from "@elgato/utils";
-import { globalSettings } from "../global-settings";
-import type { LampSelection } from "../lamp-selection";
-import { toggleLamps, turnLampsOff, turnLampsOn } from "../litra-manager";
+import { ActionInstance, type DeckControl, RoutingAction } from "../controls/action-instance";
+import { areLampsOn } from "../controls/shown";
+import { toggleLamps, turnLampsOff, turnLampsOn } from "../lamps/manager";
+import type { LampSelection } from "../lamps/selection";
 import { logger as pluginLogger } from "../logging";
-import { ActionInstance, type DeckControl, RoutingAction } from "./action-instance";
-import { describeLamps, type Parsed, parseSettings, powerSettings } from "./settings";
-import { areLampsOn } from "./shown";
+import { globalSettings } from "../settings/global-settings";
+import { describeLamps, type Parsed, parseSettings, powerSettings } from "../settings/schema";
 
 const logger = pluginLogger.createScope("Power");
 
@@ -58,7 +58,7 @@ class PowerKey extends ActionInstance<Parsed<typeof powerSettings>, KeyAction<Js
   }
 
   /**
-   * Turns the key's lamps on or off, or toggles them, as its mode says. The key follows through litra-manager's notice.
+   * Turns the key's lamps on or off, or toggles them, as its mode says. The key follows through the lamp manager's notice.
    * When a lamp fails, the key's alert waits for that redraw (#132): a state set right after an alert covers it, while
    * an alert shown after the state stays. Every operation sends the notice, the failed ones included.
    */
@@ -72,7 +72,7 @@ class PowerKey extends ActionInstance<Parsed<typeof powerSettings>, KeyAction<Js
         ? turnLampsOff(lamps)
         : toggleLamps(lamps));
 
-    // Before the key redraws: litra-manager sends the notice once the operation is done, and the redraw first waits for
+    // Before the key redraws: the lamp manager sends the notice once the operation is done, and the redraw first waits for
     // the operations queued.
     if (!result.ok) {
       this.owesAlert = true;

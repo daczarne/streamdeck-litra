@@ -38,7 +38,7 @@ describe("check-docs", () => {
 
   it("accepts every kind of declaration with a doc comment", () => {
     source(
-      "src/lamp.ts",
+      "src/lamps/lamp.ts",
       "/** Turns a lamp on. */",
       "export function turnOn(): void {}",
       "/** Turns a lamp off. */",
@@ -77,24 +77,24 @@ describe("check-docs", () => {
     ["a setter", ["/** A lamp. */", "export class Lamp {", "  set on(_on: boolean) {}", "}"], "Lamp.on"],
     ["a function property", ["/** A lamp. */", "export class Lamp {", "  dim = (): void => {};", "}"], "Lamp.dim"],
   ])("refuses %s without a doc comment, naming it and its line", (_kind, lines, name) => {
-    source("src/lamp.ts", ...lines);
+    source("src/lamps/lamp.ts", ...lines);
     const line = lines.length === 1 ? 1 : 3;
 
     const { status, stderr } = check();
 
     expect(status).toBe(1);
-    expect(stderr).toContain(`src/lamp.ts:${line}: ${name} has no doc comment`);
+    expect(stderr).toContain(`src/lamps/lamp.ts:${line}: ${name} has no doc comment`);
   });
 
   it("refuses a comment that isn't a doc comment", () => {
-    source("src/lamp.ts", "// Turns a lamp on.", "export function turnOn(): void {}");
+    source("src/lamps/lamp.ts", "// Turns a lamp on.", "export function turnOn(): void {}");
 
     expect(check().stderr).toContain("turnOn has no doc comment");
   });
 
   it("leaves alone what isn't declared at the top of a file or in a class there", () => {
     source(
-      "src/lamp.ts",
+      "src/lamps/lamp.ts",
       "/** Turns every lamp on. */",
       "export function turnOnAll(lamps: string[]): void {",
       "  const turnOn = (lamp: string): void => { void lamp; };",
@@ -111,13 +111,13 @@ describe("check-docs", () => {
   });
 
   it("accepts a class's doc comment above its decorator, as the style guide says", () => {
-    source("src/lamp.ts", "/** A lamp. */", "@register", "export class Lamp {}");
+    source("src/lamps/lamp.ts", "/** A lamp. */", "@register", "export class Lamp {}");
 
     expect(check().status).toBe(0);
   });
 
   it("refuses a class's doc comment between its decorator and the class, where TypeScript doesn't attach it", () => {
-    source("src/lamp.ts", "@register", "/** A lamp. */", "export class Lamp {}");
+    source("src/lamps/lamp.ts", "@register", "/** A lamp. */", "export class Lamp {}");
 
     expect(check().stderr).toContain("Lamp has no doc comment");
   });
@@ -134,13 +134,13 @@ describe("check-docs", () => {
   });
 
   it("reports every declaration without a doc comment, and how many", () => {
-    source("src/lamp.ts", "export function turnOn(): void {}");
+    source("src/lamps/lamp.ts", "export function turnOn(): void {}");
     source("src/dial.ts", "export function turn(): void {}");
 
     const { status, stderr } = check();
 
     expect(status).toBe(1);
-    expect(stderr).toContain("src/lamp.ts:1: turnOn has no doc comment");
+    expect(stderr).toContain("src/lamps/lamp.ts:1: turnOn has no doc comment");
     expect(stderr).toContain("src/dial.ts:1: turn has no doc comment");
     expect(stderr).toContain("check-docs: 2 declarations without a doc comment");
   });

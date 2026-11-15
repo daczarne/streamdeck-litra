@@ -1,11 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-
-import { globalSettings as pluginSettings } from "../global-settings";
-import { connectedLamps, findLamps, identifyLamp, onConnectedChanged, reachEveryLamp } from "../litra-manager";
+import { connectedLamps, findLamps, identifyLamp, onConnectedChanged, reachEveryLamp } from "../lamps/manager";
 import { logger } from "../logging";
 import { at } from "../test-support/at";
-import { answer, answerLampPickers } from "./lamp-picker";
-import { globalSettings } from "./settings";
+import { globalSettings as pluginSettings } from "./global-settings";
+import { answer, answerPluginSettingsPage } from "./plugin-settings-page";
+import { globalSettings } from "./schema";
 
 //* Fakes
 
@@ -20,8 +19,8 @@ vi.mock("@elgato/streamdeck", () => ({ default: { ui } }));
 // The real logger writes to a logs/ folder.
 vi.mock("../logging", () => import("../test-support/fake-logging"));
 
-// The real litra-manager loads node-hid's native binary on import and talks to real lamps.
-vi.mock("../litra-manager", () => ({
+// The real lamp manager loads node-hid's native binary on import and talks to real lamps.
+vi.mock("../lamps/manager", () => ({
   connectedLamps: vi.fn(),
   findLamps: vi.fn(),
   identifyLamp: vi.fn(),
@@ -30,8 +29,8 @@ vi.mock("../litra-manager", () => ({
 }));
 
 // The lamps the plugin knows, which the real global settings save through Stream Deck.
-vi.mock("../global-settings", async () => {
-  const { globalSettings } = await import("./settings");
+vi.mock("./global-settings", async () => {
+  const { globalSettings } = await import("./schema");
   return {
     globalSettings: {
       addLamps: vi.fn(async () => {}),
@@ -55,7 +54,7 @@ beforeEach(() => {
 
 //* Tests
 
-describe("the lamp picker's answers (#20)", () => {
+describe("the plugin settings page's answers (#146)", () => {
   it("send a page that asks for the lamps the ones connected now, by id, label, model and serial end", async () => {
     await answer({ event: "lamps" });
 
@@ -142,7 +141,7 @@ describe("the lamp picker's answers (#20)", () => {
   });
 
   it("are given every message the pages send, and log one that fails, with its error", async () => {
-    answerLampPickers();
+    answerPluginSettingsPage();
     const listener = at(ui.onSendToPlugin.mock.calls, 0)[0] as (ev: { payload: unknown }) => void;
     ui.sendToPropertyInspector.mockRejectedValue(new Error("Stream Deck is gone"));
 
@@ -166,7 +165,7 @@ describe("which lamps are connected (#198)", () => {
   });
 
   it("are told to the page shown whenever an operation finds a lamp plugged in or unplugged", async () => {
-    answerLampPickers();
+    answerPluginSettingsPage();
     const [listener] = at(vi.mocked(onConnectedChanged).mock.calls, 0);
 
     await listener(["lamp-2"]);

@@ -445,7 +445,7 @@
   //* The lamp screens' cells (#177): what each shows, a list from sdpi-components that saves it itself, and how, which a
   // cell's editor shows in place of the plugin settings. A cell's options are kept in the global settings as
   // `lampScreenOptions`, by cell and by item, so a cell switched to another item and back gets its options back. Only
-  // what differs from the defaults needs saving: the plugin reads every option against src/actions/settings.ts.
+  // what differs from the defaults needs saving: the plugin reads every option against src/settings/schema.ts.
 
   // The cells, by the setting that holds what each shows, with their names, and what each shows by default.
   const CELLS = [
@@ -457,7 +457,7 @@
     ["bottomRight", "lampScreenBottomRight", "Bottom right", "brightnessLumen"],
   ];
 
-  // Each item's options and their defaults, as src/actions/settings.ts has them.
+  // Each item's options and their defaults, as src/settings/schema.ts has them.
   const ITEM_OPTIONS = {
     identification: { first: "model", second: "id", trim: false, style: "primary" },
     counter: { count: "countOf", format: "of", style: "primary" },
