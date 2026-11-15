@@ -302,6 +302,12 @@ const FONT_STYLES = [...TEXT_STYLES, "custom"] as const;
 const ON_LABELS = ["On", "ON", "●", "I"] as const;
 const OFF_LABELS = ["Off", "OFF", "○", "O"] as const;
 
+/** A font weight, as the settings keep it. */
+export type FontWeight = (typeof WEIGHTS)[number];
+
+/** One of the lamp screens' text styles, as the settings keep it: a color, a weight and a size in px (#153). */
+export type SavedTextStyle = { color: string; weight: FontWeight; size: number };
+
 export const lampScreenItemOptions = {
   identification: {
     first: oneOf(IDENTIFICATION_PARTS, "model"),

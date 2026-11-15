@@ -16,17 +16,9 @@ import {
   type GlobalSettings as ParsedGlobalSettings,
   parseSettings,
   type SavedLamp,
+  type SavedTextStyle,
   type TextStyleName,
 } from "./schema";
-
-/** A text's look on the lamp screens: its color, and its font's size and weight (#153). */
-export type TextStyle = { color: string; font: { size: number; weight: number } };
-
-/** The lamp screens' text styles, by name (#153). */
-export type TextStyles = Record<TextStyleName, TextStyle>;
-
-/** The font weights the settings offer, as a layout's text takes them. */
-export const FONT_WEIGHTS = { normal: 400, bold: 700 };
 
 /** What a cell of the lamp screens shows, and how (#177). */
 export type LampScreenCellContent = {
@@ -198,23 +190,31 @@ export class GlobalSettings {
 
   /**
    * The lamp screens' text styles (#153): Primary, for every text by default, Secondary, for the power's "OFF" by
-   * default, Accent and Alert.
+   * default, Accent and Alert, each as the settings keep it.
    */
-  get textStyles(): TextStyles {
-    const style = (color: string, weight: keyof typeof FONT_WEIGHTS, size: number): TextStyle => ({
-      color,
-      font: { size, weight: FONT_WEIGHTS[weight] },
-    });
+  get textStyles(): Record<TextStyleName, SavedTextStyle> {
     const settings = this.parsed;
     return {
-      primary: style(settings.lampScreenPrimaryColor, settings.lampScreenPrimaryWeight, settings.lampScreenPrimarySize),
-      secondary: style(
-        settings.lampScreenSecondaryColor,
-        settings.lampScreenSecondaryWeight,
-        settings.lampScreenSecondarySize,
-      ),
-      accent: style(settings.lampScreenAccentColor, settings.lampScreenAccentWeight, settings.lampScreenAccentSize),
-      alert: style(settings.lampScreenAlertColor, settings.lampScreenAlertWeight, settings.lampScreenAlertSize),
+      primary: {
+        color: settings.lampScreenPrimaryColor,
+        weight: settings.lampScreenPrimaryWeight,
+        size: settings.lampScreenPrimarySize,
+      },
+      secondary: {
+        color: settings.lampScreenSecondaryColor,
+        weight: settings.lampScreenSecondaryWeight,
+        size: settings.lampScreenSecondarySize,
+      },
+      accent: {
+        color: settings.lampScreenAccentColor,
+        weight: settings.lampScreenAccentWeight,
+        size: settings.lampScreenAccentSize,
+      },
+      alert: {
+        color: settings.lampScreenAlertColor,
+        weight: settings.lampScreenAlertWeight,
+        size: settings.lampScreenAlertSize,
+      },
     };
   }
 
