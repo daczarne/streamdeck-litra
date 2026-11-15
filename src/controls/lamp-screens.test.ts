@@ -271,7 +271,7 @@ describe("LampScreen", () => {
   });
 
   describe("with the cells chosen in the plugin settings (#177)", () => {
-    it("shows in each cell what it's given, an icon on the outer side by default, and nothing in a cell given none", async () => {
+    it("shows in each cell what it's given, its icon on the outer side, and nothing in a cell given none", async () => {
       const dial = createFakeDial();
       changeGlobalSettings({
         lampScreenTopLeft: "power",
@@ -414,12 +414,14 @@ describe("LampScreen", () => {
         offWeight: "normal",
       };
       const dial = await topLeftOf("power", options);
+      const onLook = { color: "#ff8800", font: { size: 18, weight: 700 } };
+      const offLook = { color: "#00aaff", font: { size: 18, weight: 400 } };
 
-      expect(topLeft(dial)).toEqual(cell("topLeft", shown("●", { color: "#ff8800", font: { size: 18, weight: 700 } })));
+      expect(topLeft(dial)).toEqual(cell("topLeft", shown("●", onLook)));
 
       await screenOf(dial).tap();
 
-      expect(topLeft(dial)).toEqual(cell("topLeft", shown("O", { color: "#00aaff", font: { size: 18, weight: 400 } })));
+      expect(topLeft(dial)).toEqual(cell("topLeft", shown("O", offLook)));
     });
 
     it("draws every text in the Primary style, and the power's OFF in the Secondary style (#153)", async () => {
@@ -481,7 +483,7 @@ describe("LampScreen", () => {
       );
     });
 
-    it("keeps each item's options apart, so a cell's options for another item don't change how it shows this one", async () => {
+    it("keeps each item's options apart, so a cell's options for one item don't change another", async () => {
       const dial = createFakeDial();
       changeGlobalSettings({ lampScreenOptions: { topLeft: { counter: { count: "count" } } } });
       await screenOf(dial).tap();
@@ -552,7 +554,7 @@ describe("LampScreen", () => {
       vi.mocked(identifyLamp).mockResolvedValue({ ok: true, lampCount: 1, failures: 0 });
     });
 
-    it("blinks each lamp a tap shows, once its screen is drawn, and nothing on the way back to the main screen", async () => {
+    it("blinks each lamp a tap shows, once it's drawn, and nothing on the way back to the main screen", async () => {
       const dial = createFakeDial();
 
       await screenOf(dial).tap();
