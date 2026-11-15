@@ -4,7 +4,7 @@ import { brightnessShown, brightnessText } from "../controls/shown";
 import { adjustLampsBrightness, setLampsBrightness } from "../lamps/manager";
 import { logger as pluginLogger } from "../logging";
 import { globalSettings } from "../settings/global-settings";
-import { brightnessSettings, parseSettings } from "../settings/schema";
+import { brightnessSettingsSchema, parseSettings } from "../settings/schemas";
 
 // Where fewer lamps reach, the bar fades from white towards this grey, never as far as the bar's own background, and
 // light enough to read on the strip.
@@ -41,7 +41,7 @@ export function barFill(levels: readonly number[]): string {
 /** What a Brightness key sets its lamps to: its preset, in % of their range. */
 const PRESET: Preset = {
   read: (settings, logger) => {
-    const { presetPercentage, lamps, leftOutLamps } = parseSettings(settings, brightnessSettings, logger);
+    const { presetPercentage, lamps, leftOutLamps } = parseSettings(settings, brightnessSettingsSchema, logger);
     return { preset: presetPercentage, lamps, leftOutLamps };
   },
   unit: "%",
@@ -54,7 +54,7 @@ const PRESET: Preset = {
  */
 const BRIGHTNESS: Measure = {
   name: "Brightness",
-  readStep: (settings, logger) => parseSettings(settings, brightnessSettings, logger).stepPercentage,
+  readStep: (settings, logger) => parseSettings(settings, brightnessSettingsSchema, logger).stepPercentage,
   unit: "%",
   stepping: () => globalSettings.brightnessStepping,
   adjust: adjustLampsBrightness,

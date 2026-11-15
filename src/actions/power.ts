@@ -7,13 +7,13 @@ import { type OperationResult, toggleLamps, turnLampsOff, turnLampsOn } from "..
 import type { LampSelection } from "../lamps/selection";
 import { logger as pluginLogger } from "../logging";
 import { globalSettings } from "../settings/global-settings";
-import { type Parsed, parseSettings, powerSettings } from "../settings/schema";
+import { type Parsed, parseSettings, powerSettingsSchema } from "../settings/schemas";
 
 const logger = pluginLogger.createScope("Power");
 
 /** What a press does to the key's lamps, by the key's mode. */
 const OPERATIONS = { on: turnLampsOn, off: turnLampsOff, toggle: toggleLamps } satisfies Record<
-  Parsed<typeof powerSettings>["mode"],
+  Parsed<typeof powerSettingsSchema>["mode"],
   (lamps: LampSelection) => Promise<OperationResult>
 >;
 
@@ -31,13 +31,13 @@ export class PowerAction extends RoutingAction<PowerKey> {
  * the lamps, whichever key or dial changed them, this one included (#57), and the global settings, which say whether it
  * takes in lamps added later (#147).
  */
-class PowerKey extends ActionInstance<Parsed<typeof powerSettings>, KeyAction<JsonObject>> {
+class PowerKey extends ActionInstance<Parsed<typeof powerSettingsSchema>, KeyAction<JsonObject>> {
   // Whether the key's last press failed, which shows its alert once its state is redrawn.
   private owesAlert = false;
 
   /** Takes the key and its settings. */
   constructor(control: KeyAction<JsonObject>, settings: JsonObject) {
-    super(control, settings, (saved) => parseSettings(saved, powerSettings, logger));
+    super(control, settings, (saved) => parseSettings(saved, powerSettingsSchema, logger));
   }
 
   /** Shows its lamps' state as soon as the key is placed or shown. */

@@ -6,16 +6,16 @@ import type { JsonValue } from "@elgato/utils";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import {
-  brightnessSettings,
-  globalSettings,
+  brightnessSettingsSchema,
+  globalSettingsSchema,
   LAMP_SCREEN_ITEMS,
-  lampScreenItemOptions,
+  lampScreenItemOptionsSchema,
   parseSettings,
-  powerSettings,
-  sceneGroupSettings,
-  sceneSettings,
-  temperatureSettings,
-} from "../src/settings/schema";
+  powerSettingsSchema,
+  sceneGroupSettingsSchema,
+  sceneSettingsSchema,
+  temperatureSettingsSchema,
+} from "../src/settings/schemas";
 import { at } from "../src/test-support/at";
 import { Chrome, type ExceptionDetails, type Page } from "./support/chrome";
 import { FakeStreamDeck, type KnownLamp, type ListedLamp } from "./support/fake-stream-deck";
@@ -136,8 +136,8 @@ const PLUGIN_SETTINGS_GLOBALS = [
 // each page offers, and the pages' own defaults. A key's or dial's settings and the global ones are apart, as the
 // plugin reads them, since a name can be in both, such as `lamps`: a key's, and the ones the plugin knows (#194).
 const SCHEMAS = {
-  action: { ...powerSettings, ...brightnessSettings, ...temperatureSettings, ...sceneSettings },
-  global: globalSettings,
+  action: { ...powerSettingsSchema, ...brightnessSettingsSchema, ...temperatureSettingsSchema, ...sceneSettingsSchema },
+  global: globalSettingsSchema,
 };
 
 type Scope = keyof typeof SCHEMAS;
@@ -767,7 +767,7 @@ describe("settings pages", () => {
       });
 
       it("keeps the other global settings when it saves", async () => {
-        const other = Object.keys(globalSettings).find((name) => name !== setting) ?? "";
+        const other = Object.keys(globalSettingsSchema).find((name) => name !== setting) ?? "";
         streamDeck.globalSettings = { [other]: true };
         const { page, uuid } = await openPanel(panel);
         await globalSettingsRead(page);
@@ -1023,8 +1023,8 @@ describe("settings pages", () => {
     }
 
     /** Reads an item's option as the plugin reads it, and whether it was valid. */
-    function readOption(item: keyof typeof lampScreenItemOptions, key: string, value: JsonValue) {
-      const schema = lampScreenItemOptions[item] as Record<string, unknown>;
+    function readOption(item: keyof typeof lampScreenItemOptionsSchema, key: string, value: JsonValue) {
+      const schema = lampScreenItemOptionsSchema[item] as Record<string, unknown>;
       const warn = vi.fn();
       const parsed = parseSettings({ [key]: value }, { [key]: schema[key] } as never, { warn }) as Record<
         string,
@@ -1056,7 +1056,7 @@ describe("settings pages", () => {
         const options = await optionsShown(page);
         await page.close();
 
-        const schema = lampScreenItemOptions[item] as Record<string, { default: unknown }>;
+        const schema = lampScreenItemOptionsSchema[item] as Record<string, { default: unknown }>;
         expect(Object.keys(options).sort()).toEqual(Object.keys(schema).sort());
         for (const [key, { value, choices }] of Object.entries(options)) {
           expect(readOption(item, key, value as JsonValue), `${item}'s ${key}`).toEqual({
@@ -1665,7 +1665,7 @@ describe("settings pages", () => {
     function readGroup(group: Record<string, unknown>) {
       const warn = vi.fn();
       return {
-        value: parseSettings(group as never, sceneGroupSettings, { warn }),
+        value: parseSettings(group as never, sceneGroupSettingsSchema, { warn }),
         valid: warn.mock.calls.length === 0,
       };
     }
@@ -1727,7 +1727,7 @@ describe("settings pages", () => {
         value: { power: "on", presetPercentage: 0, presetKelvin: 2700, lamps: [] },
         valid: true,
       });
-      expect(Object.values(sceneGroupSettings).map((setting) => setting.default)).toEqual(["on", 0, 2700, []]);
+      expect(Object.values(sceneGroupSettingsSchema).map((setting) => setting.default)).toEqual(["on", 0, 2700, []]);
       expect(await groupsOf(page)).toMatchObject({
         firstHeading: true,
         groups: [{ heading: "Group 2", power: "on", presets: true, remove: "Remove group 2" }],

@@ -4,7 +4,7 @@ import { logger } from "../logging";
 import { at } from "../test-support/at";
 import { globalSettings } from "./global-settings";
 import { answer, answerPluginSettingsPage } from "./plugin-settings-page";
-import { globalSettings as globalSettingsSchema } from "./schema";
+import { globalSettingsSchema } from "./schemas";
 
 //* Fakes
 
@@ -30,7 +30,7 @@ vi.mock("../lamps/manager", () => ({
 
 // The lamps the plugin knows, which the real global settings save through Stream Deck.
 vi.mock("./global-settings", async () => {
-  const { globalSettings: globalSettingsSchema } = await import("./schema");
+  const { globalSettingsSchema } = await import("./schemas");
   return {
     globalSettings: {
       addLamps: vi.fn(async () => {}),

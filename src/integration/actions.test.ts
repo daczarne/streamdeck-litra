@@ -3,7 +3,7 @@ import path from "node:path";
 import type { JsonObject } from "@elgato/utils";
 import { afterEach, beforeEach, describe, expect, inject, it, vi } from "vitest";
 import { Lamp } from "../lamps/lamp";
-import { LAMP_SCREEN_CELLS } from "../settings/schema";
+import { LAMP_SCREEN_CELLS } from "../settings/schemas";
 import { at } from "../test-support/at";
 import { loadOnEmulatedLamps } from "../test-support/emulated-lamps";
 import { EmulatedLitra } from "../test-support/emulated-litra";

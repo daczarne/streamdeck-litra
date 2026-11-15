@@ -4,12 +4,12 @@ import { temperatureShown, temperatureText } from "../controls/shown";
 import { adjustLampsTemperature, setLampsTemperature } from "../lamps/manager";
 import { logger as pluginLogger } from "../logging";
 import { globalSettings } from "../settings/global-settings";
-import { parseSettings, temperatureSettings } from "../settings/schema";
+import { parseSettings, temperatureSettingsSchema } from "../settings/schemas";
 
 /** What a Temperature key sets its lamps to: its preset, in kelvin, which each lamp snaps to one it allows. */
 const PRESET: Preset = {
   read: (settings, logger) => {
-    const { presetKelvin, lamps, leftOutLamps } = parseSettings(settings, temperatureSettings, logger);
+    const { presetKelvin, lamps, leftOutLamps } = parseSettings(settings, temperatureSettingsSchema, logger);
     return { preset: presetKelvin, lamps, leftOutLamps };
   },
   unit: " K",
@@ -22,7 +22,7 @@ const PRESET: Preset = {
  */
 const TEMPERATURE: Measure = {
   name: "Temperature",
-  readStep: (settings, logger) => parseSettings(settings, temperatureSettings, logger).stepKelvin,
+  readStep: (settings, logger) => parseSettings(settings, temperatureSettingsSchema, logger).stepKelvin,
   unit: " K",
   stepping: () => globalSettings.temperatureStepping,
   adjust: adjustLampsTemperature,

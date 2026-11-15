@@ -6,7 +6,7 @@ import { type SceneGroup, setLampsScene } from "../lamps/manager";
 import type { KeyLampSelection, LampSelection } from "../lamps/selection";
 import { logger as pluginLogger } from "../logging";
 import { globalSettings } from "../settings/global-settings";
-import { type Parsed, parseSettings, sceneGroupSettings, sceneSettings } from "../settings/schema";
+import { type Parsed, parseSettings, sceneGroupSettingsSchema, sceneSettingsSchema } from "../settings/schemas";
 
 const logger = pluginLogger.createScope("Scene");
 
@@ -21,14 +21,14 @@ export class SceneAction extends RoutingAction<SceneKey> {
 
 /** A scene's settings: its first group's, the key's own, and the groups added after it, each read on its own. */
 type SceneConfig = {
-  first: Omit<Parsed<typeof sceneSettings>, "addedGroups">;
-  added: Parsed<typeof sceneGroupSettings>[];
+  first: Omit<Parsed<typeof sceneSettingsSchema>, "addedGroups">;
+  added: Parsed<typeof sceneGroupSettingsSchema>[];
 };
 
 /** Reads a scene's settings, and each of its added groups, against their schemas. */
 function readScene(settings: JsonObject): SceneConfig {
-  const { addedGroups, ...first } = parseSettings(settings, sceneSettings, logger);
-  return { first, added: addedGroups.map((group) => parseSettings(group, sceneGroupSettings, logger)) };
+  const { addedGroups, ...first } = parseSettings(settings, sceneSettingsSchema, logger);
+  return { first, added: addedGroups.map((group) => parseSettings(group, sceneGroupSettingsSchema, logger)) };
 }
 
 /**
