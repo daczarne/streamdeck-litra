@@ -13,7 +13,7 @@ import {
 } from "../settings/schema";
 import { ActionInstance, type DeckControl, RoutingAction } from "./action-instance";
 import { createDebouncer } from "./debouncer";
-import { readLampsBrightness, readLampsTemperature } from "./shown";
+import { brightnessShown, temperatureShown } from "./shown";
 
 /** A step key's settings: its step, and its lamps. */
 type StepConfig = { step: number; lamps: CheckedLamps; leftOutLamps: readonly string[] };
@@ -45,7 +45,7 @@ export const BRIGHTNESS: Stepped = {
   unit: "%",
   adjust: adjustLampsBrightness,
   readTitle: async (lamps) => {
-    const levels = await readLampsBrightness(lamps);
+    const levels = await brightnessShown(lamps);
     return levels.length === 0 ? "—" : `${Math.round(Math.max(...levels))}%`;
   },
 };
@@ -60,7 +60,7 @@ export const TEMPERATURE: Stepped = {
   unit: " K",
   adjust: adjustLampsTemperature,
   readTitle: async (lamps) => {
-    const kelvin = (await readLampsTemperature(lamps))?.kelvin;
+    const kelvin = (await temperatureShown(lamps))?.kelvin;
     return kelvin === undefined ? "—" : `${Math.round(kelvin)}`;
   },
 };

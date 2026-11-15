@@ -16,7 +16,7 @@ import {
   type LampScreenItem,
   type LampScreenItemOptions,
 } from "../settings/schema";
-import { findShownLamps, readShownLamps } from "./shown";
+import { findLampsShown, lampsShown } from "./shown";
 
 /** What a lamp screen uses of its dial, whichever action it belongs to. */
 export type LampScreenDial = Pick<
@@ -81,7 +81,7 @@ export class LampScreen {
    */
   tap(): Promise<void> {
     return this.enqueue(async () => {
-      const lamps = await findShownLamps();
+      const lamps = await findLampsShown();
       const current = this.shown;
       if (current === undefined && lamps.length === 0) {
         await this.dial.showAlert();
@@ -120,7 +120,7 @@ export class LampScreen {
       if (shown === undefined) {
         return;
       }
-      const lamps = await readShownLamps();
+      const lamps = await lampsShown();
       const lamp = lamps.find((candidate) => candidate.id === shown);
       if (lamp === undefined) {
         await this.backToMain();

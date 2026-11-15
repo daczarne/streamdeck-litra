@@ -10,7 +10,7 @@ import { at } from "../test-support/at";
 import { changeGlobalSettings, createFakeDial } from "../test-support/fake-stream-deck";
 import { reachedLamp } from "../test-support/reached-lamps";
 import { LampScreen, MAIN_LAYOUT } from "./lamp-screens";
-import { findShownLamps, readShownLamps } from "./shown";
+import { findLampsShown, lampsShown } from "./shown";
 
 //* Fakes
 
@@ -21,7 +21,7 @@ vi.mock("@elgato/streamdeck", () => import("../test-support/fake-stream-deck"));
 vi.mock("../logging", () => import("../test-support/fake-logging"));
 
 // What the keys and dials show of the lamps, which each test sets.
-vi.mock("./shown", () => ({ findShownLamps: vi.fn(), readShownLamps: vi.fn() }));
+vi.mock("./shown", () => ({ findLampsShown: vi.fn(), lampsShown: vi.fn() }));
 
 // The real lamp manager loads node-hid's native binary on import and talks to real lamps.
 vi.mock("../lamps/manager", () => ({
@@ -56,9 +56,9 @@ function percentageOf(lamp: ReachedLamp): number {
   return lamp.brightnessPercentage(lamp.state.lumen);
 }
 
-/** Connects the lamps, which readShownLamps reports in the order of their ids. */
+/** Connects the lamps, which lampsShown reports in the order of their ids. */
 function connect(...lamps: ReachedLamp[]): void {
-  vi.mocked(readShownLamps).mockResolvedValue(lamps);
+  vi.mocked(lampsShown).mockResolvedValue(lamps);
 }
 
 // The looks every text on a lamp screen is given, and how a slot left out of its cell is hidden (#177).
@@ -146,8 +146,8 @@ beforeEach(() => {
   screens = new Map();
   showMain = vi.fn(async () => {});
   connect(A, B);
-  // A tap finds the lamps, then shows what the plugin holds of them, which each test sets as readShownLamps.
-  vi.mocked(findShownLamps).mockImplementation(() => readShownLamps());
+  // A tap finds the lamps, then shows what the plugin holds of them, which each test sets as lampsShown.
+  vi.mocked(findLampsShown).mockImplementation(() => lampsShown());
 });
 
 //* Tests
@@ -249,7 +249,7 @@ describe("LampScreen", () => {
 
     it("logs a failed read instead of failing", async () => {
       const dial = createFakeDial();
-      vi.mocked(readShownLamps).mockRejectedValueOnce(new Error("HID read failed"));
+      vi.mocked(lampsShown).mockRejectedValueOnce(new Error("HID read failed"));
 
       await screenOf(dial).tap();
       await screenOf(dial).tap();
@@ -702,19 +702,19 @@ describe("LampScreen", () => {
       const dial = createFakeDial();
       await screenOf(dial).tap();
 
-      expect(findShownLamps).toHaveBeenCalledOnce();
+      expect(findLampsShown).toHaveBeenCalledOnce();
 
-      vi.mocked(findShownLamps).mockClear();
+      vi.mocked(findLampsShown).mockClear();
       await screenOf(dial).refresh();
 
-      expect(findShownLamps).not.toHaveBeenCalled();
+      expect(findLampsShown).not.toHaveBeenCalled();
       expect(dial.setFeedback).toHaveBeenLastCalledWith(lampScreenOf(A, 1, 2));
     });
 
     it("doesn't read the lamps on the main screen, which the dial draws", async () => {
       await screenOf(createFakeDial()).refresh();
 
-      expect(readShownLamps).not.toHaveBeenCalled();
+      expect(lampsShown).not.toHaveBeenCalled();
       expect(showMain).not.toHaveBeenCalled();
     });
 
@@ -749,7 +749,7 @@ describe("LampScreen", () => {
 
       expect(screenOf(dial).isShowing).toBe(false);
       // The refresh had no lamp screen left to redraw.
-      expect(readShownLamps).toHaveBeenCalledOnce();
+      expect(lampsShown).toHaveBeenCalledOnce();
     });
   });
 });

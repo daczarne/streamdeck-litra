@@ -270,12 +270,6 @@ export class Lamp {
     return nearest;
   }
 
-  /** Where a temperature sits between the lowest and the highest the lamp allows, from 0 to 100. */
-  temperaturePercentage(kelvin: number): number {
-    const { lowest, highest } = this.temperatureLimits();
-    return Lamp.percentageInRange(kelvin, lowest, highest);
-  }
-
   /** The lamp's range, which an operation learns when it reaches the lamp, so it's known before any change. */
   private reachedRange(): LampRange {
     if (this.lampRange === undefined) {
@@ -472,8 +466,11 @@ export class Lamp {
     return this.heldState;
   }
 
-  /** Where a value sits in a range, from 0 to 100, such as a brightness in lumens or a temperature in kelvin. */
-  private static percentageInRange(value: number, min: number, max: number): number {
+  /**
+   * Where a value sits in a range, from 0 to 100, such as a brightness in lumens, or a temperature in kelvin, which a
+   * Temperature dial's bar shows.
+   */
+  static percentageInRange(value: number, min: number, max: number): number {
     if (max <= min) {
       return 0;
     }

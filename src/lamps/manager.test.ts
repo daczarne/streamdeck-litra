@@ -193,12 +193,9 @@ function heldBrightness(lamp: EmulatedLitra): number | undefined {
   return known?.state === undefined ? undefined : known.brightnessPercentage(known.state.lumen);
 }
 
-/** What the plugin holds of an emulated lamp's temperature, in kelvin and as its place in the range (#198). */
-function heldTemperature(lamp: EmulatedLitra): { kelvin: number; percentage: number } | undefined {
-  const known = knownLamp(lamp);
-  return known?.state === undefined
-    ? undefined
-    : { kelvin: known.state.kelvin, percentage: known.temperaturePercentage(known.state.kelvin) };
+/** What the plugin holds of an emulated lamp's temperature, in kelvin (#198). */
+function heldTemperature(lamp: EmulatedLitra): number | undefined {
+  return knownLamp(lamp)?.state?.kelvin;
 }
 
 /** The `Lamp` of an emulated lamp the plugin knows. */
@@ -1954,10 +1951,7 @@ describe("setLampsTemperature", () => {
       failures: 0,
     });
     expect(pair.map((lamp) => lamp.writes("temperature"))).toEqual([[4300], [4300]]);
-    expect(pair.map(heldTemperature)).toEqual([
-      { kelvin: 4300, percentage: 42 },
-      { kelvin: 4300, percentage: 42 },
-    ]);
+    expect(pair.map(heldTemperature)).toEqual([4300, 4300]);
   });
 
   it("drains each lamp's ACK", async () => {
@@ -2017,7 +2011,7 @@ describe("adjustLampsTemperature", () => {
 
     await manager.adjustLampsTemperature("all", -1, 500);
 
-    expect(heldTemperature(lamp)?.kelvin).toBe(6200);
+    expect(heldTemperature(lamp)).toBe(6200);
   });
 
   it("steps from the next lamp when the first can't be read", async () => {
@@ -2039,7 +2033,7 @@ describe("adjustLampsTemperature", () => {
 
     await manager.adjustLampsTemperature("all", -10, KELVIN_STEP);
 
-    expect(heldTemperature(lamp)).toEqual({ kelvin: MIN_KELVIN, percentage: 0 });
+    expect(heldTemperature(lamp)).toBe(MIN_KELVIN);
   });
 
   it("stops at the highest allowed value", async () => {
@@ -2048,7 +2042,7 @@ describe("adjustLampsTemperature", () => {
 
     await manager.adjustLampsTemperature("all", 3, KELVIN_STEP);
 
-    expect(heldTemperature(lamp)).toEqual({ kelvin: MAX_KELVIN, percentage: 100 });
+    expect(heldTemperature(lamp)).toBe(MAX_KELVIN);
   });
 
   it("fails without writing when no lamp is connected", async () => {
@@ -2071,7 +2065,7 @@ describe("adjustLampsTemperature, each lamp from its own (#145)", () => {
       failures: 0,
     });
     expect([first.writes("temperature"), second.writes("temperature")]).toEqual([[3500], [5100]]);
-    expect([heldTemperature(first)?.kelvin, heldTemperature(second)?.kelvin]).toEqual([3500, 5100]);
+    expect([heldTemperature(first), heldTemperature(second)]).toEqual([3500, 5100]);
   });
 
   it("keeps stepping the other lamps once one reaches an end of its range", async () => {
