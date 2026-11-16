@@ -3,8 +3,8 @@
 - [The lamps the plugin controls](#the-lamps-the-plugin-controls)
 - [Keys](#keys)
   - [Power](#power)
-  - [Brightness and Temperature](#brightness-and-temperature)
   - [Scene](#scene)
+  - [Set Brightness and Set Temperature](#set-brightness-and-set-temperature)
   - [Brightness and Temperature Up and Down](#brightness-and-temperature-up-and-down)
   - [Picking a key's lamps](#picking-a-keys-lamps)
 - [Dials](#dials)
@@ -42,10 +42,6 @@ A lamp on a power supply too weak for it, such as a Stream Deck + XL's hub, stop
 
 A Power key turns its lamps on, turns them off, or toggles them. In its toggle mode, it turns its lamps off when every one of them is on, and on otherwise. It shows on only when every one of its lamps that's connected is on, and off when none is connected.
 
-### Brightness and Temperature
-
-Brightness and Temperature keys set their lamps to the preset in their settings. They show their preset value, as a bare number at the bottom of the key, set by the plugin. A title typed in the key's settings replaces it, and the **Show Title** box under the **T** menu hides it.
-
 ### Scene
 
 A Scene key sets its lamps in one press, so one key goes to a setup and another comes back: it turns them on, then sets their temperature and brightness, or turns them off, as its Power switch says. A group's power, temperature and brightness sit on one row. A group that turns its lamps off leaves their temperature and brightness as they are, so while its Power is off, its Temperature and Brightness are greyed out and show a dash, with a note under them that they aren't applied. They keep their values, which show again once Power is back on.
@@ -53,6 +49,10 @@ A Scene key sets its lamps in one press, so one key goes to a setup and another 
 **Add a group**, on its settings page, adds a group of lamps with its own power, brightness and temperature, such as a key light brighter than a fill light, and **Remove group** takes it away. A lamp is in one group at most: the other groups show it greyed out, with the group that holds it, and it moves once it's unchecked there. The first group picks its lamps as every key does, lamps added later included (see [Picking a key's lamps](#picking-a-keys-lamps)), and a lamp no group holds is left as it is. Its All means every lamp the plugin knows, so it's unchecked and greyed out while another group holds a lamp.
 
 A Scene key shows only its image: a title typed in its settings shows at the bottom.
+
+### Set Brightness and Set Temperature
+
+Set Brightness and Set Temperature keys set their lamps to the preset in their settings. They show their preset value, as a bare number at the bottom of the key, set by the plugin. A title typed in the key's settings replaces it, and the **Show Title** box under the **T** menu hides it.
 
 ### Brightness and Temperature Up and Down
 
@@ -68,9 +68,9 @@ By default, a key also takes in lamps added later: it acts on every lamp but the
 
 ### The main screen
 
-Dials look like Stream Deck's own volume dials: the value, with a bar under it. The keys, and the dials' pictures in the Stream Deck app, show the same line icon as the strip, smaller, at the size of the Icon Library's Litra icons. The temperature bar runs from the lamp's warmest setting (empty) to its coolest (full). The brightness bar is white up to the dimmest lamp's level, and a lighter grey from there to the brightest lamp's, the part only some lamps reach. Their title says what they control ("Brightness", "Temperature"), and can be replaced or hidden like a key's.
+Dials look like Stream Deck's own volume dials: the value, with a bar under it. The keys, and the dials' pictures in the Stream Deck app, show the same line icon as the strip, smaller, at the size of the Icon Library's Litra icons. The temperature bar runs from the lamp's warmest setting (empty) to its coolest (full). The brightness bar is white up to the dimmest lamp's level, and a lighter grey from there to the brightest lamp's, the part only some lamps reach. Their title is their action's name ("Set Brightness", "Set Temperature"), and can be replaced or hidden like a key's.
 
-Rotating adjusts every lamp (see [Steps](#steps)), and pressing toggles every lamp, as a Power key in its toggle mode does (see [Power](#power)). A Brightness dial shows the brightest lamp's %, and a Temperature dial the first lamp's temperature, the first in the plugin settings' list of lamps, and a dash when no lamp is connected. Holding the strip does nothing on the main screen.
+Rotating adjusts every lamp (see [Steps](#steps)), and pressing toggles every lamp, as a Power key in its toggle mode does (see [Power](#power)). A Set Brightness dial shows the brightest lamp's %, and a Set Temperature dial the first lamp's temperature, the first in the plugin settings' list of lamps, and a dash when no lamp is connected. Holding the strip does nothing on the main screen.
 
 ### Lamp screens
 
@@ -78,7 +78,7 @@ Tapping a dial's part of the strip shows one screen per lamp. Each tap shows the
 
 On a lamp screen, the dial controls that lamp alone: turning it changes the lamp's brightness or temperature, and pressing it turns the lamp on or off. Holding the strip blinks the lamp once, to show which one it is. A turn on the dial's own screen sets every lamp to the same value again, unless the lamps keep their difference (see [Lamps together or apart](#lamps-together-or-apart)).
 
-With "Blink each lamp as it's shown, on this dial" checked on a Brightness or Temperature dial's settings page, each tap that shows a lamp blinks it too, and the next tap waits for the blink to end. The plugin settings turn it on or off for every dial at once, and their checkbox shows a bar when the dials differ. It's off by default, since every lamp then blinks in turn, which shows on camera.
+With "Blink each lamp as it's shown, on this dial" checked on a Set Brightness or Set Temperature dial's settings page, each tap that shows a lamp blinks it too, and the next tap waits for the blink to end. The plugin settings turn it on or off for every dial at once, and their checkbox shows a bar when the dials differ. It's off by default, since every lamp then blinks in turn, which shows on camera.
 
 ### What a lamp screen shows
 
@@ -105,7 +105,7 @@ By default, a turn on a dial's own screen, and a press of an Up or Down key, set
 
 With "Each lamp steps from its own brightness" checked under "Lamps" in the plugin settings, each lamp steps from its own brightness instead, so lamps set apart on their lamp screens stay apart. A lamp that reaches 0%, 100% or its cap stays there, while the others keep going, and the plugin remembers how far the lamp would have gone, so it comes back with them and the lamps keep their difference. Once every lamp is at its end, turning further does nothing. Setting a lamp any other way through the plugin, or restarting the plugin, forgets how far it would have gone. Lamps that keep their difference each step along the multiples of the step, so their difference can change by up to a step on the first turn.
 
-Every Brightness dial and key shares that setting, and the Temperature dials and keys share one of their own, so the lamps can keep their brightness apart while their temperature stays matched.
+Every dial and key that sets or steps the brightness shares that setting, and those of the temperature share one of their own, so the lamps can keep their brightness apart while their temperature stays matched.
 
 ## The plugin settings
 

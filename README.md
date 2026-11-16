@@ -21,11 +21,11 @@ Not an official Logitech or Elgato product.
 |                                 | Action               | Key                                        | Dial (Stream Deck +)                                                      |
 |:-------------------------------:|:---------------------|:-------------------------------------------|:--------------------------------------------------------------------------|
 |         ![Power][power]         | **Power**            | On, off or toggle                          | None                                                                      |
-|      ![Brightness][bright]      | **Brightness**       | Jump to a preset %                         | Rotate to adjust, press toggles power, tap the strip to control each lamp |
-|       ![Temperature][temp]      | **Temperature**      | Jump to a preset Kelvin                    | Rotate to adjust, press toggles power, tap the strip to control each lamp |
 |         ![Scene][scene]         | **Scene**            | Turn groups of lamps on at presets, or off | None                                                                      |
+|    ![Set Brightness][bright]    | **Set Brightness**   | Jump to a preset %                         | Rotate to adjust, press toggles power, tap the strip to control each lamp |
 |   ![Brightness Up][bright-up]   | **Brightness Up**    | Step up by the key's %                     | None                                                                      |
 | ![Brightness Down][bright-down] | **Brightness Down**  | Step down by the key's %                   | None                                                                      |
+|    ![Set Temperature][temp]     | **Set Temperature**  | Jump to a preset Kelvin                    | Rotate to adjust, press toggles power, tap the strip to control each lamp |
 |    ![Temperature Up][temp-up]   | **Temperature Up**   | Step up, cooler, by the key's Kelvin       | None                                                                      |
 |  ![Temperature Down][temp-down] | **Temperature Down** | Step down, warmer, by the key's Kelvin     | None                                                                      |
 
@@ -158,7 +158,7 @@ The policy allows only what the pages need:
 | `base-uri 'none'`              | No `<base>` element, which would change where relative paths point.                 |
 | `form-action 'none'`           | No form submissions.                                                                |
 
-Since inline scripts are blocked, the pages' scripts live in `ui/`: `controller-toggle.js` shows the key or the dial settings on the Brightness and Temperature pages, `number-field.js` draws the number fields, with − and + on either side, that set a brightness, a temperature, a step or the blink's length, `power-switch.js` draws the Scene key's Power switches, `lamp-picker.js` lists the lamps on the keys' pages and saves the ones checked, `scene-groups.js` draws and saves a Scene key's groups, and `plugin-settings.js` shows the plugin settings on every page. The policy is repeated in each page and in [`scripts/check-ui.mjs`][check-ui], so a change to it updates all of them and the table above.
+Since inline scripts are blocked, the pages' scripts live in `ui/`: `controller-toggle.js` shows the key or the dial settings on the Set Brightness and Set Temperature pages, `number-field.js` draws the number fields, with − and + on either side, that set a brightness, a temperature, a step or the blink's length, `power-switch.js` draws the Scene key's Power switches, `lamp-picker.js` lists the lamps on the keys' pages and saves the ones checked, `scene-groups.js` draws and saves a Scene key's groups, and `plugin-settings.js` shows the plugin settings on every page. The policy is repeated in each page and in [`scripts/check-ui.mjs`][check-ui], so a change to it updates all of them and the table above.
 
 ## Third-party code
 

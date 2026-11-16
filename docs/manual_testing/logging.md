@@ -14,7 +14,7 @@ The unit tests check against a temporary folder how the log files are written an
 
 ## Setup
 
-Plug in two Beams and place a Power key, a Brightness key and a Brightness dial on the Deck. Build the branch and restart the plugin:
+Plug in two Beams and place a Power key, a Set Brightness key and a Set Brightness dial on the Deck. Build the branch and restart the plugin:
 
 ```shell
 npm run build
@@ -33,9 +33,9 @@ tail -n 5 com.daczarne.litra.sdPlugin/logs/litra.log
 
 1. **A run is marked where it starts.** After the restart, the log ends with a `Plugin started` line, with the time of the restart in UTC.
 2. **A restart carries the log on.** Restart the plugin again. The log ends with two `Plugin started` lines, one per restart, and `logs/` holds no new `litra.1.log`.
-3. **A press is followed by what each lamp did.** Press the Brightness key. The log gains an `INFO` line from `Brightness` with the key's preset, then one `INFO` line from `Lamps` per Beam with the lumens sent and reached. A Beam on the Deck's hub also gets a line with its cap, the first time it reaches it since the plugin started or the lamp was plugged in again.
+3. **A press is followed by what each lamp did.** Press the Set Brightness key. The log gains an `INFO` line from `Set Brightness` with the key's preset, then one `INFO` line from `Lamps` per Beam with the lumens sent and reached. A Beam on the Deck's hub also gets a line with its cap, the first time it reaches it since the plugin started or the lamp was plugged in again.
 4. **Lamps are named by the end of their ids.** In the lines of check 3, each Beam reads as "Beam - " followed by 4 characters, the ones the plugin settings show under ID, never those of its serial number, and the two Beams' differ.
-5. **Reads stay out of the log.** Turn the Brightness dial a few steps. The log gains one `INFO` line from `Brightness` per burst of turning, with its ticks, and the lines of the change, but no `Lamps: read` lines.
-6. **Failures reach the plugin's log.** Unplug both Beams and press the Brightness key. The key shows an alert, and the log gains an `INFO` line from `Brightness` with the key's preset, then `WARN` lines saying no lamps were found. `logs/` holds no new `com.daczarne.litra.0.log`, since the messages went to the plugin's log, not the SDK's. The Power key logs its press the same way, and shows its alert after switching to off.
+5. **Reads stay out of the log.** Turn the Set Brightness dial a few steps. The log gains one `INFO` line from `Set Brightness` per burst of turning, with its ticks, and the lines of the change, but no `Lamps: read` lines.
+6. **Failures reach the plugin's log.** Unplug both Beams and press the Set Brightness key. The key shows an alert, and the log gains an `INFO` line from `Set Brightness` with the key's preset, then `WARN` lines saying no lamps were found. `logs/` holds no new `com.daczarne.litra.0.log`, since the messages went to the plugin's log, not the SDK's. The Power key logs its press the same way, and shows its alert after switching to off.
 
 [logging]: ../logging.md

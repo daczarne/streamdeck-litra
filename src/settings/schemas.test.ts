@@ -14,11 +14,15 @@ describe("parseSettings", () => {
   it.each([
     ["Power", powerSettingsSchema, { mode: "toggle", lamps: "all", leftOutLamps: [] }],
     [
-      "Brightness",
+      "Set Brightness",
       brightnessSettingsSchema,
       { presetPercentage: 0, stepPercentage: 10, lamps: "all", leftOutLamps: [] },
     ],
-    ["Temperature", temperatureSettingsSchema, { presetKelvin: 2700, stepKelvin: 300, lamps: "all", leftOutLamps: [] }],
+    [
+      "Set Temperature",
+      temperatureSettingsSchema,
+      { presetKelvin: 2700, stepKelvin: 300, lamps: "all", leftOutLamps: [] },
+    ],
   ])("gives %s's defaults for the settings that are missing, without a warning", (_action, schema, defaults) => {
     expect(parseSettings({}, schema, logger)).toEqual(defaults);
     expect(logger.warn).not.toHaveBeenCalled();
@@ -27,11 +31,15 @@ describe("parseSettings", () => {
   it.each([
     ["Power", powerSettingsSchema, { mode: "off", lamps: "all", leftOutLamps: [] }],
     [
-      "Brightness",
+      "Set Brightness",
       brightnessSettingsSchema,
       { presetPercentage: 40, stepPercentage: 20, lamps: "all", leftOutLamps: [] },
     ],
-    ["Temperature", temperatureSettingsSchema, { presetKelvin: 5000, stepKelvin: 500, lamps: "all", leftOutLamps: [] }],
+    [
+      "Set Temperature",
+      temperatureSettingsSchema,
+      { presetKelvin: 5000, stepKelvin: 500, lamps: "all", leftOutLamps: [] },
+    ],
   ])("keeps %s's valid settings", (_action, schema, settings) => {
     expect(parseSettings(settings, schema, logger)).toEqual(settings);
     expect(logger.warn).not.toHaveBeenCalled();

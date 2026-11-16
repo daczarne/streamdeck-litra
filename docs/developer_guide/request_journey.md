@@ -15,7 +15,7 @@ This document follows one press of a key, from Stream Deck sending it to the plu
 
 ## The example
 
-A Brightness key whose preset is 100%, set to act on every lamp, with 3 Beams and 1 Beam LX plugged in, all known to the plugin. A Power key, a Brightness dial and a Brightness Up key are on the Deck too, to show how the other controls follow.
+A Set Brightness key whose preset is 100%, set to act on every lamp, with 3 Beams and 1 Beam LX plugged in, all known to the plugin. A Power key, a Set Brightness dial and a Brightness Up key are on the Deck too, to show how the other controls follow.
 
 ```text
 Deck key ─► Stream Deck app ─► WebSocket ─► SDK ─► BrightnessAction.onKeyDown
@@ -28,13 +28,13 @@ Deck key ─► Stream Deck app ─► WebSocket ─► SDK ─► BrightnessAct
        └► sleep 250 ms
        └► read each lamp's brightness back, and learn a cap where a lamp fell short
        └► close all 4 handles, return { ok, lampCount: 4, failures }
-  └► the Brightness key shows ⚠ only if !ok
+  └► the Set Brightness key shows ⚠ only if !ok
   └► announceLampsChanged ─► every other key and dial redraws from the Lamps' held state, without reading the lamps
 ```
 
 ## 1. The press reaches the key's instance
 
-1. Stream Deck sends `keyDown`. Of the 8 `keyDown` listeners [start-up registered][start-up-register], the Brightness action's matches the `manifestId`, and calls `BrightnessAction.onKeyDown` ([action-instance.ts][action-instance-keydown]).
+1. Stream Deck sends `keyDown`. Of the 8 `keyDown` listeners [start-up registered][start-up-register], the Set Brightness action's matches the `manifestId`, and calls `BrightnessAction.onKeyDown` ([action-instance.ts][action-instance-keydown]).
 2. `take(ev)` finds the key's `PresetKey` by its id. It reads the settings again only if their JSON changed since the last time.
 3. [`PresetKey.keyDown`][preset-key-down] works out the key's lamps with [`globalSettings.actionKeyLamps`][action-key-lamps]: `"all"` for a key that never saved a list, or `{ except: [] }` for one that checked all 4 and takes in lamps added later. Either way it covers all 4.
 4. It logs `Key pressed: preset 100%, on every lamp`, and awaits `setLampsBrightness(lamps, 100)`.
@@ -92,18 +92,18 @@ For each lamp, [`readBackBrightness`][read-back-brightness]:
 
 ## 7. The Deck follows
 
-**The Brightness key** shows nothing new. Its title is its preset, and it doesn't follow the lamps. Back in `keyDown`, it calls `showAlert()` (the ⚠) only when `!result.ok`, such as when the LX couldn't be identified or a write failed. The other lamps are set even then.
+**The Set Brightness key** shows nothing new. Its title is its preset, and it doesn't follow the lamps. Back in `keyDown`, it calls `showAlert()` (the ⚠) only when `!result.ok`, such as when the LX couldn't be identified or a write failed. The other lamps are set even then.
 
 **Every other control** hears it through [`announceLampsChanged`][announce]. Each listener runs on its own, once the operation has returned, and each action goes through its instances:
 
 | Control | What it does | Source |
 | --- | --- | --- |
 | Power key | `areLampsOn`: state 1 if every one of its lamps is now on | [power.ts][power-lamps-changed] |
-| Brightness dial, main screen | The brightest lamp's % as text, and a bar that fades where fewer lamps reach, such as `[100, 100, 100, 72]` when one is capped | [measure.ts][dial-lamps-changed], [brightness.ts] |
+| Set Brightness dial, main screen | The brightest lamp's % as text, and a bar that fades where fewer lamps reach, such as `[100, 100, 100, 72]` when one is capped | [measure.ts][dial-lamps-changed], [brightness.ts] |
 | A dial on a lamp screen | Redraws its lamp, or goes back to the main screen when the lamp wasn't found | [lamp-screens.ts][lamp-screen-refresh] |
-| Temperature dial | Redraws: the temperature didn't change, but the power may have | [measure.ts][dial-lamps-changed] |
+| Set Temperature dial | Redraws: the temperature didn't change, but the power may have | [measure.ts][dial-lamps-changed] |
 | Brightness and Temperature Up and Down keys | Their title, from the lamps' new values | [step-key.ts][step-key-lamps-changed] |
-| Brightness, Temperature and Scene keys | Nothing | `ActionInstance`'s default |
+| Scene, Set Brightness and Set Temperature keys | Nothing | `ActionInstance`'s default |
 
 Each one reads through [src/controls/shown.ts], which first awaits `lampsSettled()` (the queue of operations, so the Deck never shows a change halfway), then works out what to show from the `Lamp`s' held state. No lamp is read to redraw the Deck. `setState`, `setFeedback` and `setTitle` go back over the WebSocket, and Stream Deck draws them on the Deck.
 

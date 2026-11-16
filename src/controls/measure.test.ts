@@ -59,7 +59,7 @@ const PRESET = {
 
 /** What the fake dials step: by the step in their settings, or 2, and what they show. */
 const MEASURE = {
-  name: "Fake",
+  adjusts: "Fake",
   readStep: vi.fn((settings: JsonObject) => (typeof settings.step === "number" ? settings.step : 2)),
   unit: " u",
   stepping: vi.fn<Measure["stepping"]>(),
@@ -67,7 +67,10 @@ const MEASURE = {
   mainScreen: vi.fn<Measure["mainScreen"]>(),
 } satisfies Measure;
 
-/** An action built on MeasureAction, as the Brightness and Temperature actions are, with fakes for what's theirs. */
+/**
+ * An action built on MeasureAction, as the Set Brightness and Set Temperature actions are, with fakes for what's
+ * theirs.
+ */
 @action({ UUID: FAKE })
 class FakeMeasureAction extends MeasureAction {
   /** Sets and steps through the fakes. */

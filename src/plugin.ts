@@ -19,12 +19,13 @@ streamDeck.logger.setLevel("info");
 // The plugin's log carries on across restarts, so each run is marked where it starts.
 logger.info("Plugin started");
 
+// In the order the manifest lists them, which is the order Stream Deck's actions list shows them in (#236).
 streamDeck.actions.registerAction(new PowerAction());
-streamDeck.actions.registerAction(new BrightnessAction());
-streamDeck.actions.registerAction(new TemperatureAction());
 streamDeck.actions.registerAction(new SceneAction());
+streamDeck.actions.registerAction(new BrightnessAction());
 streamDeck.actions.registerAction(new BrightnessUpAction());
 streamDeck.actions.registerAction(new BrightnessDownAction());
+streamDeck.actions.registerAction(new TemperatureAction());
 streamDeck.actions.registerAction(new TemperatureUpAction());
 streamDeck.actions.registerAction(new TemperatureDownAction());
 answerPluginSettingsPage();

@@ -13,7 +13,7 @@ An action class gets its id from `@action({ UUID })`: the SDK's decorator gives 
 
 Once registered, an action receives only the events of the keys and dials whose `manifestId` is its own, and `SingletonAction.actions` lists only the visible keys and dials with that `manifestId`. So two actions never see each other's keys, and a Power action that updates "its" keys updates only the Power keys.
 
-Stream Deck lists the actions from the manifest, not from the plugin, so an action in the manifest without a registered class is still offered in the app, and its events reach no code. That last part comes from how the two fit together, and hasn't been checked on the Deck.
+Stream Deck lists the actions from the manifest, not from the plugin, so an action in the manifest without a registered class is still offered in the app, and its events reach no code. That last part comes from how the two fit together, and hasn't been checked on the Deck. The list shows them under the plugin's category, by their `Name`, in the order `Actions` gives them, which is what the plugin sorts them by ([#236]), and `plugin.ts` registers them in the same order, for whoever reads the two side by side. A key or dial already placed is found by its UUID, so renaming an action keeps it working ([`manual_testing/actions_list.md`][actions-list]).
 
 The tests check both directions: `src/plugin.test.ts` compares the actions `plugin.ts` registers with the manifest's, and the fake SDK in `src/test-support/fake-stream-deck.ts` refuses an action the manifest doesn't list.
 
@@ -43,3 +43,5 @@ Checked on Stream Deck 7.6: each dial's id, logged as it appeared, across a rest
 
 [#144]: https://github.com/daczarne/streamdeck-litra/issues/144
 [#198]: https://github.com/daczarne/streamdeck-litra/issues/198
+[#236]: https://github.com/daczarne/streamdeck-litra/issues/236
+[actions-list]: ../manual_testing/actions_list.md
