@@ -9,8 +9,8 @@
  *   1. Turns the lamp off and on, each twice: once changing its power, once to the power it already has.
  *   2. Sets another temperature twice, the second time to the one it already has, then the temperature it had.
  *   3. Sets the minimum brightness, then the brightness it had, which a capped lamp reached and so keeps.
- *   4. Makes each of those writes, closes the handle straight away without reading, opens the lamp again, and listens on
- *      the new handle.
+ *   4. Makes each of those writes, closes the handle straight away without reading, opens the lamp again, and listens
+ *      on the new handle.
  * The lamp is then put back as it was found, as every probe's is (see lamps.mjs), and the results go to the run's file.
  *
  * Usage: node scripts/probes/write-reports.mjs

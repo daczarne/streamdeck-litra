@@ -1,11 +1,11 @@
 // A switch for whether a scene's group turns its lamps on or off (#174), in place of a list of On and Off, so a group's
 // power and presets fit on one row. sdpi-components has no switch, so it's the plugin's own, an element named
-// `litra-switch`: grey when it's off, and in the purple of sdpi-components' checked checkbox when it's on. It saves "on"
-// or "off", as the list did. With a `setting`, it reads and saves it, as an sdpi-components control does, shows its
-// `default` while the setting is missing, and tells of each value it shows, the user's or the saved one, through
+// `litra-switch`: grey when it's off, and in the purple of sdpi-components' checked checkbox when it's on. It saves
+// "on" or "off", as the list did. With a `setting`, it reads and saves it, as an sdpi-components control does, shows
+// its `default` while the setting is missing, and tells of each value it shows, the user's or the saved one, through
 // `valuechange`. Without one, it saves nothing, and a script sets its `value` and hears the user's changes through
-// `valuechange`. A file rather than an inline script, so the pages' Content-Security-Policy doesn't have to allow inline
-// scripts.
+// `valuechange`. A file rather than an inline script, so the pages' Content-Security-Policy doesn't have to allow
+// inline scripts.
 (() => {
   const style = document.createElement("style");
   style.textContent = `

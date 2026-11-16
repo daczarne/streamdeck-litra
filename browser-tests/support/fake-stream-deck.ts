@@ -23,9 +23,10 @@ export type KnownLamp = { model: string; name?: string };
  * records the messages the page sends. It keeps the plugin's global settings, which it answers a page that asks for
  * them with, as Stream Deck does. It also stands in for the plugin behind it, answering a page that asks for the lamps
  * with {@link lamps}, which it adds to the lamps the plugin knows, a page that asks which lamps are connected with
- * {@link connected}, and renaming and forgetting a lamp, as the plugin does: it saves them in the global settings, and passes them on to the page, as Stream Deck passes on the plugin's
- * save (#194). Node has a WebSocket client but no server, so this decodes the frames
- * itself, as far as the pages need: text frames from the client, and its close frame, and sends text frames back.
+ * {@link connected}, and renaming and forgetting a lamp, as the plugin does: it saves them in the global settings, and
+ * passes them on to the page, as Stream Deck passes on the plugin's save (#194). Node has a WebSocket client but no
+ * server, so this decodes the frames itself, as far as the pages need: text frames from the client, and its close
+ * frame, and sends text frames back.
  */
 export class FakeStreamDeck {
   readonly messages: StreamDeckMessage[] = [];
@@ -93,7 +94,9 @@ export class FakeStreamDeck {
     });
   }
 
-  /** Sends an action's settings to every page, as Stream Deck does when they're saved elsewhere, such as by the plugin. */
+  /**
+   * Sends an action's settings to every page, as Stream Deck does when they're saved elsewhere, such as by the plugin.
+   */
   sendSettings(settings: Record<string, unknown>): void {
     for (const socket of this.sockets) this.send(socket, { event: "didReceiveSettings", payload: { settings } });
   }
@@ -128,8 +131,8 @@ export class FakeStreamDeck {
 
   /**
    * Answers a page that asks for the global settings, a moment later, and keeps the ones it saves, as Stream Deck
-   * does, and a page that asks the plugin for the lamps, or to rename or forget one, as `src/settings/plugin-settings-page.ts`
-   * does.
+   * does, and a page that asks the plugin for the lamps, or to rename or forget one, as
+   * `src/settings/plugin-settings-page.ts` does.
    */
   private answer(message: StreamDeckMessage, socket: Socket): void {
     if (message.event === "getGlobalSettings") {

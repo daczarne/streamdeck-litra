@@ -125,7 +125,8 @@ async function main() {
     );
   }
 
-  // Brightness and Temperature glyphs (72 / 144) at full size, the dials' icons on the touch strip and the lamp screens'
+  // Brightness and Temperature glyphs (72 / 144) at full size, the dials' icons on the touch strip and the lamp
+  // screens'
   await writePair(path.join(root, "actions/brightness/glyph"), (s) => brightnessGlyph(s), 72);
   await writePair(path.join(root, "actions/temperature/glyph"), (s) => temperatureGlyph(s), 72);
 

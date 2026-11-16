@@ -36,9 +36,9 @@ function pause(ms: number): void {
  * the global settings keep them (#194), and the name given to it (#146), its state, as the plugin last set it and the
  * lamp reported it, the brightness it can reach on a low-power supply, its brightness cap (#55), when it may still go
  * back to that cap, and what it was last asked for when it's kept apart from the others (#145). It never holds the
- * lamp's serial number, only its id. It decides what its lamp is sent, and sends it through the lamp's connection, which
- * an operation lends it as a `LampHandle`, and acts on its own lamp alone. It forgets all but who it is when the plugin
- * restarts.
+ * lamp's serial number, only its id. It decides what its lamp is sent, and sends it through the lamp's connection,
+ * which an operation lends it as a `LampHandle`, and acts on its own lamp alone. It forgets all but who it is when the
+ * plugin restarts.
  */
 export class Lamp {
   /** The lamp's id, from its serial number (see {@link Lamp.idOf}), by which the plugin knows it everywhere. */
@@ -71,8 +71,8 @@ export class Lamp {
 
   /**
    * A lamp's id, from its serial number: the first 16 hex characters of its SHA-256. The plugin reads the serial from
-   * the lamp on every operation, and finds the lamp's `Lamp` by this id, the only thing it keeps of the serial. It names
-   * the lamp wherever the plugin does, such as a key's settings, which travel with an exported profile, without
+   * the lamp on every operation, and finds the lamp's `Lamp` by this id, the only thing it keeps of the serial. It
+   * names the lamp wherever the plugin does, such as a key's settings, which travel with an exported profile, without
    * revealing the serial (#20).
    */
   static idOf(serialNumber: string): string {
@@ -115,7 +115,9 @@ export class Lamp {
     this.lampName = name;
   }
 
-  /** The lamp as the Deck, the settings pages and the logs name it, such as "Beam - c870" (see {@link Lamp.labelOf}). */
+  /**
+   * The lamp as the Deck, the settings pages and the logs name it, such as "Beam - c870" (see {@link Lamp.labelOf}).
+   */
   get label(): string {
     return Lamp.labelOf(this);
   }
@@ -369,9 +371,9 @@ export class Lamp {
   }
 
   /**
-   * Sets the lamp to the temperature it allows nearest to `kelvin`, and holds the one it then reports, which it returns.
-   * `asked` is what a step of lamps kept apart asked of the lamp (#145), which its next such step goes on from. Any
-   * other change leaves it out, which forgets it.
+   * Sets the lamp to the temperature it allows nearest to `kelvin`, and holds the one it then reports, which it
+   * returns. `asked` is what a step of lamps kept apart asked of the lamp (#145), which its next such step goes on
+   * from. Any other change leaves it out, which forgets it.
    */
   setTemperature(operation: string, handle: LampHandle, kelvin: number, asked?: number): number {
     const allowed = this.snapKelvin(kelvin);

@@ -1,17 +1,17 @@
 // The lamps a key acts on (#20): a checkbox for each lamp the plugin knows (#194), and one for every lamp. The lamps
 // come from the plugin's global settings, where the plugin saves them, and the page looks for none: Find lamps in the
-// plugin settings does (plugin-settings.js). Each lamp shows with the name given to it in the plugin settings (#146), or
-// else its label, such as "Beam - c870": its model and the last 4 characters of its id. The key saves the ids of the lamps checked, as `lamps`, and of the ones left
-// unchecked, as `leftOutLamps`, and keeps the ids of the lamps the plugin no longer knows, such as one forgotten, which
-// comes back as the key left it once the plugin knows it again. A key that adds new lamps acts on every lamp but the
-// left out ones, so a lamp it hasn't listed yet shows checked, and one that doesn't acts on the checked ones alone
-// (#147). Whether it adds them comes from plugin-settings.js, which shows that choice. On a Scene key's page, a lamp a
-// group added after the first holds is greyed out, and says which group holds it (scene-groups.js, #174), while the key
-// keeps what it saved for it, which applies again once no group holds it. All is then greyed out too, since it means
-// every lamp the plugin knows, which the first group no longer can have. The lamps the key acts on, its scene's first
-// group, are told to scene-groups.js, through an event on the document.
-// `lamps` is "all" for a key saved before lamps could be picked, or never saved, which acts on every lamp. A file rather
-// than an inline script, so the pages' Content-Security-Policy doesn't have to allow inline scripts.
+// plugin settings does (plugin-settings.js). Each lamp shows with the name given to it in the plugin settings (#146),
+// or else its label, such as "Beam - c870": its model and the last 4 characters of its id. The key saves the ids of the
+// lamps checked, as `lamps`, and of the ones left unchecked, as `leftOutLamps`, and keeps the ids of the lamps the
+// plugin no longer knows, such as one forgotten, which comes back as the key left it once the plugin knows it again. A
+// key that adds new lamps acts on every lamp but the left out ones, so a lamp it hasn't listed yet shows checked, and
+// one that doesn't acts on the checked ones alone (#147). Whether it adds them comes from plugin-settings.js, which
+// shows that choice. On a Scene key's page, a lamp a group added after the first holds is greyed out, and says which
+// group holds it (scene-groups.js, #174), while the key keeps what it saved for it, which applies again once no group
+// holds it. All is then greyed out too, since it means every lamp the plugin knows, which the first group no longer can
+// have. The lamps the key acts on, its scene's first group, are told to scene-groups.js, through an event on the
+// document. `lamps` is "all" for a key saved before lamps could be picked, or never saved, which acts on every lamp. A
+// file rather than an inline script, so the pages' Content-Security-Policy doesn't have to allow inline scripts.
 (() => {
   const picker = document.getElementById("lamp-picker");
   if (picker === null) {
@@ -189,7 +189,9 @@
     return row;
   }
 
-  /** Draws the picker from what the key has saved and the lamps the plugin knows, on a key's page, once they're read. */
+  /**
+   * Draws the picker from what the key has saved and the lamps the plugin knows, on a key's page, once they're read.
+   */
   function render() {
     if (!onKey || known === undefined) {
       return;

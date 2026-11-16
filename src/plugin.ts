@@ -29,8 +29,9 @@ streamDeck.actions.registerAction(new TemperatureUpAction());
 streamDeck.actions.registerAction(new TemperatureDownAction());
 answerPluginSettingsPage();
 
-// The lamp manager acts on the lamps the global settings hold, handed to it rather than imported, so it doesn't depend on
-// the global settings, and its tests hand it lamps of their own. It's the same map, which every read keeps up to date.
+// The lamp manager acts on the lamps the global settings hold, handed to it rather than imported, so it doesn't depend
+// on the global settings, and its tests hand it lamps of their own. It's the same map, which every read keeps up to
+// date.
 useLamps(globalSettings.lamps);
 
 // Waited for only once connect() is called, since Stream Deck answers the first read only once the plugin is connected.

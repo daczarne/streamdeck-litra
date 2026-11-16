@@ -4,12 +4,12 @@ import type { Device as HidDeviceInfo } from "node-hid";
 import { at } from "./at";
 
 // What each model is, taken from litra-rs (github.com/timrogers/litra-rs, src/lib.rs at e05d931), not from litra, so
-// that the tests check litra against another account of the protocol. The Beam also comes as product 0xb901. Whether its
-// USB descriptor gives its serial number comes from `scripts/probes/serial-numbers.mjs`, run on the Beams and a Beam LX
-// (#170), and so does the version of its Device Information feature. Whether it turns on at the setting it saved once
-// switched off, rather than at the one it has, comes from `scripts/probes/power-cycle.mjs` (#100). The Beam's and the
-// Beam LX's ranges, 30 to 400 lm and 2700 to 6500 K, were checked on the lamps, the Beam LX's in #100. The Glow wasn't
-// probed, and is taken to be a Beam.
+// that the tests check litra against another account of the protocol. The Beam also comes as product 0xb901. Whether
+// its USB descriptor gives its serial number comes from `scripts/probes/serial-numbers.mjs`, run on the Beams and a
+// Beam LX (#170), and so does the version of its Device Information feature. Whether it turns on at the setting it
+// saved once switched off, rather than at the one it has, comes from `scripts/probes/power-cycle.mjs` (#100). The
+// Beam's and the Beam LX's ranges, 30 to 400 lm and 2700 to 6500 K, were checked on the lamps, the Beam LX's in #100.
+// The Glow wasn't probed, and is taken to be a Beam.
 const MODELS = {
   Glow: {
     productId: 0xc900,
@@ -228,8 +228,8 @@ export function isIdentifying(report: number[]): boolean {
  * It follows what `scripts/probes/` measured on the Beams: a query gets a reply with the value in bytes 4 and 5, and
  * every write gets an ACK, which carries no value, even a write that changes nothing (#96). A report it can't carry
  * out gets an error report. It also answers HID++ 2.0's Root feature, and gives its serial number through its Device
- * Information feature, which a Beam LX, whose USB descriptor gives none, is asked for (#170). A handle opened on it starts empty, since what the lamp sent to a handle is gone once that
- * handle closes.
+ * Information feature, which a Beam LX, whose USB descriptor gives none, is asked for (#170). A handle opened on it
+ * starts empty, since what the lamp sent to a handle is gone once that handle closes.
  *
  * A Beam LX turns on at the brightness and temperature it saved {@link SAVE_DELAY_MS} after it was last switched off,
  * which are the ones it had when switched off. Switched on sooner, it turns on at the setting it saved before, and a
@@ -317,7 +317,10 @@ export class EmulatedLitra {
     return this.failingCalls.has(call) || this.failingCalls.has("everything");
   }
 
-  /** The values written for a command, in order: 1 or 0 for the power, lumens for the brightness, kelvin for the temperature. */
+  /**
+   * The values written for a command, in order: 1 or 0 for the power, lumens for the brightness, kelvin for the
+   * temperature.
+   */
   writes(command: Command): number[] {
     return this.written
       .filter((report) => kindOf(report) === command)

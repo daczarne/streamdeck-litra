@@ -103,8 +103,8 @@ const PANELS: Panel[] = [
 ];
 
 // The global checkboxes of sdpi-components the plugin settings show, on every page, which every dial and key shares
-// (#145, #146), the lists of the lamp screens' cells, in the order the cells are read (#177), the controls of their text
-// styles (#153), and every global setting they show through sdpi-components, in their order: the lamps' first, the
+// (#145, #146), the lists of the lamp screens' cells, in the order the cells are read (#177), the controls of their
+// text styles (#153), and every global setting they show through sdpi-components, in their order: the lamps' first, the
 // blink's length (#171) last among them, then the lamp screens'.
 const PLUGIN_SETTINGS_CHECKBOXES = ["keepBrightnessDifference", "keepTemperatureDifference"];
 const LAMP_SCREEN_LISTS = [
@@ -313,9 +313,9 @@ const NUMBER_SHOWN = `(field) => {
 
 /**
  * How far off center a number field shows its value and its unit together, in pixels: the space left of the value's
- * text less the space right of the unit, or null when the field isn't drawn. The text is measured on a copy of it in the
- * input's font, placed in the field so that it's drawn, since an input's box can be wider than its text, which it draws
- * on its right.
+ * text less the space right of the unit, or null when the field isn't drawn. The text is measured on a copy of it in
+ * the input's font, placed in the field so that it's drawn, since an input's box can be wider than its text, which it
+ * draws on its right.
  */
 function numberOffCenter(page: Page, field: string): Promise<number | null> {
   return page.evaluate(`(() => {
@@ -538,7 +538,7 @@ describe("settings pages", () => {
       await page.close();
     });
 
-    it("steps by its step on − and +, greyed out at the ends of its range, and saves once the clicks stop", async () => {
+    it("steps by its step on − and +, greyed out at its range's ends, and saves once the clicks stop", async () => {
       const { page, uuid } = await openPanel(panel);
       const control = await controlOf(page, setting);
       const [min, max, step] = [Number(control.min), Number(control.max), Number(control.step)];
@@ -677,7 +677,7 @@ describe("settings pages", () => {
       await page.close();
     });
 
-    it("keeps a change not saved yet when the saved value arrives, and takes the saved value once nothing is pending", async () => {
+    it("keeps an unsaved change when the saved value arrives, and takes that value once none is pending", async () => {
       const { page, uuid } = await openPanel(BRIGHTNESS, { presetPercentage: 10 });
       await expect.poll(() => shownValue(page, "presetPercentage")).toBe("10 %");
 
@@ -716,9 +716,10 @@ describe("settings pages", () => {
       }
 
       /**
-       * Waits for the page to have the global settings, not only to have asked for them: sdpi-components' getter answers
-       * once they've arrived, by when the checkboxes show them. Checking a box before then would race the answer, which
-       * sdpi-components applies over the click, so the page would save again, late enough to reach the next test.
+       * Waits for the page to have the global settings, not only to have asked for them: sdpi-components' getter
+       * answers once they've arrived, by when the checkboxes show them. Checking a box before then would race the
+       * answer, which sdpi-components applies over the click, so the page would save again, late enough to reach the
+       * next test.
        */
       async function globalSettingsRead(page: Page): Promise<void> {
         await page.evaluate(`SDPIComponents.useGlobalSettings("${setting}")[0]()`);
@@ -779,7 +780,8 @@ describe("settings pages", () => {
     },
   );
 
-  // What each cell of the lamp screens shows, a list per cell in the plugin settings, on a key's page and a dial's (#177).
+  // What each cell of the lamp screens shows, a list per cell in the plugin settings, on a key's page and a dial's
+  // (#177).
   const lampScreenLists = [at(PANELS, 0), at(PANELS, 2)].flatMap((panel) =>
     LAMP_SCREEN_LISTS.map((setting) => ({ panel, setting })),
   );
@@ -1441,7 +1443,7 @@ describe("settings pages", () => {
       await page.close();
     });
 
-    it("leaves out a lamp the plugin doesn't know that the key left out, and keeps it left out (#147, #194)", async () => {
+    it("hides a lamp the plugin doesn't know that the key left out, and keeps it left out (#147, #194)", async () => {
       const { page, uuid } = await openPicker([FIRST], {
         lamps: [savedLamp(FIRST)],
         leftOutLamps: [savedLamp(SECOND)],
@@ -1577,7 +1579,7 @@ describe("settings pages", () => {
       await page.close();
     });
 
-    it("saves a click on a key's own as the key's choice, keeping the other global settings, and not the key's", async () => {
+    it("saves a click on a key's own as its choice, keeping the other global settings, not the key's", async () => {
       streamDeck.globalSettings = { keepBrightnessDifference: true };
       const { page, uuid, context } = await openKey();
 
@@ -1670,7 +1672,7 @@ describe("settings pages", () => {
       };
     }
 
-    it("shows the first group alone, without a heading, and a button that adds a group, for a key with none added", async () => {
+    it("shows the first group alone, with no heading, and Add a group, on a key with none added", async () => {
       const { page } = await openScene();
 
       expect(await groupsOf(page)).toEqual({ firstHeading: false, firstPresets: true, groups: [], add: true });
@@ -1715,7 +1717,7 @@ describe("settings pages", () => {
       await page.close();
     });
 
-    it("adds a group, on at settings.ts's defaults with no lamps, saves it, and numbers it after the first", async () => {
+    it("adds a group, on at the defaults with no lamps, saves it, and numbers it after the first", async () => {
       const { page, uuid } = await openScene();
 
       const after = streamDeck.messages.length;
@@ -1735,7 +1737,7 @@ describe("settings pages", () => {
       await page.close();
     });
 
-    it("shows a saved group's power and lamps, and a dash in its greyed out presets, with a note, while it's off", async () => {
+    it("shows a group's power and lamps, and a dash in its greyed out presets and a note while it's off", async () => {
       const { page } = await openScene({
         ...FIRST_HOLDS_NONE,
         addedGroups: [{ power: "off", presetPercentage: 40, presetKelvin: 5000, lamps: [savedLamp(SECOND)] }],
@@ -1793,7 +1795,7 @@ describe("settings pages", () => {
       await page.close();
     });
 
-    it("keeps a group's controls in place when one changes, so the page doesn't scroll as new ones are drawn", async () => {
+    it("keeps a group's controls in place when one changes, so the page doesn't scroll while redrawing", async () => {
       const { page, uuid } = await openScene({ ...FIRST_HOLDS_NONE, addedGroups: [NEW_GROUP] });
       await page.evaluate(`document.querySelector("#added-groups .group litra-number").dataset.kept = "yes"`);
 
@@ -1817,7 +1819,7 @@ describe("settings pages", () => {
       await page.close();
     });
 
-    it("saves a lamp checked in a group, and greys it out in the first group's lamp picker, with its group", async () => {
+    it("saves a lamp checked in a group, and greys it out in the first group's picker, with its group", async () => {
       const { page, uuid } = await openScene({ ...FIRST_HOLDS_NONE, addedGroups: [NEW_GROUP] });
 
       const after = streamDeck.messages.length;
@@ -1835,7 +1837,7 @@ describe("settings pages", () => {
       await page.close();
     });
 
-    it("greys out the first group's lamps in the groups added after it, and frees one once it's unchecked there", async () => {
+    it("greys out the first group's lamps in the added groups, and frees one once it's unchecked there", async () => {
       const { page } = await openScene({ lamps: [savedLamp(FIRST), savedLamp(SECOND)], addedGroups: [NEW_GROUP] });
 
       await expect
@@ -1880,7 +1882,7 @@ describe("settings pages", () => {
       await page.close();
     });
 
-    it("unchecks and greys out All in the first group's picker once a group holds a lamp, which it can't have", async () => {
+    it("unchecks and greys out the first group's All once a group holds a lamp, which it can't have", async () => {
       const { page } = await openScene({ addedGroups: [{ ...NEW_GROUP, lamps: [savedLamp(FIRST)] }] });
 
       await expect
@@ -1901,7 +1903,7 @@ describe("settings pages", () => {
       await page.close();
     });
 
-    it("leaves out a lamp the plugin doesn't know that a group checked, and keeps it in what it saves (#194)", async () => {
+    it("hides a lamp the plugin doesn't know that a group checked, and keeps it in what it saves (#194)", async () => {
       const gone = "aaaaaaaaaaaaaaaa";
       const { page, uuid } = await openScene({ ...FIRST_HOLDS_NONE, addedGroups: [{ ...NEW_GROUP, lamps: [gone] }] });
 
@@ -1919,7 +1921,7 @@ describe("settings pages", () => {
       await page.close();
     });
 
-    it("removes a group, numbers the ones after it again, and frees its lamps in the first group's picker", async () => {
+    it("removes a group, renumbers the ones after it, and frees its lamps in the first group's picker", async () => {
       const { page, uuid } = await openScene({
         addedGroups: [
           { ...NEW_GROUP, lamps: [savedLamp(FIRST)] },
@@ -2145,8 +2147,8 @@ describe("settings pages", () => {
     });
 
     /**
-     * Opens the Power key's page with the lamps the plugin knows (#194) and the ones it finds, then its plugin settings,
-     * once they list the ones it knows.
+     * Opens the Power key's page with the lamps the plugin knows (#194) and the ones it finds, then its plugin
+     * settings, once they list the ones it knows.
      */
     async function openPluginSettings(knows: Record<string, unknown>, finds: ListedLamp[] = []) {
       streamDeck.globalSettings = { ...streamDeck.globalSettings, lamps: knows };
@@ -2164,7 +2166,7 @@ describe("settings pages", () => {
         .filter((m) => m.event === "sendToPlugin" && m.context === uuid && m.payload?.event === event);
     }
 
-    it("list every lamp the plugin knows by the end of its id, its model and its name, without looking for lamps (#194)", async () => {
+    it("list each lamp the plugin knows by its id's end, model and name, without finding lamps (#194)", async () => {
       const { page, uuid } = await openPluginSettings({
         [FIRST.id]: known(FIRST),
         [SECOND.id]: known(SECOND, "Key light"),
@@ -2200,7 +2202,7 @@ describe("settings pages", () => {
       await page.close();
     });
 
-    it("ask the plugin to name a lamp as it's typed, save no global settings, and show the name in the lamp picker", async () => {
+    it("ask the plugin to name a lamp as it's typed, save no global settings, and show it in the picker", async () => {
       const { page, uuid } = await openPluginSettings(
         { [FIRST.id]: known(FIRST), [SECOND.id]: known(SECOND, "Key light") },
         [FIRST, SECOND],
@@ -2244,7 +2246,7 @@ describe("settings pages", () => {
       await page.close();
     });
 
-    it("ask the plugin to take a name away when its field is emptied, and show the lamp by its label again", async () => {
+    it("ask the plugin to remove a name when its field is emptied, and show the lamp by its label again", async () => {
       const { page, uuid } = await openPluginSettings(
         { [FIRST.id]: known(FIRST, "Left"), [SECOND.id]: known(SECOND, "Key light") },
         [FIRST, SECOND],
@@ -2360,7 +2362,9 @@ describe("settings pages", () => {
   });
 });
 
-/** What a dial's page shows of the dial's own blink: whether it shows it, and if so, its label and whether it's checked. */
+/**
+ * What a dial's page shows of the dial's own blink: whether it shows it, and if so, its label and whether it's checked.
+ */
 function dialBlinkOf(page: Page): Promise<{ shown: boolean; label?: string | null; checked?: boolean }> {
   return page.evaluate(`(() => {
     const box = document.querySelector("#dial-blink sdpi-checkbox");
@@ -2497,7 +2501,8 @@ function groupsOf(
   return page.evaluate(`(() => {
     const rows = ${LAMP_ROWS};
     // Whether any of these number fields can be changed, by its buttons or by typing.
-    const usable = (fields) => fields.some((field) => [...field.querySelectorAll("input, button")].some((c) => !c.disabled));
+    const usable = (fields) =>
+      fields.some((field) => [...field.querySelectorAll("input, button")].some((c) => !c.disabled));
     const groups = [...document.querySelectorAll("#added-groups .group")].map((group) => ({
       heading: group.querySelector(".group-heading").textContent,
       power: group.querySelector(".scene-row litra-switch").value,
@@ -2666,7 +2671,10 @@ function pluginSettingsOf(page: Page): Promise<PluginSettings> {
 function clickInPluginSettings(page: Page, text: string, row?: string): Promise<void> {
   return page.evaluate(`(async () => {
     const container = document.getElementById("plugin-settings");
-    const scope = ${row === undefined ? "container" : `[...container.querySelectorAll("tr.lamp")].find((r) => r.firstElementChild.textContent === ${JSON.stringify(row)})`};
+    const row = ${JSON.stringify(row ?? null)};
+    const scope = row === null ? container : [...container.querySelectorAll("tr.lamp")].find(
+      (r) => r.firstElementChild.textContent === row,
+    );
     const trash = [...scope.querySelectorAll("button.forget")].find(
       (element) => element.getAttribute("aria-label") === ${JSON.stringify(text)},
     );
@@ -2675,7 +2683,8 @@ function clickInPluginSettings(page: Page, text: string, row?: string): Promise<
       return;
     }
     const host = [...scope.querySelectorAll("sdpi-button")].find(
-      (element) => element.textContent === ${JSON.stringify(text)} && element.checkVisibility({ visibilityProperty: true }),
+      (element) =>
+        element.textContent === ${JSON.stringify(text)} && element.checkVisibility({ visibilityProperty: true }),
     );
     await host.updateComplete;
     host.shadowRoot.querySelector("button").click();
@@ -2686,7 +2695,9 @@ function clickInPluginSettings(page: Page, text: string, row?: string): Promise<
 function typeName(page: Page, row: string, name: string): Promise<void> {
   return page.evaluate(`(async () => {
     const container = document.getElementById("plugin-settings");
-    const lamp = [...container.querySelectorAll("tr.lamp")].find((r) => r.firstElementChild.textContent === ${JSON.stringify(row)});
+    const lamp = [...container.querySelectorAll("tr.lamp")].find(
+      (r) => r.firstElementChild.textContent === ${JSON.stringify(row)},
+    );
     const host = lamp.querySelector("sdpi-textfield");
     await host.updateComplete;
     const input = host.shadowRoot.querySelector("input");

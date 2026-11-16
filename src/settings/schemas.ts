@@ -101,8 +101,8 @@ function hexColor(fallback: string): Setting<string> {
 
 /**
  * What the global settings save of a lamp the plugin knows (#194), by its id: its model, such as "Beam", and the name
- * given to it in the plugin settings, if any (#146). Nothing of its serial number is saved. The plugin holds each one as
- * a `Lamp`.
+ * given to it in the plugin settings, if any (#146). Nothing of its serial number is saved. The plugin holds each one
+ * as a `Lamp`.
  */
 export type SavedLamp = { readonly model: string; readonly name?: string };
 
@@ -402,8 +402,9 @@ export const globalSettingsSchema = {
 export type ParsedGlobalSettings = Parsed<typeof globalSettingsSchema>;
 
 /**
- * Reads an action's settings, or the plugin's global ones, as Stream Deck sent them, against their schema (#22). A setting that is missing
- * takes its default. One that isn't valid, from an older or edited profile, takes its default too, with a warning.
+ * Reads an action's settings, or the plugin's global ones, as Stream Deck sent them, against their schema (#22). A
+ * setting that is missing takes its default. One that isn't valid, from an older or edited profile, takes its default
+ * too, with a warning.
  */
 export function parseSettings<S extends Schema>(
   settings: JsonObject,

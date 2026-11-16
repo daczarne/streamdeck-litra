@@ -1,10 +1,11 @@
 // A number field with a − button on its left and a + button on its right (#195), for the settings a slider set before:
 // a brightness or a temperature, a step, the blink's length. sdpi-components has no such control, so it's the plugin's
 // own, an element named `litra-number`, drawn in the panel's look. − and + move the value by the setting's step, and
-// greyed out at the ends of its range, and holding one repeats it. A value typed in is taken on Enter, or once the field
-// is left, snapped to the step and kept within the range, and one that isn't a number goes back to the value shown.
-// The unit shows inside the field, after the value. A disabled field is a setting that doesn't apply, such as a scene
-// group's presets while it turns its lamps off: it shows a dash in place of its value and unit, and keeps its value.
+// greyed out at the ends of its range, and holding one repeats it. A value typed in is taken on Enter, or once the
+// field is left, snapped to the step and kept within the range, and one that isn't a number goes back to the value
+// shown. The unit shows inside the field, after the value. A disabled field is a setting that doesn't apply, such as a
+// scene group's presets while it turns its lamps off: it shows a dash in place of its value and unit, and keeps its
+// value.
 //
 // With a `setting`, the field reads and saves it, an action's or, with `global`, the plugin's, as an sdpi-components
 // control does, and shows its `default` while the setting is missing. Without one, it saves nothing, and a script sets
@@ -13,7 +14,8 @@
 // Enter, on leaving the field, or on letting go of a button held. A file rather than an inline script, so the pages'
 // Content-Security-Policy doesn't have to allow inline scripts.
 (() => {
-  // How long a button is held before it repeats, how often it repeats, and how long after the last change a value saves.
+  // How long a button is held before it repeats, how often it repeats, and how long after the last change a value
+  // saves.
   const HOLD_DELAY_MS = 400;
   const REPEAT_MS = 80;
   const SAVE_DELAY_MS = 300;
@@ -243,8 +245,8 @@
     }
 
     /**
-     * Shows the user's new value, and saves it once the changes stop for a moment, or, while a button is held, once it's
-     * let go.
+     * Shows the user's new value, and saves it once the changes stop for a moment, or, while a button is held, once
+     * it's let go.
      */
     change(value) {
       const snapped = this.snap(value);

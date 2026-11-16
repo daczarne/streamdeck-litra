@@ -51,7 +51,9 @@ export abstract class MeasureAction extends RoutingAction<PresetKey | MeasureDia
     super();
   }
 
-  /** A key that sets its preset, or a dial that steps the lamps: the manifest places the action on keys and dials alone. */
+  /**
+   * A key that sets its preset, or a dial that steps the lamps: the manifest places the action on keys and dials alone.
+   */
   protected override create(control: DeckControl, settings: JsonObject): PresetKey | MeasureDial | undefined {
     if (control.isKey()) {
       return new PresetKey(control, settings, this.logger, this.preset);
@@ -86,8 +88,8 @@ class PresetKey extends ActionInstance<ReturnType<Preset["read"]>, KeyAction<Jso
   }
 
   /**
-   * Sets the key's lamps to its preset. The dials follow through the lamp manager's notice, with what the lamps reached,
-   * which is less for a lamp at its cap, or a temperature snapped to one it allows.
+   * Sets the key's lamps to its preset. The dials follow through the lamp manager's notice, with what the lamps
+   * reached, which is less for a lamp at its cap, or a temperature snapped to one it allows.
    */
   override async keyDown(): Promise<void> {
     const { preset } = this.config;

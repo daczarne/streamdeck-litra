@@ -578,7 +578,7 @@ describe("syncing the global settings (#144)", () => {
     expect(synced.globalSettings.temperatureStepping).toBe("each");
   });
 
-  it("keep the lamps the plugin knows in one map, which every read updates, as the lamp manager holds it (#198)", async () => {
+  it("keep the lamps the plugin knows in one map, which every read updates, for the lamp manager (#198)", async () => {
     settings.getGlobalSettings.mockResolvedValue({ lamps: { "0000000000001111": { model: "Beam" } } });
     // The map as the lamp manager is handed it, before the first read.
     const { lamps } = synced.globalSettings;

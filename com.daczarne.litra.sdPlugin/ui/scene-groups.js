@@ -2,10 +2,10 @@
 // row: a switch for its power, and number fields for its presets. The first group is the page's own controls, which
 // save the key's settings as a scene with a single group saves them. While a group's power is off, its presets don't
 // apply: this greys them out, so they show a dash in place of their values, which they keep, and shows a note under
-// them that says so. The groups added after it are drawn here, under a heading each, and saved as `addedGroups`: each with its
-// power, its presets, and the ids of the lamps checked for it, among the lamps the plugin knows (#194), keeping the
-// ones it no longer knows, such as one forgotten. No two groups hold the same lamp: a lamp another group holds, the
-// first included, is greyed out, and says which group holds it, here and in the first group's lamp picker
+// them that says so. The groups added after it are drawn here, under a heading each, and saved as `addedGroups`: each
+// with its power, its presets, and the ids of the lamps checked for it, among the lamps the plugin knows (#194),
+// keeping the ones it no longer knows, such as one forgotten. No two groups hold the same lamp: a lamp another group
+// holds, the first included, is greyed out, and says which group holds it, here and in the first group's lamp picker
 // (lamp-picker.js), which tells this of the lamps the first group holds, as this tells it of the ones the others do,
 // through events on the document. A lamp that a group added after the first checks leaves the first, as the plugin
 // takes it. The lamps, with their names, come from the plugin's global settings, where the plugin saves them. Only
