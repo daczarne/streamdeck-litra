@@ -13,7 +13,7 @@ An action class gets its id from `@action({ UUID })`: the SDK's decorator gives 
 
 Once registered, an action receives only the events of the keys and dials whose `manifestId` is its own, and `SingletonAction.actions` lists only the visible keys and dials with that `manifestId`. So two actions never see each other's keys, and a Power action that updates "its" keys updates only the Power keys.
 
-Stream Deck lists the actions from the manifest, not from the plugin, so an action in the manifest without a registered class is still offered in the app, and its events reach no code. That last part comes from how the two fit together, and hasn't been checked on the Deck.
+Stream Deck lists the actions from the manifest, not from the plugin, so an action in the manifest without a registered class is still offered in the app, and its events reach no code. That last part comes from how the two fit together, and hasn't been checked on the Deck. The list shows them under the plugin's category, by their `Name`, in the order `Actions` gives them, so the manifest sets the order users see ([#236]). `plugin.ts` registers them in the same order, so the two read side by side. A key or dial already placed is found by its UUID, so it keeps working when its action is renamed, and shows the new name.
 
 The tests check both directions: `src/plugin.test.ts` compares the actions `plugin.ts` registers with the manifest's, and the fake SDK in `src/test-support/fake-stream-deck.ts` refuses an action the manifest doesn't list.
 
@@ -39,7 +39,9 @@ A key's or dial's id (`action.id` in the plugin, `actionInfo.context` on its set
 - The objects kept for the keys and dials on screen, and their settings: `dist/plugin/actions/store.js` and `dist/plugin/actions/cache.js`, which the listeners in `dist/plugin/actions/service.js` fill and empty.
 - Which settings events reach an action: `dist/plugin/settings.js`.
 
-Checked on Stream Deck 7.6: each dial's id, logged as it appeared, across a restart of the plugin and of Stream Deck. What the SDK keeps for each key and dial, and which events it sends, is read from its source.
+Checked on Stream Deck 7.6: each dial's id, logged as it appeared, across a restart of the plugin and of Stream Deck, and the list's names and order, and a key and a dial placed before a rename, which kept working under the new name ([`manual_testing/actions_list.md`][actions-list]). What the SDK keeps for each key and dial, and which events it sends, is read from its source.
 
 [#144]: https://github.com/daczarne/streamdeck-litra/issues/144
 [#198]: https://github.com/daczarne/streamdeck-litra/issues/198
+[#236]: https://github.com/daczarne/streamdeck-litra/issues/236
+[actions-list]: ../manual_testing/actions_list.md

@@ -5,7 +5,7 @@ import { globalSettings } from "../settings/global-settings";
 
 /**
  * What the keys and dials show of the lamps (#198): whether a Power key is on, a step key's title, and a Brightness or
- * Temperature dial's main screen and lamp screens. It's worked out from the `Lamp`s of the lamps the plugin knows,
+ * Set Temperature dial's main screen and lamp screens. It's worked out from the `Lamp`s of the lamps the plugin knows,
  * which the global settings hold, and which hold the lamps' state, so showing a lamp reads nothing. Each function waits
  * for the operations queued, if any, so it shows where they leave the lamps, not partway, and shows the lamps a
  * selection takes in among those the last operation found and reached, in the order of their ids.
@@ -52,10 +52,10 @@ export function brightnessText(levels: readonly number[]): string {
 
 /**
  * The temperature as a dial's main screen and a step key's title show it, so both read the same (#129): the first
- * lamp's, in kelvin, or a dash with no lamp.
+ * lamp's, in kelvin, with its unit, or a dash with no lamp.
  */
 export function temperatureText(shown: TemperatureShown | undefined): string {
-  return shown === undefined ? "—" : `${shown.kelvin}`;
+  return shown === undefined ? "—" : `${shown.kelvin} K`;
 }
 
 /** Every lamp shown, which the lamp screens show, each as its `Lamp`, in the order a tap steps through them. */

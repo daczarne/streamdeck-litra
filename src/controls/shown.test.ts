@@ -172,7 +172,7 @@ describe("the text a dial's main screen and a step key's title show (#129)", () 
   });
 
   it("is the first lamp's temperature, in kelvin, or a dash with no lamp", () => {
-    expect(temperatureText({ kelvin: 3500, percentage: 21 })).toBe("3500");
+    expect(temperatureText({ kelvin: 3500, percentage: 21 })).toBe("3500 K");
     expect(temperatureText(undefined)).toBe("—");
   });
 });

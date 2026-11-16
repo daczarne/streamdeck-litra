@@ -11,8 +11,8 @@ import { describeLamps } from "./describe-lamps";
 import { LampScreen } from "./lamp-screens";
 
 /**
- * What a Brightness or Temperature key does: how it reads its preset and its lamps from its settings, the unit its log
- * line gives the preset in, and how it sets its lamps to it.
+ * What a Set Brightness or Set Temperature key does: how it reads its preset and its lamps from its settings, the unit
+ * its title and its log line give the preset in, and how it sets its lamps to it.
  */
 export type Preset = {
   read: (
@@ -24,12 +24,13 @@ export type Preset = {
 };
 
 /**
- * What a Brightness or Temperature dial steps: its name, which titles its main screen and describes a turn on a lamp
- * screen, how it reads its step from its settings, the unit its log line gives the step in, how the global settings
- * step several lamps (#145), how it moves the lamps by its step, and what its main screen shows of every lamp.
+ * What a Set Brightness or Set Temperature dial steps: what a turn adjusts, which describes a turn on a lamp screen,
+ * how it reads its step from its settings, the unit its log line gives the step in, how the global settings step
+ * several lamps (#145), how it moves the lamps by its step, and what its main screen shows of every lamp, its title
+ * included.
  */
 export type Measure = {
-  name: string;
+  adjusts: string;
   readStep: (settings: JsonObject, logger: Logger) => number;
   unit: string;
   stepping: () => Stepping;
@@ -38,7 +39,7 @@ export type Measure = {
 };
 
 /**
- * The Brightness or the Temperature action, which gives each key a {@link PresetKey} and each dial a
+ * The Set Brightness or the Set Temperature action, which gives each key a {@link PresetKey} and each dial a
  * {@link MeasureDial}.
  */
 export abstract class MeasureAction extends RoutingAction<PresetKey | MeasureDial> {
@@ -63,8 +64,8 @@ export abstract class MeasureAction extends RoutingAction<PresetKey | MeasureDia
 }
 
 /**
- * A Brightness or Temperature key: it sets its lamps to its preset, and shows the preset as its title, which the user
- * can replace or hide. It keeps showing its preset whatever the lamps reach, so it follows no change.
+ * A Set Brightness or Set Temperature key: it sets its lamps to its preset, and shows the preset as its title, which
+ * the user can replace or hide. It keeps showing its preset whatever the lamps reach, so it follows no change.
  */
 class PresetKey extends ActionInstance<ReturnType<Preset["read"]>, KeyAction<JsonObject>> {
   /** Takes the key, its settings, the action's logger and what the key sets. */
@@ -101,17 +102,17 @@ class PresetKey extends ActionInstance<ReturnType<Preset["read"]>, KeyAction<Jso
     }
   }
 
-  /** Writes the preset as the key's title. */
+  /** Writes the preset as the key's title, with its unit, as the step keys and the dials show their value. */
   private async showPreset(): Promise<void> {
-    await this.control.setTitle(`${Math.round(this.config.preset)}`);
+    await this.control.setTitle(`${Math.round(this.config.preset)}${this.preset.unit}`);
   }
 }
 
 /**
- * A Brightness or Temperature dial. On its main screen, it steps every lamp as it turns, toggles them when pushed, and
- * shows what they're at. Tapping its strip shows each lamp on its own screen, where turning and pushing it act on that
- * lamp alone, and holding the strip blinks it (#20). Its {@link LampScreen} draws it there, and tells which lamp it
- * shows.
+ * A Set Brightness or Set Temperature dial. On its main screen, it steps every lamp as it turns, toggles them when
+ * pushed, and shows what they're at. Tapping its strip shows each lamp on its own screen, where turning and pushing it
+ * act on that lamp alone, and holding the strip blinks it (#20). Its {@link LampScreen} draws it there, and tells which
+ * lamp it shows.
  */
 class MeasureDial extends ActionInstance<{ step: number }, DialAction<JsonObject>> {
   /** The ticks gathered for each lamp the dial turns, by its id, or "all" for its main screen. */
@@ -127,7 +128,7 @@ class MeasureDial extends ActionInstance<{ step: number }, DialAction<JsonObject
     private readonly measure: Measure,
   ) {
     super(control, settings, (saved) => ({ step: measure.readStep(saved, logger) }));
-    this.screen = new LampScreen(control, { showMain: () => this.showMainScreen(), adjusts: measure.name });
+    this.screen = new LampScreen(control, { showMain: () => this.showMainScreen(), adjusts: measure.adjusts });
   }
 
   /** Starts the dial on its main screen, with what the lamps are at. */

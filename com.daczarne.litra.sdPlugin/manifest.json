@@ -31,7 +31,26 @@
       ]
     },
     {
-      "Name": "Brightness",
+      "Name": "Scene",
+      "UUID": "com.daczarne.litra.scene",
+      "Icon": "imgs/actions/scene/icon",
+      "Tooltip": "Turn Litra lights on at a brightness and a color temperature.",
+      "PropertyInspectorPath": "ui/scene.html",
+      "Controllers": [
+        "Keypad"
+      ],
+      "UserTitleEnabled": true,
+      "States": [
+        {
+          "Image": "imgs/actions/scene/key",
+          "TitleAlignment": "bottom",
+          "FontSize": 12,
+          "TitleColor": "#ffffff"
+        }
+      ]
+    },
+    {
+      "Name": "Set Brightness",
       "UUID": "com.daczarne.litra.brightness",
       "Icon": "imgs/actions/brightness/icon",
       "Tooltip": "Set brightness on a key, or adjust with a dial (press toggles power).",
@@ -55,54 +74,6 @@
           "Image": "imgs/actions/brightness/key",
           "TitleAlignment": "bottom",
           "FontSize": 14,
-          "TitleColor": "#ffffff"
-        }
-      ]
-    },
-    {
-      "Name": "Temperature",
-      "UUID": "com.daczarne.litra.temperature",
-      "Icon": "imgs/actions/temperature/icon",
-      "Tooltip": "Set color temperature on a key, or adjust with a dial (press toggles power).",
-      "PropertyInspectorPath": "ui/temperature.html",
-      "Controllers": [
-        "Keypad",
-        "Encoder"
-      ],
-      "UserTitleEnabled": true,
-      "Encoder": {
-        "layout": "$B1",
-        "Icon": "imgs/actions/temperature/glyph",
-        "TriggerDescription": {
-          "Rotate": "Temperature",
-          "Push": "Power",
-          "Touch": "Lamps"
-        }
-      },
-      "States": [
-        {
-          "Image": "imgs/actions/temperature/key",
-          "TitleAlignment": "bottom",
-          "FontSize": 12,
-          "TitleColor": "#ffffff"
-        }
-      ]
-    },
-    {
-      "Name": "Scene",
-      "UUID": "com.daczarne.litra.scene",
-      "Icon": "imgs/actions/scene/icon",
-      "Tooltip": "Turn Litra lights on at a brightness and a color temperature.",
-      "PropertyInspectorPath": "ui/scene.html",
-      "Controllers": [
-        "Keypad"
-      ],
-      "UserTitleEnabled": true,
-      "States": [
-        {
-          "Image": "imgs/actions/scene/key",
-          "TitleAlignment": "bottom",
-          "FontSize": 12,
           "TitleColor": "#ffffff"
         }
       ]
@@ -141,6 +112,35 @@
           "Image": "imgs/actions/brightness-down/key",
           "TitleAlignment": "bottom",
           "FontSize": 14,
+          "TitleColor": "#ffffff"
+        }
+      ]
+    },
+    {
+      "Name": "Set Temperature",
+      "UUID": "com.daczarne.litra.temperature",
+      "Icon": "imgs/actions/temperature/icon",
+      "Tooltip": "Set color temperature on a key, or adjust with a dial (press toggles power).",
+      "PropertyInspectorPath": "ui/temperature.html",
+      "Controllers": [
+        "Keypad",
+        "Encoder"
+      ],
+      "UserTitleEnabled": true,
+      "Encoder": {
+        "layout": "$B1",
+        "Icon": "imgs/actions/temperature/glyph",
+        "TriggerDescription": {
+          "Rotate": "Temperature",
+          "Push": "Power",
+          "Touch": "Lamps"
+        }
+      },
+      "States": [
+        {
+          "Image": "imgs/actions/temperature/key",
+          "TitleAlignment": "bottom",
+          "FontSize": 12,
           "TitleColor": "#ffffff"
         }
       ]

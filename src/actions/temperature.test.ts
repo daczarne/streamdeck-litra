@@ -69,7 +69,7 @@ describe("TemperatureAction", () => {
 
       await deck.press(key);
 
-      expect(key.setTitle).toHaveBeenCalledExactlyOnceWith("2700");
+      expect(key.setTitle).toHaveBeenCalledExactlyOnceWith("2700 K");
       expect(setLampsTemperature).toHaveBeenCalledExactlyOnceWith("all", 2700);
       expect(logger.warn).not.toHaveBeenCalled();
     });
@@ -90,7 +90,7 @@ describe("TemperatureAction", () => {
 
       await deck.press(key);
 
-      expect(key.setTitle).toHaveBeenCalledExactlyOnceWith("5000");
+      expect(key.setTitle).toHaveBeenCalledExactlyOnceWith("5000 K");
       expect(setLampsTemperature).toHaveBeenCalledExactlyOnceWith("all", 5000);
       expect(logger.info).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("preset 5000 K"));
     });
@@ -154,7 +154,11 @@ describe("TemperatureAction", () => {
       const dial = await deck.dial(TEMPERATURE);
 
       expect(temperatureShown).toHaveBeenCalledExactlyOnceWith("connected");
-      expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith({ title: "Temperature", value: "4000", indicator: 34 });
+      expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith({
+        title: "Set Temperature",
+        value: "4000 K",
+        indicator: 34,
+      });
     });
 
     it("a dash and an empty bar when no lamp is connected", async () => {
@@ -162,7 +166,7 @@ describe("TemperatureAction", () => {
 
       const dial = await deck.dial(TEMPERATURE);
 
-      expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith({ title: "Temperature", value: "—", indicator: 0 });
+      expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith({ title: "Set Temperature", value: "—", indicator: 0 });
     });
   });
 });

@@ -235,10 +235,11 @@ export const temperatureStepSettingsSchema = {
 };
 
 // A scene is made of groups, each of which turns its lamps off, or on at its own brightness and temperature, taken as
-// the Brightness and Temperature keys take their presets (#174). The first group is the key's own settings, as a scene
-// saved before groups had them, and picks its lamps as every key does, lamps added later included. Each group added
-// after it is saved with its power, its presets and the lamps checked for it, read against sceneGroupSettingsSchema,
-// and a lamp it checks leaves the first group. A group turns its lamps on by default, as every scene did.
+// the Set Brightness and Set Temperature keys take their presets (#174). The first group is the key's own settings, as
+// a scene saved before groups had them, and picks its lamps as every key does, lamps added later included. Each group
+// added after it is saved with its power, its presets and the lamps checked for it, read against
+// sceneGroupSettingsSchema, and a lamp it checks leaves the first group. A group turns its lamps on by default, as
+// every scene did.
 const scenePower = oneOf(["on", "off"], "on");
 
 export const sceneSettingsSchema = {

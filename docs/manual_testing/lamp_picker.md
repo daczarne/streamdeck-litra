@@ -13,7 +13,7 @@ Every key's settings page has a Lamps item, where the key's lamps are picked ([#
 
 ## Setup
 
-Plug in two Beams, turned on at different brightness. Place two Power keys and a Brightness Up key on the Deck, and a Brightness dial. Check 13 needs a lamp the plugin doesn't know yet, such as a third lamp, or one forgotten in the plugin settings. Build the branch and restart the plugin:
+Plug in two Beams, turned on at different brightness. Place two Power keys and a Brightness Up key on the Deck, and a Set Brightness dial. Check 13 needs a lamp the plugin doesn't know yet, such as a third lamp, or one forgotten in the plugin settings. Build the branch and restart the plugin:
 
 ```shell
 npm run build
@@ -33,7 +33,7 @@ In VS Code, the `Build and restart` task runs both.
 7. **No lamp is no action.** Uncheck All: every lamp unchecks. Press the key: it shows an alert, and the lamps don't change.
 8. **A lamp that isn't plugged in stays listed.** Pick only the second lamp on a Power key, unplug that lamp, and select the key again: the second lamp is still listed, checked, with no note. Press the key: it shows an alert. Plug the lamp back in, and press the key: the second lamp toggles.
 9. **The selection survives a restart.** Restart the plugin, then quit and reopen Stream Deck: every key still shows the lamps it was given, and acts on them.
-10. **Dials have no picker.** Select the Brightness dial: its settings page shows its step, and no Lamps item.
+10. **Dials have no picker.** Select the Set Brightness dial: its settings page shows its step, and no Lamps item.
 11. **The log tells each press.** `logs/litra.log` has no `Plugin settings` line when a key's page opens, which looks for no lamps. Each key press names the lamps it acts on: "on every lamp", "on every lamp but 1 lamp" for a key that takes in new lamps and left one out, or "on 1 lamp" for one that doesn't.
 12. **The key's own choice shows.** Select a Power key: under its lamps, set a little apart, "Add new lamps automatically, on this key" is checked. In the plugin settings, under "Keys", "Add new lamps automatically, on every key" is checked. Share a screenshot of the key's page.
 13. **A lamp added later joins.** Place a new Power key, and on its page uncheck and check the first lamp again, so the key saves its lamps. Plug in a lamp the plugin doesn't know yet, and select the key again: the new lamp isn't listed. Press Find lamps in the plugin settings, then Back: the new lamp is listed, checked. Press the key: every lamp toggles, the new one included.

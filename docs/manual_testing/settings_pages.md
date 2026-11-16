@@ -42,7 +42,7 @@ A page that hits its policy shows nothing wrong on the panel, apart from missing
 
 3. In Stream Deck, select the action to test, so its page exists.
 4. In Chrome, open `chrome://inspect/#devices`, click **Configure…** next to **Discover network targets**, and add `localhost:23654`.
-5. Under **Remote Target**, click **inspect** under the page's title, such as "Litra Temperature".
+5. Under **Remote Target**, click **inspect** under the page's title, such as "Litra Set Temperature".
 
 Selecting another action replaces the page, so the key and the dial each need their own click on **inspect**.
 
@@ -51,14 +51,14 @@ Selecting another action replaces the page, so the key and the dial each need th
 
 ## Checks
 
-Stream Deck treats every page the same way, so one key and one dial are enough: a Brightness key and a Brightness dial, for example. Open each one's page in DevTools.
+Stream Deck treats every page the same way, so one key and one dial are enough: a Set Brightness key and a Set Brightness dial, for example. Open each one's page in DevTools.
 
 1. **Stream Deck enforces the policy.** On one of the two pages:
     - The console shows no red errors after the page loads. A Chromium that doesn't understand a directive of the policy says so there.
     - Pasting `fetch("https://example.com")` into the console logs a red `Refused to connect to ... because it violates the following Content Security Policy directive: "connect-src ws://localhost:*"`. Nothing goes out on the network, so this is safe with Wi-Fi on.
 2. **Stream Deck tells each page where it sits.** The key's panel shows the preset (Brightness), and the dial's panel shows the step (Step).
 3. **Stream Deck passes the settings on to the plugin.** A changed setting takes effect on the Deck: the key jumps to its new preset, and the dial turns by its new step.
-4. **Each number field works.** On both panels, the field sits right of its label, with − on its left and + on its right, and its unit inside, after the value, in the value's color, the two centered together in the field (75 %, 10 %). Click + several times quickly: the value follows each click, and once the clicks stop, the key or the dial takes the last value. Hold −: it steps once, then keeps stepping until it's let go, and greys out at the lowest value. Say whether holding is too slow or too fast. Type a value between two steps, such as 37.6 on the key, and press Enter: it shows 38. Type a letter and click elsewhere: the value before comes back. Select another action and come back: the panel shows the saved value. Check the Temperature key too: its value is the widest (2700 K), and its step's field goes from 100 K to 500 K, 400 K included. Set a field to its shortest value, such as 0 % on a Brightness key's preset: it stays centered, as a long value does.
+4. **Each number field works.** On both panels, the field sits right of its label, with − on its left and + on its right, and its unit inside, after the value, in the value's color, the two centered together in the field (75 %, 10 %). Click + several times quickly: the value follows each click, and once the clicks stop, the key or the dial takes the last value. Hold −: it steps once, then keeps stepping until it's let go, and greys out at the lowest value. Say whether holding is too slow or too fast. Type a value between two steps, such as 37.6 on the key, and press Enter: it shows 38. Type a letter and click elsewhere: the value before comes back. Select another action and come back: the panel shows the saved value. Check the Set Temperature key too: its value is the widest (2700 K), and its step's field goes from 100 K to 500 K, 400 K included. Set a field to its shortest value, such as 0 % on a Set Brightness key's preset: it stays centered, as a long value does.
 
 ## Afterwards
 

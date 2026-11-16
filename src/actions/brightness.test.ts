@@ -69,7 +69,7 @@ describe("BrightnessAction", () => {
 
       await deck.press(key);
 
-      expect(key.setTitle).toHaveBeenCalledExactlyOnceWith("0");
+      expect(key.setTitle).toHaveBeenCalledExactlyOnceWith("0%");
       expect(setLampsBrightness).toHaveBeenCalledExactlyOnceWith("all", 0);
       expect(logger.warn).not.toHaveBeenCalled();
     });
@@ -90,7 +90,7 @@ describe("BrightnessAction", () => {
 
       await deck.press(key);
 
-      expect(key.setTitle).toHaveBeenCalledExactlyOnceWith("40");
+      expect(key.setTitle).toHaveBeenCalledExactlyOnceWith("40%");
       expect(setLampsBrightness).toHaveBeenCalledExactlyOnceWith("all", 40);
       expect(logger.info).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("preset 40%"));
     });
@@ -146,7 +146,7 @@ describe("BrightnessAction", () => {
 
       expect(brightnessShown).toHaveBeenCalledExactlyOnceWith("connected");
       expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith({
-        title: "Brightness",
+        title: "Set Brightness",
         value: "79%",
         indicator: { value: 79, bar_fill_c: "0:#ffffff,0.797:#ffffff,0.798:#c0c0c0,1:#c0c0c0" },
       });
@@ -158,7 +158,7 @@ describe("BrightnessAction", () => {
       const dial = await deck.dial(BRIGHTNESS);
 
       expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith({
-        title: "Brightness",
+        title: "Set Brightness",
         value: "—",
         indicator: { value: 0, bar_fill_c: "white" },
       });

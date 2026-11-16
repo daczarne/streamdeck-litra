@@ -38,7 +38,7 @@ export function barFill(levels: readonly number[]): string {
   return stops.join(",");
 }
 
-/** What a Brightness key sets its lamps to: its preset, in % of their range. */
+/** What a Set Brightness key sets its lamps to: its preset, in % of their range. */
 const PRESET: Preset = {
   read: (settings, logger) => {
     const { presetPercentage, lamps, leftOutLamps } = parseSettings(settings, brightnessSettingsSchema, logger);
@@ -49,11 +49,12 @@ const PRESET: Preset = {
 };
 
 /**
- * What a Brightness dial steps, and shows on its main screen, in the slots of the $B1 layout: the brightest lamp's %
- * as text, and again as the bar under it, banded by how many lamps reach each part of it, or a dash with no lamp.
+ * What a Set Brightness dial steps, and shows on its main screen, in the slots of the $B1 layout: the brightest
+ * lamp's % as text, and again as the bar under it, banded by how many lamps reach each part of it, or a dash with no
+ * lamp.
  */
 const BRIGHTNESS: Measure = {
-  name: "Brightness",
+  adjusts: "Brightness",
   readStep: (settings, logger) => parseSettings(settings, brightnessSettingsSchema, logger).stepPercentage,
   unit: "%",
   stepping: () => globalSettings.brightnessStepping,
@@ -61,7 +62,7 @@ const BRIGHTNESS: Measure = {
   mainScreen: async () => {
     const levels = await brightnessShown("connected");
     return {
-      title: "Brightness",
+      title: "Set Brightness",
       value: brightnessText(levels),
       indicator: { value: Math.max(0, ...levels), bar_fill_c: barFill(levels) },
     };
@@ -69,13 +70,13 @@ const BRIGHTNESS: Measure = {
 };
 
 /**
- * The Brightness action. On a key, it sets its lamps to the key's preset. On a dial, it steps the brightness as the
- * dial turns, toggles the lamps when pushed, and shows each lamp on its own screen when the strip is tapped (#20).
+ * The Set Brightness action. On a key, it sets its lamps to the key's preset. On a dial, it steps the brightness as
+ * the dial turns, toggles the lamps when pushed, and shows each lamp on its own screen when the strip is tapped (#20).
  */
 @action({ UUID: "com.daczarne.litra.brightness" })
 export class BrightnessAction extends MeasureAction {
   /** Steps and sets the brightness. */
   constructor() {
-    super(pluginLogger.createScope("Brightness"), PRESET, BRIGHTNESS);
+    super(pluginLogger.createScope("Set Brightness"), PRESET, BRIGHTNESS);
   }
 }

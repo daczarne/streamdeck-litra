@@ -6,7 +6,7 @@ import { logger as pluginLogger } from "../logging";
 import { globalSettings } from "../settings/global-settings";
 import { parseSettings, temperatureSettingsSchema } from "../settings/schemas";
 
-/** What a Temperature key sets its lamps to: its preset, in kelvin, which each lamp snaps to one it allows. */
+/** What a Set Temperature key sets its lamps to: its preset, in kelvin, which each lamp snaps to one it allows. */
 const PRESET: Preset = {
   read: (settings, logger) => {
     const { presetKelvin, lamps, leftOutLamps } = parseSettings(settings, temperatureSettingsSchema, logger);
@@ -17,11 +17,11 @@ const PRESET: Preset = {
 };
 
 /**
- * What a Temperature dial steps, and shows on its main screen, in the slots of the $B1 layout: the first lamp's
+ * What a Set Temperature dial steps, and shows on its main screen, in the slots of the $B1 layout: the first lamp's
  * temperature as text, or a dash with no lamp, and its place in the lamp's range as the bar under it.
  */
 const TEMPERATURE: Measure = {
-  name: "Temperature",
+  adjusts: "Temperature",
   readStep: (settings, logger) => parseSettings(settings, temperatureSettingsSchema, logger).stepKelvin,
   unit: " K",
   stepping: () => globalSettings.temperatureStepping,
@@ -29,7 +29,7 @@ const TEMPERATURE: Measure = {
   mainScreen: async () => {
     const shown = await temperatureShown("connected");
     return {
-      title: "Temperature",
+      title: "Set Temperature",
       value: temperatureText(shown),
       indicator: shown?.percentage ?? 0,
     };
@@ -37,13 +37,13 @@ const TEMPERATURE: Measure = {
 };
 
 /**
- * The Temperature action. On a key, it sets its lamps to the key's preset. On a dial, it steps the temperature as the
- * dial turns, toggles the lamps when pushed, and shows each lamp on its own screen when the strip is tapped (#20).
+ * The Set Temperature action. On a key, it sets its lamps to the key's preset. On a dial, it steps the temperature as
+ * the dial turns, toggles the lamps when pushed, and shows each lamp on its own screen when the strip is tapped (#20).
  */
 @action({ UUID: "com.daczarne.litra.temperature" })
 export class TemperatureAction extends MeasureAction {
   /** Steps and sets the temperature. */
   constructor() {
-    super(pluginLogger.createScope("Temperature"), PRESET, TEMPERATURE);
+    super(pluginLogger.createScope("Set Temperature"), PRESET, TEMPERATURE);
   }
 }

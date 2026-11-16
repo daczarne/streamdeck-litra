@@ -59,7 +59,7 @@ const PRESET = {
 
 /** What the fake dials step: by the step in their settings, or 2, and what they show. */
 const MEASURE = {
-  name: "Fake",
+  adjusts: "Fake",
   readStep: vi.fn((settings: JsonObject) => (typeof settings.step === "number" ? settings.step : 2)),
   unit: " u",
   stepping: vi.fn<Measure["stepping"]>(),
@@ -67,7 +67,10 @@ const MEASURE = {
   mainScreen: vi.fn<Measure["mainScreen"]>(),
 } satisfies Measure;
 
-/** An action built on MeasureAction, as the Brightness and Temperature actions are, with fakes for what's theirs. */
+/**
+ * An action built on MeasureAction, as the Set Brightness and Set Temperature actions are, with fakes for what's
+ * theirs.
+ */
 @action({ UUID: FAKE })
 class FakeMeasureAction extends MeasureAction {
   /** Sets and steps through the fakes. */
@@ -123,13 +126,13 @@ describe("a key of a MeasureAction", () => {
     const key = await deck.key(FAKE, { preset: 40 });
 
     expect(PRESET.read).toHaveBeenCalledExactlyOnceWith({ preset: 40 }, logger);
-    expect(key.setTitle).toHaveBeenCalledExactlyOnceWith("40");
+    expect(key.setTitle).toHaveBeenCalledExactlyOnceWith("40 u");
   });
 
   it("shows a preset off the pages' grid rounded, as its title", async () => {
     const key = await deck.key(FAKE, { preset: 33.5 });
 
-    expect(key.setTitle).toHaveBeenCalledExactlyOnceWith("34");
+    expect(key.setTitle).toHaveBeenCalledExactlyOnceWith("34 u");
   });
 
   it("shows its new preset once the settings page changes it", async () => {
@@ -137,7 +140,7 @@ describe("a key of a MeasureAction", () => {
 
     await deck.changeSettings(key, { preset: 70 });
 
-    expect(key.setTitle).toHaveBeenLastCalledWith("70");
+    expect(key.setTitle).toHaveBeenLastCalledWith("70 u");
   });
 
   it("sets every lamp to its preset, and leaves showing the result to the notice", async () => {

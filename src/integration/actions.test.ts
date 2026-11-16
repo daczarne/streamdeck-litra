@@ -175,7 +175,7 @@ describe("the Power key", () => {
     );
   });
 
-  it("follows a Brightness key, which turns the lamps on (#57)", async () => {
+  it("follows a Set Brightness key, which turns the lamps on (#57)", async () => {
     const pair = [newLamp({ on: false }), newLamp({ on: false })];
     await plugIn(...pair);
     const powerKey = await deck.key(POWER, { mode: "toggle" });
@@ -187,7 +187,7 @@ describe("the Power key", () => {
     expect(stateOf(powerKey)).toBe(1);
   });
 
-  it("follows a Brightness dial pushed to toggle the lamps (#57)", async () => {
+  it("follows a Set Brightness dial pushed to toggle the lamps (#57)", async () => {
     const pair = [newLamp(), newLamp()];
     await plugIn(...pair);
     const powerKey = await deck.key(POWER, { mode: "toggle" });
@@ -227,7 +227,7 @@ describe("the Power key", () => {
   });
 });
 
-describe("the Brightness action", () => {
+describe("the Set Brightness action", () => {
   it("shows the brightest of lamps at their caps, the bar fainter where only one reaches (#13, #59)", async () => {
     // Two lamps on a Stream Deck + XL's USB hub, which stop at 63% and 79%.
     await plugIn(newLamp({ capInLumen: 264 }), newLamp({ capInLumen: 324 }));
@@ -238,7 +238,7 @@ describe("the Brightness action", () => {
 
     expect(lamps.map((lamp) => lamp.brightnessInLumen)).toEqual([264, 324]);
     expect(feedbackOf(dial)).toEqual({
-      title: "Brightness",
+      title: "Set Brightness",
       value: "79%",
       indicator: { value: 79, bar_fill_c: "0:#ffffff,0.797:#ffffff,0.798:#c0c0c0,1:#c0c0c0" },
     });
@@ -322,7 +322,7 @@ describe("the Brightness action", () => {
   });
 });
 
-describe("the Temperature action", () => {
+describe("the Set Temperature action", () => {
   it("sets every lamp to a key's preset, snapped to a temperature they allow, and shows it on the dials", async () => {
     const pair = [newLamp(), newLamp()];
     await plugIn(...pair);
@@ -332,7 +332,7 @@ describe("the Temperature action", () => {
     await deck.press(key);
 
     expect(pair.map((lamp) => lamp.temperatureInKelvin)).toEqual([4200, 4200]);
-    expect(feedbackOf(dial)).toEqual({ title: "Temperature", value: "4200", indicator: 39 });
+    expect(feedbackOf(dial)).toEqual({ title: "Set Temperature", value: "4200 K", indicator: 39 });
   });
 
   it("moves every lamp by a dial's step from the first lamp's temperature", async () => {
@@ -343,7 +343,7 @@ describe("the Temperature action", () => {
     await deck.turn(dial, 1);
 
     expect(pair.map((lamp) => lamp.temperatureInKelvin)).toEqual([3300, 3300]);
-    expect(feedbackOf(dial)).toMatchObject({ value: "3300" });
+    expect(feedbackOf(dial)).toMatchObject({ value: "3300 K" });
   });
 
   it("moves the lamps once for a quick turn, with the step the dial has by then", async () => {
@@ -360,7 +360,7 @@ describe("the Temperature action", () => {
 
     // Three ticks of 200 K from 3100 K.
     expect(pair.map((lamp) => lamp.writes("temperature"))).toEqual([[3700], [3700]]);
-    expect(feedbackOf(dial)).toMatchObject({ value: "3700" });
+    expect(feedbackOf(dial)).toMatchObject({ value: "3700 K" });
   });
 });
 
@@ -381,7 +381,7 @@ describe("the Scene key", () => {
     ]);
     expect(stateOf(powerKey)).toBe(1);
     expect(feedbackOf(brightnessDial)).toMatchObject({ value: "100%" });
-    expect(feedbackOf(temperatureDial)).toMatchObject({ value: "6500" });
+    expect(feedbackOf(temperatureDial)).toMatchObject({ value: "6500 K" });
   });
 
   it("sets each group's lamps to the group's part, and every Power key follows the whole scene (#174)", async () => {
@@ -511,17 +511,17 @@ describe("the step keys", () => {
     const up = await deck.key(TEMPERATURE_UP, { stepKelvin: 300 });
     const down = await deck.key(TEMPERATURE_DOWN, { stepKelvin: 300 });
 
-    expect([titleOf(up), titleOf(down)]).toEqual(["3000", "3000"]);
+    expect([titleOf(up), titleOf(down)]).toEqual(["3000 K", "3000 K"]);
 
     await deck.press(up);
 
     expect(pair.map((lamp) => lamp.temperatureInKelvin)).toEqual([3300, 3300]);
-    expect([titleOf(up), titleOf(down)]).toEqual(["3300", "3300"]);
+    expect([titleOf(up), titleOf(down)]).toEqual(["3300 K", "3300 K"]);
 
     await deck.press(down);
 
     expect(pair.map((lamp) => lamp.temperatureInKelvin)).toEqual([3000, 3000]);
-    expect([titleOf(up), titleOf(down)]).toEqual(["3000", "3000"]);
+    expect([titleOf(up), titleOf(down)]).toEqual(["3000 K", "3000 K"]);
   });
 
   it("follow what another action changes", async () => {
@@ -532,7 +532,7 @@ describe("the step keys", () => {
 
     await deck.press(scene);
 
-    expect([titleOf(brightnessKey), titleOf(temperatureKey)]).toEqual(["80%", "6500"]);
+    expect([titleOf(brightnessKey), titleOf(temperatureKey)]).toEqual(["80%", "6500 K"]);
   });
 
   it("show an alert when a lamp fails, and still step the others", async () => {
@@ -550,7 +550,7 @@ describe("the step keys", () => {
 });
 
 describe("the lamp screens", () => {
-  /** Two lamps, plugged in out of the order of their ids, and a Brightness dial showing the first. */
+  /** Two lamps, plugged in out of the order of their ids, and a Set Brightness dial showing the first. */
   async function onFirstLampScreen() {
     const second = newLamp({ serialNumber: "SERIAL-B" });
     const first = newLamp({
@@ -725,8 +725,8 @@ describe("the lamp screens", () => {
   });
 
   it.each([
-    ["Brightness", BRIGHTNESS],
-    ["Temperature", TEMPERATURE],
+    ["Set Brightness", BRIGHTNESS],
+    ["Set Temperature", TEMPERATURE],
   ])(
     "blink the lamp on a %s dial's screen when its strip is held, and nothing on its main screen",
     async (_name, manifestId) => {
@@ -774,12 +774,12 @@ describe("the lamp screens", () => {
     await deck.press(key);
 
     expect(dial.setFeedbackLayout).toHaveBeenLastCalledWith("$B1");
-    expect(feedbackOf(dial)).toMatchObject({ title: "Brightness" });
+    expect(feedbackOf(dial)).toMatchObject({ title: "Set Brightness" });
   });
 
   it.each([
-    ["Brightness", BRIGHTNESS],
-    ["Temperature", TEMPERATURE],
+    ["Set Brightness", BRIGHTNESS],
+    ["Set Temperature", TEMPERATURE],
   ])("forget a %s dial taken off the Deck, which the lamps changing no longer redraws", async (_name, manifestId) => {
     await plugIn(newLamp({ serialNumber: "SERIAL-A" }), newLamp({ serialNumber: "SERIAL-B" }));
     const dial = await deck.dial(manifestId);
@@ -875,12 +875,12 @@ describe("lamps kept apart (#145)", () => {
 
     expect([warm.temperatureInKelvin, cool.temperatureInKelvin]).toEqual([3300, 4900]);
     // The dials and the keys show the first lamp's temperature.
-    expect(textOf(temperatureDial)).toMatchObject({ value: "3300" });
+    expect(textOf(temperatureDial)).toMatchObject({ value: "3300 K" });
 
     await deck.press(temperatureUp);
 
     expect([warm.temperatureInKelvin, cool.temperatureInKelvin]).toEqual([3500, 5100]);
-    expect(titleOf(temperatureUp)).toBe("3500");
+    expect(titleOf(temperatureUp)).toBe("3500 K");
 
     await deck.turn(brightnessDial, 1);
 
@@ -1061,8 +1061,8 @@ describe("what the dials show", () => {
   }
 
   it.each([
-    ["Brightness", BRIGHTNESS, { presetPercentage: 50 }],
-    ["Temperature", TEMPERATURE, { presetKelvin: 5000 }],
+    ["Set Brightness", BRIGHTNESS, { presetPercentage: 50 }],
+    ["Set Temperature", TEMPERATURE, { presetKelvin: 5000 }],
   ])("fits the layout the %s dial is on, on every screen it shows", async (_name, manifestId, keySettings) => {
     await plugIn(newLamp({ serialNumber: "SERIAL-A" }), newLamp({ serialNumber: "SERIAL-B" }));
     const dial = await deck.dial(manifestId);
@@ -1363,8 +1363,8 @@ describe("the lamps the plugin knows (#194)", () => {
 
 describe("keys and dials whose lamps can't be reached", () => {
   it.each([
-    ["Brightness", BRIGHTNESS],
-    ["Temperature", TEMPERATURE],
+    ["Set Brightness", BRIGHTNESS],
+    ["Set Temperature", TEMPERATURE],
   ])("show an alert on a %s dial pushed or turned once its lamps are unplugged", async (_name, manifestId) => {
     await plugIn(newLamp());
     const dial = await deck.dial(manifestId);
@@ -1376,7 +1376,7 @@ describe("keys and dials whose lamps can't be reached", () => {
     expect(dial.showAlert).toHaveBeenCalledTimes(2);
   });
 
-  it("show an alert on a Temperature key once its lamps are unplugged", async () => {
+  it("show an alert on a Set Temperature key once its lamps are unplugged", async () => {
     await plugIn(newLamp());
     const key = await deck.key(TEMPERATURE, { presetKelvin: 5000 });
     connect();

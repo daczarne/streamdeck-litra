@@ -106,14 +106,14 @@ Two things arrive, and nothing in the plugin depends on which comes first.
 **A `willAppear` for each key and dial on screen.** For each:
 
 1. The SDK's prepended listener creates the `KeyAction` or `DialAction`, stores it, and caches its settings.
-2. The routed listener of the matching action calls [`RoutingAction.onWillAppear`][action-instance-appear], which calls the action's `create` and stores the instance under the key's or dial's id. For the Brightness action, [`MeasureAction.create`][measure-create] gives a key a `PresetKey` and a dial a `MeasureDial`. Each instance reads its settings against their schema as it's built, so an invalid setting is warned about once.
+2. The routed listener of the matching action calls [`RoutingAction.onWillAppear`][action-instance-appear], which calls the action's `create` and stores the instance under the key's or dial's id. For the Set Brightness action, [`MeasureAction.create`][measure-create] gives a key a `PresetKey` and a dial a `MeasureDial`. Each instance reads its settings against their schema as it's built, so an invalid setting is warned about once.
 3. `instance.appear()` draws the control. What it can show depends on whether the lamps were read yet:
 
 | Control | What it shows as it appears |
 | --- | --- |
-| Brightness key (`PresetKey`) | Its preset as its title, whatever the lamps are at |
+| Set Brightness key (`PresetKey`) | Its preset as its title, with its unit, whatever the lamps are at |
 | Power key | `areLampsOn`: with no lamp reached yet, none is on, so state 0 |
-| Brightness dial (`MeasureDial`) | Sets the `$B1` layout, then its main screen: with no lamp reached, `—` and an empty bar |
+| Set Brightness dial (`MeasureDial`) | Sets the `$B1` layout, then its main screen: with no lamp reached, `—` and an empty bar |
 | Brightness Up key | Its title, from the lamps shown, none yet |
 
 **The answer to `getGlobalSettings`.** It carries the request's id, so the `onDidReceiveGlobalSettings` listener ignores it (that one only reports a page's changes), and it resolves the promise `syncGlobalSettings` returned in [4](#4-the-body-of-plugints) instead. Then:
