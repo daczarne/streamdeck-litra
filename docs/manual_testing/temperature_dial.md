@@ -8,7 +8,7 @@ The unit tests check how the Set Temperature dial steps, against emulated lamps,
 
 ## When to run these checks
 
-- After a change to how the plugin sets temperature, to how the dial steps, to what the dials show, to the order the plugin goes through the lamps in, or to the action's images.
+- After a change to how the plugin sets temperature, to how the dial steps, to what the dials show, or to the action's images.
 - After a Stream Deck update.
 
 ## Setup
