@@ -36,8 +36,14 @@ const TEMPERATURE = "com.daczarne.litra.temperature";
 /** How an operation on two Beams went. */
 const DONE: OperationResult = { ok: true, lampCount: 2, failures: 0 };
 
-/** The first lamp at 4000 K, 34% of the way from a Beam's lowest temperature to its highest. */
-const AT_4000_K = { kelvin: 4000, percentage: 34 };
+/**
+ * Two Beams, the first at 3400 K and the second at 4000 K: 18% and 34% of the way from a Beam's lowest temperature to
+ * its highest.
+ */
+const APART = [
+  { kelvin: 3400, percentage: 18 },
+  { kelvin: 4000, percentage: 34 },
+];
 
 let deck: FakeDeck;
 
@@ -50,7 +56,7 @@ beforeEach(() => {
   changeGlobalSettings({});
   // The debouncer flushes every turn at once: its own timing is debouncer.test.ts's to check.
   vi.mocked(createDebouncer).mockImplementation((flush) => (ticks) => void flush(ticks));
-  vi.mocked(temperatureShown).mockResolvedValue(AT_4000_K);
+  vi.mocked(temperatureShown).mockResolvedValue(APART);
   vi.mocked(setLampsTemperature).mockResolvedValue(DONE);
   vi.mocked(adjustLampsTemperature).mockResolvedValue(DONE);
   deck = new FakeDeck([new TemperatureAction()]);
@@ -150,23 +156,42 @@ describe("TemperatureAction", () => {
   });
 
   describe("shows on a dial's main screen", () => {
-    it("the first lamp connected's temperature, and its place in the lamp's range as the bar", async () => {
+    it("the highest temperature connected, with the bar fainter from the lowest one, which one lamp passes", async () => {
       const dial = await deck.dial(TEMPERATURE);
 
       expect(temperatureShown).toHaveBeenCalledExactlyOnceWith("connected");
       expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith({
         title: "Set Temperature",
         value: "4000 K",
-        indicator: 34,
+        indicator: { value: 34, bar_fill_c: "0:#ffffff,0.529:#ffffff,0.53:#c0c0c0,1:#c0c0c0" },
+      });
+    });
+
+    it("a white bar when every lamp is at the same temperature", async () => {
+      vi.mocked(temperatureShown).mockResolvedValue([
+        { kelvin: 4000, percentage: 34 },
+        { kelvin: 4000, percentage: 34 },
+      ]);
+
+      const dial = await deck.dial(TEMPERATURE);
+
+      expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith({
+        title: "Set Temperature",
+        value: "4000 K",
+        indicator: { value: 34, bar_fill_c: "white" },
       });
     });
 
     it("a dash and an empty bar when no lamp is connected", async () => {
-      vi.mocked(temperatureShown).mockResolvedValue(undefined);
+      vi.mocked(temperatureShown).mockResolvedValue([]);
 
       const dial = await deck.dial(TEMPERATURE);
 
-      expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith({ title: "Set Temperature", value: "—", indicator: 0 });
+      expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith({
+        title: "Set Temperature",
+        value: "—",
+        indicator: { value: 0, bar_fill_c: "white" },
+      });
     });
   });
 });

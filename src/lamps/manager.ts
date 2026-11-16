@@ -25,16 +25,17 @@ export type SceneGroup = {
 };
 
 /**
- * How a step moves several lamps (#145): `"together"` sends every lamp to one value, stepped from the one the dial
- * shows, which brings lamps set apart back in sync, and `"each"` steps every lamp from its own value, which keeps them
- * apart. A lamp at an end of its range, or at its cap, stays there while the others keep going, and comes back with
+ * How a step moves several lamps (#145): `"together"` sends every lamp to one value, stepped from the brightest lamp's
+ * brightness or the first lamp's temperature, which brings lamps set apart back in sync, and `"each"` steps every lamp
+ * from its own value, which keeps them apart. A lamp at an end of its range, or at its cap, stays there while the others keep going, and comes back with
  * them, as {@link stepApart} plans it.
  */
 export type Stepping = "together" | "each";
 
 /**
  * Where a brightness or temperature change sends the lamps: one value for every lamp, in % of their range or in
- * kelvin, or ticks of a step, taken together from the value a dial shows, or by each lamp from its own.
+ * kelvin, or ticks of a step, taken together from the brightest lamp's brightness or the first lamp's temperature, or
+ * by each lamp from its own.
  */
 type Target = number | { stepping: Stepping; ticks: number; step: number };
 
@@ -217,7 +218,7 @@ type Found = { readonly connections: LampConnection[]; readonly unidentified: nu
  * and left out, since it can't be told from another, but counted. The lamps come in the order of their ids, since
  * litra finds them in an order that changes from one call to the next: so every operation goes through them in the
  * same order, as the lamp screens and the settings pages list them, and the first lamp, whose temperature the dials
- * show and step from, is always the same one. Marks each lamp the plugin knows as connected or not from what it found
+ * step from, is always the same one. Marks each lamp the plugin knows as connected or not from what it found
  * (#198). Finds none when finding them fails, which is logged, and so is finding none.
  */
 function findConnections(operation: string): Found {
@@ -791,7 +792,8 @@ export function setLampsTemperature(lamps: LampSelection, kelvin: number): Promi
 
 /**
  * Steps the selected lamps' temperature along the grid lowest + k × step: together, to one target stepped from the
- * first one's temperature (the one the dial shows), or each from its own, as {@link stepApart} plans it (#145).
+ * first one's temperature, which isn't always the highest one the dial shows (#229), or each from its own, as
+ * {@link stepApart} plans it (#145).
  */
 export function adjustLampsTemperature(
   lamps: LampSelection,

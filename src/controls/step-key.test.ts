@@ -331,12 +331,15 @@ describe("TEMPERATURE, what the Temperature Up and Down keys step", () => {
     expect(TEMPERATURE.stepping()).toBe("each");
   });
 
-  it("shows the first of its lamps, as the dials do, or a dash with none", async () => {
-    vi.mocked(temperatureShown).mockResolvedValue({ kelvin: 4000, percentage: 34 });
+  it("shows the highest of its lamps, as the dials do, or a dash with none", async () => {
+    vi.mocked(temperatureShown).mockResolvedValue([
+      { kelvin: 3400, percentage: 18 },
+      { kelvin: 4000, percentage: 34 },
+    ]);
     expect(await TEMPERATURE.title([LAMP_1])).toBe("4000 K");
     expect(temperatureShown).toHaveBeenCalledExactlyOnceWith([LAMP_1]);
 
-    vi.mocked(temperatureShown).mockResolvedValue(undefined);
+    vi.mocked(temperatureShown).mockResolvedValue([]);
     expect(await TEMPERATURE.title("all")).toBe("—");
   });
 });

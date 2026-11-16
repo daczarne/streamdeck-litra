@@ -30,16 +30,13 @@ export async function brightnessShown(lamps: LampSelection): Promise<number[]> {
   return shownOf(lamps).map((lamp) => lamp.brightnessPercentage(lamp.state.lumen));
 }
 
-/** The first lamp's temperature, which a dial or a step key shows, or undefined with none. */
-export async function temperatureShown(lamps: LampSelection): Promise<TemperatureShown | undefined> {
+/** Each lamp's temperature, which a dial or a step key shows the highest of (#229). */
+export async function temperatureShown(lamps: LampSelection): Promise<TemperatureShown[]> {
   await lampsSettled();
-  const first = shownOf(lamps)[0];
-  return first === undefined
-    ? undefined
-    : {
-        kelvin: first.state.kelvin,
-        percentage: Lamp.percentageInRange(first.state.kelvin, first.lowestKelvin, first.highestKelvin),
-      };
+  return shownOf(lamps).map((lamp) => ({
+    kelvin: lamp.state.kelvin,
+    percentage: Lamp.percentageInRange(lamp.state.kelvin, lamp.lowestKelvin, lamp.highestKelvin),
+  }));
 }
 
 /**
@@ -51,11 +48,11 @@ export function brightnessText(levels: readonly number[]): string {
 }
 
 /**
- * The temperature as a dial's main screen and a step key's title show it, so both read the same (#129): the first
- * lamp's, in kelvin, with its unit, or a dash with no lamp.
+ * The temperature as a dial's main screen and a step key's title show it, so both read the same (#129): the highest
+ * lamp's, in kelvin, with its unit, or a dash with no lamp (#229).
  */
-export function temperatureText(shown: TemperatureShown | undefined): string {
-  return shown === undefined ? "—" : `${shown.kelvin} K`;
+export function temperatureText(shown: readonly TemperatureShown[]): string {
+  return shown.length === 0 ? "—" : `${Math.max(...shown.map(({ kelvin }) => kelvin))} K`;
 }
 
 /** Every lamp shown, which the lamp screens show, each as its `Lamp`, in the order a tap steps through them. */

@@ -1,5 +1,5 @@
 import { action } from "@elgato/streamdeck";
-import { type Measure, MeasureAction, type Preset } from "../controls/measure";
+import { bar, type Measure, MeasureAction, type Preset } from "../controls/measure";
 import { temperatureShown, temperatureText } from "../controls/shown";
 import { adjustLampsTemperature, setLampsTemperature } from "../lamps/manager";
 import { logger as pluginLogger } from "../logging";
@@ -17,8 +17,9 @@ const PRESET: Preset = {
 };
 
 /**
- * What a Set Temperature dial steps, and shows on its main screen, in the slots of the $B1 layout: the first lamp's
- * temperature as text, or a dash with no lamp, and its place in the lamp's range as the bar under it.
+ * What a Set Temperature dial steps, and shows on its main screen, in the slots of the $B1 layout: the highest
+ * temperature as text, and its place in the lamps' range as the bar under it, banded by how many lamps reach each part
+ * of it, as the Set Brightness dial's (#229), or a dash with no lamp.
  */
 const TEMPERATURE: Measure = {
   adjusts: "Temperature",
@@ -31,7 +32,7 @@ const TEMPERATURE: Measure = {
     return {
       title: "Set Temperature",
       value: temperatureText(shown),
-      indicator: shown?.percentage ?? 0,
+      indicator: bar(shown.map(({ percentage }) => percentage)),
     };
   },
 };
