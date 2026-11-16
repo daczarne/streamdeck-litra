@@ -69,7 +69,7 @@ describe("BrightnessAction", () => {
 
       await deck.press(key);
 
-      expect(key.setTitle).toHaveBeenCalledExactlyOnceWith("0");
+      expect(key.setTitle).toHaveBeenCalledExactlyOnceWith("0%");
       expect(setLampsBrightness).toHaveBeenCalledExactlyOnceWith("all", 0);
       expect(logger.warn).not.toHaveBeenCalled();
     });
@@ -90,7 +90,7 @@ describe("BrightnessAction", () => {
 
       await deck.press(key);
 
-      expect(key.setTitle).toHaveBeenCalledExactlyOnceWith("40");
+      expect(key.setTitle).toHaveBeenCalledExactlyOnceWith("40%");
       expect(setLampsBrightness).toHaveBeenCalledExactlyOnceWith("all", 40);
       expect(logger.info).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("preset 40%"));
     });

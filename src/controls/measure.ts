@@ -12,7 +12,7 @@ import { LampScreen } from "./lamp-screens";
 
 /**
  * What a Set Brightness or Set Temperature key does: how it reads its preset and its lamps from its settings, the unit
- * its log line gives the preset in, and how it sets its lamps to it.
+ * its title and its log line give the preset in, and how it sets its lamps to it.
  */
 export type Preset = {
   read: (
@@ -102,9 +102,9 @@ class PresetKey extends ActionInstance<ReturnType<Preset["read"]>, KeyAction<Jso
     }
   }
 
-  /** Writes the preset as the key's title. */
+  /** Writes the preset as the key's title, with its unit, as the step keys and the dials show their value. */
   private async showPreset(): Promise<void> {
-    await this.control.setTitle(`${Math.round(this.config.preset)}`);
+    await this.control.setTitle(`${Math.round(this.config.preset)}${this.preset.unit}`);
   }
 }
 

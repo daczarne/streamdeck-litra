@@ -332,7 +332,7 @@ describe("the Set Temperature action", () => {
     await deck.press(key);
 
     expect(pair.map((lamp) => lamp.temperatureInKelvin)).toEqual([4200, 4200]);
-    expect(feedbackOf(dial)).toEqual({ title: "Set Temperature", value: "4200", indicator: 39 });
+    expect(feedbackOf(dial)).toEqual({ title: "Set Temperature", value: "4200 K", indicator: 39 });
   });
 
   it("moves every lamp by a dial's step from the first lamp's temperature", async () => {
@@ -343,7 +343,7 @@ describe("the Set Temperature action", () => {
     await deck.turn(dial, 1);
 
     expect(pair.map((lamp) => lamp.temperatureInKelvin)).toEqual([3300, 3300]);
-    expect(feedbackOf(dial)).toMatchObject({ value: "3300" });
+    expect(feedbackOf(dial)).toMatchObject({ value: "3300 K" });
   });
 
   it("moves the lamps once for a quick turn, with the step the dial has by then", async () => {
@@ -360,7 +360,7 @@ describe("the Set Temperature action", () => {
 
     // Three ticks of 200 K from 3100 K.
     expect(pair.map((lamp) => lamp.writes("temperature"))).toEqual([[3700], [3700]]);
-    expect(feedbackOf(dial)).toMatchObject({ value: "3700" });
+    expect(feedbackOf(dial)).toMatchObject({ value: "3700 K" });
   });
 });
 
@@ -381,7 +381,7 @@ describe("the Scene key", () => {
     ]);
     expect(stateOf(powerKey)).toBe(1);
     expect(feedbackOf(brightnessDial)).toMatchObject({ value: "100%" });
-    expect(feedbackOf(temperatureDial)).toMatchObject({ value: "6500" });
+    expect(feedbackOf(temperatureDial)).toMatchObject({ value: "6500 K" });
   });
 
   it("sets each group's lamps to the group's part, and every Power key follows the whole scene (#174)", async () => {
@@ -511,17 +511,17 @@ describe("the step keys", () => {
     const up = await deck.key(TEMPERATURE_UP, { stepKelvin: 300 });
     const down = await deck.key(TEMPERATURE_DOWN, { stepKelvin: 300 });
 
-    expect([titleOf(up), titleOf(down)]).toEqual(["3000", "3000"]);
+    expect([titleOf(up), titleOf(down)]).toEqual(["3000 K", "3000 K"]);
 
     await deck.press(up);
 
     expect(pair.map((lamp) => lamp.temperatureInKelvin)).toEqual([3300, 3300]);
-    expect([titleOf(up), titleOf(down)]).toEqual(["3300", "3300"]);
+    expect([titleOf(up), titleOf(down)]).toEqual(["3300 K", "3300 K"]);
 
     await deck.press(down);
 
     expect(pair.map((lamp) => lamp.temperatureInKelvin)).toEqual([3000, 3000]);
-    expect([titleOf(up), titleOf(down)]).toEqual(["3000", "3000"]);
+    expect([titleOf(up), titleOf(down)]).toEqual(["3000 K", "3000 K"]);
   });
 
   it("follow what another action changes", async () => {
@@ -532,7 +532,7 @@ describe("the step keys", () => {
 
     await deck.press(scene);
 
-    expect([titleOf(brightnessKey), titleOf(temperatureKey)]).toEqual(["80%", "6500"]);
+    expect([titleOf(brightnessKey), titleOf(temperatureKey)]).toEqual(["80%", "6500 K"]);
   });
 
   it("show an alert when a lamp fails, and still step the others", async () => {
@@ -875,12 +875,12 @@ describe("lamps kept apart (#145)", () => {
 
     expect([warm.temperatureInKelvin, cool.temperatureInKelvin]).toEqual([3300, 4900]);
     // The dials and the keys show the first lamp's temperature.
-    expect(textOf(temperatureDial)).toMatchObject({ value: "3300" });
+    expect(textOf(temperatureDial)).toMatchObject({ value: "3300 K" });
 
     await deck.press(temperatureUp);
 
     expect([warm.temperatureInKelvin, cool.temperatureInKelvin]).toEqual([3500, 5100]);
-    expect(titleOf(temperatureUp)).toBe("3500");
+    expect(titleOf(temperatureUp)).toBe("3500 K");
 
     await deck.turn(brightnessDial, 1);
 

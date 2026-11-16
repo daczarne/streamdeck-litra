@@ -65,7 +65,7 @@ describe("TemperatureDownAction", () => {
 
     await deck.press(key);
 
-    expect(key.setTitle).toHaveBeenCalledExactlyOnceWith("4000");
+    expect(key.setTitle).toHaveBeenCalledExactlyOnceWith("4000 K");
     expect(adjustLampsTemperature).toHaveBeenCalledExactlyOnceWith("all", -1, 300, "together");
     expect(logger.info).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("1 step of 300 K"));
     expect(logger.warn).not.toHaveBeenCalled();

@@ -52,10 +52,10 @@ export function brightnessText(levels: readonly number[]): string {
 
 /**
  * The temperature as a dial's main screen and a step key's title show it, so both read the same (#129): the first
- * lamp's, in kelvin, or a dash with no lamp.
+ * lamp's, in kelvin, with its unit, or a dash with no lamp.
  */
 export function temperatureText(shown: TemperatureShown | undefined): string {
-  return shown === undefined ? "—" : `${shown.kelvin}`;
+  return shown === undefined ? "—" : `${shown.kelvin} K`;
 }
 
 /** Every lamp shown, which the lamp screens show, each as its `Lamp`, in the order a tap steps through them. */

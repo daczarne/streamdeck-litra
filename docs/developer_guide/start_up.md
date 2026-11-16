@@ -111,7 +111,7 @@ Two things arrive, and nothing in the plugin depends on which comes first.
 
 | Control | What it shows as it appears |
 | --- | --- |
-| Set Brightness key (`PresetKey`) | Its preset as its title, whatever the lamps are at |
+| Set Brightness key (`PresetKey`) | Its preset as its title, with its unit, whatever the lamps are at |
 | Power key | `areLampsOn`: with no lamp reached yet, none is on, so state 0 |
 | Set Brightness dial (`MeasureDial`) | Sets the `$B1` layout, then its main screen: with no lamp reached, `—` and an empty bar |
 | Brightness Up key | Its title, from the lamps shown, none yet |

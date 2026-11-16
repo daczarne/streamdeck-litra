@@ -52,7 +52,7 @@ A Scene key shows only its image: a title typed in its settings shows at the bot
 
 ### Set Brightness and Set Temperature
 
-Set Brightness and Set Temperature keys set their lamps to the preset in their settings. They show their preset value, as a bare number at the bottom of the key, set by the plugin. A title typed in the key's settings replaces it, and the **Show Title** box under the **T** menu hides it.
+Set Brightness and Set Temperature keys set their lamps to the preset in their settings. They show their preset value with its unit, such as "70%" or "4000 K", at the bottom of the key, set by the plugin, as the Up and Down keys and the dials show theirs. A title typed in the key's settings replaces it, and the **Show Title** box under the **T** menu hides it.
 
 ### Brightness and Temperature Up and Down
 

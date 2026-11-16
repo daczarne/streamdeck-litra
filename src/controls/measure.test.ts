@@ -126,13 +126,13 @@ describe("a key of a MeasureAction", () => {
     const key = await deck.key(FAKE, { preset: 40 });
 
     expect(PRESET.read).toHaveBeenCalledExactlyOnceWith({ preset: 40 }, logger);
-    expect(key.setTitle).toHaveBeenCalledExactlyOnceWith("40");
+    expect(key.setTitle).toHaveBeenCalledExactlyOnceWith("40 u");
   });
 
   it("shows a preset off the pages' grid rounded, as its title", async () => {
     const key = await deck.key(FAKE, { preset: 33.5 });
 
-    expect(key.setTitle).toHaveBeenCalledExactlyOnceWith("34");
+    expect(key.setTitle).toHaveBeenCalledExactlyOnceWith("34 u");
   });
 
   it("shows its new preset once the settings page changes it", async () => {
@@ -140,7 +140,7 @@ describe("a key of a MeasureAction", () => {
 
     await deck.changeSettings(key, { preset: 70 });
 
-    expect(key.setTitle).toHaveBeenLastCalledWith("70");
+    expect(key.setTitle).toHaveBeenLastCalledWith("70 u");
   });
 
   it("sets every lamp to its preset, and leaves showing the result to the notice", async () => {

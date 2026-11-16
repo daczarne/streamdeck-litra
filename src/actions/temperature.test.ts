@@ -69,7 +69,7 @@ describe("TemperatureAction", () => {
 
       await deck.press(key);
 
-      expect(key.setTitle).toHaveBeenCalledExactlyOnceWith("2700");
+      expect(key.setTitle).toHaveBeenCalledExactlyOnceWith("2700 K");
       expect(setLampsTemperature).toHaveBeenCalledExactlyOnceWith("all", 2700);
       expect(logger.warn).not.toHaveBeenCalled();
     });
@@ -90,7 +90,7 @@ describe("TemperatureAction", () => {
 
       await deck.press(key);
 
-      expect(key.setTitle).toHaveBeenCalledExactlyOnceWith("5000");
+      expect(key.setTitle).toHaveBeenCalledExactlyOnceWith("5000 K");
       expect(setLampsTemperature).toHaveBeenCalledExactlyOnceWith("all", 5000);
       expect(logger.info).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("preset 5000 K"));
     });
@@ -156,7 +156,7 @@ describe("TemperatureAction", () => {
       expect(temperatureShown).toHaveBeenCalledExactlyOnceWith("connected");
       expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith({
         title: "Set Temperature",
-        value: "4000",
+        value: "4000 K",
         indicator: 34,
       });
     });
