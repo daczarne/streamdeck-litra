@@ -2671,7 +2671,10 @@ function pluginSettingsOf(page: Page): Promise<PluginSettings> {
 function clickInPluginSettings(page: Page, text: string, row?: string): Promise<void> {
   return page.evaluate(`(async () => {
     const container = document.getElementById("plugin-settings");
-    const scope = ${row === undefined ? "container" : `[...container.querySelectorAll("tr.lamp")].find((r) => r.firstElementChild.textContent === ${JSON.stringify(row)})`};
+    const row = ${JSON.stringify(row ?? null)};
+    const scope = row === null ? container : [...container.querySelectorAll("tr.lamp")].find(
+      (r) => r.firstElementChild.textContent === row,
+    );
     const trash = [...scope.querySelectorAll("button.forget")].find(
       (element) => element.getAttribute("aria-label") === ${JSON.stringify(text)},
     );
