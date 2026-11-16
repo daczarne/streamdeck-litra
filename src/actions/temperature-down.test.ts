@@ -60,7 +60,7 @@ afterEach(() => {
 //* Tests
 
 describe("TemperatureDownAction", () => {
-  it("steps every lamp down by the default step, and shows the first lamp's temperature as its title", async () => {
+  it("steps every lamp down by the default step, and shows the highest temperature as its title", async () => {
     const key = await deck.key(TEMPERATURE_DOWN);
 
     await deck.press(key);

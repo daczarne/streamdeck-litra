@@ -26,16 +26,16 @@ export type SceneGroup = {
 
 /**
  * How a step moves several lamps (#145): `"together"` sends every lamp to one value, stepped from the brightest lamp's
- * brightness or the first lamp's temperature, which brings lamps set apart back in sync, and `"each"` steps every lamp
- * from its own value, which keeps them apart. A lamp at an end of its range, or at its cap, stays there while the others keep going, and comes back with
- * them, as {@link stepApart} plans it.
+ * brightness or the highest temperature, which brings lamps set apart back in sync, and `"each"` steps every lamp from
+ * its own value, which keeps them apart. A lamp at an end of its range, or at its cap, stays there while the others
+ * keep going, and comes back with them, as {@link stepApart} plans it.
  */
 export type Stepping = "together" | "each";
 
 /**
  * Where a brightness or temperature change sends the lamps: one value for every lamp, in % of their range or in
- * kelvin, or ticks of a step, taken together from the brightest lamp's brightness or the first lamp's temperature, or
- * by each lamp from its own.
+ * kelvin, or ticks of a step, taken together from the brightest lamp's brightness or the highest temperature, or by
+ * each lamp from its own.
  */
 type Target = number | { stepping: Stepping; ticks: number; step: number };
 
@@ -217,8 +217,7 @@ type Found = { readonly connections: LampConnection[]; readonly unidentified: nu
  * number, such as a Beam LX, is asked for the one it keeps (#170), and one whose serial can't be read is logged, closed
  * and left out, since it can't be told from another, but counted. The lamps come in the order of their ids, since
  * litra finds them in an order that changes from one call to the next: so every operation goes through them in the
- * same order, as the lamp screens and the settings pages list them, and the first lamp, whose temperature the dials
- * step from, is always the same one. Marks each lamp the plugin knows as connected or not from what it found
+ * same order, as the lamp screens and the settings pages list them. Marks each lamp the plugin knows as connected or not from what it found
  * (#198). Finds none when finding them fails, which is logged, and so is finding none.
  */
 function findConnections(operation: string): Found {
@@ -792,8 +791,8 @@ export function setLampsTemperature(lamps: LampSelection, kelvin: number): Promi
 
 /**
  * Steps the selected lamps' temperature along the grid lowest + k × step: together, to one target stepped from the
- * first one's temperature, which isn't always the highest one the dial shows (#229), or each from its own, as
- * {@link stepApart} plans it (#145).
+ * highest temperature among them, which the dials and keys show (#229), or each from its own, as {@link stepApart}
+ * plans it (#145).
  */
 export function adjustLampsTemperature(
   lamps: LampSelection,
@@ -808,10 +807,9 @@ export function adjustLampsTemperature(
 
 /**
  * Moves the selected lamps to their target, each to the temperature it allows nearest to it. The target is a
- * temperature, or a step from the first selected lamp's temperature or from each lamp's own, as the plugin holds them.
- * Plans every lamp before it sets any, as {@link moveLampsBrightness} does, since a step of lamps kept apart counts a
- * tick only while a lamp still moves. When the first lamp can't be reached, the next one is where the lamps stepped
- * together start from.
+ * temperature, or a step from the highest selected lamp's temperature or from each lamp's own, as the plugin holds
+ * them. Plans every lamp before it sets any, as {@link moveLampsBrightness} does, since a step of lamps kept apart
+ * counts a tick only while a lamp still moves. A lamp that can't be reached is left out of the step.
  */
 function moveLampsTemperature(operation: string, lamps: LampSelection, target: Target): OperationResult {
   const opened = openLamps(operation, [{ lamps }]);
@@ -835,9 +833,15 @@ function moveLampsTemperature(operation: string, lamps: LampSelection, target: T
         targets.set(reached, { kelvin: target });
       }
     } else if (target.stepping === "together") {
-      const [first] = before.values();
-      if (first !== undefined) {
-        const stepped = stepOnGrid(first.kelvin, target.ticks, target.step, first.lowest, first.highest);
+      // The lamp at the highest temperature, which the dials and keys show (#229), the first of them on a tie.
+      let from: { kelvin: number; lowest: number; highest: number } | undefined;
+      for (const lamp of before.values()) {
+        if (from === undefined || lamp.kelvin > from.kelvin) {
+          from = lamp;
+        }
+      }
+      if (from !== undefined) {
+        const stepped = stepOnGrid(from.kelvin, target.ticks, target.step, from.lowest, from.highest);
         for (const reached of before.keys()) {
           targets.set(reached, { kelvin: stepped });
         }

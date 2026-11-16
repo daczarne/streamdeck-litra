@@ -101,7 +101,7 @@ A dial turns, and an Up or Down key steps, by the step in its settings, and stop
 
 ### Lamps together or apart
 
-By default, a turn on a dial's own screen, and a press of an Up or Down key, set every lamp to the same value: one step from the brightest lamp's brightness, which the dial or key shows, or from the first lamp's temperature, the first in the plugin settings' list of lamps, which may not be the highest one the dial or key shows.
+By default, a turn on a dial's own screen, and a press of an Up or Down key, set every lamp to the same value, one step from the one the dial or key shows: the brightest lamp's brightness, or the highest temperature.
 
 With "Each lamp steps from its own brightness" checked under "Lamps" in the plugin settings, each lamp steps from its own brightness instead, so lamps set apart on their lamp screens stay apart. A lamp that reaches 0%, 100% or its cap stays there, while the others keep going, and the plugin remembers how far the lamp would have gone, so it comes back with them and the lamps keep their difference. Once every lamp is at its end, turning further does nothing. Setting a lamp any other way through the plugin, or restarting the plugin, forgets how far it would have gone. Lamps that keep their difference each step along the multiples of the step, so their difference can change by up to a step on the first turn.
 

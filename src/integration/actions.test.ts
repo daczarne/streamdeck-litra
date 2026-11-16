@@ -351,15 +351,16 @@ describe("the Set Temperature action", () => {
     });
   });
 
-  it("moves every lamp by a dial's step from the first lamp's temperature", async () => {
+  it("moves every lamp by a dial's step from the highest temperature, which it shows (#229)", async () => {
     const pair = [newLamp({ temperatureInKelvin: 3000 }), newLamp({ temperatureInKelvin: 5000 })];
     await plugIn(...pair);
     const dial = await deck.dial(TEMPERATURE, { stepKelvin: 300 });
 
     await deck.turn(dial, 1);
 
-    expect(pair.map((lamp) => lamp.temperatureInKelvin)).toEqual([3300, 3300]);
-    expect(feedbackOf(dial)).toMatchObject({ value: "3300 K" });
+    // The next multiple of 300 K up from 5000 K, counted from 2700 K.
+    expect(pair.map((lamp) => lamp.temperatureInKelvin)).toEqual([5100, 5100]);
+    expect(feedbackOf(dial)).toMatchObject({ value: "5100 K" });
   });
 
   it("moves the lamps once for a quick turn, with the step the dial has by then", async () => {
@@ -521,7 +522,7 @@ describe("the step keys", () => {
     expect(titleOf(key)).toBe("79%");
   });
 
-  it("step every lamp's temperature up and down from the first lamp's, and each step key shows the highest (#129)", async () => {
+  it("step every lamp's temperature up and down from the highest, which each step key shows (#129, #229)", async () => {
     const pair = [newLamp({ temperatureInKelvin: 3000 }), newLamp({ temperatureInKelvin: 5000 })];
     await plugIn(...pair);
     const up = await deck.key(TEMPERATURE_UP, { stepKelvin: 300 });
@@ -531,13 +532,13 @@ describe("the step keys", () => {
 
     await deck.press(up);
 
-    expect(pair.map((lamp) => lamp.temperatureInKelvin)).toEqual([3300, 3300]);
-    expect([titleOf(up), titleOf(down)]).toEqual(["3300 K", "3300 K"]);
+    expect(pair.map((lamp) => lamp.temperatureInKelvin)).toEqual([5100, 5100]);
+    expect([titleOf(up), titleOf(down)]).toEqual(["5100 K", "5100 K"]);
 
     await deck.press(down);
 
-    expect(pair.map((lamp) => lamp.temperatureInKelvin)).toEqual([3000, 3000]);
-    expect([titleOf(up), titleOf(down)]).toEqual(["3000 K", "3000 K"]);
+    expect(pair.map((lamp) => lamp.temperatureInKelvin)).toEqual([4800, 4800]);
+    expect([titleOf(up), titleOf(down)]).toEqual(["4800 K", "4800 K"]);
   });
 
   it("follow what another action changes", async () => {
@@ -834,7 +835,7 @@ describe("lamps kept apart (#145)", () => {
 
     await deck.turn(temperatureDial, 1);
 
-    expect([dim.temperatureInKelvin, bright.temperatureInKelvin]).toEqual([4100, 4100]);
+    expect([dim.temperatureInKelvin, bright.temperatureInKelvin]).toEqual([5100, 5100]);
   });
 
   it("stay a step apart through their caps, down to 0% and back up, on a dial", async () => {
@@ -935,8 +936,8 @@ describe("lamps kept apart (#145)", () => {
 
     await deck.turn(dial, -1);
 
-    // A step down from the first lamp's 2900 K.
-    expect([warm.temperatureInKelvin, cool.temperatureInKelvin]).toEqual([2700, 2700]);
+    // A step down from the highest, 4500 K.
+    expect([warm.temperatureInKelvin, cool.temperatureInKelvin]).toEqual([4300, 4300]);
   });
 });
 
