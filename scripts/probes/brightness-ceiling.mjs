@@ -94,9 +94,8 @@ function climb(device, from) {
     const reached = setAndRead(device, sent);
     log(`     sent ${sent} lm, reached ${lumenAndPercentage(device, reached)}`);
     if (reached < sent) {
-      log(
-        `     stopped: held ${lumenAndPercentage(device, held)}, then stopped at ${lumenAndPercentage(device, reached)}`,
-      );
+      const heldAt = lumenAndPercentage(device, held);
+      log(`     stopped: held ${heldAt}, then stopped at ${lumenAndPercentage(device, reached)}`);
       log(`     after the window: ${lumenAndPercentage(device, afterRevertWindow(device))}`);
       return held;
     }

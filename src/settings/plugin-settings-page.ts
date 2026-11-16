@@ -11,8 +11,8 @@ const logger = pluginLogger.createScope("Plugin settings");
  * connected lamps when Find lamps asks for them, which the plugin adds to the ones it knows (#194), a blink of one when
  * its Identify button is pressed, a lamp renamed (#146) or forgotten (#194), which only the plugin saves, and which of
  * the lamps it knows are connected (#198), which it also tells the page shown whenever an operation finds a lamp
- * plugged in or unplugged. The keys' lamp pickers (#20, `ui/lamp-picker.js`) ask for nothing: they list the lamps the plugin knows, from its global
- * settings.
+ * plugged in or unplugged. The keys' lamp pickers (#20, `ui/lamp-picker.js`) ask for nothing: they list the lamps the
+ * plugin knows, from its global settings.
  */
 export function answerPluginSettingsPage(): void {
   streamDeck.ui.onSendToPlugin((ev) => {

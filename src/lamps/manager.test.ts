@@ -480,7 +480,7 @@ describe("the lamps connected (#198)", () => {
     expect(manager.connectedLamps()).toEqual([idOf(first)]);
   });
 
-  it("are told to the listeners when an operation finds a lamp unplugged, and again once it's plugged back in", async () => {
+  it("are told to the listeners when an operation finds a lamp unplugged, and again once it's plugged in", async () => {
     const [first, second] = [newLamp(), newLamp()];
     connect(first, second);
     const listener = vi.fn();
@@ -562,7 +562,7 @@ describe("the lamps the plugin knows (#194)", () => {
     expect(logger.warn).toHaveBeenCalledExactlyOnceWith(`turn off: lamp ${unknownId} isn't one of the plugin's lamps`);
   });
 
-  it("make an operation on every lamp but some fail, and log it, when every lamp connected is left out (#147)", async () => {
+  it("make an operation on every lamp but some fail and log, if every lamp connected is left out (#147)", async () => {
     const [first, second] = [newLamp({ on: true }), newLamp({ on: true })];
     connectKnowing([first, second], first, second);
 
@@ -703,7 +703,7 @@ describe("a lamp the plugin knows that isn't plugged in", () => {
     expect(await manager.turnLampsOn({ except: [MISSING_LAMP] })).toEqual({ ok: true, lampCount: 1, failures: 0 });
   });
 
-  it("leaves a lamp the plugin doesn't know, such as a forgotten one a key still lists, out of the failures", async () => {
+  it("leaves a lamp the plugin doesn't know, like a forgotten one a key still lists, out of the failures", async () => {
     const lamp = newLamp();
     connect(lamp);
 
@@ -803,7 +803,7 @@ describe("a lamp without a serial number in its USB descriptor (#170)", () => {
       expect(await manager.turnLampsOff({ except: [MISSING_LAMP] })).toEqual({ ok: false, lampCount: 2, failures: 1 });
     });
 
-    it("is left out unnoticed by an operation on given lamps, which can't tell whether it was one of them", async () => {
+    it("is left out unnoticed by an operation on given lamps, which can't tell if it was one of them", async () => {
       const { other } = unidentifiedWithBeam();
 
       expect(await manager.turnLampsOff([Lamp.idOf(other.serialNumber)])).toEqual({
@@ -860,7 +860,7 @@ describe("a lamp that turns on at the setting it saved once switched off (#100)"
 
   const identify = (lamp: EmulatedLitra) => settled(manager.identifyLamp(idOf(lamp), BLINK_MS));
 
-  it("comes back from a blink shorter than it takes to save its setting at the setting it had, and logs it", async () => {
+  it("comes back from a blink too short for it to save its setting at the setting it had, and logs it", async () => {
     const lamp = beamLx();
     connect(lamp);
     await settled(manager.setLampsScene(everyLampAt(100, 6500)));
@@ -920,7 +920,7 @@ describe("a lamp that turns on at the setting it saved once switched off (#100)"
     expect([lamp.writes("temperature"), lamp.writes("brightness")]).toEqual([[5000], []]);
   });
 
-  it("is still turned on when it takes the command but can't report back, and holds it on, with warnings (#198)", async () => {
+  it("is still turned on when it takes the command but can't report back, and holds it on, with warnings", async () => {
     const lamp = beam({ on: false });
     connect(lamp);
     lamp.fail("readSync");
@@ -988,7 +988,7 @@ describe("toggleLamps", () => {
     expect([first.writes("power"), second.writes("power")]).toEqual([[0], [0]]);
   });
 
-  it("turns every lamp off from the power it holds, even one that can't report back, which it holds as asked (#198)", async () => {
+  it("turns each lamp off from the power it holds, even one that can't report back, held as asked (#198)", async () => {
     const [first, second] = [newLamp(), newLamp()];
     connect(first, second);
     first.fail("readSync");
@@ -1143,7 +1143,7 @@ describe("onLampsChanged", () => {
     expect(listener).toHaveBeenCalledOnce();
   });
 
-  it("calls the listeners after a tap reaches the lamps, which can find one unplugged or plugged in again", async () => {
+  it("calls the listeners after a tap reaches the lamps, which can find one plugged in or unplugged", async () => {
     connect(newLamp());
     const listener = vi.fn();
     manager.onLampsChanged(listener);
@@ -1413,7 +1413,7 @@ describe("operations", () => {
     expect(openedOneAtATime(lamp)).toBe(true);
   });
 
-  it("run in the order they were asked for, so a power change isn't undone by a brightness change asked for before", async () => {
+  it("run in the order asked for, so a power change isn't undone by a brightness change asked for before", async () => {
     const lamp = newLamp();
     connect(lamp);
 
@@ -1611,7 +1611,7 @@ describe("adjustLampsBrightness, each lamp from its own (#145)", () => {
     expect(brightnessHeld()).toEqual([30, 60]);
   });
 
-  it("keeps stepping the other lamps once one reaches an end of its range, and comes back with their difference", async () => {
+  it("keeps stepping the others once one hits an end of its range, and comes back with their difference", async () => {
     const [dim, bright] = [newLamp({ brightnessInLumen: lumenAt(50) }), newLamp({ brightnessInLumen: lumenAt(90) })];
     connect(dim, bright);
 
@@ -1856,7 +1856,7 @@ describe("setLampsScene", () => {
     expect(lamp.writes("brightness")).toEqual([MAX_LUMEN, 244]);
   });
 
-  it("runs after the brightness change in progress, and waits for a lamp that can still go back to its cap", async () => {
+  it("runs after the brightness change underway, and waits for a lamp that can still go back to its cap", async () => {
     // A lamp on a hub, asked for more than its cap right before the scene asks for less.
     const lamp = newLamp({ capInLumen: 244 });
     connect(lamp);
@@ -2005,7 +2005,7 @@ describe("adjustLampsTemperature", () => {
     expect(lamp.writes("temperature")).toEqual([4100, 3900]);
   });
 
-  it("steps down from the highest allowed value to the grid, when the step doesn't divide the range (#16)", async () => {
+  it("steps down from the highest allowed value to the grid when the step doesn't divide the range (#16)", async () => {
     const lamp = newLamp({ temperatureInKelvin: MAX_KELVIN });
     connect(lamp);
 

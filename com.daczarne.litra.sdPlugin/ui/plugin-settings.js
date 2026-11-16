@@ -1,16 +1,15 @@
 // The plugin's own settings (#146), the same on every action's page: a button at the top of the page shows them in
-// place of the action's, and back. They list the lamps the plugin knows (#194), which it keeps in its global settings as
-// `lamps`, each by the end of its id and its model, with a field for its name, a button that blinks it, and
-// one that forgets it. The plugin alone saves the lamps: this asks it to find them, and to rename or forget one, and
-// shows them as Stream Deck passes on what the plugin saved. Find lamps is the only time they're looked for, and marks
-// the ones it didn't find. The keys' lamp pickers list the same lamps, with their names (lamp-picker.js). Under the lamps
-// come the global settings that every dial and
-// key shares, such as whether each lamp steps from its own value (#145), how long a blink lasts (#171), whether keys
-// take in lamps added later (#147), which a key's own page can choose for that key alone, and tells its lamp
-// picker, the lamp screens' blink (#144), which a dial's own page can turn on or off for that dial alone, and what each
-// cell of the lamp screens shows, with a Configure button that shows the cell's options in place of the plugin settings
-// (#177). A file rather
-// than an inline script, so the pages' Content-Security-Policy doesn't have to allow inline scripts.
+// place of the action's, and back. They list the lamps the plugin knows (#194), which it keeps in its global settings
+// as `lamps`, each by the end of its id and its model, with a field for its name, a button that blinks it, and one that
+// forgets it. The plugin alone saves the lamps: this asks it to find them, and to rename or forget one, and shows them
+// as Stream Deck passes on what the plugin saved. Find lamps is the only time they're looked for, and marks the ones it
+// didn't find. The keys' lamp pickers list the same lamps, with their names (lamp-picker.js). Under the lamps come the
+// global settings that every dial and key shares, such as whether each lamp steps from its own value (#145), how long a
+// blink lasts (#171), whether keys take in lamps added later (#147), which a key's own page can choose for that key
+// alone, and tells its lamp picker, the lamp screens' blink (#144), which a dial's own page can turn on or off for that
+// dial alone, and what each cell of the lamp screens shows, with a Configure button that shows the cell's options in
+// place of the plugin settings (#177). A file rather than an inline script, so the pages' Content-Security-Policy
+// doesn't have to allow inline scripts.
 (() => {
   const container = document.getElementById("plugin-settings");
   if (container === null) {
@@ -25,8 +24,8 @@
   // The lamps the plugin knows, by id, each with its model, and its name, if any.
   let lamps = {};
   // The ids of the lamps the plugin found the last time it looked (#198): what it answers as the plugin settings open,
-  // and tells of every change since, and what the last Find lamps found. Undefined before either, when none is marked as
-  // not found.
+  // and tells of every change since, and what the last Find lamps found. Undefined before either, when none is marked
+  // as not found.
   let found;
 
   // The plugin tells the page shown which lamps are connected whenever an operation finds one plugged in or unplugged.
@@ -104,8 +103,8 @@
       opacity: 0.6;
     }
 
-    /* Identify and "Not found" in the same place, the one not shown hidden but keeping its room, so the column is as wide
-      as the wider of the two, whichever lamps the last Find lamps found. */
+    /* Identify and "Not found" in the same place, the one not shown hidden but keeping its room, so the column is as
+      wide as the wider of the two, whichever lamps the last Find lamps found. */
     #plugin-settings .identify-or-missing {
       display: grid;
       align-items: center;
@@ -320,8 +319,8 @@
   }
 
   /**
-   * Asks the plugin for the lamps connected now, which it adds to the ones it knows, and marks the ones it knows that it
-   * didn't find. The lamps it adds arrive with the global settings, as the plugin saves them.
+   * Asks the plugin for the lamps connected now, which it adds to the ones it knows, and marks the ones it knows that
+   * it didn't find. The lamps it adds arrive with the global settings, as the plugin saves them.
    */
   async function findLamps() {
     const reply = await client.get(
@@ -442,8 +441,8 @@
     ["none", "None"],
   ];
 
-  //* The lamp screens' cells (#177): what each shows, a list from sdpi-components that saves it itself, and how, which a
-  // cell's editor shows in place of the plugin settings. A cell's options are kept in the global settings as
+  //* The lamp screens' cells (#177): what each shows, a list from sdpi-components that saves it itself, and how, which
+  // a cell's editor shows in place of the plugin settings. A cell's options are kept in the global settings as
   // `lampScreenOptions`, by cell and by item, so a cell switched to another item and back gets its options back. Only
   // what differs from the defaults needs saving: the plugin reads every option against src/settings/schema.ts.
 
@@ -536,7 +535,9 @@
     );
   }
 
-  /** Saves a cell's options for an item, or takes them away, to bring back the defaults, when `options` is undefined. */
+  /**
+   * Saves a cell's options for an item, or takes them away, to bring back the defaults, when `options` is undefined.
+   */
   function storeOptions(cell, item, options) {
     const { [item]: _, ...others } = validObject(cellOptions[cell]);
     cellOptions = { ...cellOptions, [cell]: options === undefined ? others : { ...others, [item]: options } };
@@ -545,9 +546,9 @@
   }
 
   /**
-   * One of the lamp screens' text styles (#153), under its name: its color, weight and size, side by side, each saved by
-   * sdpi-components as a global setting named after the style, and a Reset button under them, which sets each back to
-   * its default. A control saves the value a script gives it, as it does the user's.
+   * One of the lamp screens' text styles (#153), under its name: its color, weight and size, side by side, each saved
+   * by sdpi-components as a global setting named after the style, and a Reset button under them, which sets each back
+   * to its default. A control saves the value a script gives it, as it does the user's.
    */
   function textStyle(name, setting, color, weight = "normal") {
     const controls = [
@@ -867,10 +868,10 @@
   }
 
   //* Choices every dial or every key shares, which one dial or one key can make otherwise on its own page: the lamp
-  // screens' blink (#144), and whether a key takes in lamps added later (#147). Each is a global setting, and the ids of
-  // the dials or keys that chose otherwise. The plugin settings show every one's at once, indeterminate when they differ,
-  // and a click there gives every one the same again, even the ones not on screen. A dial's or key's page shows its own,
-  // in the element the page has for it.
+  // screens' blink (#144), and whether a key takes in lamps added later (#147). Each is a global setting, and the ids
+  // of the dials or keys that chose otherwise. The plugin settings show every one's at once, indeterminate when they
+  // differ, and a click there gives every one the same again, even the ones not on screen. A dial's or key's page shows
+  // its own, in the element the page has for it.
 
   /** The ids in the global settings, or none when they aren't a list of ids. */
   function validIds(value) {
@@ -884,7 +885,8 @@
    * `controller` ("Encoder" or "Keypad"). `onOwnChange` hears the page's own choice each time it's shown.
    */
   function sharedChoice({ setting, exceptions, fallback, every, own, ownElement, controller, onOwnChange = () => {} }) {
-    // The plugin's setting, the ids that chose otherwise, and the id of the dial or key whose page this is, if it is one.
+    // The plugin's setting, the ids that chose otherwise, and the id of the dial or key whose page this is, if it is
+    // one.
     let chosen = fallback;
     let others = [];
     let ownId;
@@ -908,7 +910,9 @@
       0,
     );
 
-    /** The choice of the dial or key whose page this is: the plugin's setting, or the opposite if it chose otherwise. */
+    /**
+     * The choice of the dial or key whose page this is: the plugin's setting, or the opposite if it chose otherwise.
+     */
     const ownChoice = () => chosen !== others.includes(ownId);
 
     /** Shows the choice on both checkboxes, and saves the ids that chose otherwise. */

@@ -1,7 +1,7 @@
 import { defineConfig } from "vitest/config";
 
-// The tests that run the lamp manager on emulated lamps, which run once on Beams and once on Beam LXs (#100). The Beam LX
-// differs where a Beam doesn't need the plugin's help, such as its serial number and how it turns on, so every
+// The tests that run the lamp manager on emulated lamps, which run once on Beams and once on Beam LXs (#100). The
+// Beam LX differs where a Beam doesn't need the plugin's help, such as its serial number and how it turns on, so every
 // scenario is checked on both. `src/integration/litra.test.ts` goes through every model on its own.
 const ON_EMULATED_LAMPS = ["src/lamps/manager.test.ts", "src/integration/actions.test.ts"];
 

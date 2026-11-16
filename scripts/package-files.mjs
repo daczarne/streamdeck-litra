@@ -101,5 +101,6 @@ export function thirdPartyNotices(roots) {
 
   const rule = "=".repeat(80);
   const sections = packages.map(({ heading, texts }) => [rule, heading, rule, "", texts.join("\n\n")].join("\n"));
-  return `The Litra plugin ships code from the packages below, under the licenses that follow each one.\n\n${sections.join("\n\n")}\n`;
+  const intro = "The Litra plugin ships code from the packages below, under the licenses that follow each one.";
+  return `${intro}\n\n${sections.join("\n\n")}\n`;
 }

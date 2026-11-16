@@ -53,7 +53,9 @@ export function show(...actions: FakeAction[]): void {
   visibleActions = actions;
 }
 
-/** The SDK's decorator for an action class, which gives the class the action's id in the manifest, as the SDK's does. */
+/**
+ * The SDK's decorator for an action class, which gives the class the action's id in the manifest, as the SDK's does.
+ */
 export function action(definition: { UUID: string }) {
   return <T extends { prototype: object }>(target: T): T => {
     Object.defineProperty(target.prototype, "manifestId", { value: definition.UUID });

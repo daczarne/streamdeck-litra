@@ -5,10 +5,10 @@ import { globalSettings } from "../settings/global-settings";
 
 /**
  * What the keys and dials show of the lamps (#198): whether a Power key is on, a step key's title, and a Brightness or
- * Temperature dial's main screen and lamp screens. It's worked out from the `Lamp`s of the lamps the plugin knows, which
- * the global settings hold, and which hold the lamps' state, so showing a lamp reads nothing. Each function waits for
- * the operations queued, if any, so it shows where they leave the lamps, not partway, and shows the lamps a selection
- * takes in among those the last operation found and reached, in the order of their ids.
+ * Temperature dial's main screen and lamp screens. It's worked out from the `Lamp`s of the lamps the plugin knows,
+ * which the global settings hold, and which hold the lamps' state, so showing a lamp reads nothing. Each function waits
+ * for the operations queued, if any, so it shows where they leave the lamps, not partway, and shows the lamps a
+ * selection takes in among those the last operation found and reached, in the order of their ids.
  */
 
 /** A lamp's temperature as a dial shows it: in kelvin, and as its place between the lowest and the highest. */

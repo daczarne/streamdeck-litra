@@ -83,8 +83,8 @@ export abstract class StepKeyAction extends RoutingAction<StepKey> {
 /**
  * A key that steps the brightness or the temperature up or down by its step, for decks without dials (#129). A press is
  * a dial's tick: it goes through the same operation, so the lamps stop on the same values and caps work the same, and
- * presses as quick as a dial's ticks are gathered into one move. Every key shows what its lamps are at as its title, and
- * follows every change through the lamp manager's notice, and the global settings, which choose its lamps (#147).
+ * presses as quick as a dial's ticks are gathered into one move. Every key shows what its lamps are at as its title,
+ * and follows every change through the lamp manager's notice, and the global settings, which choose its lamps (#147).
  */
 class StepKey extends ActionInstance<StepConfig, KeyAction<JsonObject>> {
   /** The presses gathered for a moment, so quick ones move the lamps once. */

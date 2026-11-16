@@ -144,8 +144,10 @@ export function describe(device, bytes) {
     return `${hex(bytes)}  error report: code 0x${hex([bytes[5]])} for function 0x${hex([bytes[4]])}`;
   }
   switch (bytes[3]) {
-    case 0x01:
-      return `${hex(bytes)}  power reply: ${bytes[4] === undefined ? "(report too short)" : bytes[4] === 1 ? "on" : "off"}`;
+    case 0x01: {
+      const power = bytes[4] === undefined ? "(report too short)" : bytes[4] === 1 ? "on" : "off";
+      return `${hex(bytes)}  power reply: ${power}`;
+    }
     case 0x1c:
       return `${hex(bytes)}  set-power ACK`;
     case 0x31:

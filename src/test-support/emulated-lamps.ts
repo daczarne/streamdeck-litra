@@ -14,9 +14,9 @@ type Options = {
  *
  * It replaces `node-hid` with `fake-node-hid.ts` and `src/logging.ts` with `fake-logging.ts`, and returns, besides what
  * `load` returned, the fake node-hid, which plugs emulated lamps in, and the logger the code logs to. It numbers the
- * lamps emulated from 1 again, so a test's lamps come in the order it makes them (see `restartLampNumbering`). The fakes are mocked with
- * `vi.doMock` after `vi.resetModules()`, rather than with `vi.mock`, whose modules outlive the reset: the code and the
- * test then share this test's fakes.
+ * lamps emulated from 1 again, so a test's lamps come in the order it makes them (see `restartLampNumbering`). The
+ * fakes are mocked with `vi.doMock` after `vi.resetModules()`, rather than with `vi.mock`, whose modules outlive the
+ * reset: the code and the test then share this test's fakes.
  *
  * It fails when litra didn't get the fake `node-hid`, since the tests would then write to the lamps plugged into the
  * machine. Importing node-hid opens nothing, so the check comes before any lamp is touched.
