@@ -46,8 +46,8 @@ export const BRIGHTNESS: Stepped = {
 };
 
 /**
- * The temperature, which a Temperature Up or Down key steps, and shows as the dials do: the first of its lamps shown,
- * in the order of their ids, in kelvin, or a dash with none.
+ * The temperature, which a Temperature Up or Down key steps, and shows as the dials do: the highest of its lamps
+ * shown, in kelvin, or a dash with none (#229).
  */
 export const TEMPERATURE: Stepped = {
   read: (settings, logger) => {

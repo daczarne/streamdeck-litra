@@ -56,7 +56,7 @@ Set Brightness and Set Temperature keys set their lamps to the preset in their s
 
 ### Brightness and Temperature Up and Down
 
-Brightness and Temperature Up and Down keys step their lamps by the step in their settings, as one tick of a dial, for decks without dials (see [Steps](#steps)). They show what their lamps are at, as the dials do: the brightest lamp's %, or the first lamp's temperature in Kelvin, the first in the plugin settings' list of lamps, as on the lamp screens, and a dash when none of their lamps is connected. A title typed in the key's settings replaces it.
+Brightness and Temperature Up and Down keys step their lamps by the step in their settings, as one tick of a dial, for decks without dials (see [Steps](#steps)). They show what their lamps are at, as the dials do: the brightest lamp's %, or the highest temperature in Kelvin, and a dash when none of their lamps is connected. A title typed in the key's settings replaces it.
 
 ### Picking a key's lamps
 
@@ -68,9 +68,9 @@ By default, a key also takes in lamps added later: it acts on every lamp but the
 
 ### The main screen
 
-Dials look like Stream Deck's own volume dials: the value, with a bar under it. The keys, and the dials' pictures in the Stream Deck app, show the same line icon as the strip, smaller, at the size of the Icon Library's Litra icons. The temperature bar runs from the lamp's warmest setting (empty) to its coolest (full). The brightness bar is white up to the dimmest lamp's level, and a lighter grey from there to the brightest lamp's, the part only some lamps reach. Their title is their action's name ("Set Brightness", "Set Temperature"), and can be replaced or hidden like a key's.
+Dials look like Stream Deck's own volume dials: the value, with a bar under it. The keys, and the dials' pictures in the Stream Deck app, show the same line icon as the strip, smaller, at the size of the Icon Library's Litra icons. The brightness bar is white up to the dimmest lamp's level, and a lighter grey from there to the brightest lamp's, the part only some lamps reach. The temperature bar runs from the lamps' warmest setting (empty) to their coolest (full), and is white up to the warmest lamp's temperature, and a lighter grey from there to the coolest lamp's. Their title is their action's name ("Set Brightness", "Set Temperature"), and can be replaced or hidden like a key's.
 
-Rotating adjusts every lamp (see [Steps](#steps)), and pressing toggles every lamp, as a Power key in its toggle mode does (see [Power](#power)). A Set Brightness dial shows the brightest lamp's %, and a Set Temperature dial the first lamp's temperature, the first in the plugin settings' list of lamps, and a dash when no lamp is connected. Holding the strip does nothing on the main screen.
+Rotating adjusts every lamp (see [Steps](#steps)), and pressing toggles every lamp, as a Power key in its toggle mode does (see [Power](#power)). A Set Brightness dial shows the brightest lamp's %, and a Set Temperature dial the highest temperature, and a dash when no lamp is connected. Holding the strip does nothing on the main screen.
 
 ### Lamp screens
 
@@ -101,7 +101,7 @@ A dial turns, and an Up or Down key steps, by the step in its settings, and stop
 
 ### Lamps together or apart
 
-By default, a turn on a dial's own screen, and a press of an Up or Down key, set every lamp to the same value, stepped from the one the dial or key shows.
+By default, a turn on a dial's own screen, and a press of an Up or Down key, set every lamp to the same value: one step from the brightest lamp's brightness, which the dial or key shows, or from the first lamp's temperature, the first in the plugin settings' list of lamps, which may not be the highest one the dial or key shows.
 
 With "Each lamp steps from its own brightness" checked under "Lamps" in the plugin settings, each lamp steps from its own brightness instead, so lamps set apart on their lamp screens stay apart. A lamp that reaches 0%, 100% or its cap stays there, while the others keep going, and the plugin remembers how far the lamp would have gone, so it comes back with them and the lamps keep their difference. Once every lamp is at its end, turning further does nothing. Setting a lamp any other way through the plugin, or restarting the plugin, forgets how far it would have gone. Lamps that keep their difference each step along the multiples of the step, so their difference can change by up to a step on the first turn.
 

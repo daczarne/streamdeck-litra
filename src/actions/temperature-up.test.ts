@@ -47,8 +47,8 @@ beforeEach(() => {
   changeGlobalSettings({});
   // The debouncer flushes every press at once: its own timing is debouncer.test.ts's to check.
   vi.mocked(createDebouncer).mockImplementation((flush) => (presses) => void flush(presses));
-  // The first lamp at 4000 K, as the plugin holds it.
-  vi.mocked(temperatureShown).mockResolvedValue({ kelvin: 4000, percentage: 34 });
+  // One lamp at 4000 K, as the plugin holds it.
+  vi.mocked(temperatureShown).mockResolvedValue([{ kelvin: 4000, percentage: 34 }]);
   vi.mocked(adjustLampsTemperature).mockResolvedValue(DONE);
   deck = new FakeDeck([new TemperatureUpAction()]);
 });

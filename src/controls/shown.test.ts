@@ -118,25 +118,28 @@ describe("what the Deck shows of the lamps (#198)", () => {
   });
 
   describe("the temperature, as a dial or a step key shows it", () => {
-    it("is the first lamp's, in kelvin and as its place in the lamp's range", async () => {
+    it("is each lamp's, in the order of their ids, in kelvin and as its place in the lamp's range", async () => {
       held("00000000000b2222", { kelvin: 5000 });
       held("00000000000a1111", { kelvin: 3500 });
 
-      expect(await temperatureShown("all")).toEqual({ kelvin: 3500, percentage: 21 });
+      expect(await temperatureShown("all")).toEqual([
+        { kelvin: 3500, percentage: 21 },
+        { kelvin: 5000, percentage: 61 },
+      ]);
     });
 
     it("puts the lowest temperature the lamp allows at 0, and the highest at 100", async () => {
       const lamp = held("00000000000a1111", { kelvin: 2700 });
 
-      expect(await temperatureShown("all")).toEqual({ kelvin: 2700, percentage: 0 });
+      expect(await temperatureShown("all")).toEqual([{ kelvin: 2700, percentage: 0 }]);
 
       known.set(lamp.id, reachedLamp(lamp.id, { ...HALF, kelvin: 6500 }));
 
-      expect(await temperatureShown("all")).toEqual({ kelvin: 6500, percentage: 100 });
+      expect(await temperatureShown("all")).toEqual([{ kelvin: 6500, percentage: 100 }]);
     });
 
     it("is none without a lamp", async () => {
-      expect(await temperatureShown("all")).toBeUndefined();
+      expect(await temperatureShown("all")).toEqual([]);
     });
   });
 
@@ -171,8 +174,13 @@ describe("the text a dial's main screen and a step key's title show (#129)", () 
     expect(brightnessText([])).toBe("—");
   });
 
-  it("is the first lamp's temperature, in kelvin, or a dash with no lamp", () => {
-    expect(temperatureText({ kelvin: 3500, percentage: 21 })).toBe("3500 K");
-    expect(temperatureText(undefined)).toBe("—");
+  it("is the highest lamp's temperature, in kelvin, or a dash with no lamp", () => {
+    expect(
+      temperatureText([
+        { kelvin: 5000, percentage: 61 },
+        { kelvin: 3500, percentage: 21 },
+      ]),
+    ).toBe("5000 K");
+    expect(temperatureText([])).toBe("—");
   });
 });

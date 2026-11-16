@@ -332,7 +332,23 @@ describe("the Set Temperature action", () => {
     await deck.press(key);
 
     expect(pair.map((lamp) => lamp.temperatureInKelvin)).toEqual([4200, 4200]);
-    expect(feedbackOf(dial)).toEqual({ title: "Set Temperature", value: "4200 K", indicator: 39 });
+    expect(feedbackOf(dial)).toEqual({
+      title: "Set Temperature",
+      value: "4200 K",
+      indicator: { value: 39, bar_fill_c: "white" },
+    });
+  });
+
+  it("shows the highest of lamps at different temperatures, the bar fainter where only one reaches (#229)", async () => {
+    // 3300 K and 4900 K, 16% and 58% of the way from the lowest temperature to the highest.
+    await plugIn(newLamp({ temperatureInKelvin: 3300 }), newLamp({ temperatureInKelvin: 4900 }));
+    const dial = await deck.dial(TEMPERATURE);
+
+    expect(feedbackOf(dial)).toEqual({
+      title: "Set Temperature",
+      value: "4900 K",
+      indicator: { value: 58, bar_fill_c: "0:#ffffff,0.276:#ffffff,0.277:#c0c0c0,1:#c0c0c0" },
+    });
   });
 
   it("moves every lamp by a dial's step from the first lamp's temperature", async () => {
@@ -505,13 +521,13 @@ describe("the step keys", () => {
     expect(titleOf(key)).toBe("79%");
   });
 
-  it("step every lamp's temperature up and down from the first lamp's, and each step key shows it (#129)", async () => {
+  it("step every lamp's temperature up and down from the first lamp's, and each step key shows the highest (#129)", async () => {
     const pair = [newLamp({ temperatureInKelvin: 3000 }), newLamp({ temperatureInKelvin: 5000 })];
     await plugIn(...pair);
     const up = await deck.key(TEMPERATURE_UP, { stepKelvin: 300 });
     const down = await deck.key(TEMPERATURE_DOWN, { stepKelvin: 300 });
 
-    expect([titleOf(up), titleOf(down)]).toEqual(["3000 K", "3000 K"]);
+    expect([titleOf(up), titleOf(down)]).toEqual(["5000 K", "5000 K"]);
 
     await deck.press(up);
 
@@ -874,13 +890,13 @@ describe("lamps kept apart (#145)", () => {
     await deck.turn(temperatureDial, 1);
 
     expect([warm.temperatureInKelvin, cool.temperatureInKelvin]).toEqual([3300, 4900]);
-    // The dials and the keys show the first lamp's temperature.
-    expect(textOf(temperatureDial)).toMatchObject({ value: "3300 K" });
+    // The dials and the keys show the highest temperature (#229).
+    expect(textOf(temperatureDial)).toMatchObject({ value: "4900 K" });
 
     await deck.press(temperatureUp);
 
     expect([warm.temperatureInKelvin, cool.temperatureInKelvin]).toEqual([3500, 5100]);
-    expect(titleOf(temperatureUp)).toBe("3500 K");
+    expect(titleOf(temperatureUp)).toBe("5100 K");
 
     await deck.turn(brightnessDial, 1);
 

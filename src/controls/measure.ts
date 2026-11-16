@@ -10,6 +10,47 @@ import { createDebouncer } from "./debouncer";
 import { describeLamps } from "./describe-lamps";
 import { LampScreen } from "./lamp-screens";
 
+// Where fewer lamps reach, a dial's bar fades from white towards this grey, never as far as the bar's own background,
+// and light enough to read on the strip.
+const FAINTEST_BAR_GREY = 0x80;
+
+/**
+ * The bar a Set Brightness or Set Temperature dial's main screen shows, in the $B1 layout's indicator, for each lamp's
+ * place in its range, in %: filled up to the highest one, and banded by how many lamps reach each part of it (#59,
+ * #229).
+ */
+export function bar(levels: readonly number[]): { value: number; bar_fill_c: string } {
+  return { value: Math.max(0, ...levels), bar_fill_c: barFill(levels) };
+}
+
+/**
+ * The fill of a dial's bar for each lamp's place in its range, in %: white up to the lowest one, then fainter for each
+ * level fewer lamps reach, so the bar shows that only some lamps go that far (#59). A gradient's stops span the bar's
+ * filled part, which ends at the highest level, so each level is placed as a share of that one. Two stops 0.001 apart
+ * draw a sharp edge.
+ */
+export function barFill(levels: readonly number[]): string {
+  const highest = Math.max(0, ...levels);
+  const distinct = [...new Set(levels)].filter((level) => level > 0).sort((a, b) => a - b);
+  if (distinct.length === 0 || (distinct.length === 1 && levels.every((level) => level === highest))) {
+    return "white";
+  }
+  const offset = (share: number): number => Number(Math.min(1, share).toFixed(3));
+  const stops: string[] = [];
+  let start = 0;
+  for (const level of distinct) {
+    const reaching = levels.filter((other) => other >= level).length / levels.length;
+    const grey = Math.round(FAINTEST_BAR_GREY + (0xff - FAINTEST_BAR_GREY) * reaching)
+      .toString(16)
+      .padStart(2, "0");
+    const color = `#${grey}${grey}${grey}`;
+    const end = level / highest;
+    stops.push(`${offset(start)}:${color}`, `${offset(end)}:${color}`);
+    start = end + 0.001;
+  }
+  return stops.join(",");
+}
+
 /**
  * What a Set Brightness or Set Temperature key does: how it reads its preset and its lamps from its settings, the unit
  * its title and its log line give the preset in, and how it sets its lamps to it.
