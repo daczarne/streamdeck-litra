@@ -15,15 +15,15 @@ This document follows one press of a key, from Stream Deck sending it to the plu
 
 ## The example
 
-A Set Brightness key whose preset is 100%, set to act on every lamp, with 3 Beams and 1 Beam LX plugged in, all known to the plugin. A Power key, a Set Brightness dial and a Brightness Up key are on the Deck too, to show how the other controls follow.
+A Set Brightness key whose preset is 100%, set to act on every lamp, with 3 Beams and 1 Beam LX plugged in, all known to the plugin, and "Set Brightness keys turn lamps on" checked in the plugin settings (#268). A Power key, a Set Brightness dial and a Brightness Up key are on the Deck too, to show how the other controls follow.
 
 ```text
 Deck key ─► Stream Deck app ─► WebSocket ─► SDK ─► BrightnessAction.onKeyDown
-  └► PresetKey.keyDown ─► setLampsBrightness("all", 100)
+  └► PresetKey.keyDown ─► setLampsBrightness("all", 100, true)
        └► wait for the operations queued before it
        └► openLamps: find the 4 lamps over HID, ask the LX for its serial, sort by id, reach each Lamp
        └► wait for any of the 4 whose cap may still come back
-       └► turn each lamp on, even one already on (one back at another setting, like the LX, gets it put back)
+       └► turn each lamp on, as the key's setting asks, even one already on (one back at another setting, like the LX, gets it put back)
        └► write 400 lm to all 4, one after another
        └► sleep 250 ms
        └► read each lamp's brightness back, and learn a cap where a lamp fell short
@@ -37,7 +37,7 @@ Deck key ─► Stream Deck app ─► WebSocket ─► SDK ─► BrightnessAct
 1. Stream Deck sends `keyDown`. Of the 8 `keyDown` listeners [start-up registered][start-up-register], the Set Brightness action's matches the `manifestId`, and calls `BrightnessAction.onKeyDown` ([action-instance.ts][action-instance-keydown]).
 2. `take(ev)` finds the key's `PresetKey` by its id. It reads the settings again only if their JSON changed since the last time.
 3. [`PresetKey.keyDown`][preset-key-down] works out the key's lamps with [`globalSettings.actionKeyLamps`][action-key-lamps]: `"all"` for a key that never saved a list, or `{ except: [] }` for one that checked all 4 and takes in lamps added later. Either way it covers all 4.
-4. It logs `Key pressed: preset 100%, on every lamp`, and awaits `setLampsBrightness(lamps, 100)`.
+4. It asks [`globalSettings.turnsLampsOn`][turns-lamps-on] whether Set Brightness keys turn their lamps on, which is checked here, logs `Key pressed: preset 100%, on every lamp, turning lamps on`, and awaits `setLampsBrightness(lamps, 100, true)`.
 
 ## 2. Queueing and waiting
 
@@ -59,7 +59,7 @@ For each lamp kept, [`Lamp.reach`][lamp-reach] marks it found and takes its rang
 
 ## 4. Turning on, and the Beam LX's put-back
 
-In [`moveLampsBrightness`][move-lamps-brightness], each lamp is turned on by [`switchPower`][switch-power], even one whose held state is on, so a lamp turned off another way follows the plugin again:
+In [`moveLampsBrightness`][move-lamps-brightness], since the key turns its lamps on, each lamp is turned on by [`switchPower`][switch-power], even one whose held state is on, as every power change is sent. A key that doesn't turn its lamps on, as by default, skips this step, and a lamp that's off stays off:
 
 - **Write** `[0x11, 0xff, idx, 0x1c, 0x01]`, padded to 20 bytes. `idx` is `0x04` on a Beam and `0x06` on a Beam LX.
 - **Drain the ACK** ([`drainAck`][drain-ack]), so the next read gets its reply rather than the ACK.
@@ -118,7 +118,7 @@ Almost all of the HID work is synchronous, so it holds the plugin's event loop, 
 `com.daczarne.litra.sdPlugin/logs/litra.log`, in order:
 
 1. at start-up: `Plugin started`, then a `start: … read, since it was first reached: …` line for each lamp;
-2. at the press: `Key pressed: preset 100%, on every lamp`;
+2. at the press: `Key pressed: preset 100%, on every lamp, turning lamps on`;
 3. for each lamp, a `put back to …` line when it came back at another setting than the plugin holds, such as a Beam LX that lost its setting, then a `turned on` line when the plugin held it as off;
 4. a `sent … lm, reached … lm` line for each lamp;
 5. a `capped at … lm` line for each lamp that fell short.
@@ -157,4 +157,5 @@ Almost all of the HID work is synchronous, so it holds the plugin's event loop, 
 [start-up-register]: start_up.md#4-the-body-of-plugints
 [step-key-lamps-changed]: ../../src/controls/step-key.ts
 [switch-power]: ../../src/lamps/lamp.ts
+[turns-lamps-on]: ../../src/settings/global-settings.ts
 [wait-for-cap-reversal]: ../../src/lamps/manager.ts

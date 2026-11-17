@@ -53,7 +53,8 @@ export function barFill(levels: readonly number[]): string {
 
 /**
  * What a Set Brightness or Set Temperature key does: how it reads its preset and its lamps from its settings, the unit
- * its title and its log line give the preset in, and how it sets its lamps to it.
+ * its title and its log line give the preset in, whether the global settings have it turn its lamps on (#268), and how
+ * it sets its lamps to it.
  */
 export type Preset = {
   read: (
@@ -61,21 +62,29 @@ export type Preset = {
     logger: Logger,
   ) => { preset: number; lamps: CheckedLamps; leftOutLamps: readonly string[] };
   unit: string;
-  set: (lamps: LampSelection, preset: number) => Promise<OperationResult>;
+  turnsLampsOn: () => boolean;
+  set: (lamps: LampSelection, preset: number, turnOn: boolean) => Promise<OperationResult>;
 };
 
 /**
  * What a Set Brightness or Set Temperature dial steps: what a turn adjusts, which describes a turn on a lamp screen,
  * how it reads its step from its settings, the unit its log line gives the step in, how the global settings step
- * several lamps (#145), how it moves the lamps by its step, and what its main screen shows of every lamp, its title
- * included.
+ * several lamps (#145), whether they have a turn on its main screen or on a lamp screen turn the lamps on (#268), how
+ * it moves the lamps by its step, and what its main screen shows of every lamp, its title included.
  */
 export type Measure = {
   adjusts: string;
   readStep: (settings: JsonObject, logger: Logger) => number;
   unit: string;
   stepping: () => Stepping;
-  adjust: (lamps: LampSelection, ticks: number, step: number, stepping: Stepping) => Promise<OperationResult>;
+  turnsLampsOn: (screen: "main" | "lamp") => boolean;
+  adjust: (
+    lamps: LampSelection,
+    ticks: number,
+    step: number,
+    stepping: Stepping,
+    turnOn: boolean,
+  ) => Promise<OperationResult>;
   mainScreen: () => Promise<FeedbackPayload>;
 };
 
@@ -130,14 +139,17 @@ class PresetKey extends ActionInstance<ReturnType<Preset["read"]>, KeyAction<Jso
   }
 
   /**
-   * Sets the key's lamps to its preset. The dials follow through the lamp manager's notice, with what the lamps
-   * reached, which is less for a lamp at its cap, or a temperature snapped to one it allows.
+   * Sets the key's lamps to its preset, turning them on first when the global settings say so (#268). The dials follow
+   * through the lamp manager's notice, with what the lamps reached, which is less for a lamp at its cap, or a
+   * temperature snapped to one it allows.
    */
   override async keyDown(): Promise<void> {
     const { preset } = this.config;
     const lamps = globalSettings.actionKeyLamps(this.control.id, this.config);
-    this.logger.info(`Key pressed: preset ${preset}${this.preset.unit}, on ${describeLamps(lamps)}`);
-    const result = await this.preset.set(lamps, preset);
+    const turnOn = this.preset.turnsLampsOn();
+    const turning = turnOn ? ", turning lamps on" : "";
+    this.logger.info(`Key pressed: preset ${preset}${this.preset.unit}, on ${describeLamps(lamps)}${turning}`);
+    const result = await this.preset.set(lamps, preset, turnOn);
     if (!result.ok) {
       await this.control.showAlert();
     }
@@ -226,6 +238,8 @@ class MeasureDial extends ActionInstance<{ step: number }, DialAction<JsonObject
    * when they're applied. Ticks go to what the dial showed as it turned: every lamp from the main screen, together or
    * each from its own as the global settings say (#145), or the lamp on screen, even when the strip is tapped before
    * they're applied, since each lamp gets its own queue. The dials follow through the lamp manager's notice.
+   * Whether a turn also turns the lamps on is the global settings', for the main screen and the lamp screens apart
+   * (#268).
    */
   override dialRotate(ticks: number): void {
     const lamp = this.screen.lamp;
@@ -243,11 +257,14 @@ class MeasureDial extends ActionInstance<{ step: number }, DialAction<JsonObject
     const { step } = this.config;
     // A lamp screen turns its lamp alone, and the main screen every lamp, together or each from its own (#145).
     const stepping = lamp === undefined ? this.measure.stepping() : "together";
+    const turnOn = this.measure.turnsLampsOn(lamp === undefined ? "main" : "lamp");
     const screen = lamp === undefined ? "" : " on a lamp screen";
     const each = stepping === "each" ? ", each lamp from its own" : "";
+    const turning = turnOn ? ", turning lamps on" : "";
     const turned = `${ticks} ${Math.abs(ticks) === 1 ? "tick" : "ticks"} of ${step}${this.measure.unit}`;
-    this.logger.info(`Dial turned${screen}: ${turned}${each}`);
-    const result = await this.measure.adjust(lamp === undefined ? "connected" : [lamp], ticks, step, stepping);
+    this.logger.info(`Dial turned${screen}: ${turned}${each}${turning}`);
+    const lamps = lamp === undefined ? "connected" : [lamp];
+    const result = await this.measure.adjust(lamps, ticks, step, stepping, turnOn);
     if (!result.ok) {
       await this.control.showAlert();
     }

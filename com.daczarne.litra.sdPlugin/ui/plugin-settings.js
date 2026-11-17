@@ -1001,9 +1001,10 @@
   const editor = document.createElement("div");
   editor.className = "cell-editor";
   editor.hidden = true;
-  // The settings come by their reach: first the lamps', whichever key or dial acts on them, then the dials', with the
-  // lamp screens' under a heading of their own. A subsection with a single setting is a row's label until it grows. The
-  // "The plugin settings are laid out by reach" section of docs/contributing.md describes where a new setting goes.
+  // The settings come by their reach: first the lamps', whichever key or dial acts on them, then the keys', then the
+  // dials', with their main screens' and their lamp screens' under headings of their own. A subsection with a single
+  // setting is a row's label until it grows. The "The plugin settings are laid out by reach" section of
+  // docs/contributing.md describes where a new setting goes.
   view.append(
     section("Lamps"),
     item(
@@ -1022,9 +1023,20 @@
     item("Blink length", globalNumber("identifyBlinkMs", { min: 300, max: 1500, step: 50, fallback: 400, unit: "ms" })),
     section("Keys"),
     item("New lamps", everyKeyAddsNewLamps),
+    item("Turn on", globalCheckbox("setBrightnessKeysTurnLampsOn", "Set Brightness keys turn lamps on")),
+    item(undefined, globalCheckbox("brightnessUpKeysTurnLampsOn", "Brightness Up keys turn lamps on")),
+    item(undefined, globalCheckbox("brightnessDownKeysTurnLampsOn", "Brightness Down keys turn lamps on")),
+    item(undefined, globalCheckbox("setTemperatureKeysTurnLampsOn", "Set Temperature keys turn lamps on")),
+    item(undefined, globalCheckbox("temperatureUpKeysTurnLampsOn", "Temperature Up keys turn lamps on")),
+    item(undefined, globalCheckbox("temperatureDownKeysTurnLampsOn", "Temperature Down keys turn lamps on")),
     section("Dials"),
+    item(undefined, subsection("Main screen")),
+    item("Turn on", globalCheckbox("setBrightnessDialsTurnLampsOn", "Set Brightness dials turn lamps on")),
+    item(undefined, globalCheckbox("setTemperatureDialsTurnLampsOn", "Set Temperature dials turn lamps on")),
     item(undefined, subsection("Lamp screens")),
     item("Blink", everyDialBlink),
+    item("Turn on", globalCheckbox("setBrightnessLampScreensTurnLampsOn", "Set Brightness dials turn the lamp on")),
+    item(undefined, globalCheckbox("setTemperatureLampScreensTurnLampsOn", "Set Temperature dials turn the lamp on")),
     item("Layout", lampScreenCells()),
     item("Text styles", textStyle("Primary", "lampScreenPrimary", "#ffffff")),
     item(undefined, textStyle("Secondary", "lampScreenSecondary", "#202020")),

@@ -361,6 +361,19 @@ export const globalSettingsSchema = {
   // together (see docs/contributing.md).
   keepBrightnessDifference: flag(false),
   keepTemperatureDifference: flag(false),
+  // Whether a change to the brightness or the temperature also turns on the lamps it changes, for each kind of key, for
+  // a turn on a dial's main screen, and for a turn on a dial's lamp screen (#268). All are off by default: a change to
+  // the brightness or the temperature changes only that, and pushing a dial turns its lamps on or off.
+  setBrightnessKeysTurnLampsOn: flag(false),
+  brightnessUpKeysTurnLampsOn: flag(false),
+  brightnessDownKeysTurnLampsOn: flag(false),
+  setTemperatureKeysTurnLampsOn: flag(false),
+  temperatureUpKeysTurnLampsOn: flag(false),
+  temperatureDownKeysTurnLampsOn: flag(false),
+  setBrightnessDialsTurnLampsOn: flag(false),
+  setTemperatureDialsTurnLampsOn: flag(false),
+  setBrightnessLampScreensTurnLampsOn: flag(false),
+  setTemperatureLampScreensTurnLampsOn: flag(false),
   // Every blink that identifies a lamp, from the plugin settings or on a lamp screen, lasts as long as the plugin
   // settings say, in ms (#171). A lamp fades out when switched off, in about 750 ms at any brightness, so a blink much
   // shorter than the fade brings the lamp back before it has dimmed enough to notice among lamps that stay on, while

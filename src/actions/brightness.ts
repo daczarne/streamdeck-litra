@@ -13,6 +13,7 @@ const PRESET: Preset = {
     return { preset: presetPercentage, lamps, leftOutLamps };
   },
   unit: "%",
+  turnsLampsOn: () => globalSettings.turnsLampsOn("setBrightnessKeys"),
   set: setLampsBrightness,
 };
 
@@ -26,6 +27,8 @@ const BRIGHTNESS: Measure = {
   readStep: (settings, logger) => parseSettings(settings, brightnessSettingsSchema, logger).stepPercentage,
   unit: "%",
   stepping: () => globalSettings.brightnessStepping,
+  turnsLampsOn: (screen) =>
+    globalSettings.turnsLampsOn(screen === "main" ? "setBrightnessDials" : "setBrightnessLampScreens"),
   adjust: adjustLampsBrightness,
   mainScreen: async () => {
     const levels = await brightnessShown("connected");

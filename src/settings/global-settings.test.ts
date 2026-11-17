@@ -2,7 +2,7 @@ import type { JsonObject } from "@elgato/utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { logger } from "../logging";
 import { at } from "../test-support/at";
-import { GlobalSettings } from "./global-settings";
+import { GlobalSettings, type TurningLampsOn } from "./global-settings";
 
 //* Fakes
 
@@ -126,6 +126,38 @@ describe("how the lamps step (#145)", () => {
     globalSettings.read({ keepBrightnessDifference: true });
 
     expect([globalSettings.brightnessStepping, globalSettings.temperatureStepping]).toEqual(["each", "together"]);
+  });
+});
+
+describe("whether the keys and dials' changes turn lamps on (#268)", () => {
+  const CONTROLS: TurningLampsOn[] = [
+    "setBrightnessKeys",
+    "brightnessUpKeys",
+    "brightnessDownKeys",
+    "setTemperatureKeys",
+    "temperatureUpKeys",
+    "temperatureDownKeys",
+    "setBrightnessDials",
+    "setTemperatureDials",
+    "setBrightnessLampScreens",
+    "setTemperatureLampScreens",
+  ];
+
+  it("is no for every one by default", () => {
+    expect(CONTROLS.filter((controls) => globalSettings.turnsLampsOn(controls))).toEqual([]);
+  });
+
+  it.each(CONTROLS)("is yes for %s alone once its setting says so", (controls) => {
+    globalSettings.read({ [`${controls}TurnLampsOn`]: true });
+
+    expect(CONTROLS.filter((other) => globalSettings.turnsLampsOn(other))).toEqual([controls]);
+  });
+
+  it("is no, with a warning, when the setting isn't true or false", () => {
+    globalSettings.read({ setBrightnessKeysTurnLampsOn: "yes" });
+
+    expect(globalSettings.turnsLampsOn("setBrightnessKeys")).toBe(false);
+    expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("setBrightnessKeysTurnLampsOn"));
   });
 });
 

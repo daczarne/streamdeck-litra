@@ -533,26 +533,27 @@ export function toggleLamps(lamps: LampSelection): Promise<OperationResult> {
 }
 
 /**
- * Sets the selected lamps to the percentage, as {@link moveLampsBrightness} does. A lamp at its cap stays there, which
- * its `Lamp` holds.
+ * Sets the selected lamps to the percentage, as {@link moveLampsBrightness} does, turning them on first with `turnOn`
+ * (#268). A lamp at its cap stays there, which its `Lamp` holds.
  */
-export function setLampsBrightness(lamps: LampSelection, percentage: number): Promise<OperationResult> {
-  return queuedAndAnnounced(() => moveLampsBrightness("set brightness", lamps, percentage));
+export function setLampsBrightness(lamps: LampSelection, percentage: number, turnOn = false): Promise<OperationResult> {
+  return queuedAndAnnounced(() => moveLampsBrightness("set brightness", lamps, percentage, turnOn));
 }
 
 /**
  * Steps the selected lamps' brightness along the multiples of the step, as {@link moveLampsBrightness} does: together,
  * to one target stepped from the brightest of them, or each from its own brightness, as {@link stepApart} plans it
- * (#145).
+ * (#145), turning them on first with `turnOn` (#268).
  */
 export function adjustLampsBrightness(
   lamps: LampSelection,
   ticks: number,
   stepPercentage: number,
   stepping: Stepping = "together",
+  turnOn = false,
 ): Promise<OperationResult> {
   return queuedAndAnnounced(() =>
-    moveLampsBrightness("adjust brightness", lamps, { stepping, ticks, step: stepPercentage }),
+    moveLampsBrightness("adjust brightness", lamps, { stepping, ticks, step: stepPercentage }, turnOn),
   );
 }
 
@@ -669,12 +670,18 @@ async function setScene(groups: readonly SceneGroup[]): Promise<OperationResult>
 
 /**
  * Moves the selected lamps to their target, and lets them settle. The target is a percentage, or a step from the
- * brightest selected lamp's percentage or from each lamp's own, as the plugin holds them. Each lamp is sent the target
- * as {@link sendBrightness} sends it, caps included. Right after the cap of one of its lamps is learned, it first waits
- * until the lamp can no longer go back to its cap. The lamps stay open from the first step to the last, so calls
- * mustn't overlap: they go through {@link oneOperationAtATime}.
+ * brightest selected lamp's percentage or from each lamp's own, as the plugin holds them, whether the lamp is on or
+ * off. With `turnOn`, each lamp is turned on first (#268). Each lamp is sent the target as {@link sendBrightness} sends
+ * it, caps included: a lamp that's off is capped as one that's on, so its cap is learned the same way. Right after the
+ * cap of one of its lamps is learned, it first waits until the lamp can no longer go back to its cap. The lamps stay
+ * open from the first step to the last, so calls mustn't overlap: they go through {@link oneOperationAtATime}.
  */
-async function moveLampsBrightness(operation: string, lamps: LampSelection, target: Target): Promise<OperationResult> {
+async function moveLampsBrightness(
+  operation: string,
+  lamps: LampSelection,
+  target: Target,
+  turnOn: boolean,
+): Promise<OperationResult> {
   const opened = openLamps(operation, [{ lamps }]);
   if (opened === undefined) {
     return NO_LAMP;
@@ -682,13 +689,14 @@ async function moveLampsBrightness(operation: string, lamps: LampSelection, targ
   try {
     await waitForCapReversal(operation, opened.lamps);
 
-    // The lamps, each told to turn on, even one the plugin holds as on, so one turned off another way follows the
-    // plugin again, then ready for their brightness, each with its brightness in lumens before the change.
+    // The lamps, each with its brightness in lumens before the change, once turned on when the change turns them on.
     const before = new Map<OpenedLamp<unknown>, number>();
     for (const reached of opened.lamps) {
       const { lamp, handle } = reached;
       opened.attempt(lamp, () => {
-        lamp.setPower(operation, handle, true);
+        if (turnOn) {
+          lamp.setPower(operation, handle, true);
+        }
         before.set(reached, stateOf(lamp).lumen);
       });
     }
@@ -784,44 +792,56 @@ export async function identifyLamp(id: string, blinkMs: number): Promise<Operati
   return result;
 }
 
-/** Sets the selected lamps to the allowed temperature nearest to `kelvin`. */
-export function setLampsTemperature(lamps: LampSelection, kelvin: number): Promise<OperationResult> {
-  return queuedAndAnnounced(() => moveLampsTemperature("set temperature", lamps, kelvin));
+/** Sets the selected lamps to the allowed temperature nearest to `kelvin`, turning them on first with `turnOn` (#268). */
+export function setLampsTemperature(lamps: LampSelection, kelvin: number, turnOn = false): Promise<OperationResult> {
+  return queuedAndAnnounced(() => moveLampsTemperature("set temperature", lamps, kelvin, turnOn));
 }
 
 /**
  * Steps the selected lamps' temperature along the grid lowest + k × step: together, to one target stepped from the
  * highest temperature among them, which the dials and keys show (#229), or each from its own, as {@link stepApart}
- * plans it (#145).
+ * plans it (#145), turning them on first with `turnOn` (#268).
  */
 export function adjustLampsTemperature(
   lamps: LampSelection,
   ticks: number,
   stepKelvin: number,
   stepping: Stepping = "together",
+  turnOn = false,
 ): Promise<OperationResult> {
   return queuedAndAnnounced(() =>
-    moveLampsTemperature("adjust temperature", lamps, { stepping, ticks, step: stepKelvin }),
+    moveLampsTemperature("adjust temperature", lamps, { stepping, ticks, step: stepKelvin }, turnOn),
   );
 }
 
 /**
  * Moves the selected lamps to their target, each to the temperature it allows nearest to it. The target is a
  * temperature, or a step from the highest selected lamp's temperature or from each lamp's own, as the plugin holds
- * them. Plans every lamp before it sets any, as {@link moveLampsBrightness} does, since a step of lamps kept apart
- * counts a tick only while a lamp still moves. A lamp that can't be reached is left out of the step.
+ * them, whether the lamp is on or off. With `turnOn`, each lamp is turned on first (#268), as
+ * {@link moveLampsBrightness} does. Plans every lamp before it sets any, as {@link moveLampsBrightness} does, since a
+ * step of lamps kept apart counts a tick only while a lamp still moves. A lamp that can't be reached is left out of
+ * the step.
  */
-function moveLampsTemperature(operation: string, lamps: LampSelection, target: Target): OperationResult {
+function moveLampsTemperature(
+  operation: string,
+  lamps: LampSelection,
+  target: Target,
+  turnOn: boolean,
+): OperationResult {
   const opened = openLamps(operation, [{ lamps }]);
   if (opened === undefined) {
     return NO_LAMP;
   }
   try {
-    // The lamps to move, each with its temperature before the change and its range.
+    // The lamps to move, each with its temperature before the change and its range, once turned on when the change
+    // turns them on.
     const before = new Map<OpenedLamp<unknown>, { kelvin: number; lowest: number; highest: number }>();
     for (const reached of opened.lamps) {
-      const { lamp } = reached;
+      const { lamp, handle } = reached;
       opened.attempt(lamp, () => {
+        if (turnOn) {
+          lamp.setPower(operation, handle, true);
+        }
         before.set(reached, { kelvin: stateOf(lamp).kelvin, lowest: lamp.lowestKelvin, highest: lamp.highestKelvin });
       });
     }

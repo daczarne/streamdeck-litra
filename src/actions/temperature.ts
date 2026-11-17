@@ -13,6 +13,7 @@ const PRESET: Preset = {
     return { preset: presetKelvin, lamps, leftOutLamps };
   },
   unit: " K",
+  turnsLampsOn: () => globalSettings.turnsLampsOn("setTemperatureKeys"),
   set: setLampsTemperature,
 };
 
@@ -26,6 +27,8 @@ const TEMPERATURE: Measure = {
   readStep: (settings, logger) => parseSettings(settings, temperatureSettingsSchema, logger).stepKelvin,
   unit: " K",
   stepping: () => globalSettings.temperatureStepping,
+  turnsLampsOn: (screen) =>
+    globalSettings.turnsLampsOn(screen === "main" ? "setTemperatureDials" : "setTemperatureLampScreens"),
   adjust: adjustLampsTemperature,
   mainScreen: async () => {
     const shown = await temperatureShown("connected");
