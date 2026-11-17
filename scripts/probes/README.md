@@ -345,7 +345,7 @@ Reading it:
 
 ## power-cycle.mjs
 
-For each connected Litra, turns it off and on, and reads its power, brightness and temperature after each step. It was written for [#100]: a Beam LX blinked by the plugin, which only turns a lamp off and back on, came back at its minimum brightness and temperature, while the Beams came back as they were. The plugin reads a lamp on both sides of turning it on, and puts back what it lost (`setPower` in `src/lamps/lamp.ts`), and the emulated lamp turns on as this probe found.
+For each connected Litra, turns it off and on, and reads its power, brightness and temperature after each step. It was written for [#100]: a Beam LX blinked by the plugin, which only turns a lamp off and back on, came back at its minimum brightness and temperature, while the Beams came back as they were. The plugin reads a lamp on both sides of turning it on, and puts back what it lost (`setPower` in `src/lamps/lamp.ts`), and the emulated lamp turns on as this probe found. Step 9 was added for [#268]: whether a lamp capped on a low-power supply, sent a brightness above its cap while it's off, goes back to its cap once it's turned on, and whether the plugin's read after turning it on tells it so.
 
 Run it again with a lamp it hasn't been run on, such as a Glow, or after a firmware update.
 
@@ -365,8 +365,11 @@ For every lamp, from a lamp that's on, the script:
 6. Turns it off, sets the middle of each range while it's off, then turns it on.
 7. Sets a new setting, turns it off, and turns it on again 1500, 400, 100, 750 and 1000 ms later, each time from another setting. The lamp fades out in about 750 ms, and the plugin's blink lasts 400 ms by default.
 8. Twice, leaves it off for 1.5 s, sets a new setting while it's off, and turns it on, reading it every 50 ms for a second: once as it is, once sending the new setting again as soon as it's on.
+9. Leaves it off for 1.5 s, sends it its maximum brightness while it's off, and reads it every 50 ms for a second, then turns it on and reads it every 50 ms for 2 seconds.
 
-It listens for a second after each write, and logs every report, as [Reading the results](#reading-the-results) describes, then the state it reads. Step 8 logs each read that differs from the one before. A run takes about 35 seconds per lamp.
+Steps 1 to 7 listen for a second after each write, and log every report, as [Reading the results](#reading-the-results) describes, then the state they read. Steps 8 and 9 log each read that differs from the one before, and step 9 also logs every other report the lamp sends, with the time it arrived. A run takes about 40 seconds per lamp.
+
+Step 9 tells most with lamps that are capped, such as Beams on a Stream Deck + XL's USB hub, and lamps that aren't, in the same run: note at the top of its file where each lamp, by its serial number, was plugged in.
 
 ### Example
 
@@ -422,8 +425,44 @@ Reading it:
 
 The emulated Beam LX saves its setting 500 ms after it's switched off, so the plugin's default blink falls short of it, as it did on the Deck.
 
+From the run on 2026-11-17, with some lamps capped and others not. This shows step 9 of a capped Beam and of a Beam LX that isn't capped, with their serial numbers masked:
+
+```text
+Lamp 2: Logitech Litra Beam, serial SERIAL-A
+  9. the maximum brightness, sent while off
+     set 400 lm (100%) while off
+     +   2 ms: 11 ff 04 4c 00 00 00 00  set-brightness ACK
+     +   4 ms: reads 400 lm (100%), 3700 K
+     +  51 ms: 11 ff 04 40 01 00 b8 00  change notice: 184 lm (42%)
+     +  51 ms: 11 ff 04 40 01 00 b8 00  change notice: 184 lm (42%)
+     +  53 ms: reads 184 lm (42%), 3700 K
+     +1004 ms: reads the same until then
+     turn on
+     +   2 ms: 11 ff 04 1c 00 00 00 00  set-power ACK
+     +   5 ms: reads 184 lm (42%), 3700 K
+     +2005 ms: reads the same until then
+
+Lamp 3: Logitech Litra Beam LX, serial
+  9. the maximum brightness, sent while off
+     set 400 lm (100%) while off
+     +   2 ms: 11 ff 06 4c 00 00 00 00  set-brightness ACK
+     +   4 ms: reads 400 lm (100%), 3700 K
+     +1004 ms: reads the same until then
+     turn on
+     +   2 ms: 11 ff 06 1c 00 00 00 00  set-power ACK
+     +   4 ms: reads 123 lm (25%), 3700 K
+     +2004 ms: reads the same until then
+```
+
+Reading it:
+
+- A capped Beam applies its cap while it's off, as it does while it's on: it sends a change notice with its cap about 50 ms after the write, and reads the cap from then on. Another capped Beam already read its cap 5 ms after the write. A Beam that isn't capped read what it was sent.
+- Turned on, a capped Beam stays at its cap, and sends no notice: it doesn't go towards what it was sent, nor back to its cap, in the 2 s it was read. So the plugin learns a cap from the read it makes 250 ms after a brightness change, whether the lamp is on or off, and the read it makes right after turning a lamp on finds the lamp settled.
+- The Beam LX reads what it was sent while it's off, and turns on at the setting it saved, as step 8 found.
+
 [#13]: https://github.com/daczarne/streamdeck-litra/issues/13
 [#96]: https://github.com/daczarne/streamdeck-litra/issues/96
 [#100]: https://github.com/daczarne/streamdeck-litra/issues/100
 [#164]: https://github.com/daczarne/streamdeck-litra/issues/164
 [#170]: https://github.com/daczarne/streamdeck-litra/issues/170
+[#268]: https://github.com/daczarne/streamdeck-litra/issues/268

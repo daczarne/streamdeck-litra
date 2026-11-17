@@ -21,14 +21,20 @@
  *      reading it every 50 ms from the moment it's on, to see when a lamp that goes back to another setting shows it;
  *      the second time sending the new setting again as soon as it's on, then reading it the same way, to see whether
  *      a write made straight away holds.
- * Each write is followed by a second of listening, which logs every report with the time it arrived. The lamp is then
- * put back as it was found, as every probe's is (see lamps.mjs), and the results go to the run's file.
+ *   9. Leaves the lamp off past its fade, sends it its maximum brightness while it's off, and reads it every 50 ms for
+ *      a second, then turns it on and reads it every 50 ms for 2 seconds, logging every other report it sends in
+ *      between. Added for #268: whether a lamp capped on a low-power supply reports, while it's off, what it was sent
+ *      or its cap, whether it goes back to its cap once it's on, when, and what the plugin's read, a few ms after it
+ *      turns a lamp on, finds.
+ * Each write in steps 1 to 7 is followed by a second of listening, which logs every report with the time it arrived.
+ * The lamp is then put back as it was found, as every probe's is (see lamps.mjs), and the results go to the run's file.
  *
  * Usage: node scripts/probes/power-cycle.mjs
  */
 import litra from "litra";
 
 import {
+  describe,
   describeState,
   drainAll,
   elapsed,
@@ -37,6 +43,7 @@ import {
   listen,
   log,
   lumenAndPercentage,
+  printDrained,
   readBrightness,
   readState,
   SETTLE_MS,
@@ -62,6 +69,11 @@ const OFF_FOR = [
 // How long step 8 reads a lamp after turning it on, and how often.
 const READ_MS = 1000;
 const READ_INTERVAL_MS = 50;
+
+// How long step 9 reads a lamp after sending it its maximum while it's off, and after turning it on: longer than a
+// capped lamp takes to go back to its cap, up to 1.25 s after a request above it.
+const OFF_READ_MS = 1000;
+const ON_READ_MS = 2000;
 
 /**
  * A brightness and a temperature to set a lamp to.
@@ -151,12 +163,14 @@ async function offFor(device, offMs) {
 
 /**
  * Sends the get-temperature query and skips every other report until the reply arrives, as `readBrightness` does for
- * the brightness, since litra's own read takes the first report, which may be an ACK.
+ * the brightness, since litra's own read takes the first report, which may be an ACK. The reports skipped go to
+ * `onSkipped`.
  *
  * @param {Lamp} device
+ * @param {(bytes: number[]) => void} [onSkipped]
  * @returns {number} the temperature, in kelvin
  */
-function readTemperature(device) {
+function readTemperature(device, onSkipped = () => {}) {
   device.hid.write([0x11, 0xff, featureIndex(device), 0x81, ...Array(16).fill(0)]);
   for (;;) {
     const bytes = device.hid.readTimeout(1000);
@@ -167,25 +181,29 @@ function readTemperature(device) {
     if (bytes[2] !== 0xff && bytes[3] === 0x81 && kelvin !== undefined) {
       return kelvin;
     }
+    onSkipped(bytes);
   }
 }
 
 /**
- * Reads the lamp's temperature and brightness every 50 ms for a second from `start`, and logs each read, with the time
- * it was made, and each change from the read before.
+ * Reads the lamp's temperature and brightness every 50 ms for `readMs` from `start`, and logs each read, with the time
+ * it was made, and each change from the read before. The reports the reads skip go to `onSkipped`.
  *
  * @param {Lamp} device
  * @param {number} start a time from `performance.now()`
+ * @param {number} [readMs]
+ * @param {(bytes: number[]) => void} [onSkipped]
  * @returns {Promise<void>}
  */
-async function readEvery(device, start) {
+async function readEvery(device, start, readMs = READ_MS, onSkipped = () => {}) {
   let last = "";
-  for (let tick = 0; tick <= READ_MS; tick += READ_INTERVAL_MS) {
+  for (let tick = 0; tick <= readMs; tick += READ_INTERVAL_MS) {
     const wait = tick - (performance.now() - start);
     if (wait > 0) {
       await new Promise((resolve) => setTimeout(resolve, wait));
     }
-    const read = `${lumenAndPercentage(device, readBrightness(device))}, ${readTemperature(device)} K`;
+    const lumen = readBrightness(device, onSkipped);
+    const read = `${lumenAndPercentage(device, lumen)}, ${readTemperature(device, onSkipped)} K`;
     if (read !== last) {
       log(`     ${elapsed(start)} reads ${read}`);
       last = read;
@@ -218,10 +236,36 @@ async function turnOnFrom(device, setting, sendAgain) {
   await readEvery(device, start);
 }
 
+/**
+ * Leaves the lamp off past its fade, sends it its maximum brightness while it's off, and reads it every 50 ms, then
+ * turns it on and reads it every 50 ms again, logging every other report it sends, each counted from its write.
+ *
+ * @param {Lamp} device
+ * @returns {Promise<void>}
+ */
+async function maximumWhileOff(device) {
+  const maximum = litra.getMaximumBrightnessInLumenForDevice(device);
+  litra.turnOff(device);
+  await new Promise((resolve) => setTimeout(resolve, OFF_FOR[0]?.ms ?? 1500));
+  drainAll(device, SETTLE_MS);
+  log(`     set ${lumenAndPercentage(device, maximum)} while off`);
+  const sent = performance.now();
+  const sinceSent = (/** @type {number[]} */ bytes) => log(`     ${elapsed(sent)} ${describe(device, bytes)}`);
+  litra.setBrightnessInLumen(device, maximum);
+  await readEvery(device, sent, OFF_READ_MS, sinceSent);
+  printDrained(device, "then:", drainAll(device, SETTLE_MS));
+  log("     turn on");
+  const on = performance.now();
+  const sinceOn = (/** @type {number[]} */ bytes) => log(`     ${elapsed(on)} ${describe(device, bytes)}`);
+  litra.turnOn(device);
+  await readEvery(device, on, ON_READ_MS, sinceOn);
+  printDrained(device, "then:", drainAll(device, SETTLE_MS));
+}
+
 //* Probes
 
 /**
- * Steps 1 to 8 on one lamp, which is on.
+ * Steps 1 to 9 on one lamp, which is on.
  *
  * @param {Lamp} device
  * @returns {Promise<void>}
@@ -256,6 +300,8 @@ async function probe(device) {
   log("  8. turn on, from a setting written while off");
   await turnOnFrom(device, settingAt(device, 0.5), false);
   await turnOnFrom(device, settingAt(device, 0.25), true);
+  log("  9. the maximum brightness, sent while off");
+  await maximumWhileOff(device);
 }
 
 //* Main
