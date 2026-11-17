@@ -175,7 +175,8 @@ describe("the Power key", () => {
     );
   });
 
-  it("follows a Set Brightness key, which turns the lamps on (#57)", async () => {
+  it("follows a Set Brightness key that turns the lamps on, once the plugin settings say so (#57, #268)", async () => {
+    await saveFromPage({ setBrightnessKeysTurnLampsOn: true });
     const pair = [newLamp({ on: false }), newLamp({ on: false })];
     await plugIn(...pair);
     const powerKey = await deck.key(POWER, { mode: "toggle" });
@@ -185,6 +186,21 @@ describe("the Power key", () => {
 
     expect(pair.map((lamp) => lamp.on)).toEqual([true, true]);
     expect(stateOf(powerKey)).toBe(1);
+  });
+
+  it("stays off as a Set Brightness key sets the brightness of lamps that are off, by default (#268)", async () => {
+    const pair = [newLamp({ on: false }), newLamp({ on: false })];
+    await plugIn(...pair);
+    const powerKey = await deck.key(POWER, { mode: "toggle" });
+    const brightnessKey = await deck.key(BRIGHTNESS, { presetPercentage: 80 });
+
+    await deck.press(brightnessKey);
+
+    expect(pair.map((lamp) => [lamp.on, lamp.brightnessInLumen])).toEqual([
+      [false, LUMEN_AT_80],
+      [false, LUMEN_AT_80],
+    ]);
+    expect(stateOf(powerKey)).toBe(0);
   });
 
   it("follows a Set Brightness dial pushed to toggle the lamps (#57)", async () => {
@@ -294,7 +310,22 @@ describe("the Set Brightness action", () => {
     expect(feedbackOf(dial)).toMatchObject({ value: "80%" });
   });
 
-  it("turns the lamps on before a dial changes their brightness", async () => {
+  it("leaves lamps that are off off as a dial changes their brightness, by default (#268)", async () => {
+    const pair = [newLamp({ on: false }), newLamp({ on: false })];
+    await plugIn(...pair);
+    const powerKey = await deck.key(POWER, { mode: "toggle" });
+    const dial = await deck.dial(BRIGHTNESS, { stepPercentage: 10 });
+
+    await deck.turn(dial, 1);
+
+    expect(pair.map((lamp) => lamp.writes("power"))).toEqual([[], []]);
+    expect(pair.map((lamp) => lamp.brightnessInLumen)).toEqual([LUMEN_AT_60, LUMEN_AT_60]);
+    expect(feedbackOf(dial)).toMatchObject({ value: "60%" });
+    expect(stateOf(powerKey)).toBe(0);
+  });
+
+  it("turns the lamps on before a dial changes their brightness, once the plugin settings say so (#268)", async () => {
+    await saveFromPage({ setBrightnessDialsTurnLampsOn: true });
     const pair = [newLamp({ on: false }), newLamp({ on: false })];
     await plugIn(...pair);
     const powerKey = await deck.key(POWER, { mode: "toggle" });
@@ -616,8 +647,8 @@ describe("the lamp screens", () => {
     await deck.turn(dial, -2);
     await deck.turn(temperatureDial, 1);
 
-    // A brightness change turns its lamp on, as on the main screen.
-    expect([first.on, first.brightnessInLumen, first.temperatureInKelvin]).toEqual([true, LUMEN_AT_80, 6500]);
+    // A turn changes the lamp's brightness alone, and leaves it off (#268).
+    expect([first.on, first.brightnessInLumen, first.temperatureInKelvin]).toEqual([false, LUMEN_AT_80, 6500]);
     expect([second.on, second.brightnessInLumen, second.temperatureInKelvin]).toEqual([true, LUMEN_AT_50, 4100]);
     expect(cellsOf(dial)).toMatchObject({
       topLeft: `${MODEL} - ${END_A}`,
@@ -634,15 +665,40 @@ describe("the lamp screens", () => {
 
     await deck.push(dial);
 
-    expect([first.on, second.on]).toEqual([false, true]);
-    expect(cellsOf(dial)).toMatchObject({ middleRight: "OFF" });
+    expect([first.on, second.on]).toEqual([true, true]);
+    expect(cellsOf(dial)).toMatchObject({ middleRight: "ON" });
 
     const mainDial = await deck.dial(BRIGHTNESS, { stepPercentage: 10 });
     await deck.turn(mainDial, 1);
 
-    expect([first.on, second.on]).toEqual([true, true]);
     expect(first.brightnessInLumen).toBe(second.brightnessInLumen);
   });
+
+  it.each([
+    ["Set Brightness", BRIGHTNESS, "setBrightnessLampScreensTurnLampsOn"],
+    ["Set Temperature", TEMPERATURE, "setTemperatureLampScreensTurnLampsOn"],
+  ])(
+    "let a %s dial turn the lamp on screen on alone, once the plugin settings say so (#268)",
+    async (_name, uuid, setting) => {
+      await saveFromPage({ [setting]: true });
+      const shown = newLamp({ serialNumber: "SERIAL-A", on: false });
+      const other = newLamp({ serialNumber: "SERIAL-B", on: false });
+      await plugIn(other, shown);
+      const dial = await deck.dial(uuid);
+      await deck.tap(dial);
+
+      await deck.turn(dial, 1);
+
+      expect([shown.on, other.on]).toEqual([true, false]);
+
+      // Back on the main screen, whose turns the setting doesn't reach.
+      await deck.tap(dial);
+      await deck.tap(dial);
+      await deck.turn(dial, 1);
+
+      expect([shown.on, other.on]).toEqual([true, false]);
+    },
+  );
 
   it("show in each cell what the plugin settings choose, and follow a change on every lamp screen (#177)", async () => {
     const { dial } = await onFirstLampScreen();
@@ -959,7 +1015,7 @@ describe("the plugin's state is the lamps' state (#198)", () => {
     expect(stateOf(powerKey)).toBe(1);
   });
 
-  it("steps from what it last set: a lamp set to 10%, then 20% by its button, is put back, then to 20%", async () => {
+  it("steps from what it last set: a lamp set to 10%, then 20% by its button, goes to 20%", async () => {
     const lamp = newLamp();
     await plugIn(lamp);
     const key = await deck.key(BRIGHTNESS, { presetPercentage: 10 });
@@ -969,13 +1025,29 @@ describe("the plugin's state is the lamps' state (#198)", () => {
 
     await deck.turn(dial, 1);
 
-    // Turned on, the lamp gets back the 10% the plugin holds, and a step up from there sends 20%.
-    expect(lamp.writes("brightness")).toEqual([LUMEN_AT_10, LUMEN_AT_10, LUMEN_AT_20]);
+    // A step up from the 10% the plugin holds sends 20%.
+    expect(lamp.writes("brightness")).toEqual([LUMEN_AT_10, LUMEN_AT_20]);
     expect(lamp.brightnessInLumen).toBe(LUMEN_AT_20);
     expect(feedbackOf(dial)).toMatchObject({ value: "20%" });
   });
 
-  it("turns on a lamp turned off with its own button before it steps its brightness", async () => {
+  it("leaves a lamp turned off with its own button off as it steps its brightness, by default (#268)", async () => {
+    const lamp = newLamp();
+    await plugIn(lamp);
+    const key = await deck.key(BRIGHTNESS, { presetPercentage: 10 });
+    const dial = await deck.dial(BRIGHTNESS, { stepPercentage: 10 });
+    await deck.press(key);
+    lamp.on = false;
+
+    await deck.turn(dial, 1);
+
+    expect(lamp.on).toBe(false);
+    expect(lamp.brightnessInLumen).toBe(LUMEN_AT_20);
+    expect(feedbackOf(dial)).toMatchObject({ value: "20%" });
+  });
+
+  it("turns on a lamp turned off with its own button before it steps its brightness, when it's set to (#268)", async () => {
+    await saveFromPage({ setBrightnessDialsTurnLampsOn: true });
     const lamp = newLamp();
     await plugIn(lamp);
     const key = await deck.key(BRIGHTNESS, { presetPercentage: 10 });

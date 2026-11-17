@@ -27,6 +27,22 @@ export type LampScreenCellContent = {
 
 const logger = pluginLogger.createScope("Global settings");
 
+/**
+ * The keys and dials whose changes to the brightness or the temperature may also turn on the lamps they change, each
+ * with a setting of its own (#268): each kind of key, a turn on each dial's main screen, and on its lamp screens.
+ */
+export type TurningLampsOn =
+  | "setBrightnessKeys"
+  | "brightnessUpKeys"
+  | "brightnessDownKeys"
+  | "setTemperatureKeys"
+  | "temperatureUpKeys"
+  | "temperatureDownKeys"
+  | "setBrightnessDials"
+  | "setTemperatureDials"
+  | "setBrightnessLampScreens"
+  | "setTemperatureLampScreens";
+
 /** Every global setting but the lamps, which their `Lamp`s hold. */
 type Settings = Omit<ParsedGlobalSettings, "lamps">;
 
@@ -226,6 +242,11 @@ export class GlobalSettings {
   /** How a turn on a Set Temperature dial's main screen, or a Temperature step key's press, steps the lamps (#145). */
   get temperatureStepping(): Stepping {
     return this.parsed.keepTemperatureDifference ? "each" : "together";
+  }
+
+  /** Whether the brightness and temperature changes of these keys or dials also turn on the lamps they change (#268). */
+  turnsLampsOn(controls: TurningLampsOn): boolean {
+    return this.parsed[`${controls}TurnLampsOn`];
   }
 
   /** The lamps the plugin knows, as the global settings save them: by id, with what's kept of each. */

@@ -66,7 +66,7 @@ describe("BrightnessDownAction", () => {
     await deck.press(key);
 
     expect(key.setTitle).toHaveBeenCalledExactlyOnceWith("79%");
-    expect(adjustLampsBrightness).toHaveBeenCalledExactlyOnceWith("all", -1, 10, "together");
+    expect(adjustLampsBrightness).toHaveBeenCalledExactlyOnceWith("all", -1, 10, "together", false);
     expect(logger.info).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("1 step of 10%"));
     expect(logger.warn).not.toHaveBeenCalled();
   });

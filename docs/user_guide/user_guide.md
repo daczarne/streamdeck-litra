@@ -30,11 +30,11 @@ Each key acts on the lamps picked on its settings page: every lamp the plugin kn
 
 Every Power key, Up and Down key, dial and lamp screen follows changes made by any key or dial. When the plugin starts, it reads every lamp it knows that's connected, and so does Find lamps with the lamps it adds, and from then on, the keys and dials show what the plugin last set each lamp to, as the lamp reported it.
 
-The plugin is made for controlling the lamps through it, and through it alone. A change made another way, with a lamp's own buttons, Logitech's software or a CLI, isn't followed: the Deck goes on showing what the plugin last set, and the lamp comes back in step at the next change made through the plugin. For example, a lamp the plugin set to 10%, and brought to 20% with its own button, still shows 10%. Turning a dial one step up from there, by 10%, first puts the lamp back to 10%, then sets it to 20%. A lamp unplugged and plugged in again is read again the next time the plugin reaches it.
+The plugin is made for controlling the lamps through it, and through it alone. A change made another way, with a lamp's own buttons, Logitech's software or a CLI, isn't followed: the Deck goes on showing what the plugin last set, and the lamp comes back in step at the next change made through the plugin. For example, a lamp the plugin set to 10%, and brought to 20% with its own button, still shows 10%. Turning a dial one step up from there, by 10%, sets it to 20%, one step from the 10% the plugin holds. A lamp unplugged and plugged in again is read again the next time the plugin reaches it.
 
-A brightness change, from a key or a dial, turns every lamp on first, one turned off with its own button included, while a temperature change leaves a lamp that's off as it is, at the temperature it'll turn on at.
+A brightness or temperature change, from a key or a dial, changes only that: a lamp that's off stays off, at the brightness and temperature it'll turn on at, and pressing a dial turns its lamps on or off. Each kind of key, and each dial's main screen and lamp screens, can turn the lamps on as it changes them instead, from [the plugin settings](#keys-1).
 
-A lamp on a power supply too weak for it, such as a Stream Deck + XL's hub, stops below the brightness it's sent (see [Supported hardware][hardware]). The keys and dials show the brightness it reached, not the one asked for, and the plugin sends it no more than that until it's plugged in again.
+A lamp on a power supply too weak for it, such as a Stream Deck + XL's hub, stops below the brightness it's sent (see [Supported hardware][hardware]). It stops there whether it's on or off. The keys and dials show the brightness it reached, not the one asked for, and the plugin sends it no more than that until it's plugged in again.
 
 ## Keys
 
@@ -121,11 +121,11 @@ Under the lamps come how each lamp steps, for its brightness and its temperature
 
 ### Keys
 
-"Keys" holds whether every key takes in lamps added later (see [Picking a key's lamps](#picking-a-keys-lamps)).
+"Keys" holds whether every key takes in lamps added later (see [Picking a key's lamps](#picking-a-keys-lamps)), and, under "Turn on", whether each kind of key turns its lamps on as it changes their brightness or temperature, such as "Set Brightness keys turn lamps on". Each is unchecked by default, so a key changes the brightness or the temperature alone, and a lamp that's off stays off.
 
 ### Dials
 
-"Dials" holds the lamp screens' blink for every dial (see [Lamp screens](#lamp-screens)), what they show and their text styles (see [What a lamp screen shows](#what-a-lamp-screen-shows)).
+"Dials" holds, under "Main screen", whether a turn on a Set Brightness or a Set Temperature dial's own screen turns its lamps on as it changes them. Under "Lamp screens" come the lamp screens' blink for every dial (see [Lamp screens](#lamp-screens)), whether a turn on a lamp screen turns its lamp on, what they show and their text styles (see [What a lamp screen shows](#what-a-lamp-screen-shows)). The settings that turn lamps on are unchecked by default, like the keys'.
 
 ## When something doesn't work
 

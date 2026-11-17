@@ -8,7 +8,7 @@ The unit tests check how the Set Temperature dial steps, against emulated lamps,
 
 ## When to run these checks
 
-- After a change to how the plugin sets temperature, to how the dial steps, to what the dials show, or to the action's images.
+- After a change to how the plugin sets temperature, to how the dial steps, to whether a change turns the lamps on, to what the dials show, or to the action's images.
 - After a Stream Deck update.
 
 ## Setup
@@ -33,10 +33,12 @@ In VS Code, the `Build and restart` task runs both.
 7. **The dials show the highest temperature, and the bar shows every lamp.** On one dial's lamp screens, set the first lamp to 3300 K and the second to 4500 K, and tap back to its main screen: both strips show 4500 K, and each bar is white up to 3300 K, about a sixth of the way, and light grey from there to 4500 K, about halfway, with a sharp edge between them ([#229]). Switch to another page of the Deck and back a few times: the strips still show 4500 K and the same bar each time they appear. Turn a dial one step up: both lamps go to 4800 K, a step of 300 K up from the highest temperature the strips showed, and the bar turns plain white.
 8. **A Beam LX turns on at the temperature it was given while off.** With a Beam LX plugged in as well, tap a dial's strip to the Beam LX's screen, set it to 3000 K, push the dial to turn the lamp off, and wait a few seconds. Turn the dial to 5000 K, and push it again: the lamp turns on at 5000 K, and its screen shows it. Turn it off again, set 4000 K, and turn it on with a Power key: it turns on at 4000 K. A Beam LX turns on at the setting it had when switched off, so the plugin puts back the one it was given: `logs/litra.log` has a `turned on at` line for each, with the temperature it was put back to ([#100]).
 9. **An unplugged lamp leaves the dial quiet.** Unplug one Beam, then turn a dial on its main screen, and push it: the other lamp moves, then toggles, and the strip doesn't flash red. Press the 3000 K key: the other lamp turns warm, and the key shows an alert, since one of its lamps isn't connected. Plug the lamp back in.
+10. **The plugin settings turn the lamps on.** Push a dial to turn both lamps off. Press the 3000 K key, and turn a dial: the lamps stay off, and the strips follow. In the plugin settings, check "Set Temperature keys turn lamps on", under "Keys", and press the 6000 K key: both lamps turn on. Turn them off again, check "Set Temperature dials turn lamps on", under "Main screen", and turn a dial: both lamps turn on. Turn them off again, check "Set Temperature dials turn the lamp on", under "Lamp screens", tap a dial's strip to the first lamp's screen, and turn it: that lamp turns on, and the other one stays off ([#268]). Uncheck the three.
 
 [#16]: https://github.com/daczarne/streamdeck-litra/issues/16
 [#51]: https://github.com/daczarne/streamdeck-litra/issues/51
 [#100]: https://github.com/daczarne/streamdeck-litra/issues/100
 [#229]: https://github.com/daczarne/streamdeck-litra/issues/229
+[#268]: https://github.com/daczarne/streamdeck-litra/issues/268
 [contributing]: ../contributing.md
 [lamps-apart]: lamps_apart.md

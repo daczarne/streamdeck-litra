@@ -8,7 +8,7 @@ The Brightness Up, Brightness Down, Temperature Up and Temperature Down keys ste
 
 ## When to run these checks
 
-- After a change to how the plugin steps the lamps, to the step keys' settings pages, titles or images.
+- After a change to how the plugin steps the lamps, to whether a step turns them on, to the step keys' settings pages, titles or images.
 - After a Stream Deck update.
 
 ## Setup
@@ -32,7 +32,9 @@ In VS Code, the `Build and restart` task runs both. After a change to `manifest.
 6. **A custom title wins.** Give a step key a title of its own in its settings: the key shows it, and keeps showing it after a press. Clear it, and the key shows the lamps' value again after the next change.
 7. **An alert shows when no lamp answers.** Unplug both lamps and press a step key: the key shows an alert, with a dash as its title under it.
 8. **The log tells the press and each lamp.** `logs/litra.log` has a line per press, scoped by the key (`Brightness Up`, `Temperature Down`, …), with the presses, the step and the lamps, then the lines of `adjust brightness` or `adjust temperature` for each lamp.
+9. **A step leaves the lamps off, unless the plugin settings say otherwise.** Push the Set Brightness dial to turn both lamps off, and press each step key: the lamps stay off, and the keys and the dials follow every step. In the plugin settings, under "Keys", check "Brightness Up keys turn lamps on", and press Brightness Down: the lamps stay off. Press Brightness Up: both lamps turn on, and its line in `logs/litra.log` ends in `, turning lamps on`. Uncheck it, and do the same with each of the other three keys' checkboxes, one at a time: only the key checked turns the lamps on ([#268]). Uncheck the last one.
 
 [#129]: https://github.com/daczarne/streamdeck-litra/issues/129
+[#268]: https://github.com/daczarne/streamdeck-litra/issues/268
 [lamp-picker]: lamp_picker.md
 [lamps-apart]: lamps_apart.md

@@ -70,7 +70,7 @@ describe("BrightnessAction", () => {
       await deck.press(key);
 
       expect(key.setTitle).toHaveBeenCalledExactlyOnceWith("0%");
-      expect(setLampsBrightness).toHaveBeenCalledExactlyOnceWith("all", 0);
+      expect(setLampsBrightness).toHaveBeenCalledExactlyOnceWith("all", 0, false);
       expect(logger.warn).not.toHaveBeenCalled();
     });
 
@@ -79,7 +79,7 @@ describe("BrightnessAction", () => {
 
       await deck.turn(dial, 3);
 
-      expect(adjustLampsBrightness).toHaveBeenCalledExactlyOnceWith("connected", 3, 10, "together");
+      expect(adjustLampsBrightness).toHaveBeenCalledExactlyOnceWith("connected", 3, 10, "together", false);
       expect(logger.warn).not.toHaveBeenCalled();
     });
   });
@@ -91,7 +91,7 @@ describe("BrightnessAction", () => {
       await deck.press(key);
 
       expect(key.setTitle).toHaveBeenCalledExactlyOnceWith("40%");
-      expect(setLampsBrightness).toHaveBeenCalledExactlyOnceWith("all", 40);
+      expect(setLampsBrightness).toHaveBeenCalledExactlyOnceWith("all", 40, false);
       expect(logger.info).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("preset 40%"));
     });
 
@@ -100,7 +100,7 @@ describe("BrightnessAction", () => {
 
       await deck.turn(dial, 3);
 
-      expect(adjustLampsBrightness).toHaveBeenCalledExactlyOnceWith("connected", 3, 5, "together");
+      expect(adjustLampsBrightness).toHaveBeenCalledExactlyOnceWith("connected", 3, 5, "together", false);
       expect(logger.info).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("3 ticks of 5%"));
     });
 
@@ -111,12 +111,56 @@ describe("BrightnessAction", () => {
       await deck.press(key);
       await deck.turn(dial, 3);
 
-      expect(setLampsBrightness).toHaveBeenCalledExactlyOnceWith("all", 0);
-      expect(adjustLampsBrightness).toHaveBeenCalledExactlyOnceWith("connected", 3, 10, "together");
+      expect(setLampsBrightness).toHaveBeenCalledExactlyOnceWith("all", 0, false);
+      expect(adjustLampsBrightness).toHaveBeenCalledExactlyOnceWith("connected", 3, 10, "together", false);
       expect(vi.mocked(logger.warn).mock.calls).toEqual([
         [expect.stringContaining("presetPercentage")],
         [expect.stringContaining("stepPercentage")],
       ]);
+    });
+  });
+
+  describe("turns the lamps on as it changes them, once the global settings say so (#268)", () => {
+    /** Presses a key and turns a dial on its main screen, and returns whether each turned the lamps on. */
+    async function pressAndTurn(): Promise<{ key: unknown; dial: unknown }> {
+      const key = await deck.key(BRIGHTNESS);
+      const dial = await deck.dial(BRIGHTNESS);
+      await deck.press(key);
+      await deck.turn(dial, 3);
+      return {
+        key: vi.mocked(setLampsBrightness).mock.calls.at(-1)?.[2],
+        dial: vi.mocked(adjustLampsBrightness).mock.calls.at(-1)?.[4],
+      };
+    }
+
+    it("on a key, once Set Brightness keys turn lamps on", async () => {
+      changeGlobalSettings({ setBrightnessKeysTurnLampsOn: true });
+
+      expect(await pressAndTurn()).toEqual({ key: true, dial: false });
+      expect(setLampsBrightness).toHaveBeenCalledExactlyOnceWith("all", 0, true);
+      expect(logger.info).toHaveBeenCalledWith(expect.stringContaining("turning lamps on"));
+    });
+
+    it("on a dial's main screen, once Set Brightness dials turn lamps on", async () => {
+      changeGlobalSettings({ setBrightnessDialsTurnLampsOn: true });
+
+      expect(await pressAndTurn()).toEqual({ key: false, dial: true });
+      expect(adjustLampsBrightness).toHaveBeenCalledExactlyOnceWith("connected", 3, 10, "together", true);
+    });
+
+    it("on neither, whichever other keys and dials turn lamps on", async () => {
+      changeGlobalSettings({
+        brightnessUpKeysTurnLampsOn: true,
+        brightnessDownKeysTurnLampsOn: true,
+        setTemperatureKeysTurnLampsOn: true,
+        temperatureUpKeysTurnLampsOn: true,
+        temperatureDownKeysTurnLampsOn: true,
+        setTemperatureDialsTurnLampsOn: true,
+        setBrightnessLampScreensTurnLampsOn: true,
+        setTemperatureLampScreensTurnLampsOn: true,
+      });
+
+      expect(await pressAndTurn()).toEqual({ key: false, dial: false });
     });
   });
 
@@ -127,7 +171,7 @@ describe("BrightnessAction", () => {
 
       await deck.turn(dial, 3);
 
-      expect(adjustLampsBrightness).toHaveBeenCalledExactlyOnceWith("connected", 3, 10, "each");
+      expect(adjustLampsBrightness).toHaveBeenCalledExactlyOnceWith("connected", 3, 10, "each", false);
     });
 
     it("but not when only the temperature's difference is kept", async () => {
@@ -136,7 +180,7 @@ describe("BrightnessAction", () => {
 
       await deck.turn(dial, 3);
 
-      expect(adjustLampsBrightness).toHaveBeenCalledExactlyOnceWith("connected", 3, 10, "together");
+      expect(adjustLampsBrightness).toHaveBeenCalledExactlyOnceWith("connected", 3, 10, "together", false);
     });
   });
 

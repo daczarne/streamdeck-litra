@@ -19,14 +19,22 @@ import { brightnessShown, brightnessText, temperatureShown, temperatureText } fr
 type StepConfig = { step: number; lamps: CheckedLamps; leftOutLamps: readonly string[] };
 
 /**
- * What a step key moves: how it reads its settings, how the global settings step several lamps (#145), how it moves
- * the lamps by its step, and the title it shows of them.
+ * What a step key moves: how it reads its settings, how the global settings step several lamps (#145), whether they
+ * have the keys that step it up, or down, turn the lamps on (#268), how it moves the lamps by its step, and the title
+ * it shows of them.
  */
 type Stepped = {
   read: (settings: JsonObject, logger: Logger) => StepConfig;
   stepping: () => Stepping;
+  turnsLampsOn: (direction: 1 | -1) => boolean;
   unit: string;
-  adjust: (lamps: LampSelection, ticks: number, step: number, stepping: Stepping) => Promise<OperationResult>;
+  adjust: (
+    lamps: LampSelection,
+    ticks: number,
+    step: number,
+    stepping: Stepping,
+    turnOn: boolean,
+  ) => Promise<OperationResult>;
   title: (lamps: LampSelection) => Promise<string>;
 };
 
@@ -40,6 +48,7 @@ export const BRIGHTNESS: Stepped = {
     return { step: stepPercentage, ...lamps };
   },
   stepping: () => globalSettings.brightnessStepping,
+  turnsLampsOn: (direction) => globalSettings.turnsLampsOn(direction > 0 ? "brightnessUpKeys" : "brightnessDownKeys"),
   unit: "%",
   adjust: adjustLampsBrightness,
   title: async (lamps) => brightnessText(await brightnessShown(lamps)),
@@ -55,6 +64,7 @@ export const TEMPERATURE: Stepped = {
     return { step: stepKelvin, ...lamps };
   },
   stepping: () => globalSettings.temperatureStepping,
+  turnsLampsOn: (direction) => globalSettings.turnsLampsOn(direction > 0 ? "temperatureUpKeys" : "temperatureDownKeys"),
   unit: " K",
   adjust: adjustLampsTemperature,
   title: async (lamps) => temperatureText(await temperatureShown(lamps)),
@@ -129,17 +139,19 @@ class StepKey extends ActionInstance<StepConfig, KeyAction<JsonObject>> {
 
   /**
    * Steps the lamps by the presses gathered, by the step the key has when they're applied, together or each from its
-   * own as the global settings say then (#145). The keys follow through the notice, and the key shows an alert when a
-   * lamp fails.
+   * own as the global settings say then (#145), turning them on first when they say so too (#268). The keys follow
+   * through the notice, and the key shows an alert when a lamp fails.
    */
   private async step(presses: number): Promise<void> {
     const { step } = this.config;
     const stepping = this.stepped.stepping();
+    const turnOn = this.stepped.turnsLampsOn(this.direction);
     const lamps = this.lamps();
     const steps = `${presses} ${presses === 1 ? "step" : "steps"} of ${step}${this.stepped.unit}`;
     const each = stepping === "each" ? ", each lamp from its own" : "";
-    this.logger.info(`Key pressed: ${steps}, on ${describeLamps(lamps)}${each}`);
-    const result = await this.stepped.adjust(lamps, this.direction * presses, step, stepping);
+    const turning = turnOn ? ", turning lamps on" : "";
+    this.logger.info(`Key pressed: ${steps}, on ${describeLamps(lamps)}${each}${turning}`);
+    const result = await this.stepped.adjust(lamps, this.direction * presses, step, stepping, turnOn);
     if (!result.ok) {
       await this.control.showAlert();
     }

@@ -54,6 +54,7 @@ const PRESET = {
     leftOutLamps: [],
   })),
   unit: " u",
+  turnsLampsOn: vi.fn<Preset["turnsLampsOn"]>(),
   set: vi.fn<Preset["set"]>(),
 } satisfies Preset;
 
@@ -63,6 +64,7 @@ const MEASURE = {
   readStep: vi.fn((settings: JsonObject) => (typeof settings.step === "number" ? settings.step : 2)),
   unit: " u",
   stepping: vi.fn<Measure["stepping"]>(),
+  turnsLampsOn: vi.fn<Measure["turnsLampsOn"]>(),
   adjust: vi.fn<Measure["adjust"]>(),
   mainScreen: vi.fn<Measure["mainScreen"]>(),
 } satisfies Measure;
@@ -92,8 +94,10 @@ beforeEach(() => {
   changeGlobalSettings({});
   // The debouncer flushes every turn at once: its own timing is debouncer.test.ts's to check.
   vi.mocked(createDebouncer).mockImplementation((flush) => (ticks) => void flush(ticks));
+  PRESET.turnsLampsOn.mockReturnValue(false);
   PRESET.set.mockResolvedValue(DONE);
   MEASURE.stepping.mockReturnValue("together");
+  MEASURE.turnsLampsOn.mockReturnValue(false);
   MEASURE.adjust.mockResolvedValue(DONE);
   MEASURE.mainScreen.mockResolvedValue(MAIN);
   vi.mocked(lampsShown).mockResolvedValue([BEAM]);
@@ -150,9 +154,20 @@ describe("a key of a MeasureAction", () => {
 
     await deck.press(key);
 
-    expect(PRESET.set).toHaveBeenCalledExactlyOnceWith("all", 40);
+    expect(PRESET.set).toHaveBeenCalledExactlyOnceWith("all", 40, false);
     expect(key.showAlert).not.toHaveBeenCalled();
     expect(dial.setFeedback).not.toHaveBeenCalled();
+  });
+
+  it("turns its lamps on as it sets them when the global settings say so (#268), and logs it", async () => {
+    PRESET.turnsLampsOn.mockReturnValue(true);
+    const key = await deck.key(FAKE, { preset: 40 });
+    clearCalls();
+
+    await deck.press(key);
+
+    expect(PRESET.set).toHaveBeenCalledExactlyOnceWith("all", 40, true);
+    expect(logger.info).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("turning lamps on"));
   });
 
   it("sets its lamps alone, picked on the settings page (#20)", async () => {
@@ -163,7 +178,7 @@ describe("a key of a MeasureAction", () => {
 
     await deck.press(key);
 
-    expect(PRESET.set).toHaveBeenCalledExactlyOnceWith(["lamp-1"], 40);
+    expect(PRESET.set).toHaveBeenCalledExactlyOnceWith(["lamp-1"], 40, false);
     expect(logger.info).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("1 lamp"));
   });
 
@@ -226,7 +241,7 @@ describe("a dial of a MeasureAction", () => {
 
       await deck.turn(dial, 3);
 
-      expect(MEASURE.adjust).toHaveBeenCalledExactlyOnceWith("connected", 3, 5, "together");
+      expect(MEASURE.adjust).toHaveBeenCalledExactlyOnceWith("connected", 3, 5, "together", false);
       expect(dial.setFeedback).not.toHaveBeenCalled();
     });
 
@@ -237,8 +252,20 @@ describe("a dial of a MeasureAction", () => {
 
       await deck.turn(dial, 3);
 
-      expect(MEASURE.adjust).toHaveBeenCalledExactlyOnceWith("connected", 3, 5, "each");
+      expect(MEASURE.adjust).toHaveBeenCalledExactlyOnceWith("connected", 3, 5, "each", false);
       expect(logger.info).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("each lamp"));
+    });
+
+    it("turns the lamps on as it steps them when the global settings say so for its main screen (#268)", async () => {
+      MEASURE.turnsLampsOn.mockImplementation((screen) => screen === "main");
+      const dial = await deck.dial(FAKE, { step: 5 });
+      clearCalls();
+
+      await deck.turn(dial, 3);
+
+      expect(MEASURE.turnsLampsOn).toHaveBeenCalledWith("main");
+      expect(MEASURE.adjust).toHaveBeenCalledExactlyOnceWith("connected", 3, 5, "together", true);
+      expect(logger.info).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("turning lamps on"));
     });
 
     it("shows an alert on the dial turned when a lamp fails", async () => {
@@ -335,7 +362,18 @@ describe("a dial of a MeasureAction", () => {
 
       await deck.turn(dial, 3);
 
-      expect(MEASURE.adjust).toHaveBeenCalledExactlyOnceWith([BEAM.id], 3, 5, "together");
+      expect(MEASURE.adjust).toHaveBeenCalledExactlyOnceWith([BEAM.id], 3, 5, "together", false);
+    });
+
+    it("turns the lamp on screen on as it steps it when the global settings say so for lamp screens (#268)", async () => {
+      MEASURE.turnsLampsOn.mockImplementation((screen) => screen === "lamp");
+      const dial = await deck.dial(FAKE, { step: 5 });
+      await deck.tap(dial);
+
+      await deck.turn(dial, 3);
+
+      expect(MEASURE.turnsLampsOn).toHaveBeenCalledWith("lamp");
+      expect(MEASURE.adjust).toHaveBeenCalledExactlyOnceWith([BEAM.id], 3, 5, "together", true);
     });
 
     it("moves the lamps on screen as the dial turned, even when the strip is tapped before (#20)", async () => {
@@ -357,9 +395,9 @@ describe("a dial of a MeasureAction", () => {
       }
 
       expect(MEASURE.adjust.mock.calls).toEqual([
-        ["connected", 1, 5, "together"],
-        [[BEAM.id], 2, 5, "together"],
-        [[OTHER_BEAM.id], 3, 5, "together"],
+        ["connected", 1, 5, "together", false],
+        [[BEAM.id], 2, 5, "together", false],
+        [[OTHER_BEAM.id], 3, 5, "together", false],
       ]);
     });
 
@@ -425,7 +463,7 @@ describe("a dial of a MeasureAction", () => {
 
       await deck.turn(dial, 1);
 
-      expect(MEASURE.adjust).toHaveBeenCalledExactlyOnceWith([BEAM.id], 1, 10, "together");
+      expect(MEASURE.adjust).toHaveBeenCalledExactlyOnceWith([BEAM.id], 1, 10, "together", false);
     });
   });
 });

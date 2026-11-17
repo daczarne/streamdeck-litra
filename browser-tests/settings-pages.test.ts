@@ -103,10 +103,24 @@ const PANELS: Panel[] = [
 ];
 
 // The global checkboxes of sdpi-components the plugin settings show, on every page, which every dial and key shares
-// (#145, #146), the lists of the lamp screens' cells, in the order the cells are read (#177), the controls of their
-// text styles (#153), and every global setting they show through sdpi-components, in their order: the lamps' first, the
-// blink's length (#171) last among them, then the lamp screens'.
-const PLUGIN_SETTINGS_CHECKBOXES = ["keepBrightnessDifference", "keepTemperatureDifference"];
+// (#145, #146): the lamps', whether the keys and dials' changes turn lamps on (#268), by each kind of key, then each
+// dial's main screen, and whether a turn on a lamp screen does. Then the lists of the lamp screens' cells, in the order
+// the cells are read (#177), the controls of their text styles (#153), and every global setting they show through
+// sdpi-components, in their order: the lamps' first, the blink's length (#171) last among them, then the keys', then
+// the dials', their main screens' before their lamp screens'.
+const LAMPS_CHECKBOXES = ["keepBrightnessDifference", "keepTemperatureDifference"];
+const TURN_ON_CHECKBOXES = [
+  "setBrightnessKeysTurnLampsOn",
+  "brightnessUpKeysTurnLampsOn",
+  "brightnessDownKeysTurnLampsOn",
+  "setTemperatureKeysTurnLampsOn",
+  "temperatureUpKeysTurnLampsOn",
+  "temperatureDownKeysTurnLampsOn",
+  "setBrightnessDialsTurnLampsOn",
+  "setTemperatureDialsTurnLampsOn",
+];
+const LAMP_SCREEN_TURN_ON_CHECKBOXES = ["setBrightnessLampScreensTurnLampsOn", "setTemperatureLampScreensTurnLampsOn"];
+const PLUGIN_SETTINGS_CHECKBOXES = [...LAMPS_CHECKBOXES, ...TURN_ON_CHECKBOXES, ...LAMP_SCREEN_TURN_ON_CHECKBOXES];
 const LAMP_SCREEN_LISTS = [
   "lampScreenTopLeft",
   "lampScreenTopRight",
@@ -126,8 +140,10 @@ const TEXT_STYLE_CONTROLS = Object.keys(TEXT_STYLES).flatMap((style) =>
   ["Color", "Weight", "Size"].map((part) => `${style}${part}`),
 );
 const PLUGIN_SETTINGS_GLOBALS = [
-  ...PLUGIN_SETTINGS_CHECKBOXES,
+  ...LAMPS_CHECKBOXES,
   "identifyBlinkMs",
+  ...TURN_ON_CHECKBOXES,
+  ...LAMP_SCREEN_TURN_ON_CHECKBOXES,
   ...LAMP_SCREEN_LISTS,
   ...TEXT_STYLE_CONTROLS,
 ];
@@ -695,7 +711,7 @@ describe("settings pages", () => {
   });
 
   // Every checkbox of sdpi-components that saves a global setting itself, in the plugin settings, on a key's page and a
-  // dial's (#145, #146).
+  // dial's (#145, #146, #268).
   const globalCheckboxes = [at(PANELS, 0), at(PANELS, 2)].flatMap((panel) =>
     PLUGIN_SETTINGS_CHECKBOXES.map((setting) => ({ panel, setting })),
   );
