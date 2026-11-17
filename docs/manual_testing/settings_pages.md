@@ -56,6 +56,9 @@ Stream Deck treats every page the same way, so one key and one dial are enough: 
 1. **Stream Deck enforces the policy.** On one of the two pages:
     - The console shows no red errors after the page loads. A Chromium that doesn't understand a directive of the policy says so there.
     - Pasting `fetch("https://example.com")` into the console logs a red `Refused to connect to ... because it violates the following Content Security Policy directive: "connect-src ws://localhost:*"`. Nothing goes out on the network, so this is safe with Wi-Fi on.
+    - The panel's background is sdpi-components' dark grey, and its scrollbar, when the page scrolls, thin and grey: sdpi-components' own style applies, which the policy allows by its hash ([#247]).
+    - Pasting `document.body.setAttribute("style", "background: red")` into the console leaves the panel grey, and logs a red `Refused to apply inline style because it violates the following Content Security Policy directive`.
+    - In the Elements panel, `<head>` holds `<link rel="stylesheet" href="settings.css">`, and one `<style>` element, sdpi-components'.
 2. **Stream Deck tells each page where it sits.** The key's panel shows the preset (Brightness), and the dial's panel shows the step (Step).
 3. **Stream Deck passes the settings on to the plugin.** A changed setting takes effect on the Deck: the key jumps to its new preset, and the dial turns by its new step.
 4. **Each number field works.** On both panels, the field sits right of its label, with − on its left and + on its right, and its unit inside, after the value, in the value's color, the two centered together in the field (75 %, 10 %). Click + several times quickly: the value follows each click, and once the clicks stop, the key or the dial takes the last value. Hold −: it steps once, then keeps stepping until it's let go, and greys out at the lowest value. Say whether holding is too slow or too fast. Type a value between two steps, such as 37.6 on the key, and press Enter: it shows 38. Type a letter and click elsewhere: the value before comes back. Select another action and come back: the panel shows the saved value. Check the Set Temperature key too: its value is the widest (2700 K), and its step's field goes from 100 K to 500 K, 400 K included. Set a field to its shortest value, such as 0 % on a Set Brightness key's preset: it stays centered, as a long value does.
@@ -73,6 +76,7 @@ Remove `localhost:23654` from the targets in `chrome://inspect` too.
 > [!WARNING]
 > The port has no authentication: while it's open, any process on the computer can connect to it and run code in the pages.
 
+[#247]: https://github.com/daczarne/streamdeck-litra/issues/247
 [lamp-picker]: lamp_picker.md
 [plugin-settings]: plugin_settings.md
 [lamp-screens]: lamp_screens.md

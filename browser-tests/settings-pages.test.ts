@@ -463,6 +463,39 @@ describe("settings pages", () => {
       await page.close();
     });
 
+    it("refuses inline styles, an element's and an attribute's (#247)", async () => {
+      const { page } = await openPanel(panel);
+      const colors = await page.evaluate<string[]>(`(async () => {
+        const marked = (element) => {
+          document.body.append(element);
+          return element;
+        };
+        const styled = marked(Object.assign(document.createElement("p"), { id: "styled" }));
+        document.head.append(Object.assign(document.createElement("style"), { textContent: "#styled { color: rgb(1, 2, 3); }" }));
+        const attributed = marked(document.createElement("p"));
+        attributed.setAttribute("style", "color: rgb(1, 2, 3)");
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        return [getComputedStyle(styled).color, getComputedStyle(attributed).color];
+      })()`);
+      expect(colors).not.toContain("rgb(1, 2, 3)");
+      expect((await page.evaluate<string[]>("violations.map((v) => v.directive)")).sort()).toEqual([
+        "style-src-attr",
+        "style-src-elem",
+      ]);
+      await page.close();
+    });
+
+    it("takes every style from settings.css, but for the one sdpi-components adds (#247)", async () => {
+      const { page } = await openPanel(panel);
+      const styles = await page.evaluate<{ inline: number; sheets: string[]; fontSize: string }>(`({
+        inline: document.querySelectorAll("style").length,
+        sheets: [...document.styleSheets].map((sheet) => sheet.href?.split("/ui/")[1] ?? "inline"),
+        fontSize: getComputedStyle(document.getElementById("plugin-settings")).fontSize,
+      })`);
+      expect(styles).toEqual({ inline: 1, sheets: ["settings.css", "inline"], fontSize: "12px" });
+      await page.close();
+    });
+
     it("refuses inline scripts", async () => {
       const { page } = await openPanel(panel);
       const ran = await page.evaluate(`(async () => {

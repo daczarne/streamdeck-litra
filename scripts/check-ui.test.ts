@@ -7,12 +7,14 @@ import { createScriptFolder, type ScriptFolder } from "../src/test-support/scrip
 
 const UI = "com.daczarne.litra.sdPlugin/ui";
 const VENDORED = `${UI}/vendor/sdpi-components.js`;
+const STYLESHEET = `${UI}/settings.css`;
 
-// The policy every settings page declares, as the README's "Settings pages" section explains it.
+// The policy every settings page declares, as the README's "Settings pages" section explains it: styles from the
+// plugin folder, and the one sdpi-components adds, by the hash of its text (#247).
 const POLICY = [
   "default-src 'none'",
   "script-src 'self'",
-  "style-src 'unsafe-inline'",
+  "style-src 'self' 'sha256-vKw8ls2elF9883OhOYVfGxLK/KT9XeS8Exwh3wy8CrM='",
   "img-src data:",
   "connect-src ws://localhost:*",
   "base-uri 'none'",
@@ -24,6 +26,7 @@ let folder: ScriptFolder;
 beforeEach(() => {
   folder = createScriptFolder("litra-check-ui-test-");
   folder.copyFromRepo(VENDORED);
+  folder.copyFromRepo(STYLESHEET);
 });
 
 afterEach(() => {
@@ -31,8 +34,8 @@ afterEach(() => {
 });
 
 /**
- * A settings page with the plugin's policy and the vendored components, and the lines given added to its head and
- * body. The head's own line is line 6.
+ * A settings page with the plugin's policy, its stylesheet and the vendored components, and the lines given added to
+ * its head and body. The head's own line is line 7, and the body's line 10.
  */
 function page({ head = "", body = "", policy = POLICY }: { head?: string; body?: string; policy?: string } = {}) {
   return [
@@ -40,6 +43,7 @@ function page({ head = "", body = "", policy = POLICY }: { head?: string; body?:
     "<html>",
     "  <head>",
     `    <meta http-equiv="Content-Security-Policy" content="${policy}" />`,
+    '    <link rel="stylesheet" href="settings.css" />',
     '    <script src="vendor/sdpi-components.js"></script>',
     head,
     "  </head>",
@@ -93,7 +97,7 @@ describe("check-ui", () => {
     const { status, stderr } = check();
 
     expect(status).toBe(1);
-    expect(stderr).toContain("ui/page.html:6: remote resource");
+    expect(stderr).toContain("ui/page.html:7: remote resource");
   });
 
   it("refuses an inline script, which the policy would block", () => {
@@ -102,7 +106,39 @@ describe("check-ui", () => {
     const { status, stderr } = check();
 
     expect(status).toBe(1);
-    expect(stderr).toContain("ui/page.html:6: inline script");
+    expect(stderr).toContain("ui/page.html:7: inline script");
+  });
+
+  it.each([
+    ["a <style> element", "    <style>body { color: red; }</style>", "<style>"],
+    ["a style attribute", '    <p style="color: red">text</p>', '<p style="color: red">'],
+  ])("refuses an inline style, which the policy would block: %s (#247)", (_name, line, tag) => {
+    writePage("page.html", page({ body: line }));
+
+    const { status, stderr } = check();
+
+    expect(status).toBe(1);
+    expect(stderr).toContain(`ui/page.html:10: inline style, which the Content-Security-Policy blocks: ${tag}`);
+    expect(stderr).toContain("belongs in ui/settings.css");
+  });
+
+  it("refuses a page that doesn't link the stylesheet (#247)", () => {
+    writePage("page.html", page().replace(/^.*settings\.css.*$/m, ""));
+
+    const { status, stderr } = check();
+
+    expect(status).toBe(1);
+    expect(stderr).toContain("ui/page.html: doesn't link the pages' stylesheet");
+  });
+
+  it("refuses a missing stylesheet, which every page links (#247)", () => {
+    writePage("page.html", page());
+    fs.rmSync(`${folder.dir}/${STYLESHEET}`);
+
+    const { status, stderr } = check();
+
+    expect(status).toBe(1);
+    expect(stderr).toContain("ui/settings.css: missing");
   });
 
   it("refuses a page without a policy", () => {
@@ -140,6 +176,16 @@ describe("check-ui", () => {
     expect(stderr).toContain("vendor/sdpi-components.js: sha256");
   });
 
+  it("refuses a vendored sdpi-components whose style it can't find, which the policy allows by its hash (#247)", () => {
+    writePage("page.html", page());
+    folder.write(VENDORED, fs.readFileSync(VENDORED, "utf8").replace('document.createElement("style");', ""));
+
+    const { status, stderr } = check();
+
+    expect(status).toBe(1);
+    expect(stderr).toContain("vendor/sdpi-components.js: 0 <style> elements found where sdpi-components adds one");
+  });
+
   it("reports every problem it finds, not only the first", () => {
     writePage("first.html", page({ head: '    <script src="https://example.com/page.js"></script>' }));
     writePage("second.html", page().replace(/^.*Content-Security-Policy.*$/m, ""));
@@ -147,7 +193,7 @@ describe("check-ui", () => {
     const { status, stderr } = check();
 
     expect(status).toBe(1);
-    expect(stderr).toContain("ui/first.html:6: remote resource");
+    expect(stderr).toContain("ui/first.html:7: remote resource");
     expect(stderr).toContain("ui/second.html: no Content-Security-Policy");
   });
 
@@ -158,7 +204,7 @@ describe("check-ui", () => {
 
     expect(status).toBe(1);
     expect(stderr).toContain(
-      'ui/page.html:6: inline script, which the Content-Security-Policy blocks: <script type="module">',
+      'ui/page.html:7: inline script, which the Content-Security-Policy blocks: <script type="module">',
     );
   });
 
@@ -168,6 +214,6 @@ describe("check-ui", () => {
     const { status, stderr } = check();
 
     expect(status).toBe(1);
-    expect(stderr).toContain('ui/page.html:6: remote resource: <script src= "https://example.com/page.js">');
+    expect(stderr).toContain('ui/page.html:7: remote resource: <script src= "https://example.com/page.js">');
   });
 });

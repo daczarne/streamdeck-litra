@@ -13,83 +13,14 @@
 // `setting`. A change saves once the clicks stop for a moment, so a run of clicks or a hold saves once, and at once on
 // Enter, on leaving the field, or on letting go of a button held. A file rather than an inline script, so the pages'
 // Content-Security-Policy doesn't have to allow inline scripts.
+//
+// Its styles are in settings.css, with every page's (#247).
 (() => {
   // How long a button is held before it repeats, how often it repeats, and how long after the last change a value
   // saves.
   const HOLD_DELAY_MS = 400;
   const REPEAT_MS = 80;
   const SAVE_DELAY_MS = 300;
-
-  // The panel's look, written out from sdpi-components' styles, whose custom properties stay inside its elements: its
-  // buttons' border and hover, and its fields' background and text.
-  const style = document.createElement("style");
-  style.textContent = `
-    litra-number {
-      display: inline-flex;
-      align-items: stretch;
-      gap: 4px;
-      height: 26px;
-      font-family: "Segoe UI", Arial, Roboto, Helvetica, sans-serif;
-      font-size: 9pt;
-    }
-
-    litra-number button {
-      width: 26px;
-      padding: 0;
-      background-color: #2d2d2d;
-      border: 1px solid #969696;
-      border-radius: 3px;
-      color: #d8d8d8;
-      font-family: inherit;
-      font-size: 11pt;
-      line-height: 1;
-      user-select: none;
-    }
-
-    litra-number button:not(:disabled):hover {
-      background-color: #464646;
-      cursor: pointer;
-    }
-
-    litra-number button:not(:disabled):active {
-      background-color: #2d2d2d;
-      border-color: #646464;
-      color: #969696;
-    }
-
-    litra-number button:disabled,
-    litra-number[disabled] .entry {
-      opacity: 0.5;
-    }
-
-    /* The field: the value and its unit, centered together, on the background of sdpi-components' fields. A page that
-      needs it narrower, such as to fit several on a row, sets --number-field-width. Its class isn't "field", which the
-      plugin settings give their power states' options, stacked in a column, and which would stack the unit under the
-      value. */
-    litra-number .entry {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 2px;
-      width: var(--number-field-width, 72px);
-      background-color: #3d3d3d;
-      color: #d8d8d8;
-      cursor: text;
-    }
-
-    litra-number input {
-      padding: 0;
-      background: transparent;
-      border: none;
-      outline: none;
-      color: inherit;
-      font-family: inherit;
-      font-size: inherit;
-      font-variant-numeric: tabular-nums;
-      text-align: right;
-    }
-  `;
-  document.head.append(style);
 
   /** The number field, as a page writes it: `<litra-number setting min max step default unit>`. */
   class NumberField extends HTMLElement {
