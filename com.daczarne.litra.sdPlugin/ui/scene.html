@@ -9,81 +9,17 @@
       content="
         default-src 'none';
         script-src 'self';
-        style-src 'unsafe-inline';
+        style-src 'self' 'sha256-vKw8ls2elF9883OhOYVfGxLK/KT9XeS8Exwh3wy8CrM=';
         img-src data:;
         connect-src ws://localhost:*;
         base-uri 'none';
         form-action 'none'
       "
     />
+    <link rel="stylesheet" href="settings.css" />
     <script src="vendor/sdpi-components.js"></script>
     <script src="number-field.js"></script>
     <script src="power-switch.js"></script>
-    <style>
-      /* A group's power and presets on one row, under their labels, so a group takes a row rather than three. It ends
-        where sdpi-components' rows do, 336 px in, their label column (95 px) and their content (241 px), which keep
-        that width whatever the panel's, so Brightness's + lines up with the buttons' right edge. The controls are drawn
-        from there to the left, 8 px apart, which puts the switch over the labels' column. Its fields are narrower than
-        elsewhere, so the three fit. */
-      .scene-row {
-        width: 336px;
-        max-width: 100%;
-        display: grid;
-        grid-template-columns: repeat(3, auto);
-        justify-content: end;
-        column-gap: 8px;
-        row-gap: 4px;
-        align-items: center;
-        justify-items: center;
-        margin: 8px 0;
-        color: #969696;
-        font-family: "Segoe UI", Arial, Roboto, Helvetica, sans-serif;
-        font-size: 9pt;
-        --number-field-width: 60px;
-      }
-
-      /* That a group that turns its lamps off leaves their temperature and brightness as they are, on the last line of
-        its row, as wide as its three controls together, centered, in the Alert red and the weight of the plugin
-        settings' "No lamps found". Its width of 0 keeps its text from widening the row's columns, and its minimum width
-        then fills the three, so it wraps within them. */
-      .off-note {
-        grid-column: 1 / -1;
-        width: 0;
-        min-width: 100%;
-        margin: 0;
-        color: #ff6b6b;
-        font-weight: 600;
-        text-align: center;
-      }
-
-      /* The groups' headings, as the plugin settings draw their sections. Outside sdpi-components' rows, so in its font
-        and text color, written out. */
-      .group-heading {
-        border-bottom: 1px solid #666;
-        color: #d8d8d8;
-        font-family: "Segoe UI", Arial, Roboto, Helvetica, sans-serif;
-        font-size: 11pt;
-        font-weight: 600;
-        margin: 16px 0 8px;
-        padding-bottom: 4px;
-      }
-
-      /* The lamps of a group added after the first, drawn as the lamp picker draws the first group's. */
-      #added-groups .lamp {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 8px;
-      }
-
-      #added-groups .note {
-        color: #969696;
-        font-family: "Segoe UI", Arial, Roboto, Helvetica, sans-serif;
-        font-size: 9pt;
-        margin: 0;
-        padding: 4px 0;
-      }
-    </style>
   </head>
 
   <body>

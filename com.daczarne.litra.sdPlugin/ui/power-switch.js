@@ -6,51 +6,9 @@
 // `valuechange`. Without one, it saves nothing, and a script sets its `value` and hears the user's changes through
 // `valuechange`. A file rather than an inline script, so the pages' Content-Security-Policy doesn't have to allow
 // inline scripts.
+//
+// Its styles are in settings.css, with every page's (#247).
 (() => {
-  const style = document.createElement("style");
-  style.textContent = `
-    litra-switch {
-      display: inline-flex;
-      align-items: center;
-      height: 26px;
-    }
-
-    litra-switch button {
-      position: relative;
-      width: 36px;
-      height: 20px;
-      padding: 0;
-      background-color: #3d3d3d;
-      border: 1px solid #969696;
-      border-radius: 10px;
-      cursor: pointer;
-      transition: background-color 0.12s;
-    }
-
-    litra-switch button::after {
-      content: "";
-      position: absolute;
-      top: 2px;
-      left: 2px;
-      width: 14px;
-      height: 14px;
-      background-color: #969696;
-      border-radius: 50%;
-      transition: transform 0.12s, background-color 0.12s;
-    }
-
-    litra-switch button[aria-checked="true"] {
-      background-color: #77f;
-      border-color: rgba(0, 0, 0, 0.4);
-    }
-
-    litra-switch button[aria-checked="true"]::after {
-      background-color: #ffffff;
-      transform: translateX(16px);
-    }
-  `;
-  document.head.append(style);
-
   /** The switch, as a page writes it: `<litra-switch setting default>`. */
   class PowerSwitch extends HTMLElement {
     /** Draws the switch once, and reads the setting it saves, if any. */

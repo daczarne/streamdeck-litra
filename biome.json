@@ -12,7 +12,8 @@
       "scripts/**/*.mjs",
       "scripts/**/*.test.ts",
       "*.mjs",
-      "com.daczarne.litra.sdPlugin/ui/*.js"
+      "com.daczarne.litra.sdPlugin/ui/*.js",
+      "com.daczarne.litra.sdPlugin/ui/*.css"
     ]
   },
   "formatter": {
@@ -29,6 +30,15 @@
       "quoteStyle": "double",
       "semicolons": "always",
       "trailingCommas": "all"
+    }
+  },
+  "css": {
+    "formatter": {
+      "enabled": true,
+      "quoteStyle": "double"
+    },
+    "linter": {
+      "enabled": true
     }
   },
   "linter": {

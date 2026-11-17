@@ -1,4 +1,5 @@
 maxlength
+nums
 rrggbb
 sdpi
 Segoe

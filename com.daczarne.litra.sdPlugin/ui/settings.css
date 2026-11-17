@@ -1,0 +1,459 @@
+/* The styles of every settings page (#247), linked from each one, so the pages' Content-Security-Policy allows styles
+  from the plugin folder alone, besides the one sdpi-components adds itself. A section for each part of the pages, and
+  for the script that draws it. Rules that end on the same selector, such as the notes of several parts, come from the
+  least specific to the most, which Biome checks (noDescendingSpecificity), so their order in the file never decides
+  between them: the sections with fewer such rules come first. */
+
+/* The panel's look, written out from sdpi-components' styles, whose custom properties stay inside its elements: its
+  font, its text, its buttons and fields, its checked checkbox, and the Alert red the plugin's messages share. */
+:root {
+  --litra-font-family: "Segoe UI", Arial, Roboto, Helvetica, sans-serif;
+  --litra-text-color: #d8d8d8;
+  --litra-muted-color: #969696;
+  --litra-alert-color: #ff6b6b;
+  --litra-button-color: #2d2d2d;
+  --litra-pressed-border-color: #646464;
+  --litra-field-color: #3d3d3d;
+  --litra-checked-color: #77f;
+  --litra-rule-color: #666;
+}
+
+/*
+ * The keys' lamp pickers (lamp-picker.js, #20)
+ */
+
+#lamp-picker .lamp {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+#lamp-picker .note {
+  color: var(--litra-muted-color);
+  margin: 0;
+  padding: 4px 0;
+}
+
+/*
+ * The Scene key's page (scene.html, scene-groups.js, #174)
+ */
+
+/* A group's power and presets on one row, under their labels, so a group takes a row rather than three. It ends where
+  sdpi-components' rows do, 336 px in, their label column (95 px) and their content (241 px), which keep that width
+  whatever the panel's, so Brightness's + lines up with the buttons' right edge. The controls are drawn from there to
+  the left, 8 px apart, which puts the switch over the labels' column. Its fields are narrower than elsewhere, so the
+  three fit. */
+.scene-row {
+  width: 336px;
+  max-width: 100%;
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  justify-content: end;
+  column-gap: 8px;
+  row-gap: 4px;
+  align-items: center;
+  justify-items: center;
+  margin: 8px 0;
+  color: var(--litra-muted-color);
+  font-family: var(--litra-font-family);
+  font-size: 9pt;
+  --number-field-width: 60px;
+}
+
+/* That a group that turns its lamps off leaves their temperature and brightness as they are, on the last line of its
+  row, as wide as its three controls together, centered, in the Alert red and the weight of the plugin settings' "No
+  lamps found". Its width of 0 keeps its text from widening the row's columns, and its minimum width then fills the
+  three, so it wraps within them. */
+.off-note {
+  grid-column: 1 / -1;
+  width: 0;
+  min-width: 100%;
+  margin: 0;
+  color: var(--litra-alert-color);
+  font-weight: 600;
+  text-align: center;
+}
+
+/* The groups' headings, as the plugin settings draw their sections. Outside sdpi-components' rows, so in its font and
+  text color, written out. */
+.group-heading {
+  border-bottom: 1px solid var(--litra-rule-color);
+  color: var(--litra-text-color);
+  font-family: var(--litra-font-family);
+  font-size: 11pt;
+  font-weight: 600;
+  margin: 16px 0 8px;
+  padding-bottom: 4px;
+}
+
+/* The lamps of a group added after the first, drawn as the lamp picker draws the first group's. */
+#added-groups .lamp {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+#added-groups .note {
+  color: var(--litra-muted-color);
+  font-family: var(--litra-font-family);
+  font-size: 9pt;
+  margin: 0;
+  padding: 4px 0;
+}
+/*
+ * The number fields (number-field.js, #195)
+ */
+
+litra-number {
+  display: inline-flex;
+  align-items: stretch;
+  gap: 4px;
+  height: 26px;
+  font-family: var(--litra-font-family);
+  font-size: 9pt;
+}
+
+litra-number button {
+  width: 26px;
+  padding: 0;
+  background-color: var(--litra-button-color);
+  border: 1px solid var(--litra-muted-color);
+  border-radius: 3px;
+  color: var(--litra-text-color);
+  font-family: inherit;
+  font-size: 11pt;
+  line-height: 1;
+  user-select: none;
+}
+
+litra-number button:not(:disabled):hover {
+  background-color: #464646;
+  cursor: pointer;
+}
+
+litra-number button:not(:disabled):active {
+  background-color: var(--litra-button-color);
+  border-color: var(--litra-pressed-border-color);
+  color: var(--litra-muted-color);
+}
+
+/* The field: the value and its unit, centered together, on the background of sdpi-components' fields. A page that
+  needs it narrower, such as to fit several on a row, sets --number-field-width. Its class isn't "field", which the
+  plugin settings give their power states' options, stacked in a column, and which would stack the unit under the
+  value.*/
+litra-number .entry {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: var(--number-field-width, 72px);
+  background-color: var(--litra-field-color);
+  color: var(--litra-text-color);
+  cursor: text;
+}
+
+litra-number button:disabled,
+litra-number[disabled] .entry {
+  opacity: 0.5;
+}
+
+litra-number input {
+  padding: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/*
+ * The Scene key's Power switches (power-switch.js, #174)
+ */
+
+litra-switch {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+}
+
+litra-switch button {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  padding: 0;
+  background-color: var(--litra-field-color);
+  border: 1px solid var(--litra-muted-color);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background-color 0.12s;
+}
+
+litra-switch button::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  background-color: var(--litra-muted-color);
+  border-radius: 50%;
+  transition:
+    transform 0.12s,
+    background-color 0.12s;
+}
+
+litra-switch button[aria-checked="true"] {
+  background-color: var(--litra-checked-color);
+  border-color: rgba(0, 0, 0, 0.4);
+}
+
+litra-switch button[aria-checked="true"]::after {
+  background-color: #ffffff;
+  transform: translateX(16px);
+}
+
+/*
+ * The plugin settings (plugin-settings.js)
+ */
+
+body.plugin-settings-open > :not(#plugin-settings) {
+  display: none;
+}
+
+/* sdpi-components only sets its font on its own elements, so the rest of the plugin settings, such as the lamps'
+  table, the messages about them and the headings, take it from here. */
+#plugin-settings {
+  font-family: var(--litra-font-family);
+  font-size: 9pt;
+}
+
+#plugin-settings .note {
+  color: var(--litra-muted-color);
+  margin: 0;
+  padding: 4px 0;
+}
+
+/* What stands in for the lamps' table, such as "No lamps found", centered under Find lamps, and as noticeable. */
+#plugin-settings .lamp-list .note {
+  color: var(--litra-text-color);
+  font-size: 10pt;
+  font-weight: 600;
+  padding: 8px 0;
+  text-align: center;
+}
+
+/* The editors' plain values, centered on their label as a checkbox's text is. */
+#plugin-settings .cell-editor .note {
+  padding: 7px 0;
+}
+
+/* That no lamp was found, in a soft red that reads on the panel's dark grey. */
+#plugin-settings .lamp-list .note.alert {
+  color: var(--litra-alert-color);
+}
+
+#plugin-settings table {
+  width: 100%;
+  border-collapse: collapse;
+  color: var(--litra-muted-color);
+  margin-bottom: 10px;
+}
+
+#plugin-settings th {
+  font-weight: bold;
+  text-align: center;
+  padding: 0 4px 4px;
+}
+
+/* Wide enough for the longest model, "Beam LX", with room on each side, whichever lamps are connected. A width would
+  give way to the name's, which takes the rest of the row. */
+#plugin-settings th.model {
+  min-width: 10ch;
+}
+
+#plugin-settings td {
+  padding: 2px 4px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+#plugin-settings td.name {
+  width: 100%;
+}
+
+/* A lamp the last Find lamps didn't find, greyed out as a lamp picker's lamp held by another group is. */
+#plugin-settings tr.missing td:not(.name, .identify) {
+  opacity: 0.6;
+}
+
+/* Identify and "Not found" in the same place, the one not shown hidden but keeping its room, so the column is as wide
+  as the wider of the two, whichever lamps the last Find lamps found. */
+#plugin-settings .identify-or-missing {
+  display: grid;
+  align-items: center;
+  justify-items: center;
+}
+
+#plugin-settings .identify-or-missing > * {
+  grid-area: 1 / 1;
+}
+
+#plugin-settings .identify-or-missing > [aria-hidden="true"] {
+  visibility: hidden;
+}
+
+/* That the last Find lamps didn't find the lamp, in the Alert red of "No lamps found", at the panel's size. */
+#plugin-settings td.identify .note {
+  color: var(--litra-alert-color);
+  font-size: 9pt;
+  font-weight: 600;
+  padding: 0 4px;
+  white-space: nowrap;
+}
+
+/* The trash can's button, a plain one rather than sdpi-components', whose hover can't be restyled from outside: it
+  looks like an sdpi-components button at rest, written out from its styles, and turns red on hover, since it forgets
+  the lamp. The red is the Alert one of "No lamps found", on a darker red the white can reads on. */
+#plugin-settings button.forget {
+  background-color: var(--litra-button-color);
+  border: 1px solid var(--litra-muted-color);
+  border-radius: 3px;
+  color: var(--litra-text-color);
+  font-family: inherit;
+  font-size: 9pt;
+  padding: 6px;
+}
+
+#plugin-settings button.forget:hover {
+  background-color: #8f2f2f;
+  border-color: var(--litra-alert-color);
+  color: #ffffff;
+  cursor: pointer;
+}
+
+#plugin-settings button.forget:active {
+  background-color: var(--litra-button-color);
+  border-color: var(--litra-pressed-border-color);
+  color: var(--litra-alert-color);
+}
+
+/* On the line of the button's text, so the button is as tall as Identify. */
+#plugin-settings button.forget svg {
+  vertical-align: -2px;
+}
+
+/* A key's own choice of new lamps, under its lamps, set apart from them so it doesn't read as one more (#147). */
+#key-new-lamps {
+  display: block;
+  margin-top: 8px;
+}
+
+/* The sections, by the reach of their settings, and the parts of a section with several settings. Outside
+  sdpi-components' rows, so in its text color, written out. */
+#plugin-settings .section {
+  border-bottom: 1px solid var(--litra-rule-color);
+  color: var(--litra-text-color);
+  font-size: 11pt;
+  font-weight: 600;
+  margin: 16px 0 8px;
+  padding-bottom: 4px;
+}
+
+#plugin-settings .subsection {
+  color: var(--input-font-color);
+  font-size: 10pt;
+  font-weight: 600;
+  margin: 4px 0;
+  text-align: center;
+}
+
+/* The lamp screens' cells, three rows of two, as the strip shows them. */
+#plugin-settings .cells {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+
+#plugin-settings .cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Options that go together, such as a power state's, side by side under their title, each with its caption above
+  it. */
+#plugin-settings .fields-title {
+  color: var(--input-font-color);
+  margin: 0;
+  padding: 4px 0;
+  text-align: center;
+}
+
+#plugin-settings .fields {
+  display: flex;
+  gap: 8px;
+}
+
+#plugin-settings .fields + .fields {
+  margin-top: 6px;
+}
+
+#plugin-settings .fields-reset {
+  display: block;
+  margin-top: 6px;
+}
+
+#plugin-settings .field {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+#plugin-settings .caption {
+  color: var(--litra-muted-color);
+  margin: 0;
+}
+
+/* A checkbox with a third, indeterminate state, drawn as sdpi-components draws its own, which has none, with its
+  check mark. Inside quotes, a data: URL only needs its "#" encoded. */
+.tri-state {
+  align-items: center;
+  cursor: pointer;
+  display: inline-flex;
+  outline: 0;
+  padding: 5px 0 0 0;
+  user-select: none;
+}
+
+.tri-state .symbol {
+  align-self: flex-start;
+  background: var(--litra-field-color);
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+  flex: 0 0 16px;
+  height: 16px;
+  width: 16px;
+}
+
+.tri-state .text {
+  margin: 0 0 0 4px;
+}
+
+.tri-state:not([aria-checked="false"]) .symbol {
+  background: var(--litra-checked-color) no-repeat center center;
+  border: 1px solid rgba(0, 0, 0, 0.4);
+}
+
+.tri-state[aria-checked="true"] .symbol {
+  background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='10' viewBox='0 0 12 10'><polygon fill='%23FFF' points='7.2 7.5 7.2 -1.3 8.7 -1.3 8.6 9.1 2.7 8.7 2.7 7.2' transform='rotate(37 5.718 3.896)'/></svg>");
+}
+
+.tri-state[aria-checked="mixed"] .symbol {
+  background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='2' viewBox='0 0 10 2'><rect width='10' height='2' fill='%23FFF'/></svg>");
+}

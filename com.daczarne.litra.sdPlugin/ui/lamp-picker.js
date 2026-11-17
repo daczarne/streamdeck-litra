@@ -12,6 +12,8 @@
 // have. The lamps the key acts on, its scene's first group, are told to scene-groups.js, through an event on the
 // document. `lamps` is "all" for a key saved before lamps could be picked, or never saved, which acts on every lamp. A
 // file rather than an inline script, so the pages' Content-Security-Policy doesn't have to allow inline scripts.
+//
+// Its styles are in settings.css, with every page's (#247).
 (() => {
   const picker = document.getElementById("lamp-picker");
   if (picker === null) {
@@ -30,23 +32,6 @@
   let held = {};
   // Whether the page is a key's, which the picker draws only on, once the page knows it.
   let onKey = false;
-
-  const style = document.createElement("style");
-  style.textContent = `
-    #lamp-picker .lamp {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-    }
-
-    #lamp-picker .note {
-      color: #969696;
-      margin: 0;
-      padding: 4px 0;
-    }
-  `;
-  document.head.append(style);
 
   // A missing setting is a key from before lamps could be picked, which acts on every lamp.
   const [readSaved, save] = SDPIComponents.useSettings(

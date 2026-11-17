@@ -54,6 +54,7 @@ A policy declared in a `<meta http-equiv="Content-Security-Policy">` is enforced
 
 - `'self'` matches the files of the plugin folder, since the page itself loads from `file://`.
 - The directives can sit on separate lines inside the `content` attribute: the line breaks are whitespace to the policy.
+- A `<style>` element is allowed by the sha256 of its text, as `'sha256-…'` in `style-src`, without `'unsafe-inline'` ([#247]). The pages allow sdpi-components' own style that way, and Chromium's console names the hash a refused element would need.
 - A blocked script or style leaves no trace on the panel itself, which just shows fewer controls or none, unstyled. The reason only shows in the page's console.
 
 ## Debugging a page
@@ -102,5 +103,6 @@ Checked while adding the lamps the plugin knows ([#194]): the plugin's save of t
 [#194]: https://github.com/daczarne/streamdeck-litra/issues/194
 [#195]: https://github.com/daczarne/streamdeck-litra/issues/195
 [#198]: https://github.com/daczarne/streamdeck-litra/issues/198
+[#247]: https://github.com/daczarne/streamdeck-litra/issues/247
 [controls]: ../../src/controls/README.md
 [manual-test]: ../manual_testing/settings_pages.md

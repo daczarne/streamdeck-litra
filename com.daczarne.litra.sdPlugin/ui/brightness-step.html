@@ -9,13 +9,14 @@
       content="
         default-src 'none';
         script-src 'self';
-        style-src 'unsafe-inline';
+        style-src 'self' 'sha256-vKw8ls2elF9883OhOYVfGxLK/KT9XeS8Exwh3wy8CrM=';
         img-src data:;
         connect-src ws://localhost:*;
         base-uri 'none';
         form-action 'none'
       "
     />
+    <link rel="stylesheet" href="settings.css" />
     <script src="vendor/sdpi-components.js"></script>
     <script src="number-field.js"></script>
   </head>

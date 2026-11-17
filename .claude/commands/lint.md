@@ -10,7 +10,7 @@ Run the linters from CI, from the repository root, in this order: those of the `
 1. `markdownlint-cli2 --config ".markdownlint.yaml" .`
 1. `cspell lint --config ".cspell.json" --dot --no-progress .`
 1. `npm run typecheck`, which checks the TypeScript and the build and check scripts.
-1. `npm run lint`, which runs Biome on the TypeScript and JavaScript: its lint rules, formatting and import order.
+1. `npm run lint`, which runs Biome on the TypeScript, the JavaScript and the settings pages' stylesheet: its lint rules, formatting and import order.
 1. `npm run check:docs`, which lists every function, class, method and constructor without a doc comment.
 1. `npm run icons`, then `git status --short -- com.daczarne.litra.sdPlugin/imgs`: regenerating the icons must change nothing. A change means the committed icons aren't what `scripts/generate-icons.mjs` draws.
 1. `npm run validate`, which runs `check:ui`, the build and `streamdeck validate`.
