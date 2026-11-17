@@ -1969,8 +1969,8 @@ describe("setLampsTemperature", () => {
 });
 
 describe("adjustLampsTemperature", () => {
-  it("moves every lamp to one target, stepped from the first lamp's temperature", async () => {
-    const [first, second] = [newLamp({ temperatureInKelvin: 3100 }), newLamp({ temperatureInKelvin: 2700 })];
+  it("moves every lamp to one target, stepped from the highest temperature, which the dials show (#229)", async () => {
+    const [first, second] = [newLamp({ temperatureInKelvin: 2700 }), newLamp({ temperatureInKelvin: 3100 })];
     connect(first, second);
 
     // 2 ticks of 200 K, one of the dial's step options.
@@ -1982,16 +1982,6 @@ describe("adjustLampsTemperature", () => {
     expect([first.writes("temperature"), second.writes("temperature")]).toEqual([[3500], [3500]]);
     // It steps from the temperature the plugin holds, and reads each lamp back once set (#198).
     expect([first.queries("temperature"), second.queries("temperature")]).toEqual([1, 1]);
-  });
-
-  it("steps from the lamp with the lowest id, whatever order the lamps are found in", async () => {
-    const earlier = newLamp({ temperatureInKelvin: 3100 });
-    const later = newLamp({ temperatureInKelvin: 5000 });
-    connect(later, earlier);
-
-    await manager.adjustLampsTemperature("all", 1, 200);
-
-    expect([earlier.temperatureInKelvin, later.temperatureInKelvin]).toEqual([3300, 3300]);
   });
 
   it("steps along the grid counted from the lowest allowed value (#16)", async () => {
@@ -2014,7 +2004,8 @@ describe("adjustLampsTemperature", () => {
     expect(heldTemperature(lamp)).toBe(6200);
   });
 
-  it("steps from the next lamp when the first can't be read", async () => {
+  it("steps from the highest of the lamps it can read, leaving out one it can't", async () => {
+    // The lamp that fails is at 4000 K, above the other one.
     const [first, second] = [newLamp(), newLamp({ temperatureInKelvin: 3000 })];
     first.fail("readSync");
     connect(first, second);
