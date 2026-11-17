@@ -103,7 +103,7 @@ The plugin settings, which every settings page shows, hold settings of different
 
 1. **Lamps**: the lamps themselves, whichever key or dial acts on them. The table of the lamps leads, since naming, identifying and forgetting them is the plugin settings' first use, then how each lamp steps, and how long a blink lasts, for Identify and on the lamp screens.
 2. **Keys**: every key, such as whether it takes in lamps added later ([#147]). The keys come before the dials, since every Deck has keys, and only some have dials.
-3. **Dials**: every dial, first what applies to all of a dial, then its main screen, then its lamp screens, with their blink, their layout and their text styles ([#153]). The text styles are the lamp screens' because only the lamp screens use them, and would move up to all of a dial's if the main screens took them too ([#183]).
+3. **Dials**: every dial, first what applies to all of a dial, then its main screen, such as whether a turn turns its lamps on ([#268]), then its lamp screens, with their blink, whether a turn turns the lamp on, their layout and their text styles ([#153]). The text styles are the lamp screens' because only the lamp screens use them, and would move up to all of a dial's if the main screens took them too ([#183]).
 
 A section's parts with several settings get a heading, such as "Lamp screens". A part with a single setting is that setting's row label, such as "Brightness", until it grows a second one. A section or a part with no settings isn't shown: its heading comes with its first setting.
 
@@ -145,6 +145,7 @@ A setting that takes a number within a range, on a step, such as a brightness, a
 [#183]: https://github.com/daczarne/streamdeck-litra/issues/183
 [#194]: https://github.com/daczarne/streamdeck-litra/issues/194
 [#195]: https://github.com/daczarne/streamdeck-litra/issues/195
+[#268]: https://github.com/daczarne/streamdeck-litra/issues/268
 [architecture]: architecture.md
 [manual-testing]: manual_testing/
 [style-guide]: style_guide.md
