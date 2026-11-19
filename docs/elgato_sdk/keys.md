@@ -37,4 +37,4 @@ Checked against `@elgato/streamdeck` 3.0.3 and the manifest schema in `@elgato/s
 
 [#132]: https://github.com/daczarne/streamdeck-litra/issues/132
 [layouts]: layouts.md
-[logging]: ../logging.md
+[logging]: ../developer_guide/logging.md

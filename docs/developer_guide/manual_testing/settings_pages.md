@@ -81,4 +81,4 @@ Remove `localhost:23654` from the targets in `chrome://inspect` too.
 [plugin-settings]: plugin_settings.md
 [lamp-screens]: lamp_screens.md
 [lamps-apart]: lamps_apart.md
-[property-inspector]: ../elgato_sdk/property_inspector.md
+[property-inspector]: ../../elgato_sdk/property_inspector.md

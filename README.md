@@ -95,7 +95,15 @@ Developer mode stays on afterwards.
 
 ## Working on the plugin
 
-[The architecture document][architecture] describes how the plugin's parts fit together, and why they're built that way. [The developer guide][developer-guide] follows the plugin as it starts, and a key press from the Deck to the lamps and back. [The contributing guide][contributing] describes how changes are made.
+[The contributing guide][contributing] describes how changes are made. The developer guide, in `docs/developer_guide/`, holds the rest:
+
+- [The architecture document][architecture]: how the plugin's parts fit together, and why they're built that way.
+- [Start-up][start-up] and [a request's journey][request-journey]: the plugin as it starts, and a key press from the Deck to the lamps and back.
+- [The testing guide][testing]: how the tests are written.
+- [The logging document][logging]: what the plugin logs, and how the files are kept.
+- [The style guide][style-guide]: the conventions the linters don't enforce.
+- [The release process][releases]: how a release is made, from the version to publishing it.
+- [The manual checks][manual-testing]: what only the Deck and the lamps can prove, one document per area.
 
 Since the plugin is linked, a change takes effect as soon as it's built and the plugin restarts. A change to `manifest.json` takes effect once Stream Deck itself is quit and reopened: restarting the plugin isn't enough. Switching branches switches what the Deck runs, after the next build.
 
@@ -129,7 +137,7 @@ npm run pack
 
 It runs `check:ui`, builds, and writes `release/com.daczarne.litra.streamDeckPlugin`, which holds the plugin folder, without what `com.daczarne.litra.sdPlugin/.sdignore` leaves out. The build puts in it only the files of `node-hid` that run on macOS and Windows (`scripts/package-files.mjs` lists them), the plugin's license, and the licenses of the code it ships, in `bin/THIRD_PARTY_LICENSES.txt`, since the minified bundle drops them. An installed plugin can't fall back on the repository's `node_modules` the way a linked one does, so a dependency missing from the package only shows once it's installed ([#21]).
 
-How a release is made, from the version to publishing it, is in [`docs/releases.md`][releases].
+How a release is made, from the version to publishing it, is in [`docs/developer_guide/releases.md`][releases].
 
 ## Icons
 
@@ -144,7 +152,7 @@ The settings pages (Property Inspector), in `com.daczarne.litra.sdPlugin/ui/`, l
 - **When building.** `npm run check:ui` (also run by `validate` and `pack`) fails if any `ui/*.html` loads a remote resource, lacks the Content-Security-Policy below or declares a different one, has an inline script or an inline style, or doesn't link the pages' stylesheet, `ui/settings.css`. It also fails if the vendored sdpi-components doesn't match its pinned hash (see [Third-party code](#third-party-code)).
 - **When Stream Deck shows them.** Each page declares a Content-Security-Policy in a `<meta>`, so Stream Deck refuses whatever the policy doesn't allow, even if it slipped past the check.
 
-The browser tests (`npm run test:browser`, also run in CI) check that the policy works. They load each page in a headless Chrome, as Stream Deck would, and confirm that it refuses remote scripts, styles, images and connections, and inline scripts and styles, and that each page takes every style from `ui/settings.css`, but for the one sdpi-components adds. They also check the controls each page shows, the settings it sends, what each number field shows and saves, and the lamp picker, against a fake that answers for the plugin. They run in Chrome rather than in Stream Deck itself, so [`docs/manual_testing/settings_pages.md`][manual-test] lists the checks that only the Deck can prove.
+The browser tests (`npm run test:browser`, also run in CI) check that the policy works. They load each page in a headless Chrome, as Stream Deck would, and confirm that it refuses remote scripts, styles, images and connections, and inline scripts and styles, and that each page takes every style from `ui/settings.css`, but for the one sdpi-components adds. They also check the controls each page shows, the settings it sends, what each number field shows and saves, and the lamp picker, against a fake that answers for the plugin. They run in Chrome rather than in Stream Deck itself, so [`docs/developer_guide/manual_testing/settings_pages.md`][manual-test] lists the checks that only the Deck can prove.
 
 The policy allows only what the pages need:
 
@@ -181,30 +189,34 @@ The plugin is MIT licensed: see [`LICENSE`][license].
 [#19]: https://github.com/daczarne/streamdeck-litra/issues/19
 [#21]: https://github.com/daczarne/streamdeck-litra/issues/21
 [#247]: https://github.com/daczarne/streamdeck-litra/issues/247
-[architecture]: docs/architecture.md
+[architecture]: docs/developer_guide/architecture.md
 [bright]: com.daczarne.litra.sdPlugin/imgs/actions/brightness/icon@2x.png
 [bright-down]: com.daczarne.litra.sdPlugin/imgs/actions/brightness-down/icon@2x.png
 [bright-up]: com.daczarne.litra.sdPlugin/imgs/actions/brightness-up/icon@2x.png
 [check-ui]: scripts/check-ui.mjs
 [contributing]: docs/contributing.md
-[developer-guide]: docs/developer_guide/start_up.md
 [issues]: https://github.com/daczarne/streamdeck-litra/issues
 [latest-release]: https://github.com/daczarne/streamdeck-litra/releases/latest
 [license]: LICENSE
-[releases]: docs/releases.md
-[streamdeck-icons]: https://github.com/daczarne/streamdeck-icons
 [litra]: https://github.com/timrogers/litra
-[logging]: docs/logging.md
-[manual-test]: docs/manual_testing/settings_pages.md
+[logging]: docs/developer_guide/logging.md
+[manual-test]: docs/developer_guide/manual_testing/settings_pages.md
+[manual-testing]: docs/developer_guide/manual_testing/
 [n]: https://github.com/tj/n
 [power]: com.daczarne.litra.sdPlugin/imgs/actions/power/icon@2x.png
+[releases]: docs/developer_guide/releases.md
+[request-journey]: docs/developer_guide/request_journey.md
 [scene]: com.daczarne.litra.sdPlugin/imgs/actions/scene/icon@2x.png
 [sdk]: https://docs.elgato.com/streamdeck
 [sdpi]: https://github.com/GeekyEggo/sdpi-components
 [sdpi-source]: https://github.com/GeekyEggo/sdpi-components/blob/v4.0.1/dist/sdpi-components.js
+[start-up]: docs/developer_guide/start_up.md
 [stream-deck]: https://www.elgato.com/streamdeck
+[streamdeck-icons]: https://github.com/daczarne/streamdeck-icons
+[style-guide]: docs/developer_guide/style_guide.md
 [temp]: com.daczarne.litra.sdPlugin/imgs/actions/temperature/icon@2x.png
 [temp-down]: com.daczarne.litra.sdPlugin/imgs/actions/temperature-down/icon@2x.png
 [temp-up]: com.daczarne.litra.sdPlugin/imgs/actions/temperature-up/icon@2x.png
-[troubleshooting]: docs/user_guide/user_guide.md#when-something-doesnt-work
-[user-guide]: docs/user_guide/user_guide.md
+[testing]: docs/developer_guide/testing.md
+[troubleshooting]: docs/user_guide/README.md#when-something-doesnt-work
+[user-guide]: docs/user_guide/README.md

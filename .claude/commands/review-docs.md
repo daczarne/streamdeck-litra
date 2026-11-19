@@ -12,4 +12,4 @@ Run once a feature is done, before its pull request. It reviews the net result o
 3. **Find stale statements.** In each related doc, find what the branch made false, outdated or missing.
 4. **Report.** For each doc, list the stale statement, why it is stale, and the proposed wording. Apply the changes once they're approved.
 
-Docs explain mechanisms and reasons. Don't propose inventories that repeat what the code states; an example is fine. Follow `docs/style_guide.md`.
+Docs explain mechanisms and reasons. Don't propose inventories that repeat what the code states; an example is fine. Follow `docs/developer_guide/style_guide.md`.

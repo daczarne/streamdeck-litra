@@ -40,5 +40,5 @@ In VS Code, the `Build and restart` task runs both.
 [#100]: https://github.com/daczarne/streamdeck-litra/issues/100
 [#229]: https://github.com/daczarne/streamdeck-litra/issues/229
 [#268]: https://github.com/daczarne/streamdeck-litra/issues/268
-[contributing]: ../contributing.md
+[contributing]: ../../contributing.md
 [lamps-apart]: lamps_apart.md

@@ -206,11 +206,11 @@ By default, the lamp manager steps the value the dial shows, the brightest lamp'
 [#214]: https://github.com/daczarne/streamdeck-litra/issues/214
 [#229]: https://github.com/daczarne/streamdeck-litra/issues/229
 [#268]: https://github.com/daczarne/streamdeck-litra/issues/268
-[actions]: elgato_sdk/actions.md
-[contributing]: contributing.md
-[keys]: elgato_sdk/keys.md
+[actions]: ../elgato_sdk/actions.md
+[contributing]: ../contributing.md
+[keys]: ../elgato_sdk/keys.md
 [litra]: https://github.com/timrogers/litra
 [litra-rs]: https://github.com/timrogers/litra-rs
 [logging]: logging.md
-[probes]: ../scripts/probes/README.md
-[property-inspector]: elgato_sdk/property_inspector.md
+[probes]: ../../scripts/probes/README.md
+[property-inspector]: ../elgato_sdk/property_inspector.md

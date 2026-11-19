@@ -54,7 +54,7 @@ Publishing the draft is manual, once its notes are read: the pull requests GitHu
 Releases aren't checked as an installed plugin: development runs linked from the repository, so an installed plugin is only tried by its users, who report what doesn't work ([#21]).
 
 [#21]: https://github.com/daczarne/streamdeck-litra/issues/21
-[contributing]: contributing.md
-[packaging]: ../README.md#packaging
-[security]: ../SECURITY.md
+[contributing]: ../contributing.md
+[packaging]: ../../README.md#packaging
+[security]: ../../SECURITY.md
 [semver]: https://semver.org

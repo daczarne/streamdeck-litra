@@ -44,4 +44,4 @@ Checked on Stream Deck 7.6: each dial's id, logged as it appeared, across a rest
 [#144]: https://github.com/daczarne/streamdeck-litra/issues/144
 [#198]: https://github.com/daczarne/streamdeck-litra/issues/198
 [#236]: https://github.com/daczarne/streamdeck-litra/issues/236
-[actions-list]: ../manual_testing/actions_list.md
+[actions-list]: ../developer_guide/manual_testing/actions_list.md

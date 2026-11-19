@@ -22,7 +22,7 @@ Pull requests are squash-merged, so their title and description become the commi
 
 ## Description
 
-Follow the Markdown section of `docs/style_guide.md`, with one exception: the pull request title is the document's H1, so the description has neither an H1 nor a table of contents.
+Follow the Markdown section of `docs/developer_guide/style_guide.md`, with one exception: the pull request title is the document's H1, so the description has neither an H1 nor a table of contents.
 
 1. **Opening paragraph, without a heading.** What the branch changes and why, in a few sentences.
 2. **`##` sections by area** (for example "Configuration", "Tests and CI", "Documentation"), when the branch spans several parts of the code base. Each section stands on its own, so it can become the description of a separate pull request if the branch is split. A change to one part needs no sections, just the opening paragraph and, if useful, a list.

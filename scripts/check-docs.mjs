@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 /**
  * Fails when a function, class, method or constructor has no doc comment (see the "Doc comments" section of
- * docs/style_guide.md). It checks the files Biome covers, read from `files.includes` in biome.json, and only what is
- * declared at the top of a file or in a class there: a closure inside a function is read with the function around it.
+ * docs/developer_guide/style_guide.md). It checks the files Biome covers, read from `files.includes` in biome.json, and
+ * only what is declared at the top of a file or in a class there: a closure inside a function is read with the function
+ * around it.
  */
 import { globSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
