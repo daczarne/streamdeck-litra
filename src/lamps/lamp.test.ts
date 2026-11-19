@@ -538,6 +538,106 @@ describe("a lamp's blink (#48)", () => {
   });
 });
 
+describe("a re-sync of the plugin to a lamp (#214)", () => {
+  it("holds what the lamp reports, whatever the plugin held, writes nothing, and logs the read", () => {
+    const { lamp, handle } = reached();
+    Object.assign(handle, { on: false, lumen: 400, kelvin: 6500 });
+
+    lamp.syncPluginToLamp("sync plugin to lamps", handle);
+
+    expect(lamp.state).toEqual({ on: false, lumen: 400, kelvin: 6500 });
+    expect(handle.written).toEqual([]);
+    expect(logged("info")).toEqual([
+      "sync plugin to lamps: Beam - 73cd read, since a re-sync asked: off at 400 lm (100%) and 6500 K",
+    ]);
+  });
+
+  it("forgets what a step of lamps kept apart asked of a value the lamp reports otherwise, and keeps the other (#145)", () => {
+    const { lamp, handle } = reached();
+    Object.assign(lamp, { brightnessAsked: 80, temperatureAsked: 6700 });
+    handle.lumen = 160;
+
+    lamp.syncPluginToLamp("sync plugin to lamps", handle);
+
+    expect([lamp.brightnessAsked, lamp.temperatureAsked]).toEqual([undefined, 6700]);
+  });
+
+  it("keeps what a step of lamps kept apart asked when the lamp reports what the plugin held (#145)", () => {
+    const { lamp, handle } = reached();
+    Object.assign(lamp, { brightnessAsked: 80, temperatureAsked: 6700 });
+    handle.on = false;
+
+    lamp.syncPluginToLamp("sync plugin to lamps", handle);
+
+    expect([lamp.brightnessAsked, lamp.temperatureAsked]).toEqual([80, 6700]);
+  });
+
+  it("keeps what the plugin held when the lamp can't be read", () => {
+    const { lamp, handle } = reached();
+    Object.assign(handle, { lumen: 400, failingReads: 3 });
+
+    expect(() => lamp.syncPluginToLamp("sync plugin to lamps", handle)).toThrow("Cannot read from hid device");
+    expect(lamp.state).toEqual({ on: true, lumen: 215, kelvin: 4000 });
+  });
+});
+
+describe("a re-sync of a lamp to the plugin (#214)", () => {
+  it("sends the lamp the temperature, the brightness and the power the plugin holds, once each", () => {
+    const { lamp, handle } = reached();
+    Object.assign(handle, { on: false, lumen: 400, kelvin: 6500 });
+
+    const sent = lamp.syncLampToPlugin("sync lamps to plugin", handle);
+    lamp.readBackBrightness("sync lamps to plugin", handle, sent, 0);
+
+    expect(handle.written).toEqual(["4000 K", "215 lm", "power on"]);
+    expect([handle.on, handle.lumen, handle.kelvin]).toEqual([true, 215, 4000]);
+    expect(lamp.state).toEqual({ on: true, lumen: 215, kelvin: 4000 });
+    expect(logged("info")).toEqual([
+      "sync lamps to plugin: Beam - 73cd set to 4000 K",
+      "sync lamps to plugin: Beam - 73cd sent 215 lm, reached 215 lm (50%)",
+    ]);
+  });
+
+  it("turns off a lamp the plugin holds as off, once it has its temperature and brightness", () => {
+    const { lamp, handle } = reached(Object.assign(new FakeHandle(), { on: false }));
+    Object.assign(handle, { on: true, lumen: 400 });
+
+    lamp.syncLampToPlugin("sync lamps to plugin", handle);
+
+    expect(handle.written).toEqual(["4000 K", "215 lm", "power off"]);
+    expect(lamp.state?.on).toBe(false);
+  });
+
+  it("gives a Beam LX turned on the setting it lost while it was off back (#100)", () => {
+    const { lamp, handle } = reached();
+    Object.assign(handle, { on: false, turnsOnAt: { lumen: 400, kelvin: 6500 } });
+
+    lamp.syncLampToPlugin("sync lamps to plugin", handle);
+
+    expect(handle.written).toEqual(["4000 K", "215 lm", "power on", "4000 K", "215 lm"]);
+    expect([handle.lumen, handle.kelvin]).toEqual([215, 4000]);
+  });
+
+  it("learns a cap that dropped below the brightness the plugin holds (#164)", () => {
+    const { lamp, handle } = reached(Object.assign(new FakeHandle(), { cap: 324, lumen: 324 }));
+    handle.cap = 320;
+
+    const sent = lamp.syncLampToPlugin("sync lamps to plugin", handle);
+    lamp.readBackBrightness("sync lamps to plugin", handle, sent, 0);
+
+    expect([sent, lamp.state?.lumen, lamp.brightnessCapAt("sync lamps to plugin", PATH)]).toEqual([324, 320, 320]);
+  });
+
+  it("keeps what a step of lamps kept apart asked, since the lamp is back where the plugin held it (#145)", () => {
+    const { lamp, handle } = reached();
+    Object.assign(lamp, { brightnessAsked: 80, temperatureAsked: 6700 });
+
+    lamp.readBackBrightness("sync lamps to plugin", handle, lamp.syncLampToPlugin("sync lamps to plugin", handle), 0);
+
+    expect([lamp.brightnessAsked, lamp.temperatureAsked]).toEqual([80, 6700]);
+  });
+});
+
 describe("a lamp's brightness as a percentage", () => {
   it("sits in the lamp's range once it's reached, and is 0 before", () => {
     const lamp = knownLamp();

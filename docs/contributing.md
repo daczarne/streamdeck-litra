@@ -101,7 +101,7 @@ While [#20] is worked on, the question changes: what would someone who controls 
 
 The plugin settings, which every settings page shows, hold settings of different reach: naming a lamp changes every key and dial, while a lamp screen's layout only changes the lamp screens. So the settings come in sections by what they reach, the widest first, and a setting goes in the section of what it reaches, not of what it resembles:
 
-1. **Lamps**: the lamps themselves, whichever key or dial acts on them. The table of the lamps leads, since naming, identifying and forgetting them is the plugin settings' first use, then how each lamp steps, and how long a blink lasts, for Identify and on the lamp screens.
+1. **Lamps**: the lamps themselves, whichever key or dial acts on them. The table of the lamps leads, since naming, identifying and forgetting them is the plugin settings' first use, then the re-sync, which acts on the lamps it follows, with its direction above its button ([#214]), then how each lamp steps, and how long a blink lasts, for Identify and on the lamp screens.
 2. **Keys**: every key, such as whether it takes in lamps added later ([#147]). The keys come before the dials, since every Deck has keys, and only some have dials.
 3. **Dials**: every dial, first what applies to all of a dial, then its main screen, such as whether a turn turns its lamps on ([#268]), then its lamp screens, with their blink, whether a turn turns the lamp on, their layout and their text styles ([#153]). The text styles are the lamp screens' because only the lamp screens use them, and would move up to all of a dial's if the main screens took them too ([#183]).
 
@@ -139,6 +139,7 @@ A setting that takes a number within a range, on a step, such as a brightness, a
 [#194]: https://github.com/daczarne/streamdeck-litra/issues/194
 [#195]: https://github.com/daczarne/streamdeck-litra/issues/195
 [#20]: https://github.com/daczarne/streamdeck-litra/issues/20
+[#214]: https://github.com/daczarne/streamdeck-litra/issues/214
 [#268]: https://github.com/daczarne/streamdeck-litra/issues/268
 [#27]: https://github.com/daczarne/streamdeck-litra/issues/27
 [#30]: https://github.com/daczarne/streamdeck-litra/issues/30

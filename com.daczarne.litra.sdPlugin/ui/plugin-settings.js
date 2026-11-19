@@ -3,8 +3,9 @@
 // as `lamps`, each by the end of its id and its model, with a field for its name, a button that blinks it, and one that
 // forgets it. The plugin alone saves the lamps: this asks it to find them, and to rename or forget one, and shows them
 // as Stream Deck passes on what the plugin saved. Find lamps is the only time they're looked for, and marks the ones it
-// didn't find. The keys' lamp pickers list the same lamps, with their names (lamp-picker.js). Under the lamps come the
-// global settings that every dial and key shares, such as whether each lamp steps from its own value (#145), how long a
+// didn't find. The keys' lamp pickers list the same lamps, with their names (lamp-picker.js). Under the lamps, Re-sync
+// lamps brings the lamps the plugin knows that are connected and the plugin back in step, in the direction chosen
+// above it (#214). Then come the global settings that every dial and key shares, such as whether each lamp steps from its own value (#145), how long a
 // blink lasts (#171), whether keys take in lamps added later (#147), which a key's own page can choose for that key
 // alone, and tells its lamp picker, the lamp screens' blink (#144), which a dial's own page can turn on or off for that
 // dial alone, and what each cell of the lamp screens shows, with a Configure button that shows the cell's options in
@@ -174,6 +175,24 @@
     if (input instanceof HTMLInputElement && color !== null) {
       input.value = color;
     }
+  }
+
+  /**
+   * Radio buttons from sdpi-components that read and save a global setting themselves, one under the other, with their
+   * options as [value, text].
+   */
+  function globalRadio(setting, options, fallback) {
+    const radio = document.createElement("sdpi-radio");
+    radio.setAttribute("setting", setting);
+    radio.setAttribute("global", "");
+    radio.setAttribute("default", fallback);
+    for (const [value, text] of options) {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = text;
+      radio.append(option);
+    }
+    return radio;
   }
 
   /** A list from sdpi-components that reads and saves a global setting itself, with its options as [value, text]. */
@@ -747,6 +766,30 @@
     onOwnChange: (adds) => document.dispatchEvent(new CustomEvent("litra:adds-new-lamps", { detail: adds })),
   });
 
+  //* Re-sync lamps (#214): brings the lamps the plugin knows that are connected and the plugin back in step, after a
+  // change made another way, such as with a lamp's own buttons, in the direction the radio buttons above it choose. The
+  // page keeps the choice as a global setting, and sends it with the re-sync: the save reaches the plugin through
+  // Stream Deck, apart from the re-sync, so a press right after a choice could otherwise come first. The plugin to the
+  // lamps is the default, since it only reads the lamps.
+
+  // In the order they're offered, as src/settings/schemas.ts lists them.
+  const RESYNC_DIRECTIONS = [
+    ["lampsToPlugin", "Sync the lamps to the plugin"],
+    ["pluginToLamps", "Sync the plugin to the lamps"],
+  ];
+  const resyncDirection = globalRadio("resyncDirection", RESYNC_DIRECTIONS, "pluginToLamps");
+
+  /**
+   * Asks the plugin to re-sync, in the direction chosen, or the default one before the global settings arrive. The
+   * plugin logs a lamp it can't read or set, which the page has no way to show.
+   */
+  function resync() {
+    const direction = resyncDirection.value || resyncDirection.getAttribute("default");
+    client
+      .send("sendToPlugin", { event: "resync", direction })
+      .catch((error) => console.error("Can't re-sync the lamps", error));
+  }
+
   /** Logs a failure to find the lamps, which the page has no other way to show. */
   function showError(error) {
     console.error("Can't show the lamps", error);
@@ -773,6 +816,8 @@
       button("Find lamps", () => findLamps().catch(showError)),
     ),
     lampList,
+    item("Re-sync", resyncDirection),
+    item(undefined, button("Re-sync lamps", resync)),
     item(
       "Brightness",
       globalCheckbox("keepBrightnessDifference", "Each lamp steps from its own brightness, on every dial and key"),

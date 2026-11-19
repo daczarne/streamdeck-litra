@@ -1108,6 +1108,41 @@ describe("the plugin's state is the lamps' state (#198)", () => {
   });
 });
 
+describe("a re-sync from the plugin settings (#214)", () => {
+  it("has the keys and dials show a change made with a lamp's own buttons, once the plugin is synced to the lamps", async () => {
+    const lamp = newLamp();
+    await plugIn(lamp);
+    const dial = await deck.dial(BRIGHTNESS);
+    const powerKey = await deck.key(POWER, { mode: "toggle" });
+    lamp.on = false;
+    lamp.brightnessInLumen = LUMEN_AT_80;
+
+    sdk.sendToPlugin({ event: "resync", direction: "pluginToLamps" });
+    await vi.runAllTimersAsync();
+
+    expect(feedbackOf(dial)).toMatchObject({ value: "80%" });
+    expect(stateOf(powerKey)).toBe(0);
+    expect(lamp.on).toBe(false);
+  });
+
+  it("puts a lamp changed with its own buttons back where the keys and dials show it, once synced to the plugin", async () => {
+    const lamp = newLamp();
+    await plugIn(lamp);
+    const dial = await deck.dial(BRIGHTNESS);
+    const powerKey = await deck.key(POWER, { mode: "toggle" });
+    lamp.on = false;
+    lamp.brightnessInLumen = LUMEN_AT_80;
+    lamp.temperatureInKelvin = 6500;
+
+    sdk.sendToPlugin({ event: "resync", direction: "lampsToPlugin" });
+    await vi.runAllTimersAsync();
+
+    expect([lamp.on, lamp.brightnessInLumen, lamp.temperatureInKelvin]).toEqual([true, LUMEN_AT_50, 4000]);
+    expect(feedbackOf(dial)).toMatchObject({ value: "50%" });
+    expect(stateOf(powerKey)).toBe(1);
+  });
+});
+
 describe("what the dials show", () => {
   const PLUGIN = "com.daczarne.litra.sdPlugin";
   const MANIFEST = JSON.parse(fs.readFileSync(path.join(PLUGIN, "manifest.json"), "utf8")) as {

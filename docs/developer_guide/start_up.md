@@ -80,7 +80,7 @@ Before the first line of `plugin.ts` runs, every module it imports is evaluated,
    - It then routes the action's events. For each handler the action has (a `RoutingAction` has `onWillAppear`, `onWillDisappear`, `onDidReceiveSettings`, `onKeyDown`, `onDialDown`, `onDialRotate` and `onTouchTap`), it subscribes a listener to that event on the connection, which calls the handler only when the event's `manifestId` is the action's own.
 
    So 8 listeners hear every `keyDown`, and only the one whose `manifestId` matches calls its action. See [the SDK's actions][elgato-sdk-actions] for what that means for the actions.
-3. **[`answerPluginSettingsPage`][plugin-settings-page].** It subscribes to `sendToPlugin`, the messages the settings pages send (Find lamps, Identify, rename, forget, which lamps are connected), and to `onConnectedChanged`, which tells the page shown when a lamp is plugged in or unplugged.
+3. **[`answerPluginSettingsPage`][plugin-settings-page].** It subscribes to `sendToPlugin`, the messages the settings pages send (Find lamps, Identify, rename, forget, re-sync, which lamps are connected), and to `onConnectedChanged`, which tells the page shown when a lamp is plugged in or unplugged.
 4. **`useLamps(globalSettings.lamps)`** hands the lamp manager the map of known lamps, empty for now. It's the same `Map` object the global settings keep up to date, so the lamp manager always sees the current lamps. `plugin.ts` makes the call, so that the lamp manager doesn't depend on the global settings, and its tests can hand it lamps of their own.
 5. **[`syncGlobalSettings`][sync-global-settings].**
    - It subscribes to `onDidReceiveGlobalSettings`, so a settings page's change is read again.

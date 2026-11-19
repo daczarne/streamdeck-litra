@@ -1109,6 +1109,8 @@ describe("onLampsChanged", () => {
     ["setLampsTemperature", () => manager.setLampsTemperature("all", 4000)],
     ["adjustLampsTemperature", () => manager.adjustLampsTemperature("all", 1, 100)],
     ["setLampsScene", () => manager.setLampsScene(everyLampAt(50, 4000))],
+    ["syncPluginToLamps", () => manager.syncPluginToLamps()],
+    ["syncLampsToPlugin", () => manager.syncLampsToPlugin()],
   ])("calls every listener once after %s", async (_, operation) => {
     connect(newLamp(), newLamp());
     const listener = vi.fn();
@@ -2275,6 +2277,124 @@ describe("reachEveryLamp", () => {
     const [, shown] = await settled(Promise.all([manager.setLampsBrightness("all", 100), reachEvery()]));
 
     expect(at(shown.lamps, 0).lumen).toBe(MAX_LUMEN);
+  });
+});
+
+describe("syncPluginToLamps (#214)", () => {
+  it("holds what each lamp connected reports after a change made another way, and writes nothing to them", async () => {
+    const [changed, unchanged] = [newLamp({ brightnessInLumen: lumenAt(50) }), newLamp()];
+    connect(changed, unchanged);
+    Object.assign(changed, { on: false, brightnessInLumen: lumenAt(20), temperatureInKelvin: 6500 });
+
+    expect(await settled(manager.syncPluginToLamps())).toEqual({ ok: true, lampCount: 2, failures: 0 });
+
+    expect(reached().map(({ state }) => state)).toEqual(
+      [changed, unchanged].map((lamp) => ({
+        on: lamp.on,
+        lumen: lamp.brightnessInLumen,
+        kelvin: lamp.temperatureInKelvin,
+      })),
+    );
+    for (const lamp of [changed, unchanged]) {
+      expect([lamp.writes("power"), lamp.writes("brightness"), lamp.writes("temperature")]).toEqual([[], [], []]);
+      expect(closes(lamp)).toBe(1);
+    }
+  });
+
+  it("steps a lamp kept apart from what it reports, once it was changed another way (#145)", async () => {
+    const [capped, free] = [newLamp({ brightnessInLumen: lumenAt(50), capInLumen: 244 }), newLamp()];
+    connect(capped, free);
+    // Up to 80%: the capped lamp stops at its cap, 58%, and is asked for 80%.
+    await settled(manager.setLampsBrightness("all", 80));
+    await settled(manager.adjustLampsBrightness("all", 2, 10, "each"));
+    capped.brightnessInLumen = lumenAt(40);
+
+    await settled(manager.syncPluginToLamps());
+    await settled(manager.adjustLampsBrightness([idOf(capped)], 1, 10, "each"));
+
+    // From what it was asked, it would go on to 80%, and stop at its cap again.
+    expect(heldBrightness(capped)).toBe(50);
+  });
+
+  it("leaves a lamp the plugin knows that isn't connected alone, and succeeds", async () => {
+    connect(newLamp());
+    knowMissingLamp();
+
+    expect(await settled(manager.syncPluginToLamps())).toEqual({ ok: true, lampCount: 1, failures: 0 });
+    expect(logger.warn).not.toHaveBeenCalled();
+  });
+
+  it("fails for a lamp that can't be read, which keeps what the plugin held, and reads the others", async () => {
+    const [unreadable, readable] = [newLamp(), newLamp()];
+    connect(unreadable, readable);
+    unreadable.on = false;
+    readable.on = false;
+    unreadable.fail("readSync");
+
+    expect(await settled(manager.syncPluginToLamps())).toEqual({ ok: false, lampCount: 2, failures: 1 });
+    expect([knownLamp(unreadable)?.state?.on, knownLamp(readable)?.state?.on]).toEqual([true, false]);
+  });
+
+  it("fails when no lamp is connected", async () => {
+    expect(await settled(manager.syncPluginToLamps())).toEqual({ ok: false, lampCount: 0, failures: 1 });
+  });
+});
+
+describe("syncLampsToPlugin (#214)", () => {
+  it("sends each lamp connected the power, brightness and temperature the plugin holds", async () => {
+    const [changed, unchanged] = [newLamp({ brightnessInLumen: lumenAt(50) }), newLamp({ on: false })];
+    connect(changed, unchanged);
+    Object.assign(changed, { on: false, brightnessInLumen: lumenAt(20), temperatureInKelvin: 6500 });
+    unchanged.on = true;
+
+    expect(await settled(manager.syncLampsToPlugin())).toEqual({ ok: true, lampCount: 2, failures: 0 });
+
+    expect([changed.on, changed.brightnessInLumen, changed.temperatureInKelvin]).toEqual([true, lumenAt(50), 4000]);
+    expect([unchanged.on, unchanged.brightnessInLumen, unchanged.temperatureInKelvin]).toEqual([
+      false,
+      MIN_LUMEN,
+      4000,
+    ]);
+    expect(reached().map(({ state }) => state)).toEqual([
+      { on: true, lumen: lumenAt(50), kelvin: 4000 },
+      { on: false, lumen: MIN_LUMEN, kelvin: 4000 },
+    ]);
+    expect([closes(changed), closes(unchanged)]).toEqual([1, 1]);
+  });
+
+  it("learns the cap of a lamp that falls short of the brightness the plugin holds, once it has settled (#55)", async () => {
+    // Plugged in somewhere it reached all of it, and moved to a hub without being unplugged long enough to be found so.
+    const lamp = newLamp({ brightnessInLumen: MAX_LUMEN, capInLumen: 244 });
+    connect(lamp);
+
+    await settled(manager.syncLampsToPlugin());
+
+    expect(heldBrightness(lamp)).toBe(58);
+    // The cap learned is what the next change sends, rather than what it asks for.
+    await settled(manager.setLampsBrightness("all", 100));
+    expect(at(lamp.writes("brightness"), -1)).toBe(244);
+  });
+
+  it("leaves a lamp the plugin knows that isn't connected alone, and succeeds", async () => {
+    connect(newLamp());
+    knowMissingLamp();
+
+    expect(await settled(manager.syncLampsToPlugin())).toEqual({ ok: true, lampCount: 1, failures: 0 });
+    expect(logger.warn).not.toHaveBeenCalled();
+  });
+
+  it("fails for a lamp it can't set, and still sets the others", async () => {
+    const [failing, working] = [newLamp(), newLamp()];
+    connect(failing, working);
+    failing.fail("everything");
+    working.on = false;
+
+    expect(await settled(manager.syncLampsToPlugin())).toEqual({ ok: false, lampCount: 2, failures: 1 });
+    expect(working.on).toBe(true);
+  });
+
+  it("fails when no lamp is connected", async () => {
+    expect(await settled(manager.syncLampsToPlugin())).toEqual({ ok: false, lampCount: 0, failures: 1 });
   });
 });
 

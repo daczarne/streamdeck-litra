@@ -1,5 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { connectedLamps, findLamps, identifyLamp, onConnectedChanged, reachEveryLamp } from "../lamps/manager";
+import {
+  connectedLamps,
+  findLamps,
+  identifyLamp,
+  onConnectedChanged,
+  reachEveryLamp,
+  syncLampsToPlugin,
+  syncPluginToLamps,
+} from "../lamps/manager";
 import { logger } from "../logging";
 import { at } from "../test-support/at";
 import { globalSettings } from "./global-settings";
@@ -26,6 +34,8 @@ vi.mock("../lamps/manager", () => ({
   identifyLamp: vi.fn(),
   onConnectedChanged: vi.fn(),
   reachEveryLamp: vi.fn(),
+  syncLampsToPlugin: vi.fn(),
+  syncPluginToLamps: vi.fn(),
 }));
 
 // The lamps the plugin knows, which the real global settings save through Stream Deck.
@@ -115,6 +125,8 @@ describe("the plugin settings page's answers (#146)", () => {
     ["a rename without a name", { event: "rename", id: "lamp-1" }],
     ["a rename without a lamp", { event: "rename", name: "Key light" }],
     ["a forget without a lamp", { event: "forget" }],
+    ["a re-sync without a direction", { event: "resync" }],
+    ["a re-sync in a direction it doesn't know", { event: "resync", direction: "both" }],
     ["a message that isn't an object", "lamps"],
     ["an empty message", null],
   ])("ignore %s", async (_name, payload) => {
@@ -125,6 +137,8 @@ describe("the plugin settings page's answers (#146)", () => {
     expect(identifyLamp).not.toHaveBeenCalled();
     expect(globalSettings.renameLamp).not.toHaveBeenCalled();
     expect(globalSettings.forgetLamp).not.toHaveBeenCalled();
+    expect(syncPluginToLamps).not.toHaveBeenCalled();
+    expect(syncLampsToPlugin).not.toHaveBeenCalled();
     expect(ui.sendToPropertyInspector).not.toHaveBeenCalled();
   });
 
@@ -132,11 +146,15 @@ describe("the plugin settings page's answers (#146)", () => {
     await answer({ event: "lamps" });
     await answer({ event: "identify", id: "lamp-1" });
     await answer({ event: "forget", id: "lamp-1" });
+    await answer({ event: "resync", direction: "pluginToLamps" });
+    await answer({ event: "resync", direction: "lampsToPlugin" });
 
     expect(vi.mocked(logger.info).mock.calls).toEqual([
       [expect.stringContaining("asked for the lamps")],
       [expect.stringContaining("Identify")],
       [expect.stringContaining("Forget")],
+      ["Re-sync pressed on a settings page: plugin to lamps"],
+      ["Re-sync pressed on a settings page: lamps to plugin"],
     ]);
   });
 
@@ -151,6 +169,32 @@ describe("the plugin settings page's answers (#146)", () => {
     expect(logger.error).toHaveBeenCalledWith(
       expect.any(String),
       expect.objectContaining({ message: "Stream Deck is gone" }),
+    );
+  });
+});
+
+describe("a re-sync (#214)", () => {
+  it("brings the plugin in step with the lamps, when the page chose that direction", async () => {
+    await answer({ event: "resync", direction: "pluginToLamps" });
+
+    expect(syncPluginToLamps).toHaveBeenCalledOnce();
+    expect(syncLampsToPlugin).not.toHaveBeenCalled();
+    expect(ui.sendToPropertyInspector).not.toHaveBeenCalled();
+  });
+
+  it("brings the lamps in step with the plugin, when the page chose that direction", async () => {
+    await answer({ event: "resync", direction: "lampsToPlugin" });
+
+    expect(syncLampsToPlugin).toHaveBeenCalledOnce();
+    expect(syncPluginToLamps).not.toHaveBeenCalled();
+    expect(ui.sendToPropertyInspector).not.toHaveBeenCalled();
+  });
+
+  it("is ignored, with a warning, in a direction the plugin doesn't know", async () => {
+    await answer({ event: "resync", direction: "both" });
+
+    expect(logger.warn).toHaveBeenCalledExactlyOnceWith(
+      'Re-sync pressed on a settings page, in no direction it knows: "both"',
     );
   });
 });

@@ -1,16 +1,26 @@
 import streamDeck from "@elgato/streamdeck";
 import type { JsonValue } from "@elgato/utils";
-import { connectedLamps, findLamps, identifyLamp, onConnectedChanged, reachEveryLamp } from "../lamps/manager";
+import {
+  connectedLamps,
+  findLamps,
+  identifyLamp,
+  onConnectedChanged,
+  reachEveryLamp,
+  syncLampsToPlugin,
+  syncPluginToLamps,
+} from "../lamps/manager";
 import { logger as pluginLogger } from "../logging";
 import { globalSettings } from "./global-settings";
+import { globalSettingsSchema } from "./schemas";
 
 const logger = pluginLogger.createScope("Plugin settings");
 
 /**
  * Answers the plugin settings on every page (#146, `ui/plugin-settings.js`), whichever action's page they're on: the
  * connected lamps when Find lamps asks for them, which the plugin adds to the ones it knows (#194), a blink of one when
- * its Identify button is pressed, a lamp renamed (#146) or forgotten (#194), which only the plugin saves, and which of
- * the lamps it knows are connected (#198), which it also tells the page shown whenever an operation finds a lamp
+ * its Identify button is pressed, a lamp renamed (#146) or forgotten (#194), which only the plugin saves, a re-sync of
+ * the lamps it knows that are connected, in the direction the page chose (#214), and which of the lamps it knows are
+ * connected (#198), which it also tells the page shown whenever an operation finds a lamp
  * plugged in or unplugged. The keys' lamp pickers (#20, `ui/lamp-picker.js`) ask for nothing: they list the lamps the
  * plugin knows, from its global settings.
  */
@@ -43,6 +53,19 @@ export async function answer(payload: JsonValue): Promise<void> {
     logger.info("Identify pressed on a settings page");
     // The page has no alert to show: the lamp manager logs a lamp it can't find or blink.
     await identifyLamp(payload.id, globalSettings.identifyBlinkMs);
+  } else if (payload.event === "resync") {
+    // The page sends the direction chosen, rather than the plugin reading the one saved: the save reaches the plugin
+    // through Stream Deck, apart from this message, so a press right after a choice could otherwise come first.
+    const direction = globalSettingsSchema.resyncDirection.parse(payload.direction ?? null);
+    if (direction === undefined) {
+      logger.warn(`Re-sync pressed on a settings page, in no direction it knows: ${JSON.stringify(payload.direction)}`);
+      return;
+    }
+    logger.info(
+      `Re-sync pressed on a settings page: ${direction === "pluginToLamps" ? "plugin to lamps" : "lamps to plugin"}`,
+    );
+    // The page has no alert to show: the lamp manager logs a lamp it can't find, read or set.
+    await (direction === "pluginToLamps" ? syncPluginToLamps() : syncLampsToPlugin());
   } else if (payload.event === "rename" && typeof payload.id === "string" && typeof payload.name === "string") {
     await globalSettings.renameLamp(payload.id, payload.name);
   } else if (payload.event === "forget" && typeof payload.id === "string") {

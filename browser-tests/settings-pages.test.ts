@@ -12,6 +12,7 @@ import {
   lampScreenItemOptionsSchema,
   parseSettings,
   powerSettingsSchema,
+  RESYNC_DIRECTIONS,
   sceneGroupSettingsSchema,
   sceneSettingsSchema,
   temperatureSettingsSchema,
@@ -140,6 +141,7 @@ const TEXT_STYLE_CONTROLS = Object.keys(TEXT_STYLES).flatMap((style) =>
   ["Color", "Weight", "Size"].map((part) => `${style}${part}`),
 );
 const PLUGIN_SETTINGS_GLOBALS = [
+  "resyncDirection",
   ...LAMPS_CHECKBOXES,
   "identifyBlinkMs",
   ...TURN_ON_CHECKBOXES,
@@ -2168,6 +2170,7 @@ describe("settings pages", () => {
           "Find lamps",
           "Identify",
           `Forget ${FIRST.label}`,
+          "Re-sync lamps",
           ...LAMP_SCREEN_LISTS.map(() => "Configure"),
           ...Object.keys(TEXT_STYLES).map(() => "Reset"),
         ],
@@ -2398,6 +2401,82 @@ describe("settings pages", () => {
       streamDeck.tellConnected([FIRST.id, SECOND.id]);
 
       await expect.poll(missing).toEqual([false, false]);
+      await page.close();
+    });
+
+    it("offer the re-sync's directions under the lamps, with Re-sync lamps under them (#214)", async () => {
+      const { page } = await openPluginSettings({ [FIRST.id]: known(FIRST) });
+
+      expect(await resyncOf(page)).toEqual({
+        label: "Re-sync",
+        options: [
+          { value: "lampsToPlugin", text: "Sync the lamps to the plugin", checked: false },
+          { value: "pluginToLamps", text: "Sync the plugin to the lamps", checked: true },
+        ],
+        order: ["Find lamps", "table", "Re-sync", "Re-sync lamps", "Brightness"],
+      });
+      await page.close();
+    });
+
+    it("default to its default in settings.ts, and offer every direction it accepts, and only those (#214)", async () => {
+      const { page } = await openPluginSettings({});
+      const control = await controlOf(page, "resyncDirection");
+      await page.close();
+
+      expect(control.tag).toBe("sdpi-radio");
+      expect(read("resyncDirection", control.default ?? "")).toEqual({
+        value: defaultOf("resyncDirection"),
+        valid: true,
+      });
+      expect(control.options).toEqual([...RESYNC_DIRECTIONS]);
+    });
+
+    it("show the direction the global settings hold (#214)", async () => {
+      streamDeck.globalSettings = { resyncDirection: "lampsToPlugin" };
+      const { page } = await openPluginSettings({});
+
+      await expect
+        .poll(async () => (await resyncOf(page)).options.map(({ checked }) => checked))
+        .toEqual([true, false]);
+      await page.close();
+    });
+
+    it("save the direction chosen to the global settings, as settings.ts takes it, keeping the others (#214)", async () => {
+      streamDeck.globalSettings = { blinkOnLampScreen: true };
+      const { page, uuid } = await openPluginSettings({});
+      // Once the radio has the global settings, which would otherwise take back a choice made before.
+      await page.evaluate(`SDPIComponents.useGlobalSettings("resyncDirection")[0]()`);
+
+      await chooseResyncDirection(page, "lampsToPlugin");
+      const message = await streamDeck.waitFor(
+        (m) => m.event === "setGlobalSettings" && m.context === uuid && m.payload?.resyncDirection !== undefined,
+      );
+      await page.close();
+
+      expect(message.payload).toEqual({ blinkOnLampScreen: true, lamps: {}, resyncDirection: "lampsToPlugin" });
+      expect(read("resyncDirection", "lampsToPlugin")).toEqual({ value: "lampsToPlugin", valid: true });
+    });
+
+    it("ask the plugin to re-sync in the default direction on Re-sync lamps, before one is chosen (#214)", async () => {
+      const { page, uuid } = await openPluginSettings({ [FIRST.id]: known(FIRST) });
+
+      await clickInPluginSettings(page, "Re-sync lamps");
+
+      await expect
+        .poll(() => sentToPlugin(uuid, "resync").map((m) => m.payload))
+        .toEqual([{ event: "resync", direction: "pluginToLamps" }]);
+      await page.close();
+    });
+
+    it("ask the plugin to re-sync in the direction just chosen, which it sends rather than leave to the save (#214)", async () => {
+      const { page, uuid } = await openPluginSettings({ [FIRST.id]: known(FIRST) });
+
+      await chooseResyncDirection(page, "lampsToPlugin");
+      await clickInPluginSettings(page, "Re-sync lamps");
+
+      await expect
+        .poll(() => sentToPlugin(uuid, "resync").map((m) => m.payload))
+        .toEqual([{ event: "resync", direction: "lampsToPlugin" }]);
       await page.close();
     });
 
@@ -2737,6 +2816,66 @@ function clickInPluginSettings(page: Page, text: string, row?: string): Promise<
     );
     await host.updateComplete;
     host.shadowRoot.querySelector("button").click();
+  })()`);
+}
+
+/** What the plugin settings show of the re-sync (#214). */
+type Resync = {
+  /** The label of the radio buttons' row. */
+  label: string | null;
+  options: { value: string; text: string; checked: boolean }[];
+  /**
+   * The order of what the Lamps section shows, down to the first setting under it: its buttons by their text, the
+   * lamps' table, and the rows by their labels.
+   */
+  order: string[];
+};
+
+/**
+ * The re-sync's radio buttons (#214), once they're drawn: the component draws its options a moment after itself, as it
+ * reads them from its own children.
+ */
+const RESYNC_INPUTS = `(async () => {
+  const radio = document.querySelector('#plugin-settings sdpi-radio[setting="resyncDirection"]');
+  for (;;) {
+    await radio.updateComplete;
+    const inputs = [...radio.shadowRoot.querySelectorAll('input[type="radio"]')];
+    if (inputs.length > 0) return inputs;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+})()`;
+
+/** What the plugin settings show of the re-sync, once its radio buttons are drawn (#214). */
+function resyncOf(page: Page): Promise<Resync> {
+  return page.evaluate(`(async () => {
+    const container = document.getElementById("plugin-settings");
+    const inputs = await ${RESYNC_INPUTS};
+    const radio = container.querySelector('sdpi-radio[setting="resyncDirection"]');
+    const section = [...container.querySelector("h2.section").parentElement.children];
+    const start = section.findIndex((element) => element.localName === "h2");
+    const order = [];
+    for (const element of section.slice(start + 1)) {
+      const label = element.getAttribute("label");
+      const button = element.querySelector("sdpi-button");
+      order.push(element.querySelector("table") ? "table" : label ?? button?.textContent ?? "");
+      if (label === "Brightness") break;
+    }
+    return {
+      label: radio.closest("sdpi-item").getAttribute("label"),
+      options: inputs.map((input) => ({
+        value: input.value,
+        text: input.closest("label").textContent.trim(),
+        checked: input.checked,
+      })),
+      order,
+    };
+  })()`);
+}
+
+/** Chooses a direction of the re-sync, as the user would: on its radio button inside the component (#214). */
+function chooseResyncDirection(page: Page, direction: string): Promise<void> {
+  return page.evaluate(`(async () => {
+    (await ${RESYNC_INPUTS}).find((input) => input.value === ${JSON.stringify(direction)}).click();
   })()`);
 }
 
