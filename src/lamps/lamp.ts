@@ -327,6 +327,41 @@ export class Lamp {
   }
 
   /**
+   * Brings the plugin in step with the lamp, for a re-sync (#214): reads the lamp, and holds what it reports, whatever
+   * the plugin held. What a step of lamps kept apart last asked of it (#145) is forgotten for a value the lamp reports
+   * otherwise than the plugin held, since the lamp was changed another way, and its next step goes on from what it's
+   * at. For a value the lamp reports as held, it's kept, so a lamp stopped at its cap still comes back with the others.
+   */
+  syncPluginToLamp(operation: string, handle: LampHandle): void {
+    const held = this.held();
+    this.read(operation, handle, "a re-sync asked");
+    const read = this.held();
+    if (read.lumen !== held.lumen) {
+      this.brightnessAsked = undefined;
+    }
+    if (read.kelvin !== held.kelvin) {
+      this.temperatureAsked = undefined;
+    }
+  }
+
+  /**
+   * Brings the lamp in step with the plugin, for a re-sync (#214): sends it the temperature, the brightness and the
+   * power the plugin holds, and returns the lumens sent, which {@link readBackBrightness} takes once the lamp has
+   * settled, so a cap that dropped is learned again. A lamp that's off is capped as one that's on. The power goes last,
+   * so each value is written once: a lamp that's on takes the others as they come, and a Beam LX turned on, which loses
+   * a setting given while it was off, gets it back as any lamp turned on does (#100). What a step of lamps kept apart
+   * last asked of it (#145) is kept, since the lamp is back where the plugin held it.
+   */
+  syncLampToPlugin(operation: string, handle: LampHandle): number {
+    const { on, lumen, kelvin } = this.held();
+    this.setTemperature(operation, handle, kelvin, this.temperatureAsked);
+    const sent = this.withinBrightnessCap(operation, handle.path, lumen);
+    handle.writeBrightness(sent);
+    this.setPower(operation, handle, on);
+    return sent;
+  }
+
+  /**
    * Turns the lamp on or off, and holds the power it then reports. A lamp turned on also reports its brightness and
    * temperature, and gets back the ones it holds, if it came back at others: a Beam LX turns on at the setting it saved
    * a few hundred ms after it was last switched off, and loses a temperature given while it was off (#100).

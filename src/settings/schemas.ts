@@ -284,6 +284,12 @@ export const LAMP_SCREEN_CELLS = [
 
 export type LampScreenCell = (typeof LAMP_SCREEN_CELLS)[number];
 
+// Which way a re-sync brings the lamps and the plugin back in step (#214): the lamps to what the plugin holds, or the
+// plugin to what the lamps report, in the order the plugin settings offer them.
+export const RESYNC_DIRECTIONS = ["lampsToPlugin", "pluginToLamps"] as const;
+
+export type ResyncDirection = (typeof RESYNC_DIRECTIONS)[number];
+
 // How each item shows in a cell, chosen for each cell apart, and kept for each item, so a cell switched to another item
 // and back gets its options back (#177). The defaults draw what the lamp screens showed before the options, but for the
 // power, which reads "ON" and "OFF", both in the normal weight. An identification is made of two parts, joined by " - "
@@ -380,6 +386,11 @@ export const globalSettingsSchema = {
   // one as long as the whole fade makes each tap through the lamp screens wait longer than it needs to. The default
   // suits dim lamps, and a bright lamp among others needs a longer one. The longest is twice the fade.
   identifyBlinkMs: wholeNumberFrom(300, 1500, 400),
+  // Which way the plugin settings' Re-sync lamps brings the lamps and the plugin back in step, after a change made
+  // another way, such as with a lamp's own buttons (#214): the lamps to what the plugin holds, or the plugin to what
+  // the lamps report. The page keeps the choice, and sends it with each re-sync. The plugin to the lamps is the default,
+  // since it only reads the lamps, so a press by mistake changes none.
+  resyncDirection: oneOf(RESYNC_DIRECTIONS, "pluginToLamps"),
   // What each cell of the lamp screens shows is the same on every dial, and the defaults are what the lamp screens
   // showed before it could be chosen (#177). How each cell shows its item is kept by cell and by item, read against
   // lampScreenItemOptionsSchema.

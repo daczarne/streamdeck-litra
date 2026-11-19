@@ -483,6 +483,51 @@ export function reachEveryLamp(operation: string): Promise<OperationResult> {
 }
 
 /**
+ * Brings the plugin in step with the lamps, for a re-sync from the plugin settings (#214): reads every lamp the plugin
+ * knows that's connected, and holds what each one reports, as its `Lamp` takes it, so the keys and dials show the
+ * lamps as they are, after a change made another way, such as with a lamp's own buttons. A lamp that isn't connected is
+ * left alone. Tells every key and dial once it's done.
+ */
+export function syncPluginToLamps(): Promise<OperationResult> {
+  const operation = "sync plugin to lamps";
+  return queuedAndAnnounced(() =>
+    forEachLamp(operation, ({ lamp, handle }) => lamp.syncPluginToLamp(operation, handle), "connected"),
+  );
+}
+
+/**
+ * Brings the lamps in step with the plugin, for a re-sync from the plugin settings (#214): sends every lamp the plugin
+ * knows that's connected the power, temperature and brightness its `Lamp` holds, lets them settle, and reads their
+ * brightness back, so a cap that dropped is learned again. Like a brightness change, it first waits for a lamp that can
+ * still go back to its cap, and holds the lamps open until it has read them back. A lamp that isn't connected is left
+ * alone. Tells every key and dial once it's done.
+ */
+export function syncLampsToPlugin(): Promise<OperationResult> {
+  const operation = "sync lamps to plugin";
+  return queuedAndAnnounced(async () => {
+    const opened = openLamps(operation, [{ lamps: "connected" }]);
+    if (opened === undefined) {
+      return NO_LAMP;
+    }
+    try {
+      await waitForCapReversal(operation, opened.lamps);
+      const sent = new Map<OpenedLamp<unknown>, number>();
+      const sentAt = Date.now();
+      for (const reached of opened.lamps) {
+        const { lamp, handle } = reached;
+        opened.attempt(lamp, () => {
+          sent.set(reached, lamp.syncLampToPlugin(operation, handle));
+        });
+      }
+      await readBackOnceSettled(operation, sent, sentAt, opened.attempt);
+      return opened.outcome();
+    } finally {
+      opened.close();
+    }
+  });
+}
+
+/**
  * Waits for the operations queued, if any, so that what the keys and dials show of the lamps is where they leave them,
  * not partway (see `src/controls/shown.ts`).
  */
@@ -606,7 +651,7 @@ async function waitForCapReversal(operation: string, lamps: readonly OpenedLamp<
 /**
  * Sends each lamp its percentage, as its `Lamp` sends it, caps included, lets them settle, and reads them back. A lamp
  * that reaches less than it was sent has its cap learned. Sends nothing, and doesn't wait, when no lamp has a
- * percentage.
+ * percentage, and doesn't wait either when every lamp failed to take it.
  */
 async function sendBrightness(
   operation: string,
@@ -615,15 +660,29 @@ async function sendBrightness(
 ): Promise<void> {
   const sent = new Map<OpenedLamp<unknown>, number>();
   const sentAt = Date.now();
-  if (targets.size > 0) {
-    for (const [reached, { percentage, asked }] of targets) {
-      const { lamp, handle } = reached;
-      attempt(lamp, () => {
-        sent.set(reached, lamp.sendBrightness(operation, handle, percentage, asked));
-      });
-    }
-    await new Promise((resolve) => setTimeout(resolve, BRIGHTNESS_SETTLE_MS));
+  for (const [reached, { percentage, asked }] of targets) {
+    const { lamp, handle } = reached;
+    attempt(lamp, () => {
+      sent.set(reached, lamp.sendBrightness(operation, handle, percentage, asked));
+    });
   }
+  await readBackOnceSettled(operation, sent, sentAt, attempt);
+}
+
+/**
+ * Lets the lamps sent a brightness at `sentAt` settle, then reads each one back, with the lumens it was sent, so a lamp
+ * that reached less has its cap learned. Doesn't wait when no lamp was sent one.
+ */
+async function readBackOnceSettled(
+  operation: string,
+  sent: ReadonlyMap<OpenedLamp<unknown>, number>,
+  sentAt: number,
+  attempt: (lamp: Lamp, step: () => void) => void,
+): Promise<void> {
+  if (sent.size === 0) {
+    return;
+  }
+  await new Promise((resolve) => setTimeout(resolve, BRIGHTNESS_SETTLE_MS));
   for (const [{ lamp, handle }, lumen] of sent) {
     attempt(lamp, () => lamp.readBackBrightness(operation, handle, lumen, sentAt));
   }

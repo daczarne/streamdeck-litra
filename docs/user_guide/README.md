@@ -30,7 +30,7 @@ Each key acts on the lamps picked on its settings page: every lamp the plugin kn
 
 Every Power key, Up and Down key, dial and lamp screen follows changes made by any key or dial. When the plugin starts, it reads every lamp it knows that's connected, and so does Find lamps with the lamps it adds, and from then on, the keys and dials show what the plugin last set each lamp to, as the lamp reported it.
 
-The plugin is made for controlling the lamps through it, and through it alone. A change made another way, with a lamp's own buttons, Logitech's software or a CLI, isn't followed: the Deck goes on showing what the plugin last set, and the lamp comes back in step at the next change made through the plugin. For example, a lamp the plugin set to 10%, and brought to 20% with its own button, still shows 10%. Turning a dial one step up from there, by 10%, sets it to 20%, one step from the 10% the plugin holds. A lamp unplugged and plugged in again is read again the next time the plugin reaches it.
+The plugin is made for controlling the lamps through it, and through it alone. A change made another way, with a lamp's own buttons, Logitech's software or a CLI, isn't followed: the Deck goes on showing what the plugin last set, and the lamp comes back in step at the next change made through the plugin. For example, a lamp the plugin set to 10%, and brought to 20% with its own button, still shows 10%. Turning a dial one step up from there, by 10%, sets it to 20%, one step from the 10% the plugin holds. A lamp unplugged and plugged in again is read again the next time the plugin reaches it. **Re-sync lamps**, in [the plugin settings](#lamps), brings them back in step at once, whichever way is wanted.
 
 A brightness or temperature change, from a key or a dial, changes only that: a lamp that's off stays off, at the brightness and temperature it'll turn on at, and pressing a dial turns its lamps on or off. Each kind of key, and each dial's main screen and lamp screens, can turn the lamps on as it changes them instead, from [the plugin settings](#keys-1).
 
@@ -117,6 +117,13 @@ Every settings page, on a key or a dial, starts with a **Plugin settings** butto
 
 **Find lamps** adds the lamps connected that the plugin doesn't know yet (see [The lamps the plugin controls](#the-lamps-the-plugin-controls)). The table greys out the lamps the plugin didn't find the last time it looked, with "Not found" in place of Identify: at the last Find lamps, or the last press, turn or tap that reached the lamps. A lamp's trash can takes its name too, until Find lamps finds it again. A name is the lamp's, not a key's: every key shows it. Emptying the field takes it away.
 
+**Re-sync lamps**, under the table, brings the lamps and the plugin back in step after a lamp was changed another way, such as with its own buttons, in the direction chosen above it under "Re-sync":
+
+- "Sync the plugin to the lamps", the default, reads every lamp the plugin knows that's connected, and every key and dial shows what each one reports. It changes nothing on the lamps.
+- "Sync the lamps to the plugin" sets every lamp the plugin knows that's connected back to the power, brightness and temperature the keys and dials show.
+
+A lamp that isn't plugged in is left alone either way. With "Each lamp steps from its own brightness" or temperature, a lamp the re-sync finds at another value steps from there, rather than from where its last step left it.
+
 Under the lamps come how each lamp steps, for its brightness and its temperature (see [Lamps together or apart](#lamps-together-or-apart)), and "Blink length", how long a blink lasts, for Identify and on the lamp screens, from 300 ms to 1.5 s. Its default, 400 ms, suits dim lamps: a lamp fades as it goes off, so a bright lamp among others that stay on needs a longer blink to show.
 
 ### Keys
@@ -140,7 +147,7 @@ A key or a dial shows Stream Deck's alert indicator when it can't do all it was 
 
 A Power key shows the alert once it has redrawn its state, which would cover the alert otherwise (see [Stream Deck keys][keys]). With none of their lamps connected, a Power key shows off, and the dials and the Up and Down keys show a dash.
 
-When a lamp takes a change but doesn't answer what it did, such as on a USB error, the plugin asks again, and when the lamp still doesn't answer, it shows what was asked for. The lamp may then be elsewhere until the next change made through the plugin.
+When a lamp takes a change but doesn't answer what it did, such as on a USB error, the plugin asks again, and when the lamp still doesn't answer, it shows what was asked for. The lamp may then be elsewhere until the next change made through the plugin, or until **Re-sync lamps**, in [the plugin settings](#lamps), brings them back in step.
 
 If something else doesn't work, [an issue][issues] with the plugin's log helps. The logs are in the plugin's folder, newest in `litra.log`:
 
