@@ -1,3 +1,4 @@
+import { temperatureGlyph } from "@daczarne/streamdeck-icons";
 import { action } from "@elgato/streamdeck";
 import { type Measure, MeasureAction, type Preset } from "../controls/measure";
 import { temperatureShown, temperatureText } from "../controls/shown";
@@ -30,6 +31,7 @@ const TEMPERATURE: Measure = {
   turnsLampsOn: (screen) =>
     globalSettings.turnsLampsOn(screen === "main" ? "setTemperatureDials" : "setTemperatureLampScreens"),
   adjust: adjustLampsTemperature,
+  glyph: temperatureGlyph,
   mainScreen: async () => {
     const shown = await temperatureShown("connected");
     return {

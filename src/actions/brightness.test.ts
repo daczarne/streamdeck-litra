@@ -1,3 +1,4 @@
+import { brightnessGlyph } from "@daczarne/streamdeck-icons";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createDebouncer } from "../controls/debouncer";
 import { brightnessShown } from "../controls/shown";
@@ -6,6 +7,7 @@ import { logger } from "../logging";
 import { syncGlobalSettings } from "../settings/global-settings";
 import { FakeDeck } from "../test-support/fake-deck";
 import { changeGlobalSettings } from "../test-support/fake-stream-deck";
+import { iconIn } from "../test-support/icons";
 import { BrightnessAction } from "./brightness";
 
 //* Fakes
@@ -194,6 +196,7 @@ describe("BrightnessAction", () => {
       expect(brightnessShown).toHaveBeenCalledExactlyOnceWith("connected");
       expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith({
         title: "Set Brightness",
+        icon: iconIn(brightnessGlyph),
         value: { value: "79%", color: "#ffffff" },
         indicator: { value: 79, bar_fill_c: "0:#ffffff,0.797:#ffffff,0.798:#c0c0c0,1:#c0c0c0" },
       });
@@ -206,6 +209,7 @@ describe("BrightnessAction", () => {
 
       expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith({
         title: "Set Brightness",
+        icon: iconIn(brightnessGlyph),
         value: { value: "—", color: "#ffffff" },
         indicator: { value: 0, bar_fill_c: "#ffffff" },
       });

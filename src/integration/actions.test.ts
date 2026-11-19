@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { brightnessGlyph, temperatureGlyph } from "@daczarne/streamdeck-icons";
 import type { JsonObject } from "@elgato/utils";
 import { afterEach, beforeEach, describe, expect, inject, it, vi } from "vitest";
 import { Lamp } from "../lamps/lamp";
@@ -8,6 +9,7 @@ import { at } from "../test-support/at";
 import { loadOnEmulatedLamps } from "../test-support/emulated-lamps";
 import { EmulatedLitra } from "../test-support/emulated-litra";
 import type { FakeDeck } from "../test-support/fake-deck";
+import { iconIn } from "../test-support/icons";
 
 //* Fakes
 
@@ -258,6 +260,19 @@ describe("the Set Brightness action", () => {
     });
   });
 
+  it("draws its icon in the color of the text style the plugin settings give it, apart from its value's (#183)", async () => {
+    await plugIn(newLamp());
+    const dial = await deck.dial(BRIGHTNESS);
+
+    await saveFromPage({ mainScreenIconStyle: "accent" });
+    await vi.runAllTimersAsync();
+
+    expect(feedbackOf(dial)).toMatchObject({
+      icon: iconIn(brightnessGlyph, "#4dd0e1"),
+      value: { value: "50%", color: "#ffffff" },
+    });
+  });
+
   it("shows its value in the color of the text style the plugin settings give it, and follows the style (#183)", async () => {
     await plugIn(newLamp());
     const dial = await deck.dial(BRIGHTNESS);
@@ -284,6 +299,7 @@ describe("the Set Brightness action", () => {
     expect(lamps.map((lamp) => lamp.brightnessInLumen)).toEqual([264, 324]);
     expect(feedbackOf(dial)).toEqual({
       title: "Set Brightness",
+      icon: iconIn(brightnessGlyph),
       value: { value: "79%", color: "#ffffff" },
       indicator: { value: 79, bar_fill_c: "0:#ffffff,0.797:#ffffff,0.798:#c0c0c0,1:#c0c0c0" },
     });
@@ -394,6 +410,7 @@ describe("the Set Temperature action", () => {
     expect(pair.map((lamp) => lamp.temperatureInKelvin)).toEqual([4200, 4200]);
     expect(feedbackOf(dial)).toEqual({
       title: "Set Temperature",
+      icon: iconIn(temperatureGlyph),
       value: { value: "4200 K", color: "#ffffff" },
       indicator: { value: 39, bar_fill_c: "#ffffff" },
     });
@@ -406,6 +423,7 @@ describe("the Set Temperature action", () => {
 
     expect(feedbackOf(dial)).toEqual({
       title: "Set Temperature",
+      icon: iconIn(temperatureGlyph),
       value: { value: "4900 K", color: "#ffffff" },
       indicator: { value: 58, bar_fill_c: "0:#ffffff,0.276:#ffffff,0.277:#c0c0c0,1:#c0c0c0" },
     });

@@ -883,6 +883,7 @@
     item(
       "Layout",
       mainScreenParts([
+        ["Icon", "mainScreenIconStyle"],
         ["Value", "mainScreenValueStyle"],
         ["Bar", "mainScreenBarStyle"],
       ]),

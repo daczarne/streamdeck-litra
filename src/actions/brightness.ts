@@ -1,3 +1,4 @@
+import { brightnessGlyph } from "@daczarne/streamdeck-icons";
 import { action } from "@elgato/streamdeck";
 import { type Measure, MeasureAction, type Preset } from "../controls/measure";
 import { brightnessShown, brightnessText } from "../controls/shown";
@@ -30,6 +31,7 @@ const BRIGHTNESS: Measure = {
   turnsLampsOn: (screen) =>
     globalSettings.turnsLampsOn(screen === "main" ? "setBrightnessDials" : "setBrightnessLampScreens"),
   adjust: adjustLampsBrightness,
+  glyph: brightnessGlyph,
   mainScreen: async () => {
     const levels = await brightnessShown("connected");
     return {

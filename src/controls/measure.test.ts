@@ -8,6 +8,7 @@ import { globalSettingsSchema } from "../settings/schemas";
 import { at } from "../test-support/at";
 import { FakeDeck } from "../test-support/fake-deck";
 import { changeGlobalSettings } from "../test-support/fake-stream-deck";
+import { iconIn } from "../test-support/icons";
 import { reachedLamp } from "../test-support/reached-lamps";
 import { createDebouncer } from "./debouncer";
 import { bar, barFill, type MainScreen, type Measure, MeasureAction, type Preset } from "./measure";
@@ -43,15 +44,21 @@ const BEAM = reachedLamp("00000000000000a1", AT_ITS_CAP);
 
 const OTHER_BEAM = reachedLamp("00000000000000b2", AT_ITS_CAP);
 
+/** The glyph the fake dials' main screen draws its icon from: a square of its color. */
+function fakeGlyph(size: number, { color }: { color: string }): string {
+  return `<rect width="${size}" height="${size}" fill="${color}"/>`;
+}
+
 /** What the fake dials' main screen shows, whatever the lamps are at. */
 const MAIN: MainScreen = { title: "Fake", value: "42 u", levels: [42] };
 
 /**
- * What a dial shows of {@link MAIN}, with the value and the bar in the Primary style's color, as the default settings
- * give it.
+ * What a dial shows of {@link MAIN}, with the icon, the value and the bar in the Primary style's color, as the default
+ * settings give it.
  */
 const SHOWN: FeedbackPayload = {
   title: "Fake",
+  icon: iconIn(fakeGlyph),
   value: { value: "42 u", color: "#ffffff" },
   indicator: { value: 42, bar_fill_c: "#ffffff" },
 };
@@ -76,6 +83,7 @@ const MEASURE = {
   stepping: vi.fn<Measure["stepping"]>(),
   turnsLampsOn: vi.fn<Measure["turnsLampsOn"]>(),
   adjust: vi.fn<Measure["adjust"]>(),
+  glyph: fakeGlyph,
   mainScreen: vi.fn<Measure["mainScreen"]>(),
 } satisfies Measure;
 
@@ -244,6 +252,14 @@ describe("a dial of a MeasureAction", () => {
         ...SHOWN,
         value: { value: "42 u", color: "#ff8800" },
       });
+    });
+
+    it("draws its icon in the color of the text style the global settings give it, apart from its value's (#183)", async () => {
+      changeGlobalSettings({ mainScreenIconStyle: "accent", lampScreenAccentColor: "#ff8800" });
+      await vi.runAllTimersAsync();
+      const dial = await deck.dial(FAKE);
+
+      expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith({ ...SHOWN, icon: iconIn(fakeGlyph, "#ff8800") });
     });
 
     it("draws its bar in the color of the text style the global settings give it, apart from its value's (#183)", async () => {

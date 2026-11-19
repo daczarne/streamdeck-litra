@@ -145,7 +145,7 @@ const TEXT_STYLES = {
 const TEXT_STYLE_CONTROLS = Object.keys(TEXT_STYLES).flatMap((style) =>
   ["Color", "Weight", "Size"].map((part) => `${style}${part}`),
 );
-const MAIN_SCREEN_PARTS = ["mainScreenValueStyle", "mainScreenBarStyle"];
+const MAIN_SCREEN_PARTS = ["mainScreenIconStyle", "mainScreenValueStyle", "mainScreenBarStyle"];
 const PLUGIN_SETTINGS_GLOBALS = [
   "resyncDirection",
   ...LAMPS_CHECKBOXES,

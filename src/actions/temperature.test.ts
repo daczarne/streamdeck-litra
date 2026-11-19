@@ -1,3 +1,4 @@
+import { temperatureGlyph } from "@daczarne/streamdeck-icons";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createDebouncer } from "../controls/debouncer";
 import { temperatureShown } from "../controls/shown";
@@ -6,6 +7,7 @@ import { logger } from "../logging";
 import { syncGlobalSettings } from "../settings/global-settings";
 import { FakeDeck } from "../test-support/fake-deck";
 import { changeGlobalSettings } from "../test-support/fake-stream-deck";
+import { iconIn } from "../test-support/icons";
 import { TemperatureAction } from "./temperature";
 
 //* Fakes
@@ -209,6 +211,7 @@ describe("TemperatureAction", () => {
       expect(temperatureShown).toHaveBeenCalledExactlyOnceWith("connected");
       expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith({
         title: "Set Temperature",
+        icon: iconIn(temperatureGlyph),
         value: { value: "4000 K", color: "#ffffff" },
         indicator: { value: 34, bar_fill_c: "0:#ffffff,0.529:#ffffff,0.53:#c0c0c0,1:#c0c0c0" },
       });
@@ -224,6 +227,7 @@ describe("TemperatureAction", () => {
 
       expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith({
         title: "Set Temperature",
+        icon: iconIn(temperatureGlyph),
         value: { value: "4000 K", color: "#ffffff" },
         indicator: { value: 34, bar_fill_c: "#ffffff" },
       });
@@ -236,6 +240,7 @@ describe("TemperatureAction", () => {
 
       expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith({
         title: "Set Temperature",
+        icon: iconIn(temperatureGlyph),
         value: { value: "—", color: "#ffffff" },
         indicator: { value: 0, bar_fill_c: "#ffffff" },
       });

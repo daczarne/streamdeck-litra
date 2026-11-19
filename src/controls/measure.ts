@@ -8,6 +8,7 @@ import type { CheckedLamps } from "../settings/schemas";
 import { ActionInstance, type DeckControl, RoutingAction } from "./action-instance";
 import { createDebouncer } from "./debouncer";
 import { describeLamps } from "./describe-lamps";
+import { type Glyph, iconOf } from "./icons";
 import { LampScreen } from "./lamp-screens";
 
 // Where fewer lamps reach, a dial's bar fades its color, keeping this share of its distance from the end it fades
@@ -93,7 +94,8 @@ export type MainScreen = { title: string; value: string; levels: readonly number
  * What a Set Brightness or Set Temperature dial steps: what a turn adjusts, which describes a turn on a lamp screen,
  * how it reads its step from its settings, the unit its log line gives the step in, how the global settings step
  * several lamps (#145), whether they have a turn on its main screen or on a lamp screen turn the lamps on (#268), how
- * it moves the lamps by its step, and what its main screen shows of every lamp, its title included.
+ * it moves the lamps by its step, the glyph its main screen's icon is drawn from, and what its main screen shows of
+ * every lamp, its title included.
  */
 export type Measure = {
   adjusts: string;
@@ -108,6 +110,7 @@ export type Measure = {
     stepping: Stepping,
     turnOn: boolean,
   ) => Promise<OperationResult>;
+  glyph: Glyph;
   mainScreen: () => Promise<MainScreen>;
 };
 
@@ -297,7 +300,7 @@ class MeasureDial extends ActionInstance<{ step: number }, DialAction<JsonObject
   }
 
   /**
-   * Fills the main screen's layout with what the lamps are at, its value and its bar each in the color of the text style
+   * Fills the main screen's layout with what the lamps are at, its icon, its value and its bar each in the color of the text style
    * the global settings give it (#183), unless the dial shows a lamp screen, which has another layout, which its lamp screen
    * draws. Nothing is worked out then.
    */
@@ -309,6 +312,7 @@ class MeasureDial extends ActionInstance<{ step: number }, DialAction<JsonObject
     const colors = globalSettings.mainScreenColors;
     const feedback: FeedbackPayload = {
       title,
+      icon: iconOf(this.measure.glyph, colors.icon),
       value: { value, color: colors.value },
       indicator: bar(levels, colors.bar),
     };

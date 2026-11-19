@@ -383,6 +383,7 @@ export const globalSettingsSchema = {
   // Each part of a dial's main screen takes its color from one of the text styles, the same on every dial (#183). Only
   // the color: the weight and size of its text, and where each part sits, are the $B1 layout's. Every part follows
   // Primary by default, whose white draws the main screen as Stream Deck's own dials draw theirs.
+  mainScreenIconStyle: oneOf(TEXT_STYLES, "primary"),
   mainScreenValueStyle: oneOf(TEXT_STYLES, "primary"),
   mainScreenBarStyle: oneOf(TEXT_STYLES, "primary"),
   // Every blink that identifies a lamp, from the plugin settings or on a lamp screen, lasts as long as the plugin
