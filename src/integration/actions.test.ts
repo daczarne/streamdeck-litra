@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { brightnessGlyph, temperatureGlyph } from "@daczarne/streamdeck-icons";
 import type { JsonObject } from "@elgato/utils";
 import { afterEach, beforeEach, describe, expect, inject, it, vi } from "vitest";
 import { Lamp } from "../lamps/lamp";
@@ -8,6 +9,7 @@ import { at } from "../test-support/at";
 import { loadOnEmulatedLamps } from "../test-support/emulated-lamps";
 import { EmulatedLitra } from "../test-support/emulated-litra";
 import type { FakeDeck } from "../test-support/fake-deck";
+import { iconIn } from "../test-support/icons";
 
 //* Fakes
 
@@ -244,6 +246,48 @@ describe("the Power key", () => {
 });
 
 describe("the Set Brightness action", () => {
+  it("draws its bar in the color of the text style the plugin settings give it, fainter where only one lamp reaches (#183)", async () => {
+    await plugIn(newLamp({ capInLumen: 264 }), newLamp({ capInLumen: 324 }));
+    const key = await deck.key(BRIGHTNESS, { presetPercentage: 100 });
+    const dial = await deck.dial(BRIGHTNESS);
+
+    await saveFromPage({ mainScreenBarStyle: "accent" });
+    await deck.press(key);
+
+    expect(feedbackOf(dial)).toMatchObject({
+      value: { value: "79%", color: "#ffffff" },
+      indicator: { value: 79, bar_fill_c: "0:#4dd0e1,0.797:#4dd0e1,0.798:#3a9ca9,1:#3a9ca9" },
+    });
+  });
+
+  it("draws its icon in the color of the text style the plugin settings give it, apart from its value's (#183)", async () => {
+    await plugIn(newLamp());
+    const dial = await deck.dial(BRIGHTNESS);
+
+    await saveFromPage({ mainScreenIconStyle: "accent" });
+    await vi.runAllTimersAsync();
+
+    expect(feedbackOf(dial)).toMatchObject({
+      icon: iconIn(brightnessGlyph, "#4dd0e1"),
+      value: { value: "50%", color: "#ffffff" },
+    });
+  });
+
+  it("shows its value in the color of the text style the plugin settings give it, and follows the style (#183)", async () => {
+    await plugIn(newLamp());
+    const dial = await deck.dial(BRIGHTNESS);
+
+    await saveFromPage({ mainScreenValueStyle: "accent" });
+    await vi.runAllTimersAsync();
+
+    expect(feedbackOf(dial)).toMatchObject({ value: { value: "50%", color: "#4dd0e1" } });
+
+    await saveFromPage({ lampScreenAccentColor: "#ff8800" });
+    await vi.runAllTimersAsync();
+
+    expect(feedbackOf(dial)).toMatchObject({ value: { value: "50%", color: "#ff8800" } });
+  });
+
   it("shows the brightest of lamps at their caps, the bar fainter where only one reaches (#13, #59)", async () => {
     // Two lamps on a Stream Deck + XL's USB hub, which stop at 63% and 79%.
     await plugIn(newLamp({ capInLumen: 264 }), newLamp({ capInLumen: 324 }));
@@ -255,7 +299,8 @@ describe("the Set Brightness action", () => {
     expect(lamps.map((lamp) => lamp.brightnessInLumen)).toEqual([264, 324]);
     expect(feedbackOf(dial)).toEqual({
       title: "Set Brightness",
-      value: "79%",
+      icon: iconIn(brightnessGlyph),
+      value: { value: "79%", color: "#ffffff" },
       indicator: { value: 79, bar_fill_c: "0:#ffffff,0.797:#ffffff,0.798:#c0c0c0,1:#c0c0c0" },
     });
   });
@@ -275,7 +320,7 @@ describe("the Set Brightness action", () => {
 
     // Three steps of 10% down from 79%.
     expect(pair.map((lamp) => lamp.brightnessInLumen)).toEqual([LUMEN_AT_50, LUMEN_AT_50]);
-    expect(feedbackOf(dial)).toMatchObject({ value: "50%" });
+    expect(feedbackOf(dial)).toMatchObject({ value: { value: "50%" } });
   });
 
   it("lets the lamps reach 100% once moved from a hub to the computer, without a restart (#55)", async () => {
@@ -290,7 +335,7 @@ describe("the Set Brightness action", () => {
     await deck.press(key);
 
     expect(onTheComputer.map((lamp) => lamp.brightnessInLumen)).toEqual([LUMEN_AT_100, LUMEN_AT_100]);
-    expect(feedbackOf(dial)).toMatchObject({ value: "100%" });
+    expect(feedbackOf(dial)).toMatchObject({ value: { value: "100%" } });
   });
 
   it("moves the lamps once for a quick turn, with the step the dial has by then", async () => {
@@ -307,7 +352,7 @@ describe("the Set Brightness action", () => {
 
     // Three ticks of 10% from 50%.
     expect(pair.map((lamp) => lamp.writes("brightness"))).toEqual([[LUMEN_AT_80], [LUMEN_AT_80]]);
-    expect(feedbackOf(dial)).toMatchObject({ value: "80%" });
+    expect(feedbackOf(dial)).toMatchObject({ value: { value: "80%" } });
   });
 
   it("leaves lamps that are off off as a dial changes their brightness, by default (#268)", async () => {
@@ -320,7 +365,7 @@ describe("the Set Brightness action", () => {
 
     expect(pair.map((lamp) => lamp.writes("power"))).toEqual([[], []]);
     expect(pair.map((lamp) => lamp.brightnessInLumen)).toEqual([LUMEN_AT_60, LUMEN_AT_60]);
-    expect(feedbackOf(dial)).toMatchObject({ value: "60%" });
+    expect(feedbackOf(dial)).toMatchObject({ value: { value: "60%" } });
     expect(stateOf(powerKey)).toBe(0);
   });
 
@@ -349,7 +394,7 @@ describe("the Set Brightness action", () => {
 
     expect(key.showAlert).toHaveBeenCalledOnce();
     expect(working.brightnessInLumen).toBe(LUMEN_AT_50);
-    expect(feedbackOf(dial)).toMatchObject({ value: "50%" });
+    expect(feedbackOf(dial)).toMatchObject({ value: { value: "50%" } });
   });
 });
 
@@ -365,8 +410,9 @@ describe("the Set Temperature action", () => {
     expect(pair.map((lamp) => lamp.temperatureInKelvin)).toEqual([4200, 4200]);
     expect(feedbackOf(dial)).toEqual({
       title: "Set Temperature",
-      value: "4200 K",
-      indicator: { value: 39, bar_fill_c: "white" },
+      icon: iconIn(temperatureGlyph),
+      value: { value: "4200 K", color: "#ffffff" },
+      indicator: { value: 39, bar_fill_c: "#ffffff" },
     });
   });
 
@@ -377,7 +423,8 @@ describe("the Set Temperature action", () => {
 
     expect(feedbackOf(dial)).toEqual({
       title: "Set Temperature",
-      value: "4900 K",
+      icon: iconIn(temperatureGlyph),
+      value: { value: "4900 K", color: "#ffffff" },
       indicator: { value: 58, bar_fill_c: "0:#ffffff,0.276:#ffffff,0.277:#c0c0c0,1:#c0c0c0" },
     });
   });
@@ -391,7 +438,7 @@ describe("the Set Temperature action", () => {
 
     // The next multiple of 300 K up from 5000 K, counted from 2700 K.
     expect(pair.map((lamp) => lamp.temperatureInKelvin)).toEqual([5100, 5100]);
-    expect(feedbackOf(dial)).toMatchObject({ value: "5100 K" });
+    expect(feedbackOf(dial)).toMatchObject({ value: { value: "5100 K" } });
   });
 
   it("moves the lamps once for a quick turn, with the step the dial has by then", async () => {
@@ -408,7 +455,7 @@ describe("the Set Temperature action", () => {
 
     // Three ticks of 200 K from 3100 K.
     expect(pair.map((lamp) => lamp.writes("temperature"))).toEqual([[3700], [3700]]);
-    expect(feedbackOf(dial)).toMatchObject({ value: "3700 K" });
+    expect(feedbackOf(dial)).toMatchObject({ value: { value: "3700 K" } });
   });
 });
 
@@ -428,8 +475,8 @@ describe("the Scene key", () => {
       [true, LUMEN_AT_100, 6500],
     ]);
     expect(stateOf(powerKey)).toBe(1);
-    expect(feedbackOf(brightnessDial)).toMatchObject({ value: "100%" });
-    expect(feedbackOf(temperatureDial)).toMatchObject({ value: "6500 K" });
+    expect(feedbackOf(brightnessDial)).toMatchObject({ value: { value: "100%" } });
+    expect(feedbackOf(temperatureDial)).toMatchObject({ value: { value: "6500 K" } });
   });
 
   it("sets each group's lamps to the group's part, and every Power key follows the whole scene (#174)", async () => {
@@ -1011,7 +1058,7 @@ describe("the plugin's state is the lamps' state (#198)", () => {
     // Another change made through the plugin redraws every key and dial.
     await deck.press(temperatureKey);
 
-    expect(feedbackOf(dial)).toMatchObject({ value: "50%" });
+    expect(feedbackOf(dial)).toMatchObject({ value: { value: "50%" } });
     expect(stateOf(powerKey)).toBe(1);
   });
 
@@ -1028,7 +1075,7 @@ describe("the plugin's state is the lamps' state (#198)", () => {
     // A step up from the 10% the plugin holds sends 20%.
     expect(lamp.writes("brightness")).toEqual([LUMEN_AT_10, LUMEN_AT_20]);
     expect(lamp.brightnessInLumen).toBe(LUMEN_AT_20);
-    expect(feedbackOf(dial)).toMatchObject({ value: "20%" });
+    expect(feedbackOf(dial)).toMatchObject({ value: { value: "20%" } });
   });
 
   it("leaves a lamp turned off with its own button off as it steps its brightness, by default (#268)", async () => {
@@ -1043,7 +1090,7 @@ describe("the plugin's state is the lamps' state (#198)", () => {
 
     expect(lamp.on).toBe(false);
     expect(lamp.brightnessInLumen).toBe(LUMEN_AT_20);
-    expect(feedbackOf(dial)).toMatchObject({ value: "20%" });
+    expect(feedbackOf(dial)).toMatchObject({ value: { value: "20%" } });
   });
 
   it("turns on a lamp turned off with its own button before it steps its brightness, when it's set to (#268)", async () => {
@@ -1059,7 +1106,7 @@ describe("the plugin's state is the lamps' state (#198)", () => {
 
     expect(lamp.on).toBe(true);
     expect(lamp.brightnessInLumen).toBe(LUMEN_AT_20);
-    expect(feedbackOf(dial)).toMatchObject({ value: "20%" });
+    expect(feedbackOf(dial)).toMatchObject({ value: { value: "20%" } });
   });
 
   it("toggles from the power it holds, so a lamp turned off with its own button is turned off again", async () => {
@@ -1104,7 +1151,7 @@ describe("the plugin's state is the lamps' state (#198)", () => {
 
     await deck.press(temperatureKey);
 
-    expect(feedbackOf(dial)).toMatchObject({ value: "80%" });
+    expect(feedbackOf(dial)).toMatchObject({ value: { value: "80%" } });
   });
 });
 
@@ -1120,7 +1167,7 @@ describe("a re-sync from the plugin settings (#214)", () => {
     sdk.sendToPlugin({ event: "resync", direction: "pluginToLamps" });
     await vi.runAllTimersAsync();
 
-    expect(feedbackOf(dial)).toMatchObject({ value: "80%" });
+    expect(feedbackOf(dial)).toMatchObject({ value: { value: "80%" } });
     expect(stateOf(powerKey)).toBe(0);
     expect(lamp.on).toBe(false);
   });
@@ -1138,7 +1185,7 @@ describe("a re-sync from the plugin settings (#214)", () => {
     await vi.runAllTimersAsync();
 
     expect([lamp.on, lamp.brightnessInLumen, lamp.temperatureInKelvin]).toEqual([true, LUMEN_AT_50, 4000]);
-    expect(feedbackOf(dial)).toMatchObject({ value: "50%" });
+    expect(feedbackOf(dial)).toMatchObject({ value: { value: "50%" } });
     expect(stateOf(powerKey)).toBe(1);
   });
 });
@@ -1230,7 +1277,7 @@ describe("a Beam and a Beam LX together (#100)", () => {
     await deck.turn(dial, 1);
 
     expect([beam.brightnessInLumen, lx.brightnessInLumen]).toEqual([LUMEN_AT_60, LUMEN_AT_60]);
-    expect(feedbackOf(dial)).toMatchObject({ value: "60%", indicator: { value: 60 } });
+    expect(feedbackOf(dial)).toMatchObject({ value: { value: "60%" }, indicator: { value: 60 } });
   });
 
   it("are each named by their own model on the lamp screens", async () => {
@@ -1572,6 +1619,6 @@ describe("keys and dials whose lamps can't be reached", () => {
     await deck.press(key);
 
     expect(key.showAlert).toHaveBeenCalledOnce();
-    expect(feedbackOf(dial)).toMatchObject({ value: "—" });
+    expect(feedbackOf(dial)).toMatchObject({ value: { value: "—" } });
   });
 });

@@ -43,6 +43,9 @@ export type TurningLampsOn =
   | "setBrightnessLampScreens"
   | "setTemperatureLampScreens";
 
+/** The color of each part of a dial's main screen that takes one from the text styles, as `#rrggbb` (#183). */
+export type MainScreenColors = { icon: string; value: string; bar: string };
+
 /** Every global setting but the lamps, which their `Lamp`s hold. */
 type Settings = Omit<ParsedGlobalSettings, "lamps">;
 
@@ -205,8 +208,8 @@ export class GlobalSettings {
   }
 
   /**
-   * The lamp screens' text styles (#153): Primary, for every text by default, Secondary, for the power's "OFF" by
-   * default, Accent and Alert, each as the settings keep it.
+   * The dials' text styles (#153): Primary, for every text by default, Secondary, for the power's "OFF" by default,
+   * Accent and Alert, each as the settings keep it.
    */
   get textStyles(): Record<TextStyleName, SavedTextStyle> {
     const settings = this.parsed;
@@ -231,6 +234,16 @@ export class GlobalSettings {
         weight: settings.lampScreenAlertWeight,
         size: settings.lampScreenAlertSize,
       },
+    };
+  }
+
+  /** The color each part of a dial's main screen takes, from the text style the settings give it (#183). */
+  get mainScreenColors(): MainScreenColors {
+    const styles = this.textStyles;
+    return {
+      icon: styles[this.parsed.mainScreenIconStyle].color,
+      value: styles[this.parsed.mainScreenValueStyle].color,
+      bar: styles[this.parsed.mainScreenBarStyle].color,
     };
   }
 

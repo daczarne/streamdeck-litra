@@ -1,4 +1,4 @@
-import { brightnessGlyph, svgDoc, temperatureGlyph } from "@daczarne/streamdeck-icons";
+import { brightnessGlyph, temperatureGlyph } from "@daczarne/streamdeck-icons";
 import type { JsonObject } from "@elgato/utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { LampState, ReachedLamp } from "../lamps/lamp";
@@ -8,6 +8,7 @@ import { syncGlobalSettings } from "../settings/global-settings";
 import { globalSettingsSchema } from "../settings/schemas";
 import { at } from "../test-support/at";
 import { changeGlobalSettings, createFakeDial } from "../test-support/fake-stream-deck";
+import { iconIn } from "../test-support/icons";
 import { reachedLamp } from "../test-support/reached-lamps";
 import { LampScreen, MAIN_LAYOUT } from "./lamp-screens";
 import { findLampsShown, lampsShown } from "./shown";
@@ -66,10 +67,6 @@ const PLAIN = { color: "#ffffff", font: { size: 18, weight: 400 } };
 const OFF_POWER = { color: "#202020", font: { size: 18, weight: 400 } };
 const HIDDEN = { value: "", enabled: false };
 const NO_ICON = { enabled: false };
-/** An icon as the lamp screens send it, drawn in a color: white by default (#153). */
-function iconIn(glyph: typeof temperatureGlyph, color = "#ffffff"): string {
-  return `data:image/svg+xml;base64,${Buffer.from(svgDoc(144, glyph(144, { color }))).toString("base64")}`;
-}
 const THERMOMETER = iconIn(temperatureGlyph);
 
 // Text styles other than the defaults, as the plugin settings save them, and how the lamp screens draw them (#153).

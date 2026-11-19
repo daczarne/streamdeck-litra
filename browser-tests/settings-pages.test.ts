@@ -106,22 +106,27 @@ const PANELS: Panel[] = [
 // The global checkboxes of sdpi-components the plugin settings show, on every page, which every dial and key shares
 // (#145, #146): the lamps', whether the keys and dials' changes turn lamps on (#268), by each kind of key, then each
 // dial's main screen, and whether a turn on a lamp screen does. Then the lists of the lamp screens' cells, in the order
-// the cells are read (#177), the controls of their text styles (#153), and every global setting they show through
-// sdpi-components, in their order: the lamps' first, the blink's length (#171) last among them, then the keys', then
-// the dials', their main screens' before their lamp screens'.
+// the cells are read (#177), the controls of the dials' text styles (#153), the text style each part of the main
+// screens takes its color from (#183), and every global setting they show through sdpi-components, in their order: the
+// lamps' first, the blink's length (#171) last among them, then the keys', then the dials', their text styles before
+// their main screens' and their lamp screens'.
 const LAMPS_CHECKBOXES = ["keepBrightnessDifference", "keepTemperatureDifference"];
-const TURN_ON_CHECKBOXES = [
+const KEY_TURN_ON_CHECKBOXES = [
   "setBrightnessKeysTurnLampsOn",
   "brightnessUpKeysTurnLampsOn",
   "brightnessDownKeysTurnLampsOn",
   "setTemperatureKeysTurnLampsOn",
   "temperatureUpKeysTurnLampsOn",
   "temperatureDownKeysTurnLampsOn",
-  "setBrightnessDialsTurnLampsOn",
-  "setTemperatureDialsTurnLampsOn",
 ];
+const DIAL_TURN_ON_CHECKBOXES = ["setBrightnessDialsTurnLampsOn", "setTemperatureDialsTurnLampsOn"];
 const LAMP_SCREEN_TURN_ON_CHECKBOXES = ["setBrightnessLampScreensTurnLampsOn", "setTemperatureLampScreensTurnLampsOn"];
-const PLUGIN_SETTINGS_CHECKBOXES = [...LAMPS_CHECKBOXES, ...TURN_ON_CHECKBOXES, ...LAMP_SCREEN_TURN_ON_CHECKBOXES];
+const PLUGIN_SETTINGS_CHECKBOXES = [
+  ...LAMPS_CHECKBOXES,
+  ...KEY_TURN_ON_CHECKBOXES,
+  ...DIAL_TURN_ON_CHECKBOXES,
+  ...LAMP_SCREEN_TURN_ON_CHECKBOXES,
+];
 const LAMP_SCREEN_LISTS = [
   "lampScreenTopLeft",
   "lampScreenTopRight",
@@ -140,14 +145,17 @@ const TEXT_STYLES = {
 const TEXT_STYLE_CONTROLS = Object.keys(TEXT_STYLES).flatMap((style) =>
   ["Color", "Weight", "Size"].map((part) => `${style}${part}`),
 );
+const MAIN_SCREEN_PARTS = ["mainScreenIconStyle", "mainScreenValueStyle", "mainScreenBarStyle"];
 const PLUGIN_SETTINGS_GLOBALS = [
   "resyncDirection",
   ...LAMPS_CHECKBOXES,
   "identifyBlinkMs",
-  ...TURN_ON_CHECKBOXES,
+  ...KEY_TURN_ON_CHECKBOXES,
+  ...TEXT_STYLE_CONTROLS,
+  ...DIAL_TURN_ON_CHECKBOXES,
+  ...MAIN_SCREEN_PARTS,
   ...LAMP_SCREEN_TURN_ON_CHECKBOXES,
   ...LAMP_SCREEN_LISTS,
-  ...TEXT_STYLE_CONTROLS,
 ];
 
 // What the plugin accepts for each setting, by its name, and the default it takes: settings.ts says these are what
@@ -1012,6 +1020,63 @@ describe("settings pages", () => {
     await expect.poll(shownColor).toBe(TEXT_STYLES.lampScreenPrimary.color);
     await page.close();
     streamDeck.globalSettings = {};
+  });
+
+  // The text style each part of the dials' main screens takes its color from, in the plugin settings (#183).
+  describe.each(MAIN_SCREEN_PARTS)("the global %s in the plugin settings on ui/power.html", (setting) => {
+    const panel = at(PANELS, 0);
+
+    afterEach(() => {
+      streamDeck.globalSettings = {};
+    });
+
+    it("defaults to Primary, its default in settings.ts, and offers every text style, and only those", async () => {
+      const { page } = await openPanel(panel);
+      const control = await controlOf(page, setting);
+      await page.close();
+
+      expect(control.default).toBe("primary");
+      expect(read(setting, control.default ?? "")).toEqual({ value: defaultOf(setting), valid: true });
+      expect(control.options).toEqual(["primary", "secondary", "accent", "alert"]);
+    });
+
+    it("saves to the global settings, as settings.ts takes it, keeping the others", async () => {
+      streamDeck.globalSettings = { blinkOnLampScreen: true };
+      const { page, uuid } = await openPanel(panel);
+      await page.evaluate(`SDPIComponents.useGlobalSettings("${setting}")[0]()`);
+      await clickInPluginSettings(page, "Plugin settings");
+      await page.evaluate(`(async () => {
+        const host = document.querySelector('[setting="${setting}"]');
+        await host.updateComplete;
+        const control = host.shadowRoot.querySelector("select");
+        control.value = "accent";
+        control.dispatchEvent(new Event("change", { bubbles: true, composed: true }));
+      })()`);
+      const message = await streamDeck.waitFor((m) => m.event === "setGlobalSettings" && m.context === uuid);
+      await page.close();
+
+      expect(message.payload).toEqual({ blinkOnLampScreen: true, [setting]: "accent" });
+      expect(read(setting, "accent")).toEqual({ value: "accent", valid: true });
+    });
+
+    it("goes back to Primary on its Reset, and keeps the other parts' and the text styles", async () => {
+      const others = Object.fromEntries(
+        MAIN_SCREEN_PARTS.filter((part) => part !== setting).map((part) => [part, "alert"]),
+      );
+      streamDeck.globalSettings = { ...others, [setting]: "alert", lampScreenAlertColor: "#ff8800" };
+      const { page } = await openPanel(panel);
+      await page.evaluate(`SDPIComponents.useGlobalSettings("${setting}")[0]()`);
+      await clickInPluginSettings(page, "Plugin settings");
+      await page.evaluate(`(async () => {
+        const host = document.querySelector('sdpi-button[data-part="${setting}"]');
+        await host.updateComplete;
+        host.shadowRoot.querySelector("button").click();
+      })()`);
+      await expect
+        .poll(() => streamDeck.globalSettings)
+        .toEqual({ ...others, [setting]: "primary", lampScreenAlertColor: "#ff8800" });
+      await page.close();
+    });
   });
 
   // The editor of each cell's options, which Configure shows in place of the plugin settings (#177).
@@ -2196,16 +2261,17 @@ describe("settings pages", () => {
       expect(await pluginSettingsOf(page)).toMatchObject({
         open: true,
         actionShown: false,
-        // A Configure button under each of the lamp screens' cells (#177), and a Reset button under each text style
-        // (#153).
+        // A Reset button under each text style (#153) and each part of the main screens (#183), and a Configure button
+        // under each of the lamp screens' cells (#177).
         buttons: [
           "Back",
           "Find lamps",
           "Identify",
           `Forget ${FIRST.label}`,
           "Re-sync lamps",
-          ...LAMP_SCREEN_LISTS.map(() => "Configure"),
           ...Object.keys(TEXT_STYLES).map(() => "Reset"),
+          ...MAIN_SCREEN_PARTS.map(() => "Reset"),
+          ...LAMP_SCREEN_LISTS.map(() => "Configure"),
         ],
       });
       expect(await shownGlobalSettings(page)).toEqual(PLUGIN_SETTINGS_GLOBALS);

@@ -1,3 +1,4 @@
+import { brightnessGlyph } from "@daczarne/streamdeck-icons";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createDebouncer } from "../controls/debouncer";
 import { brightnessShown } from "../controls/shown";
@@ -6,6 +7,7 @@ import { logger } from "../logging";
 import { syncGlobalSettings } from "../settings/global-settings";
 import { FakeDeck } from "../test-support/fake-deck";
 import { changeGlobalSettings } from "../test-support/fake-stream-deck";
+import { iconIn } from "../test-support/icons";
 import { BrightnessAction } from "./brightness";
 
 //* Fakes
@@ -44,10 +46,13 @@ let deck: FakeDeck;
 // The global settings, which the tests change as a settings page does (#145).
 await syncGlobalSettings();
 
-beforeEach(() => {
+beforeEach(async () => {
   vi.useFakeTimers();
-  vi.clearAllMocks();
   changeGlobalSettings({});
+  // The dials of earlier tests redraw their main screens as the global settings change (#183), before the mocks are
+  // cleared, so the test sees only what its own dials do.
+  await vi.runAllTimersAsync();
+  vi.clearAllMocks();
   // The debouncer flushes every turn at once: its own timing is debouncer.test.ts's to check.
   vi.mocked(createDebouncer).mockImplementation((flush) => (ticks) => void flush(ticks));
   vi.mocked(brightnessShown).mockResolvedValue(AT_THEIR_CAPS);
@@ -191,7 +196,8 @@ describe("BrightnessAction", () => {
       expect(brightnessShown).toHaveBeenCalledExactlyOnceWith("connected");
       expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith({
         title: "Set Brightness",
-        value: "79%",
+        icon: iconIn(brightnessGlyph),
+        value: { value: "79%", color: "#ffffff" },
         indicator: { value: 79, bar_fill_c: "0:#ffffff,0.797:#ffffff,0.798:#c0c0c0,1:#c0c0c0" },
       });
     });
@@ -203,8 +209,9 @@ describe("BrightnessAction", () => {
 
       expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith({
         title: "Set Brightness",
-        value: "—",
-        indicator: { value: 0, bar_fill_c: "white" },
+        icon: iconIn(brightnessGlyph),
+        value: { value: "—", color: "#ffffff" },
+        indicator: { value: 0, bar_fill_c: "#ffffff" },
       });
     });
   });

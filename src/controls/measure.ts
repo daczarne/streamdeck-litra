@@ -8,47 +8,64 @@ import type { CheckedLamps } from "../settings/schemas";
 import { ActionInstance, type DeckControl, RoutingAction } from "./action-instance";
 import { createDebouncer } from "./debouncer";
 import { describeLamps } from "./describe-lamps";
+import { type Glyph, iconOf } from "./icons";
 import { LampScreen } from "./lamp-screens";
 
-// Where fewer lamps reach, a dial's bar fades from white towards this grey, never as far as the bar's own background,
-// and light enough to read on the strip.
-const FAINTEST_BAR_GREY = 0x80;
+// Where fewer lamps reach, a dial's bar fades its color, keeping this share of its distance from the end it fades
+// towards, out of 0xff: a light color fades towards black, so white fades to a mid-grey, as it did before the bar took
+// a text style's color (#59, #183), and a dark color fades towards white, since black has nothing darker to fade to,
+// and a dark grey would get darker where fewer lamps reach. Either way, the color chosen is where every lamp reaches.
+const FAINTEST_BAR_SHARE = 0x80;
 
 /**
  * The bar a Set Brightness or Set Temperature dial's main screen shows, in the $B1 layout's indicator, for each lamp's
- * place in its range, in %: filled up to the highest one, and banded by how many lamps reach each part of it (#59,
- * #229).
+ * place in its range, in %: filled up to the highest one, in a color as `#rrggbb`, and banded by how many lamps reach
+ * each part of it (#59, #183, #229).
  */
-export function bar(levels: readonly number[]): { value: number; bar_fill_c: string } {
-  return { value: Math.max(0, ...levels), bar_fill_c: barFill(levels) };
+export function bar(levels: readonly number[], color: string): { value: number; bar_fill_c: string } {
+  return { value: Math.max(0, ...levels), bar_fill_c: barFill(levels, color) };
 }
 
 /**
- * The fill of a dial's bar for each lamp's place in its range, in %: white up to the lowest one, then fainter for each
- * level fewer lamps reach, so the bar shows that only some lamps go that far (#59). A gradient's stops span the bar's
- * filled part, which ends at the highest level, so each level is placed as a share of that one. Two stops 0.001 apart
- * draw a sharp edge.
+ * The fill of a dial's bar for each lamp's place in its range, in %: its color, as `#rrggbb`, up to the lowest one,
+ * then fainter for each level fewer lamps reach, so the bar shows that only some lamps go that far (#59, #183). A
+ * gradient's stops span the bar's filled part, which ends at the highest level, so each level is placed as a share of
+ * that one. Two stops 0.001 apart draw a sharp edge.
  */
-export function barFill(levels: readonly number[]): string {
+export function barFill(levels: readonly number[], color: string): string {
   const highest = Math.max(0, ...levels);
   const distinct = [...new Set(levels)].filter((level) => level > 0).sort((a, b) => a - b);
   if (distinct.length === 0 || (distinct.length === 1 && levels.every((level) => level === highest))) {
-    return "white";
+    return color;
   }
   const offset = (share: number): number => Number(Math.min(1, share).toFixed(3));
   const stops: string[] = [];
   let start = 0;
   for (const level of distinct) {
     const reaching = levels.filter((other) => other >= level).length / levels.length;
-    const grey = Math.round(FAINTEST_BAR_GREY + (0xff - FAINTEST_BAR_GREY) * reaching)
-      .toString(16)
-      .padStart(2, "0");
-    const color = `#${grey}${grey}${grey}`;
+    const faded = fade(color, FAINTEST_BAR_SHARE + (0xff - FAINTEST_BAR_SHARE) * reaching);
     const end = level / highest;
-    stops.push(`${offset(start)}:${color}`, `${offset(end)}:${color}`);
+    stops.push(`${offset(start)}:${faded}`, `${offset(end)}:${faded}`);
     start = end + 0.001;
   }
   return stops.join(",");
+}
+
+/**
+ * A color, as `#rrggbb`, faded towards black when it's light, and towards white when it's dark, as its brightness, by
+ * Rec. 709's weights of its channels, falls above or below the middle: each channel keeps a share of its distance from
+ * that end, out of 0xff, rounded, so white at a share of 0xc0 is `#c0c0c0`, and black `#3f3f3f`.
+ */
+function fade(color: string, share: number): string {
+  const channels = [1, 3, 5].map((start) => Number.parseInt(color.slice(start, start + 2), 16));
+  const [red = 0, green = 0, blue = 0] = channels;
+  const towards = 0.2126 * red + 0.7152 * green + 0.0722 * blue < 0x80 ? 0xff : 0;
+  const faded = channels.map((channel) =>
+    Math.round(towards + ((channel - towards) * share) / 0xff)
+      .toString(16)
+      .padStart(2, "0"),
+  );
+  return `#${faded.join("")}`;
 }
 
 /**
@@ -67,10 +84,18 @@ export type Preset = {
 };
 
 /**
+ * What a Set Brightness or Set Temperature dial's main screen shows of every lamp, in the slots of the $B1 layout: its
+ * title, the value as text, and each lamp's place in its range, in %, which the bar under it shows, before the dial
+ * gives them their colors (#183).
+ */
+export type MainScreen = { title: string; value: string; levels: readonly number[] };
+
+/**
  * What a Set Brightness or Set Temperature dial steps: what a turn adjusts, which describes a turn on a lamp screen,
  * how it reads its step from its settings, the unit its log line gives the step in, how the global settings step
  * several lamps (#145), whether they have a turn on its main screen or on a lamp screen turn the lamps on (#268), how
- * it moves the lamps by its step, and what its main screen shows of every lamp, its title included.
+ * it moves the lamps by its step, the glyph its main screen's icon is drawn from, and what its main screen shows of
+ * every lamp, its title included.
  */
 export type Measure = {
   adjusts: string;
@@ -85,7 +110,8 @@ export type Measure = {
     stepping: Stepping,
     turnOn: boolean,
   ) => Promise<OperationResult>;
-  mainScreen: () => Promise<FeedbackPayload>;
+  glyph: Glyph;
+  mainScreen: () => Promise<MainScreen>;
 };
 
 /**
@@ -203,9 +229,12 @@ class MeasureDial extends ActionInstance<{ step: number }, DialAction<JsonObject
     return this.screen.isShowing ? this.screen.refresh() : this.showMainScreen();
   }
 
-  /** Redraws the lamp on screen, if any, whose cells and text styles are global settings (#153, #177). */
+  /**
+   * Redraws the lamp on screen, whose cells and text styles are global settings (#153, #177), or the main screen, whose
+   * colors are too (#183).
+   */
   override globalSettingsChanged(): Promise<void> {
-    return this.screen.refresh();
+    return this.screen.isShowing ? this.screen.refresh() : this.showMainScreen();
   }
 
   /** Toggles every lamp from the main screen, or the lamp on screen from a lamp screen. */
@@ -271,14 +300,22 @@ class MeasureDial extends ActionInstance<{ step: number }, DialAction<JsonObject
   }
 
   /**
-   * Fills the main screen's layout with what the lamps are at, unless the dial shows a lamp screen, which has another
-   * layout, which its lamp screen draws. Nothing is worked out then.
+   * Fills the main screen's layout with what the lamps are at, its icon, its value and its bar each in the color of the text style
+   * the global settings give it (#183), unless the dial shows a lamp screen, which has another layout, which its lamp screen
+   * draws. Nothing is worked out then.
    */
   private async showMainScreen(): Promise<void> {
     if (this.screen.isShowing) {
       return;
     }
-    const feedback = await this.measure.mainScreen();
+    const { title, value, levels } = await this.measure.mainScreen();
+    const colors = globalSettings.mainScreenColors;
+    const feedback: FeedbackPayload = {
+      title,
+      icon: iconOf(this.measure.glyph, colors.icon),
+      value: { value, color: colors.value },
+      indicator: bar(levels, colors.bar),
+    };
     // A tap may have shown a lamp screen while the main screen was worked out, after the operations queued.
     if (!this.screen.isShowing) {
       await this.control.setFeedback(feedback);

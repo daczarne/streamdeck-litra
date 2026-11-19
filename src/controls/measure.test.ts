@@ -8,9 +8,10 @@ import { globalSettingsSchema } from "../settings/schemas";
 import { at } from "../test-support/at";
 import { FakeDeck } from "../test-support/fake-deck";
 import { changeGlobalSettings } from "../test-support/fake-stream-deck";
+import { iconIn } from "../test-support/icons";
 import { reachedLamp } from "../test-support/reached-lamps";
 import { createDebouncer } from "./debouncer";
-import { bar, barFill, type Measure, MeasureAction, type Preset } from "./measure";
+import { bar, barFill, type MainScreen, type Measure, MeasureAction, type Preset } from "./measure";
 import { findLampsShown, lampsShown } from "./shown";
 
 //* Fakes
@@ -43,8 +44,24 @@ const BEAM = reachedLamp("00000000000000a1", AT_ITS_CAP);
 
 const OTHER_BEAM = reachedLamp("00000000000000b2", AT_ITS_CAP);
 
+/** The glyph the fake dials' main screen draws its icon from: a square of its color. */
+function fakeGlyph(size: number, { color }: { color: string }): string {
+  return `<rect width="${size}" height="${size}" fill="${color}"/>`;
+}
+
 /** What the fake dials' main screen shows, whatever the lamps are at. */
-const MAIN: FeedbackPayload = { title: "Fake", value: "42 u", indicator: 42 };
+const MAIN: MainScreen = { title: "Fake", value: "42 u", levels: [42] };
+
+/**
+ * What a dial shows of {@link MAIN}, with the icon, the value and the bar in the Primary style's color, as the default
+ * settings give it.
+ */
+const SHOWN: FeedbackPayload = {
+  title: "Fake",
+  icon: iconIn(fakeGlyph),
+  value: { value: "42 u", color: "#ffffff" },
+  indicator: { value: 42, bar_fill_c: "#ffffff" },
+};
 
 /** What the fake keys set: the preset in their settings, or 50, on the lamps checked, or every lamp. */
 const PRESET = {
@@ -66,6 +83,7 @@ const MEASURE = {
   stepping: vi.fn<Measure["stepping"]>(),
   turnsLampsOn: vi.fn<Measure["turnsLampsOn"]>(),
   adjust: vi.fn<Measure["adjust"]>(),
+  glyph: fakeGlyph,
   mainScreen: vi.fn<Measure["mainScreen"]>(),
 } satisfies Measure;
 
@@ -211,7 +229,7 @@ describe("a dial of a MeasureAction", () => {
 
       expect(MEASURE.readStep).toHaveBeenCalledExactlyOnceWith({ step: 5 }, logger);
       expect(dial.setFeedbackLayout).toHaveBeenCalledExactlyOnceWith("$B1");
-      expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith(MAIN);
+      expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith(SHOWN);
     });
 
     it("redraws on every dial when the lamps change (#29)", async () => {
@@ -221,8 +239,53 @@ describe("a dial of a MeasureAction", () => {
 
       await lampsChanged();
 
-      expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith(MAIN);
-      expect(otherDial.setFeedback).toHaveBeenCalledExactlyOnceWith(MAIN);
+      expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith(SHOWN);
+      expect(otherDial.setFeedback).toHaveBeenCalledExactlyOnceWith(SHOWN);
+    });
+
+    it("shows its value in the color of the text style the global settings give it (#183)", async () => {
+      changeGlobalSettings({ mainScreenValueStyle: "accent", lampScreenAccentColor: "#ff8800" });
+      await vi.runAllTimersAsync();
+      const dial = await deck.dial(FAKE);
+
+      expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith({
+        ...SHOWN,
+        value: { value: "42 u", color: "#ff8800" },
+      });
+    });
+
+    it("draws its icon in the color of the text style the global settings give it, apart from its value's (#183)", async () => {
+      changeGlobalSettings({ mainScreenIconStyle: "accent", lampScreenAccentColor: "#ff8800" });
+      await vi.runAllTimersAsync();
+      const dial = await deck.dial(FAKE);
+
+      expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith({ ...SHOWN, icon: iconIn(fakeGlyph, "#ff8800") });
+    });
+
+    it("draws its bar in the color of the text style the global settings give it, apart from its value's (#183)", async () => {
+      changeGlobalSettings({ mainScreenBarStyle: "alert", lampScreenAlertColor: "#ff8800" });
+      await vi.runAllTimersAsync();
+      MEASURE.mainScreen.mockResolvedValue({ ...MAIN, levels: [21, 42] });
+      const dial = await deck.dial(FAKE);
+
+      expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith({
+        ...SHOWN,
+        indicator: { value: 42, bar_fill_c: "0:#ff8800,0.5:#ff8800,0.501:#c06600,1:#c06600" },
+      });
+    });
+
+    it("redraws on every dial when the color of its value's text style changes (#183)", async () => {
+      changeGlobalSettings({ mainScreenValueStyle: "accent" });
+      const dial = await deck.dial(FAKE);
+      const otherDial = await deck.dial(FAKE);
+      clearCalls();
+
+      changeGlobalSettings({ mainScreenValueStyle: "accent", lampScreenAccentColor: "#ff8800" });
+      await vi.runAllTimersAsync();
+
+      const shown = { ...SHOWN, value: { value: "42 u", color: "#ff8800" } };
+      expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith(shown);
+      expect(otherDial.setFeedback).toHaveBeenCalledExactlyOnceWith(shown);
     });
 
     it("redraws once the settings page changes its step", async () => {
@@ -232,7 +295,7 @@ describe("a dial of a MeasureAction", () => {
       await deck.changeSettings(dial, { step: 10 });
 
       expect(MEASURE.mainScreen).toHaveBeenCalledOnce();
-      expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith(MAIN);
+      expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith(SHOWN);
     });
 
     it("moves every lamp connected by its step, and leaves showing the result to the notice", async () => {
@@ -321,7 +384,7 @@ describe("a dial of a MeasureAction", () => {
 
       await deck.tap(dial);
       expect(dial.setFeedbackLayout).toHaveBeenLastCalledWith("$B1");
-      expect(dial.setFeedback).toHaveBeenLastCalledWith(MAIN);
+      expect(dial.setFeedback).toHaveBeenLastCalledWith(SHOWN);
     });
 
     it("works out no main screen while every dial shows a lamp screen", async () => {
@@ -332,7 +395,7 @@ describe("a dial of a MeasureAction", () => {
       await lampsChanged();
 
       expect(MEASURE.mainScreen).not.toHaveBeenCalled();
-      expect(onLamp.setFeedback).not.toHaveBeenCalledWith(MAIN);
+      expect(onLamp.setFeedback).not.toHaveBeenCalledWith(SHOWN);
     });
 
     it("blinks the lamp on screen on a hold, and stays on its screen (#20)", async () => {
@@ -411,8 +474,8 @@ describe("a dial of a MeasureAction", () => {
 
       expect(lampsShown).toHaveBeenCalledOnce();
       expect(onLamp.setFeedback).toHaveBeenCalledOnce();
-      expect(onLamp.setFeedback).not.toHaveBeenCalledWith(MAIN);
-      expect(onMain.setFeedback).toHaveBeenCalledExactlyOnceWith(MAIN);
+      expect(onLamp.setFeedback).not.toHaveBeenCalledWith(SHOWN);
+      expect(onMain.setFeedback).toHaveBeenCalledExactlyOnceWith(SHOWN);
     });
 
     it("goes back to the main screen when the lamp on screen is no longer connected", async () => {
@@ -423,10 +486,10 @@ describe("a dial of a MeasureAction", () => {
       await lampsChanged();
 
       expect(dial.setFeedbackLayout).toHaveBeenLastCalledWith("$B1");
-      expect(dial.setFeedback).toHaveBeenLastCalledWith(MAIN);
+      expect(dial.setFeedback).toHaveBeenLastCalledWith(SHOWN);
     });
 
-    it("redraws the lamp on screen when the global settings change, and leaves the main screens", async () => {
+    it("redraws the lamp on screen and the main screens when the global settings change (#183)", async () => {
       const onLamp = await deck.dial(FAKE);
       const onMain = await deck.dial(FAKE);
       await deck.tap(onLamp);
@@ -436,7 +499,8 @@ describe("a dial of a MeasureAction", () => {
       await vi.runAllTimersAsync();
 
       expect(onLamp.setFeedback).toHaveBeenCalledOnce();
-      expect(onMain.setFeedback).not.toHaveBeenCalled();
+      expect(onLamp.setFeedback).not.toHaveBeenCalledWith(SHOWN);
+      expect(onMain.setFeedback).toHaveBeenCalledExactlyOnceWith(SHOWN);
     });
 
     it("no longer redraws a dial that disappeared", async () => {
@@ -543,42 +607,58 @@ describe("a MeasureAction logs", () => {
 
 describe("bar", () => {
   it("is filled up to the highest level, and banded by barFill", () => {
-    expect(bar([63, 79])).toEqual({ value: 79, bar_fill_c: "0:#ffffff,0.797:#ffffff,0.798:#c0c0c0,1:#c0c0c0" });
+    expect(bar([63, 79], "#ffffff")).toEqual({
+      value: 79,
+      bar_fill_c: "0:#ffffff,0.797:#ffffff,0.798:#c0c0c0,1:#c0c0c0",
+    });
   });
 
   it("is empty with no lamp", () => {
-    expect(bar([])).toEqual({ value: 0, bar_fill_c: "white" });
+    expect(bar([], "#ffffff")).toEqual({ value: 0, bar_fill_c: "#ffffff" });
   });
 });
 
 describe("barFill", () => {
-  it("is plain white for one lamp", () => {
-    expect(barFill([79])).toBe("white");
+  it("is plain in its color for one lamp", () => {
+    expect(barFill([79], "#ffffff")).toBe("#ffffff");
   });
 
-  it("is plain white when every lamp is at the same level", () => {
-    expect(barFill([50, 50])).toBe("white");
+  it("is plain in its color when every lamp is at the same level", () => {
+    expect(barFill([50, 50], "#ffffff")).toBe("#ffffff");
   });
 
-  it("is plain white when no lamp is lit or none is shown", () => {
-    expect(barFill([0, 0])).toBe("white");
-    expect(barFill([])).toBe("white");
+  it("is plain in its color when no lamp is lit or none is shown", () => {
+    expect(barFill([0, 0], "#ffffff")).toBe("#ffffff");
+    expect(barFill([], "#ffffff")).toBe("#ffffff");
   });
 
-  it("is white up to the dimmest lamp, then fainter up to the brightest, placed as shares of the brightest", () => {
-    expect(barFill([79, 63])).toBe("0:#ffffff,0.797:#ffffff,0.798:#c0c0c0,1:#c0c0c0");
+  it("is in its color up to the dimmest lamp, then fainter up to the brightest, placed as shares of the brightest", () => {
+    expect(barFill([79, 63], "#ffffff")).toBe("0:#ffffff,0.797:#ffffff,0.798:#c0c0c0,1:#c0c0c0");
   });
 
   it("adds a fainter band for each level fewer lamps reach", () => {
     // Up to 25: all three lamps. Up to 50: two of them. Up to 100: one.
-    expect(barFill([25, 50, 100])).toBe("0:#ffffff,0.25:#ffffff,0.251:#d5d5d5,0.5:#d5d5d5,0.501:#aaaaaa,1:#aaaaaa");
+    expect(barFill([25, 50, 100], "#ffffff")).toBe(
+      "0:#ffffff,0.25:#ffffff,0.251:#d5d5d5,0.5:#d5d5d5,0.501:#aaaaaa,1:#aaaaaa",
+    );
   });
 
   it("counts lamps at the same level together", () => {
-    expect(barFill([40, 80, 80])).toBe("0:#ffffff,0.5:#ffffff,0.501:#d5d5d5,1:#d5d5d5");
+    expect(barFill([40, 80, 80], "#ffffff")).toBe("0:#ffffff,0.5:#ffffff,0.501:#d5d5d5,1:#d5d5d5");
+  });
+
+  it("is the color it's given, and fades each of its channels alike where fewer lamps reach (#183)", () => {
+    expect(barFill([42], "#4dd0e1")).toBe("#4dd0e1");
+    expect(barFill([63, 79], "#ff8800")).toBe("0:#ff8800,0.797:#ff8800,0.798:#c06600,1:#c06600");
+  });
+
+  it("fades a dark color towards white, since black has nothing darker to fade to (#183)", () => {
+    expect(barFill([63, 79], "#000000")).toBe("0:#000000,0.797:#000000,0.798:#404040,1:#404040");
+    expect(barFill([63, 79], "#333333")).toBe("0:#333333,0.797:#333333,0.798:#666666,1:#666666");
+    expect(barFill([40, 80, 80], "#000000")).toBe("0:#000000,0.5:#000000,0.501:#2a2a2a,1:#2a2a2a");
   });
 
   it("is fainter from the start when a lamp is at 0%, since it lights none of the bar", () => {
-    expect(barFill([0, 60])).toBe("0:#c0c0c0,1:#c0c0c0");
+    expect(barFill([0, 60], "#ffffff")).toBe("0:#c0c0c0,1:#c0c0c0");
   });
 });

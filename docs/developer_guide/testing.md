@@ -116,6 +116,7 @@ They check each page under its Content-Security-Policy, which refuses anything r
 - A test's name says what the code does, as a sentence a reader understands without the code.
 - Each test sets up what it needs, and checks the outcome a user or the next module sees: what a key or a dial shows, what reached a lamp, what was returned and logged. It doesn't check how the code got there.
 - An element of an array is read with `at` from `src/test-support/at.ts`, which fails the test when it's missing, rather than with `!`.
+- An icon a dial sends is checked against `iconIn` from `src/test-support/icons.ts`, which draws it on its own, rather than with the plugin's `iconOf`.
 - A bug the tests find, which the branch doesn't fix, gets an `it.fails` test stating the intended behavior, linked to its issue. Once the bug is fixed, Vitest reports it as a failure, and it becomes a normal test.
 - Helpers have doc comments, like every function, which `npm run check:docs` checks (see [the style guide][style-guide]).
 
