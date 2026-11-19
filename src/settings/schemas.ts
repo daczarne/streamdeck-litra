@@ -380,6 +380,10 @@ export const globalSettingsSchema = {
   setTemperatureDialsTurnLampsOn: flag(false),
   setBrightnessLampScreensTurnLampsOn: flag(false),
   setTemperatureLampScreensTurnLampsOn: flag(false),
+  // Each part of a dial's main screen takes its color from one of the text styles, the same on every dial (#183). Only
+  // the color: the weight and size of its text, and where each part sits, are the $B1 layout's. Every part follows
+  // Primary by default, whose white draws the main screen as Stream Deck's own dials draw theirs.
+  mainScreenValueStyle: oneOf(TEXT_STYLES, "primary"),
   // Every blink that identifies a lamp, from the plugin settings or on a lamp screen, lasts as long as the plugin
   // settings say, in ms (#171). A lamp fades out when switched off, in about 750 ms at any brightness, so a blink much
   // shorter than the fade brings the lamp back before it has dimmed enough to notice among lamps that stay on, while
@@ -401,11 +405,13 @@ export const globalSettingsSchema = {
   lampScreenBottomLeft: oneOf(LAMP_SCREEN_ITEMS, "brightnessPercentage"),
   lampScreenBottomRight: oneOf(LAMP_SCREEN_ITEMS, "brightnessLumen"),
   lampScreenOptions: anObject(),
-  // The lamp screens' text takes four styles, the same on every dial, each named for its role rather than its look (see
+  // The dials' text takes four styles, the same on every dial, each named for its role rather than its look (see
   // docs/contributing.md, #153): Primary, Secondary, Accent and Alert. Each has a color, a weight and a size, which a
-  // layout's text takes, and nothing else: no font family. The sizes stop at 16 px, below which text is hard to read on
-  // the strip (#8), and at 22 px, which still fits the 26 px rows of layouts/lamp.json. Only Primary and Secondary are
-  // used by default, which draws what the lamp screens showed before.
+  // layout's text takes, and nothing else: no font family. The lamp screens take all three, and the main screens only
+  // the color (#183). The sizes stop at 16 px, below which text is hard to read on the strip (#8), and at 22 px, which
+  // still fits the 26 px rows of layouts/lamp.json. Only Primary and Secondary are used by default, which draws what the
+  // lamp screens showed before. The settings keep the names they had when only the lamp screens took the styles, so the
+  // styles a user saved then still apply.
   lampScreenPrimaryColor: hexColor("#ffffff"),
   lampScreenPrimaryWeight: oneOf(WEIGHTS, "normal"),
   lampScreenPrimarySize: wholeNumberFrom(16, 22, 18),

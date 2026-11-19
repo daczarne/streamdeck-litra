@@ -12,7 +12,7 @@
 - [Supported lamps](#supported-lamps)
 - [By default, lamps are managed together](#by-default-lamps-are-managed-together)
 - [The plugin settings are laid out by reach](#the-plugin-settings-are-laid-out-by-reach)
-- [The lamp screens' text styles are roles](#the-lamp-screens-text-styles-are-roles)
+- [The dials' text styles are roles](#the-dials-text-styles-are-roles)
 - [Numbers are set with a number field](#numbers-are-set-with-a-number-field)
 
 This document describes how work on this repository is done: how changes reach `main`, how they are sliced and recorded, what each one has to bring with it, and the design rules that hold across the plugin. How the plugin's parts fit together, and why, is in [the architecture document][architecture]. Style is covered separately, in [the style guide][style-guide].
@@ -103,13 +103,13 @@ The plugin settings, which every settings page shows, hold settings of different
 
 1. **Lamps**: the lamps themselves, whichever key or dial acts on them. The table of the lamps leads, since naming, identifying and forgetting them is the plugin settings' first use, then the re-sync, which acts on the lamps it follows, with its direction above its button ([#214]), then how each lamp steps, and how long a blink lasts, for Identify and on the lamp screens.
 2. **Keys**: every key, such as whether it takes in lamps added later ([#147]). The keys come before the dials, since every Deck has keys, and only some have dials.
-3. **Dials**: every dial, first what applies to all of a dial, then its main screen, such as whether a turn turns its lamps on ([#268]), then its lamp screens, with their blink, whether a turn turns the lamp on, their layout and their text styles ([#153]). The text styles are the lamp screens' because only the lamp screens use them, and would move up to all of a dial's if the main screens took them too ([#183]).
+3. **Dials**: every dial, first what applies to all of a dial, such as the text styles, which both its screens take ([#153], [#183]), then its main screen, such as whether a turn turns its lamps on ([#268]) and the text style each part takes its color from, then its lamp screens, with their blink, whether a turn turns the lamp on, and their layout.
 
 A section's parts with several settings get a heading, such as "Lamp screens". A part with a single setting is that setting's row label, such as "Brightness", until it grows a second one. A section or a part with no settings isn't shown: its heading comes with its first setting.
 
-## The lamp screens' text styles are roles
+## The dials' text styles are roles
 
-Stream Deck lets each user pick the touch strip's background, which the plugin can't read, so no fixed look reads on every strip. The lamp screens' text takes its look from four styles, set in the plugin settings, which every dial shares ([#153]). Each is named for its role, not its look, so a user who restyles them keeps what each one means, and a text picks its style by what it says:
+Stream Deck lets each user pick the touch strip's background, which the plugin can't read, so no fixed look reads on every strip. The dials' text takes its look from four styles, set in the plugin settings, which every dial shares ([#153]): the lamp screens' text takes their color, weight and size, and each part of the main screen their color alone, since the rest is the `$B1` layout's ([#183]). Each is named for its role, not its look, so a user who restyles them keeps what each one means, and a text picks its style by what it says:
 
 | Style     | Role                                          | Default look            | Used by default for |
 | --------- | --------------------------------------------- | ----------------------- | ------------------- |
@@ -118,7 +118,7 @@ Stream Deck lets each user pick the touch strip's background, which the plugin c
 | Accent    | Text that draws the eye, without a judgment   | Cyan `#4dd0e1`          | Nothing             |
 | Alert     | Something wrong, which needs attention        | Bold soft red `#ff6b6b` | Nothing             |
 
-Every style is 18 px by default, and Normal but for Alert, which is bold so it stands out even when its color is changed. Accent's cyan is far from Alert's red and Secondary's grey, and suggests neither a warning, as amber would, nor that all is well, as green would. Alert's red is the one the plugin settings show "No lamps found" in, so red means the same thing on the strip and in the panel. The defaults draw the lamp screens as they were before the styles: only Primary and Secondary are used until the user picks the others for a cell or a power state. An icon takes the color of the text beside it, so a cell reads as one piece in whatever style it picks.
+Every style is 18 px by default, and Normal but for Alert, which is bold so it stands out even when its color is changed. Accent's cyan is far from Alert's red and Secondary's grey, and suggests neither a warning, as amber would, nor that all is well, as green would. Alert's red is the one the plugin settings show "No lamps found" in, so red means the same thing on the strip and in the panel. The defaults draw the lamp screens as they were before the styles, and the main screens as Stream Deck's own dials: only Primary and Secondary are used until the user picks the others for a cell, a power state or a part of the main screen. An icon takes the color of the text beside it, so a cell reads as one piece in whatever style it picks.
 
 A text that the plugin itself would show in another style, such as a brightness held below what was asked, picks the style of its role, and comes as its own change: the styles don't change what the lamp screens show by default.
 

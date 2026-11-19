@@ -10,7 +10,7 @@ import { FakeDeck } from "../test-support/fake-deck";
 import { changeGlobalSettings } from "../test-support/fake-stream-deck";
 import { reachedLamp } from "../test-support/reached-lamps";
 import { createDebouncer } from "./debouncer";
-import { bar, barFill, type Measure, MeasureAction, type Preset } from "./measure";
+import { bar, barFill, type MainScreen, type Measure, MeasureAction, type Preset } from "./measure";
 import { findLampsShown, lampsShown } from "./shown";
 
 //* Fakes
@@ -44,7 +44,10 @@ const BEAM = reachedLamp("00000000000000a1", AT_ITS_CAP);
 const OTHER_BEAM = reachedLamp("00000000000000b2", AT_ITS_CAP);
 
 /** What the fake dials' main screen shows, whatever the lamps are at. */
-const MAIN: FeedbackPayload = { title: "Fake", value: "42 u", indicator: 42 };
+const MAIN: MainScreen = { title: "Fake", value: "42 u", indicator: { value: 42, bar_fill_c: "white" } };
+
+/** What a dial shows of {@link MAIN}, with the value in the Primary style's color, as the default settings give it. */
+const SHOWN: FeedbackPayload = { ...MAIN, value: { value: "42 u", color: "#ffffff" } };
 
 /** What the fake keys set: the preset in their settings, or 50, on the lamps checked, or every lamp. */
 const PRESET = {
@@ -211,7 +214,7 @@ describe("a dial of a MeasureAction", () => {
 
       expect(MEASURE.readStep).toHaveBeenCalledExactlyOnceWith({ step: 5 }, logger);
       expect(dial.setFeedbackLayout).toHaveBeenCalledExactlyOnceWith("$B1");
-      expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith(MAIN);
+      expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith(SHOWN);
     });
 
     it("redraws on every dial when the lamps change (#29)", async () => {
@@ -221,8 +224,30 @@ describe("a dial of a MeasureAction", () => {
 
       await lampsChanged();
 
-      expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith(MAIN);
-      expect(otherDial.setFeedback).toHaveBeenCalledExactlyOnceWith(MAIN);
+      expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith(SHOWN);
+      expect(otherDial.setFeedback).toHaveBeenCalledExactlyOnceWith(SHOWN);
+    });
+
+    it("shows its value in the color of the text style the global settings give it (#183)", async () => {
+      changeGlobalSettings({ mainScreenValueStyle: "accent", lampScreenAccentColor: "#ff8800" });
+      await vi.runAllTimersAsync();
+      const dial = await deck.dial(FAKE);
+
+      expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith({ ...MAIN, value: { value: "42 u", color: "#ff8800" } });
+    });
+
+    it("redraws on every dial when the color of its value's text style changes (#183)", async () => {
+      changeGlobalSettings({ mainScreenValueStyle: "accent" });
+      const dial = await deck.dial(FAKE);
+      const otherDial = await deck.dial(FAKE);
+      clearCalls();
+
+      changeGlobalSettings({ mainScreenValueStyle: "accent", lampScreenAccentColor: "#ff8800" });
+      await vi.runAllTimersAsync();
+
+      const shown = { ...MAIN, value: { value: "42 u", color: "#ff8800" } };
+      expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith(shown);
+      expect(otherDial.setFeedback).toHaveBeenCalledExactlyOnceWith(shown);
     });
 
     it("redraws once the settings page changes its step", async () => {
@@ -232,7 +257,7 @@ describe("a dial of a MeasureAction", () => {
       await deck.changeSettings(dial, { step: 10 });
 
       expect(MEASURE.mainScreen).toHaveBeenCalledOnce();
-      expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith(MAIN);
+      expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith(SHOWN);
     });
 
     it("moves every lamp connected by its step, and leaves showing the result to the notice", async () => {
@@ -321,7 +346,7 @@ describe("a dial of a MeasureAction", () => {
 
       await deck.tap(dial);
       expect(dial.setFeedbackLayout).toHaveBeenLastCalledWith("$B1");
-      expect(dial.setFeedback).toHaveBeenLastCalledWith(MAIN);
+      expect(dial.setFeedback).toHaveBeenLastCalledWith(SHOWN);
     });
 
     it("works out no main screen while every dial shows a lamp screen", async () => {
@@ -332,7 +357,7 @@ describe("a dial of a MeasureAction", () => {
       await lampsChanged();
 
       expect(MEASURE.mainScreen).not.toHaveBeenCalled();
-      expect(onLamp.setFeedback).not.toHaveBeenCalledWith(MAIN);
+      expect(onLamp.setFeedback).not.toHaveBeenCalledWith(SHOWN);
     });
 
     it("blinks the lamp on screen on a hold, and stays on its screen (#20)", async () => {
@@ -411,8 +436,8 @@ describe("a dial of a MeasureAction", () => {
 
       expect(lampsShown).toHaveBeenCalledOnce();
       expect(onLamp.setFeedback).toHaveBeenCalledOnce();
-      expect(onLamp.setFeedback).not.toHaveBeenCalledWith(MAIN);
-      expect(onMain.setFeedback).toHaveBeenCalledExactlyOnceWith(MAIN);
+      expect(onLamp.setFeedback).not.toHaveBeenCalledWith(SHOWN);
+      expect(onMain.setFeedback).toHaveBeenCalledExactlyOnceWith(SHOWN);
     });
 
     it("goes back to the main screen when the lamp on screen is no longer connected", async () => {
@@ -423,10 +448,10 @@ describe("a dial of a MeasureAction", () => {
       await lampsChanged();
 
       expect(dial.setFeedbackLayout).toHaveBeenLastCalledWith("$B1");
-      expect(dial.setFeedback).toHaveBeenLastCalledWith(MAIN);
+      expect(dial.setFeedback).toHaveBeenLastCalledWith(SHOWN);
     });
 
-    it("redraws the lamp on screen when the global settings change, and leaves the main screens", async () => {
+    it("redraws the lamp on screen and the main screens when the global settings change (#183)", async () => {
       const onLamp = await deck.dial(FAKE);
       const onMain = await deck.dial(FAKE);
       await deck.tap(onLamp);
@@ -436,7 +461,8 @@ describe("a dial of a MeasureAction", () => {
       await vi.runAllTimersAsync();
 
       expect(onLamp.setFeedback).toHaveBeenCalledOnce();
-      expect(onMain.setFeedback).not.toHaveBeenCalled();
+      expect(onLamp.setFeedback).not.toHaveBeenCalledWith(SHOWN);
+      expect(onMain.setFeedback).toHaveBeenCalledExactlyOnceWith(SHOWN);
     });
 
     it("no longer redraws a dial that disappeared", async () => {

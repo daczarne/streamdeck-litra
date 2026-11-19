@@ -274,7 +274,8 @@
     ["normal", "Normal"],
     ["bold", "Bold"],
   ];
-  // The lamp screens' text styles, which a cell takes, and a look of its own, which only a power state takes (#153).
+  // The dials' text styles, which a lamp screen's cell and a part of a main screen take (#183), and a look of its own,
+  // which only a power state takes (#153).
   const TEXT_STYLES = [
     ["primary", "Primary"],
     ["secondary", "Secondary"],
@@ -334,7 +335,7 @@
   }
 
   /**
-   * One of the lamp screens' text styles (#153), under its name: its color, weight and size, side by side, each saved
+   * One of the dials' text styles (#153), under its name: its color, weight and size, side by side, each saved
    * by sdpi-components as a global setting named after the style, and a Reset button under them, which sets each back
    * to its default. A control saves the value a script gives it, as it does the user's.
    */
@@ -358,6 +359,22 @@
     });
     reset.className = "fields-reset";
     reset.dataset.style = setting;
+    box.append(reset);
+    return box;
+  }
+
+  /**
+   * A part of the dials' main screen (#183), under its name: the text style it takes its color from, saved by
+   * sdpi-components as a global setting, and a Reset button under it, which sets it back to Primary.
+   */
+  function mainScreenPart(name, setting) {
+    const style = globalSelect(setting, TEXT_STYLES, "primary");
+    const box = fields(name, [["Color", style]]);
+    const reset = button("Reset", () => {
+      style.value = style.getAttribute("default");
+    });
+    reset.className = "fields-reset";
+    reset.dataset.part = setting;
     box.append(reset);
     return box;
   }
@@ -816,7 +833,8 @@
   editor.className = "cell-editor";
   editor.hidden = true;
   // The settings come by their reach: first the lamps', whichever key or dial acts on them, then the keys', then the
-  // dials', with their main screens' and their lamp screens' under headings of their own. A subsection with a single
+  // dials', with their text styles, which both their screens take (#183), before their main screens' and their lamp
+  // screens', under headings of their own. A subsection with a single
   // setting is a row's label until it grows. The "The plugin settings are laid out by reach" section of
   // docs/contributing.md describes where a new setting goes.
   view.append(
@@ -846,18 +864,19 @@
     item(undefined, globalCheckbox("temperatureUpKeysTurnLampsOn", "Temperature Up keys turn lamps on")),
     item(undefined, globalCheckbox("temperatureDownKeysTurnLampsOn", "Temperature Down keys turn lamps on")),
     section("Dials"),
+    item("Text styles", textStyle("Primary", "lampScreenPrimary", "#ffffff")),
+    item(undefined, textStyle("Secondary", "lampScreenSecondary", "#202020")),
+    item(undefined, textStyle("Accent", "lampScreenAccent", "#4dd0e1")),
+    item(undefined, textStyle("Alert", "lampScreenAlert", "#ff6b6b", "bold")),
     item(undefined, subsection("Main screen")),
     item("Turn on", globalCheckbox("setBrightnessDialsTurnLampsOn", "Set Brightness dials turn lamps on")),
     item(undefined, globalCheckbox("setTemperatureDialsTurnLampsOn", "Set Temperature dials turn lamps on")),
+    item("Layout", mainScreenPart("Value", "mainScreenValueStyle")),
     item(undefined, subsection("Lamp screens")),
     item("Blink", everyDialBlink),
     item("Turn on", globalCheckbox("setBrightnessLampScreensTurnLampsOn", "Set Brightness dials turn the lamp on")),
     item(undefined, globalCheckbox("setTemperatureLampScreensTurnLampsOn", "Set Temperature dials turn the lamp on")),
     item("Layout", lampScreenCells()),
-    item("Text styles", textStyle("Primary", "lampScreenPrimary", "#ffffff")),
-    item(undefined, textStyle("Secondary", "lampScreenSecondary", "#202020")),
-    item(undefined, textStyle("Accent", "lampScreenAccent", "#4dd0e1")),
-    item(undefined, textStyle("Alert", "lampScreenAlert", "#ff6b6b", "bold")),
   );
   container.append(item(undefined, toggleButton), view, editor);
   readCellOptions()

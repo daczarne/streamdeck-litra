@@ -50,10 +50,13 @@ let deck: FakeDeck;
 // The global settings, which the tests change as a settings page does (#145).
 await syncGlobalSettings();
 
-beforeEach(() => {
+beforeEach(async () => {
   vi.useFakeTimers();
-  vi.clearAllMocks();
   changeGlobalSettings({});
+  // The dials of earlier tests redraw their main screens as the global settings change (#183), before the mocks are
+  // cleared, so the test sees only what its own dials do.
+  await vi.runAllTimersAsync();
+  vi.clearAllMocks();
   // The debouncer flushes every turn at once: its own timing is debouncer.test.ts's to check.
   vi.mocked(createDebouncer).mockImplementation((flush) => (ticks) => void flush(ticks));
   vi.mocked(temperatureShown).mockResolvedValue(APART);
@@ -206,7 +209,7 @@ describe("TemperatureAction", () => {
       expect(temperatureShown).toHaveBeenCalledExactlyOnceWith("connected");
       expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith({
         title: "Set Temperature",
-        value: "4000 K",
+        value: { value: "4000 K", color: "#ffffff" },
         indicator: { value: 34, bar_fill_c: "0:#ffffff,0.529:#ffffff,0.53:#c0c0c0,1:#c0c0c0" },
       });
     });
@@ -221,7 +224,7 @@ describe("TemperatureAction", () => {
 
       expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith({
         title: "Set Temperature",
-        value: "4000 K",
+        value: { value: "4000 K", color: "#ffffff" },
         indicator: { value: 34, bar_fill_c: "white" },
       });
     });
@@ -233,7 +236,7 @@ describe("TemperatureAction", () => {
 
       expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith({
         title: "Set Temperature",
-        value: "—",
+        value: { value: "—", color: "#ffffff" },
         indicator: { value: 0, bar_fill_c: "white" },
       });
     });

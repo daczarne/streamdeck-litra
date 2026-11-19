@@ -43,6 +43,9 @@ export type TurningLampsOn =
   | "setBrightnessLampScreens"
   | "setTemperatureLampScreens";
 
+/** The color of each part of a dial's main screen that takes one from the text styles, as `#rrggbb` (#183). */
+export type MainScreenColors = { value: string };
+
 /** Every global setting but the lamps, which their `Lamp`s hold. */
 type Settings = Omit<ParsedGlobalSettings, "lamps">;
 
@@ -205,8 +208,8 @@ export class GlobalSettings {
   }
 
   /**
-   * The lamp screens' text styles (#153): Primary, for every text by default, Secondary, for the power's "OFF" by
-   * default, Accent and Alert, each as the settings keep it.
+   * The dials' text styles (#153): Primary, for every text by default, Secondary, for the power's "OFF" by default,
+   * Accent and Alert, each as the settings keep it.
    */
   get textStyles(): Record<TextStyleName, SavedTextStyle> {
     const settings = this.parsed;
@@ -232,6 +235,11 @@ export class GlobalSettings {
         size: settings.lampScreenAlertSize,
       },
     };
+  }
+
+  /** The color each part of a dial's main screen takes, from the text style the settings give it (#183). */
+  get mainScreenColors(): MainScreenColors {
+    return { value: this.textStyles[this.parsed.mainScreenValueStyle].color };
   }
 
   /** How a turn on a Set Brightness dial's main screen, or a Brightness step key's press, steps the lamps (#145). */

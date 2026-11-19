@@ -67,6 +67,12 @@ export type Preset = {
 };
 
 /**
+ * What a Set Brightness or Set Temperature dial's main screen shows of every lamp, in the slots of the $B1 layout: its
+ * title, the value as text, and the bar under it, before the dial gives them their colors (#183).
+ */
+export type MainScreen = { title: string; value: string; indicator: ReturnType<typeof bar> };
+
+/**
  * What a Set Brightness or Set Temperature dial steps: what a turn adjusts, which describes a turn on a lamp screen,
  * how it reads its step from its settings, the unit its log line gives the step in, how the global settings step
  * several lamps (#145), whether they have a turn on its main screen or on a lamp screen turn the lamps on (#268), how
@@ -85,7 +91,7 @@ export type Measure = {
     stepping: Stepping,
     turnOn: boolean,
   ) => Promise<OperationResult>;
-  mainScreen: () => Promise<FeedbackPayload>;
+  mainScreen: () => Promise<MainScreen>;
 };
 
 /**
@@ -203,9 +209,12 @@ class MeasureDial extends ActionInstance<{ step: number }, DialAction<JsonObject
     return this.screen.isShowing ? this.screen.refresh() : this.showMainScreen();
   }
 
-  /** Redraws the lamp on screen, if any, whose cells and text styles are global settings (#153, #177). */
+  /**
+   * Redraws the lamp on screen, whose cells and text styles are global settings (#153, #177), or the main screen, whose
+   * colors are too (#183).
+   */
   override globalSettingsChanged(): Promise<void> {
-    return this.screen.refresh();
+    return this.screen.isShowing ? this.screen.refresh() : this.showMainScreen();
   }
 
   /** Toggles every lamp from the main screen, or the lamp on screen from a lamp screen. */
@@ -271,14 +280,17 @@ class MeasureDial extends ActionInstance<{ step: number }, DialAction<JsonObject
   }
 
   /**
-   * Fills the main screen's layout with what the lamps are at, unless the dial shows a lamp screen, which has another
-   * layout, which its lamp screen draws. Nothing is worked out then.
+   * Fills the main screen's layout with what the lamps are at, its value in the color of the text style the global
+   * settings give it (#183), unless the dial shows a lamp screen, which has another layout, which its lamp screen
+   * draws. Nothing is worked out then.
    */
   private async showMainScreen(): Promise<void> {
     if (this.screen.isShowing) {
       return;
     }
-    const feedback = await this.measure.mainScreen();
+    const { value, ...shown } = await this.measure.mainScreen();
+    const colors = globalSettings.mainScreenColors;
+    const feedback: FeedbackPayload = { ...shown, value: { value, color: colors.value } };
     // A tap may have shown a lamp screen while the main screen was worked out, after the operations queued.
     if (!this.screen.isShowing) {
       await this.control.setFeedback(feedback);
