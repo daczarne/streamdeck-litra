@@ -147,5 +147,5 @@ The same folder can hold `com.daczarne.litra.<n>.log` files. They belong to the 
 [#198]: https://github.com/daczarne/streamdeck-litra/issues/198
 [#268]: https://github.com/daczarne/streamdeck-litra/issues/268
 [manual-checks]: manual_testing/logging.md
-[sdk-logging]: elgato_sdk/logging.md
+[sdk-logging]: ../elgato_sdk/logging.md
 [two-trips]: architecture.md#two-trips-for-every-value

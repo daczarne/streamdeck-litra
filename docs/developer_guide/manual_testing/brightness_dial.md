@@ -57,6 +57,6 @@ Restarting also clears the caps the plugin has learned, so the checks start from
 [#51]: https://github.com/daczarne/streamdeck-litra/issues/51
 [#59]: https://github.com/daczarne/streamdeck-litra/issues/59
 [#268]: https://github.com/daczarne/streamdeck-litra/issues/268
-[contributing]: ../contributing.md
+[contributing]: ../../contributing.md
 [lamps-apart]: lamps_apart.md
-[probe]: ../../scripts/probes/README.md
+[probe]: ../../../scripts/probes/README.md

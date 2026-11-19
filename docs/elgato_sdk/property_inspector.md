@@ -105,4 +105,4 @@ Checked while adding the lamps the plugin knows ([#194]): the plugin's save of t
 [#198]: https://github.com/daczarne/streamdeck-litra/issues/198
 [#247]: https://github.com/daczarne/streamdeck-litra/issues/247
 [controls]: ../../src/controls/README.md
-[manual-test]: ../manual_testing/settings_pages.md
+[manual-test]: ../developer_guide/manual_testing/settings_pages.md

@@ -7,8 +7,8 @@ const ON_EMULATED_LAMPS = ["src/lamps/manager.test.ts", "src/integration/actions
 
 export default defineConfig({
   // Oxc can't lower standard decorators yet, only TypeScript's legacy ones, and Node can't run them. The actions'
-  // tests replace @action with a decorator that returns the class unchanged, which works the same either way. The
-  // build compiles with tsc, which keeps the standard ones.
+  // tests replace @action with a decorator that only gives the class its id in the manifest, which works the same
+  // either way. The build compiles with tsc, which keeps the standard ones.
   oxc: { decorator: { legacy: true } },
   resolve: {
     // The plugin's bundle runs litra's ESM build, which Rollup takes from its `module` field, where Vitest would take

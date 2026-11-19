@@ -47,4 +47,4 @@ Checked against `@elgato/streamdeck` 3.0.3 and `@elgato/utils` 0.6.1, both insta
 - `FileTarget`: `@elgato/utils/dist/logging/node/file-target.js`.
 
 [#41]: https://github.com/daczarne/streamdeck-litra/issues/41
-[logging]: ../logging.md
+[logging]: ../developer_guide/logging.md

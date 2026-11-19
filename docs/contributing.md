@@ -37,7 +37,7 @@ Commit messages on a branch disappear in the squash. They stay short and accurat
 
 ## Features ship with tests
 
-Every new feature or enhancement comes with automated tests for it. [#27] was a one-off catch-up, adding tests for code that had none. From [#9] on, new work brings its own.
+Every new feature or enhancement comes with automated tests for it. [#27] was a one-off catch-up, adding tests for code that had none. From [#9] on, new work brings its own. [The testing guide][testing] describes how the tests are written.
 
 - A feature and its tests come in the same pull request. Otherwise the branch that adds the feature can also add its bugs, typically in edge cases nobody tested.
   - Exceptions to this rule can be made when the tests that need to be added, also require new testing infrastructure. But even in these cases splitting the PR should be an exception (like in [#9]).
@@ -45,7 +45,7 @@ Every new feature or enhancement comes with automated tests for it. [#27] was a 
 - A unit test covers one module, with the modules it builds on faked, or the lamps emulated for the code that talks to them: its logic and its edge cases, such as invalid settings, logs and each kind of failure. An integration test covers what crosses modules: that what one module reports or sends reaches the next as that one expects, and sequences whose steps depend on each other. An integration test that crosses nothing the unit tests don't already cross goes. One that checks the same behavior from the user's side, across modules, stays, since the design that makes the two equivalent today can change.
 - An abstract class is tested on its own, through a subclass its test declares, with fakes for what an implementation gives it, so what the tests check holds for every implementation, and they import none of them. Each implementation has a test file of its own, next to it, for what's its own, with at least a contract test that creates it and checks its defaults. For example, `src/controls/measure.test.ts` tests `MeasureAction`, and `src/actions/temperature.test.ts` the Set Temperature action built on it: the settings it reads, with their defaults, the operations it calls, and what its dials' main screen shows.
 - What a test puts in place of the real thing is named for what it stands in for. A fake stands in for software: a module the code under test builds on, such as the SDK (`fake-stream-deck.ts`), the logger (`fake-logging.ts`) or `node-hid` (`fake-node-hid.ts`), Stream Deck sending a key's or a dial's events (`FakeDeck`), or an implementation of an abstract class, such as `FakeMeasureAction`. It does what the tests need of it, and nothing more. An emulated device stands in for hardware: it behaves as the probes measured the real one to (`scripts/probes/`), such as a lamp that keeps its state and answers HID reports as the Beams do (`emulated-litra.ts`), so the code that talks to the lamps runs as it would against them. What several tests share lives in `src/test-support/`, and what one test needs alone, in that test.
-- What can't be automated, such as Stream Deck's own behavior or what the lamps do, is checked by hand on the Deck. Those checks are written down in [`docs/manual_testing/`][manual-testing], one document per area, with when to run them and what each one should show, so that anyone can repeat them without remembering how. A feature that needs new manual checks adds them there, in the same pull request.
+- What can't be automated, such as Stream Deck's own behavior or what the lamps do, is checked by hand on the Deck. Those checks are written down in [`docs/developer_guide/manual_testing/`][manual-testing], one document per area, with when to run them and what each one should show, so that anyone can repeat them without remembering how. A feature that needs new manual checks adds them there, in the same pull request.
 - A bug the tests find, which the branch doesn't fix, gets an `it.fails` test stating the intended behavior, linked to its own issue. When the bug is fixed, the test starts passing, which Vitest reports as a failure, and it becomes a normal test.
 
 ## Features update the user guide
@@ -126,16 +126,8 @@ A text that the plugin itself would show in another style, such as a brightness 
 
 A setting that takes a number within a range, on a step, such as a brightness, a temperature, a step or a length of time, is set on its page with the plugin's number field (`litra-number`, in `ui/number-field.js`), not a slider: it sets an exact value by clicks or by typing, and takes no more room than it needs ([#195]). Its `min`, `max`, `step` and `default` are the setting's in `src/settings/schemas.ts`, which the browser tests check, and its unit goes in `unit`. A number that doesn't apply, such as a scene group's presets while it turns its lamps off, is greyed out with `disabled`, which shows a dash in place of its value and unit, rather than a value that wouldn't be used, and keeps its value for when it applies again. A choice among a few values that aren't steps of one range, such as the lamp screens' text sizes, stays a list.
 
-[#9]: https://github.com/daczarne/streamdeck-litra/issues/9
-[#13]: https://github.com/daczarne/streamdeck-litra/issues/13
-[#19]: https://github.com/daczarne/streamdeck-litra/issues/19
-[#20]: https://github.com/daczarne/streamdeck-litra/issues/20
-[#27]: https://github.com/daczarne/streamdeck-litra/issues/27
-[#30]: https://github.com/daczarne/streamdeck-litra/issues/30
-[#40]: https://github.com/daczarne/streamdeck-litra/pull/40
-[#48]: https://github.com/daczarne/streamdeck-litra/issues/48
-[#59]: https://github.com/daczarne/streamdeck-litra/issues/59
 [#100]: https://github.com/daczarne/streamdeck-litra/issues/100
+[#13]: https://github.com/daczarne/streamdeck-litra/issues/13
 [#144]: https://github.com/daczarne/streamdeck-litra/issues/144
 [#145]: https://github.com/daczarne/streamdeck-litra/issues/145
 [#146]: https://github.com/daczarne/streamdeck-litra/issues/146
@@ -143,10 +135,19 @@ A setting that takes a number within a range, on a step, such as a brightness, a
 [#153]: https://github.com/daczarne/streamdeck-litra/issues/153
 [#174]: https://github.com/daczarne/streamdeck-litra/issues/174
 [#183]: https://github.com/daczarne/streamdeck-litra/issues/183
+[#19]: https://github.com/daczarne/streamdeck-litra/issues/19
 [#194]: https://github.com/daczarne/streamdeck-litra/issues/194
 [#195]: https://github.com/daczarne/streamdeck-litra/issues/195
+[#20]: https://github.com/daczarne/streamdeck-litra/issues/20
 [#268]: https://github.com/daczarne/streamdeck-litra/issues/268
-[architecture]: architecture.md
-[manual-testing]: manual_testing/
-[style-guide]: style_guide.md
-[user-guide]: user_guide/user_guide.md
+[#27]: https://github.com/daczarne/streamdeck-litra/issues/27
+[#30]: https://github.com/daczarne/streamdeck-litra/issues/30
+[#40]: https://github.com/daczarne/streamdeck-litra/pull/40
+[#48]: https://github.com/daczarne/streamdeck-litra/issues/48
+[#59]: https://github.com/daczarne/streamdeck-litra/issues/59
+[#9]: https://github.com/daczarne/streamdeck-litra/issues/9
+[architecture]: developer_guide/architecture.md
+[manual-testing]: developer_guide/manual_testing/
+[style-guide]: developer_guide/style_guide.md
+[testing]: developer_guide/testing.md
+[user-guide]: user_guide/README.md

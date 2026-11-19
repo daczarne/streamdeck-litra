@@ -15,7 +15,7 @@ Run the linters from CI, from the repository root, in this order: those of the `
 1. `npm run icons`, then `git status --short -- com.daczarne.litra.sdPlugin/imgs`: regenerating the icons must change nothing. A change means the committed icons aren't what `scripts/generate-icons.mjs` draws.
 1. `npm run validate`, which runs `check:ui`, the build and `streamdeck validate`.
 
-Then check the length of Markdown headings, which no linter covers (see `docs/style_guide.md`). `git grep -n -P '^(?=.{81})#{1,6} ' -- '*.md'` lists every heading over 80 characters. Skip matches inside code blocks, where `#` starts a comment, and shorten the rest without changing their meaning. When a shortened heading is linked from a table of contents or another document, update those links too.
+Then check the length of Markdown headings, which no linter covers (see `docs/developer_guide/style_guide.md`). `git grep -n -P '^(?=.{81})#{1,6} ' -- '*.md'` lists every heading over 80 characters. Skip matches inside code blocks, where `#` starts a comment, and shorten the rest without changing their meaning. When a shortened heading is linked from a table of contents or another document, update those links too.
 
 Formatting findings are fixed directly, without asking. Everything else is reported, never fixed on its own.
 
