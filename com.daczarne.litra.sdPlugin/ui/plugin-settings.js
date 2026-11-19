@@ -9,8 +9,8 @@
 // blink lasts (#171), whether keys take in lamps added later (#147), which a key's own page can choose for that key
 // alone, and tells its lamp picker, the lamp screens' blink (#144), which a dial's own page can turn on or off for that
 // dial alone, and what each cell of the lamp screens shows, with a Configure button that shows the cell's options in
-// place of the plugin settings (#177). A file rather than an inline script, so the pages' Content-Security-Policy
-// doesn't have to allow inline scripts.
+// place of the plugin settings (#177), and Back, which shows the plugin settings again, scrolled to where they were. A
+// file rather than an inline script, so the pages' Content-Security-Policy doesn't have to allow inline scripts.
 //
 // Its styles are in settings.css, with every page's (#247).
 (() => {
@@ -24,6 +24,9 @@
   // Whether the plugin settings are shown, in place of the action's, and the cell whose options are, in their place.
   let open = false;
   let editing;
+  // How far the plugin settings were scrolled when a cell's options took their place, which Back scrolls them to
+  // again, so the next cell's Configure button is where it was.
+  let scrolledTo = 0;
   // The lamps the plugin knows, by id, each with its model, and its name, if any.
   let lamps = {};
   // The ids of the lamps the plugin found the last time it looked (#198): what it answers as the plugin settings open,
@@ -97,12 +100,17 @@
 
   /**
    * Shows the plugin settings, with the lamps the plugin knows, or the action's settings again, or the plugin settings
-   * again from a cell's options. Opening them looks for no lamps: it asks the plugin which ones it last found (#198).
+   * again from a cell's options, scrolled to where they were. Opening them looks for no lamps: it asks the plugin which
+   * ones it last found (#198).
    */
   async function toggle() {
     if (editing !== undefined) {
       editing = undefined;
       render();
+      // The lamps are drawn again, and sdpi-components draws each of their controls a moment later, before the page is
+      // painted: scrolled before then, the page would end up short of where it was by the height they take.
+      await Promise.all([...lampList.querySelectorAll("*")].map((element) => element.updateComplete));
+      window.scrollTo(0, scrolledTo);
       return;
     }
     open = !open;
@@ -363,8 +371,10 @@
       box.className = "cell";
       cellLists[cell] = globalSelect(setting, LAMP_SCREEN_ITEMS, fallback);
       const configure = button("Configure", () => {
+        scrolledTo = window.scrollY;
         editing = cell;
         render();
+        window.scrollTo(0, 0);
       });
       configure.dataset.cell = cell;
       box.append(cellLists[cell], configure);
