@@ -21,7 +21,7 @@
 - [The settings pages](#the-settings-pages)
 - [Turning a dial](#turning-a-dial)
 
-This document describes how the plugin's parts fit together, and why they're built the way they are. The code's comments say how each part works, and [the contributing guide][contributing] holds the design rules that hold across the plugin, such as managing the lamps as one group by default.
+This document describes how the plugin's parts fit together, and why they're built the way they are. The code's comments say how each part works, and [the contributing guide][contributing] holds the design rules that hold across the plugin, such as managing the lamps as one group by default. The plugin is followed step by step, as it starts and through a key press, in [start-up][start-up] and [the journey of a key press][request-journey], and how its tests are written is in [the testing guide][testing].
 
 ## From a press to the lamps
 
@@ -185,27 +185,27 @@ A dial sends a tick at a time, and a quick turn sends many. The dial gathers tic
 
 By default, the lamp manager steps the value the dial shows, the brightest lamp's brightness or the highest temperature ([#229]), as their `Lamp`s hold them, and sends every lamp there. When the global settings keep the lamps apart, it steps each lamp from the value it was last asked for, along the same multiples, as a turn on that lamp's screen would, so a tick on the main screen is a tick on every lamp's screen (see [What a lamp remembers](#what-a-lamp-remembers)) ([#145]). The settings are read once a turn's ticks are applied, so ticks gathered before a change follow the new setting.
 
-[#14]: https://github.com/daczarne/streamdeck-litra/issues/14
-[#16]: https://github.com/daczarne/streamdeck-litra/issues/16
-[#19]: https://github.com/daczarne/streamdeck-litra/issues/19
-[#20]: https://github.com/daczarne/streamdeck-litra/issues/20
-[#55]: https://github.com/daczarne/streamdeck-litra/issues/55
-[#57]: https://github.com/daczarne/streamdeck-litra/issues/57
-[#96]: https://github.com/daczarne/streamdeck-litra/issues/96
 [#100]: https://github.com/daczarne/streamdeck-litra/issues/100
 [#132]: https://github.com/daczarne/streamdeck-litra/issues/132
+[#14]: https://github.com/daczarne/streamdeck-litra/issues/14
 [#145]: https://github.com/daczarne/streamdeck-litra/issues/145
 [#147]: https://github.com/daczarne/streamdeck-litra/issues/147
 [#153]: https://github.com/daczarne/streamdeck-litra/issues/153
+[#16]: https://github.com/daczarne/streamdeck-litra/issues/16
 [#164]: https://github.com/daczarne/streamdeck-litra/issues/164
 [#170]: https://github.com/daczarne/streamdeck-litra/issues/170
 [#174]: https://github.com/daczarne/streamdeck-litra/issues/174
 [#177]: https://github.com/daczarne/streamdeck-litra/issues/177
+[#19]: https://github.com/daczarne/streamdeck-litra/issues/19
 [#194]: https://github.com/daczarne/streamdeck-litra/issues/194
 [#198]: https://github.com/daczarne/streamdeck-litra/issues/198
+[#20]: https://github.com/daczarne/streamdeck-litra/issues/20
 [#214]: https://github.com/daczarne/streamdeck-litra/issues/214
 [#229]: https://github.com/daczarne/streamdeck-litra/issues/229
 [#268]: https://github.com/daczarne/streamdeck-litra/issues/268
+[#55]: https://github.com/daczarne/streamdeck-litra/issues/55
+[#57]: https://github.com/daczarne/streamdeck-litra/issues/57
+[#96]: https://github.com/daczarne/streamdeck-litra/issues/96
 [actions]: ../elgato_sdk/actions.md
 [contributing]: ../contributing.md
 [keys]: ../elgato_sdk/keys.md
@@ -214,3 +214,6 @@ By default, the lamp manager steps the value the dial shows, the brightest lamp'
 [logging]: logging.md
 [probes]: ../../scripts/probes/README.md
 [property-inspector]: ../elgato_sdk/property_inspector.md
+[request-journey]: request_journey.md
+[start-up]: start_up.md
+[testing]: testing.md
