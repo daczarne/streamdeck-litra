@@ -1101,6 +1101,39 @@ describe("settings pages", () => {
       await page.close();
     });
 
+    it("shows from the top, and gives way on Back to the plugin settings scrolled to where they were", async () => {
+      // The lamps are drawn again on Back, above the cells, and their controls draw themselves a moment later.
+      streamDeck.globalSettings = { lamps: knowing(FIRST, SECOND) };
+      const { page } = await openPanel(panel);
+      await page.evaluate(`SDPIComponents.useGlobalSettings("lampScreenOptions")[0]()`);
+      await clickInPluginSettings(page, "Plugin settings");
+      await expect.poll(() => page.evaluate(`document.querySelectorAll("#plugin-settings tr.lamp").length`)).toBe(2);
+      // Where the last cell's Configure button is on screen, once the page is scrolled down to it.
+      const configureTop = () =>
+        page.evaluate(`document.querySelector('sdpi-button[data-cell="bottomRight"]').getBoundingClientRect().top`);
+      const top = await page.evaluate(`(() => {
+        document.querySelector('sdpi-button[data-cell="bottomRight"]').scrollIntoView({ block: "end" });
+        return window.scrollY;
+      })()`);
+      expect(top).toBeGreaterThan(0);
+      const shownAt = await configureTop();
+
+      await page.evaluate(`(async () => {
+        const host = document.querySelector('sdpi-button[data-cell="bottomRight"]');
+        await host.updateComplete;
+        host.shadowRoot.querySelector("button").click();
+      })()`);
+
+      expect(await page.evaluate("window.scrollY")).toBe(0);
+
+      await clickInPluginSettings(page, "Back");
+
+      expect(await shown(page)).toMatchObject({ view: true, editor: false });
+      expect(await page.evaluate("window.scrollY")).toBe(top);
+      expect(await configureTop()).toBe(shownAt);
+      await page.close();
+    });
+
     it.each(LAMP_SCREEN_ITEMS.filter((item) => item !== "none"))(
       "offers the options of %s that settings.ts takes, at their defaults",
       async (item) => {

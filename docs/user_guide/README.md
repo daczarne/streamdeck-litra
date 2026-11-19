@@ -84,7 +84,7 @@ With "Blink each lamp as it's shown, on this dial" checked on a Set Brightness o
 
 By default, a lamp screen shows the lamp's label, its model and the end of its id, as a key's settings page lists a lamp without a name, with its place among the lamps ("1 of 2"), then its temperature and whether it's on, and its brightness in % and lumens. "OFF" shows in dark grey.
 
-Its six cells, three rows of two, can each show any of these, or nothing, chosen under "Layout" in the plugin settings, the same on every dial. Two long values chosen for one row can run into each other. Each cell's **Configure** button shows how it shows its item, in place of the plugin settings, and **Reset** there brings back the defaults:
+Its six cells, three rows of two, can each show any of these, or nothing, chosen under "Layout" in the plugin settings, the same on every dial. Two long values chosen for one row can run into each other. Each cell's **Configure** button shows how it shows its item, in place of the plugin settings, **Reset** there brings back the defaults, and **Back** shows the plugin settings again where they were scrolled to:
 
 - The identification is made of two parts, each the model, the ID, the name given in the plugin settings, or empty, joined by " - " when both have text. A lamp with no name shows its model and ID for its name, and a part with no text is left out. Trimmed, it keeps to about half a row, ending in "…".
 - The counter shows the lamp's place, alone, among every lamp, or among the lamps of its model, as "1 of 2", "1/2", "1-2" or "1 2".
