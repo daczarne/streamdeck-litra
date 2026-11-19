@@ -1,5 +1,5 @@
 import { action } from "@elgato/streamdeck";
-import { bar, type Measure, MeasureAction, type Preset } from "../controls/measure";
+import { type Measure, MeasureAction, type Preset } from "../controls/measure";
 import { brightnessShown, brightnessText } from "../controls/shown";
 import { adjustLampsBrightness, setLampsBrightness } from "../lamps/manager";
 import { logger as pluginLogger } from "../logging";
@@ -35,7 +35,7 @@ const BRIGHTNESS: Measure = {
     return {
       title: "Set Brightness",
       value: brightnessText(levels),
-      indicator: bar(levels),
+      levels,
     };
   },
 };

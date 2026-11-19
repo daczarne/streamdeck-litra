@@ -44,7 +44,7 @@ export type TurningLampsOn =
   | "setTemperatureLampScreens";
 
 /** The color of each part of a dial's main screen that takes one from the text styles, as `#rrggbb` (#183). */
-export type MainScreenColors = { value: string };
+export type MainScreenColors = { value: string; bar: string };
 
 /** Every global setting but the lamps, which their `Lamp`s hold. */
 type Settings = Omit<ParsedGlobalSettings, "lamps">;
@@ -239,7 +239,11 @@ export class GlobalSettings {
 
   /** The color each part of a dial's main screen takes, from the text style the settings give it (#183). */
   get mainScreenColors(): MainScreenColors {
-    return { value: this.textStyles[this.parsed.mainScreenValueStyle].color };
+    const styles = this.textStyles;
+    return {
+      value: styles[this.parsed.mainScreenValueStyle].color,
+      bar: styles[this.parsed.mainScreenBarStyle].color,
+    };
   }
 
   /** How a turn on a Set Brightness dial's main screen, or a Brightness step key's press, steps the lamps (#145). */

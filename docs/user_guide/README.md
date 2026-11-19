@@ -71,7 +71,7 @@ By default, a key also takes in lamps added later: it acts on every lamp but the
 
 Dials look like Stream Deck's own volume dials: the value, with a bar under it. The keys, and the dials' pictures in the Stream Deck app, show the same line icon as the strip, smaller, at the size of the Icon Library's Litra icons. The brightness bar is white up to the dimmest lamp's level, and a lighter grey from there to the brightest lamp's, the part only some lamps reach. The temperature bar runs from the lamps' warmest setting (empty) to their coolest (full), and is white up to the warmest lamp's temperature, and a lighter grey from there to the coolest lamp's. Their title is their action's name ("Set Brightness", "Set Temperature"), and can be replaced or hidden like a key's.
 
-The value takes its color from one of the [text styles](#text-styles), Primary by default, chosen under "Layout", in the plugin settings' "Main screen", the same on every dial. Its **Reset** button brings back Primary. Only the color is chosen: the value keeps Stream Deck's font and size, and its place on the strip.
+The value and the bar each take their color from one of the [text styles](#text-styles), Primary by default, chosen under "Layout", in the plugin settings' "Main screen", the same on every dial. Each one's **Reset** button brings back Primary. Only the color is chosen: the value keeps Stream Deck's font and size, and each keeps its place on the strip. Where only some lamps reach, the bar is a darker shade of a light color, as white turns grey, and a lighter shade of a dark one, as black turns dark grey, so the color chosen is always where every lamp reaches.
 
 Rotating adjusts every lamp (see [Steps](#steps)), and pressing toggles every lamp, as a Power key in its toggle mode does (see [Power](#power)). A Set Brightness dial shows the brightest lamp's %, and a Set Temperature dial the highest temperature, and a dash when no lamp is connected. Holding the strip does nothing on the main screen.
 
@@ -98,7 +98,7 @@ Each cell's **Font style**, in its editor, picks the [text style](#text-styles) 
 
 ### Text styles
 
-Under "Text styles", the plugin settings set the dials' four styles, the same on every dial: Primary, for every text by default, Secondary, toned down, for "OFF" by default, Accent, to draw the eye, and Alert, for something wrong. Each takes a color, a weight, Normal or Bold, and a size from 16 to 22 px, and its **Reset** button brings back its defaults. A lamp screen's text takes all three (see [What a lamp screen shows](#what-a-lamp-screen-shows)), and the main screen's value only the color (see [The main screen](#the-main-screen)).
+Under "Text styles", the plugin settings set the dials' four styles, the same on every dial: Primary, for every text by default, Secondary, toned down, for "OFF" by default, Accent, to draw the eye, and Alert, for something wrong. Each takes a color, a weight, Normal or Bold, and a size from 16 to 22 px, and its **Reset** button brings back its defaults. A lamp screen's text takes all three (see [What a lamp screen shows](#what-a-lamp-screen-shows)), and the main screen's value and bar only the color (see [The main screen](#the-main-screen)).
 
 ## Steps
 
@@ -139,7 +139,7 @@ Under the lamps come how each lamp steps, for its brightness and its temperature
 
 ### Dials
 
-"Dials" starts with the text styles, which both screens take (see [Text styles](#text-styles)). It holds, under "Main screen", whether a turn on a Set Brightness or a Set Temperature dial's own screen turns its lamps on as it changes them, and the text style its value takes its color from (see [The main screen](#the-main-screen)). Under "Lamp screens" come the lamp screens' blink for every dial (see [Lamp screens](#lamp-screens)), whether a turn on a lamp screen turns its lamp on, and what they show (see [What a lamp screen shows](#what-a-lamp-screen-shows)). The settings that turn lamps on are unchecked by default, like the keys'.
+"Dials" starts with the text styles, which both screens take (see [Text styles](#text-styles)). It holds, under "Main screen", whether a turn on a Set Brightness or a Set Temperature dial's own screen turns its lamps on as it changes them, and the text styles its value and its bar take their colors from (see [The main screen](#the-main-screen)). Under "Lamp screens" come the lamp screens' blink for every dial (see [Lamp screens](#lamp-screens)), whether a turn on a lamp screen turns its lamp on, and what they show (see [What a lamp screen shows](#what-a-lamp-screen-shows)). The settings that turn lamps on are unchecked by default, like the keys'.
 
 ## When something doesn't work
 

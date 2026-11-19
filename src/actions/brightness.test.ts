@@ -207,7 +207,7 @@ describe("BrightnessAction", () => {
       expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith({
         title: "Set Brightness",
         value: { value: "—", color: "#ffffff" },
-        indicator: { value: 0, bar_fill_c: "white" },
+        indicator: { value: 0, bar_fill_c: "#ffffff" },
       });
     });
   });

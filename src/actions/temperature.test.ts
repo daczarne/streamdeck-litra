@@ -225,7 +225,7 @@ describe("TemperatureAction", () => {
       expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith({
         title: "Set Temperature",
         value: { value: "4000 K", color: "#ffffff" },
-        indicator: { value: 34, bar_fill_c: "white" },
+        indicator: { value: 34, bar_fill_c: "#ffffff" },
       });
     });
 
@@ -237,7 +237,7 @@ describe("TemperatureAction", () => {
       expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith({
         title: "Set Temperature",
         value: { value: "—", color: "#ffffff" },
-        indicator: { value: 0, bar_fill_c: "white" },
+        indicator: { value: 0, bar_fill_c: "#ffffff" },
       });
     });
   });

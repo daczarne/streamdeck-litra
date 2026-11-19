@@ -145,7 +145,7 @@ const TEXT_STYLES = {
 const TEXT_STYLE_CONTROLS = Object.keys(TEXT_STYLES).flatMap((style) =>
   ["Color", "Weight", "Size"].map((part) => `${style}${part}`),
 );
-const MAIN_SCREEN_PARTS = ["mainScreenValueStyle"];
+const MAIN_SCREEN_PARTS = ["mainScreenValueStyle", "mainScreenBarStyle"];
 const PLUGIN_SETTINGS_GLOBALS = [
   "resyncDirection",
   ...LAMPS_CHECKBOXES,
@@ -1059,8 +1059,11 @@ describe("settings pages", () => {
       expect(read(setting, "accent")).toEqual({ value: "accent", valid: true });
     });
 
-    it("goes back to Primary on its Reset, and keeps the other settings", async () => {
-      streamDeck.globalSettings = { [setting]: "alert", lampScreenAlertColor: "#ff8800" };
+    it("goes back to Primary on its Reset, and keeps the other parts' and the text styles", async () => {
+      const others = Object.fromEntries(
+        MAIN_SCREEN_PARTS.filter((part) => part !== setting).map((part) => [part, "alert"]),
+      );
+      streamDeck.globalSettings = { ...others, [setting]: "alert", lampScreenAlertColor: "#ff8800" };
       const { page } = await openPanel(panel);
       await page.evaluate(`SDPIComponents.useGlobalSettings("${setting}")[0]()`);
       await clickInPluginSettings(page, "Plugin settings");
@@ -1071,7 +1074,7 @@ describe("settings pages", () => {
       })()`);
       await expect
         .poll(() => streamDeck.globalSettings)
-        .toEqual({ [setting]: "primary", lampScreenAlertColor: "#ff8800" });
+        .toEqual({ ...others, [setting]: "primary", lampScreenAlertColor: "#ff8800" });
       await page.close();
     });
   });

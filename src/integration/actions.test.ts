@@ -244,6 +244,20 @@ describe("the Power key", () => {
 });
 
 describe("the Set Brightness action", () => {
+  it("draws its bar in the color of the text style the plugin settings give it, fainter where only one lamp reaches (#183)", async () => {
+    await plugIn(newLamp({ capInLumen: 264 }), newLamp({ capInLumen: 324 }));
+    const key = await deck.key(BRIGHTNESS, { presetPercentage: 100 });
+    const dial = await deck.dial(BRIGHTNESS);
+
+    await saveFromPage({ mainScreenBarStyle: "accent" });
+    await deck.press(key);
+
+    expect(feedbackOf(dial)).toMatchObject({
+      value: { value: "79%", color: "#ffffff" },
+      indicator: { value: 79, bar_fill_c: "0:#4dd0e1,0.797:#4dd0e1,0.798:#3a9ca9,1:#3a9ca9" },
+    });
+  });
+
   it("shows its value in the color of the text style the plugin settings give it, and follows the style (#183)", async () => {
     await plugIn(newLamp());
     const dial = await deck.dial(BRIGHTNESS);
@@ -381,7 +395,7 @@ describe("the Set Temperature action", () => {
     expect(feedbackOf(dial)).toEqual({
       title: "Set Temperature",
       value: { value: "4200 K", color: "#ffffff" },
-      indicator: { value: 39, bar_fill_c: "white" },
+      indicator: { value: 39, bar_fill_c: "#ffffff" },
     });
   });
 

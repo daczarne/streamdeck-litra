@@ -384,6 +384,7 @@ export const globalSettingsSchema = {
   // the color: the weight and size of its text, and where each part sits, are the $B1 layout's. Every part follows
   // Primary by default, whose white draws the main screen as Stream Deck's own dials draw theirs.
   mainScreenValueStyle: oneOf(TEXT_STYLES, "primary"),
+  mainScreenBarStyle: oneOf(TEXT_STYLES, "primary"),
   // Every blink that identifies a lamp, from the plugin settings or on a lamp screen, lasts as long as the plugin
   // settings say, in ms (#171). A lamp fades out when switched off, in about 750 ms at any brightness, so a blink much
   // shorter than the fade brings the lamp back before it has dimmed enough to notice among lamps that stay on, while

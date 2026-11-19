@@ -364,19 +364,28 @@
   }
 
   /**
-   * A part of the dials' main screen (#183), under its name: the text style it takes its color from, saved by
-   * sdpi-components as a global setting, and a Reset button under it, which sets it back to Primary.
+   * The parts of the dials' main screen (#183), two to a row, as [name, setting]: each under its name, with the text
+   * style it takes its color from, saved by sdpi-components as a global setting, and a Reset button under it, which
+   * sets it back to Primary.
    */
-  function mainScreenPart(name, setting) {
-    const style = globalSelect(setting, TEXT_STYLES, "primary");
-    const box = fields(name, [["Color", style]]);
-    const reset = button("Reset", () => {
-      style.value = style.getAttribute("default");
-    });
-    reset.className = "fields-reset";
-    reset.dataset.part = setting;
-    box.append(reset);
-    return box;
+  function mainScreenParts(parts) {
+    const grid = document.createElement("div");
+    grid.className = "cells";
+    for (const [name, setting] of parts) {
+      const heading = document.createElement("p");
+      heading.className = "fields-title";
+      heading.textContent = name;
+      const style = globalSelect(setting, TEXT_STYLES, "primary");
+      const reset = button("Reset", () => {
+        style.value = style.getAttribute("default");
+      });
+      reset.dataset.part = setting;
+      const box = document.createElement("div");
+      box.className = "cell";
+      box.append(heading, style, reset);
+      grid.append(box);
+    }
+    return grid;
   }
 
   /** A list for each cell of the lamp screens, laid out as the cells are, each with a button that shows its options. */
@@ -871,7 +880,13 @@
     item(undefined, subsection("Main screen")),
     item("Turn on", globalCheckbox("setBrightnessDialsTurnLampsOn", "Set Brightness dials turn lamps on")),
     item(undefined, globalCheckbox("setTemperatureDialsTurnLampsOn", "Set Temperature dials turn lamps on")),
-    item("Layout", mainScreenPart("Value", "mainScreenValueStyle")),
+    item(
+      "Layout",
+      mainScreenParts([
+        ["Value", "mainScreenValueStyle"],
+        ["Bar", "mainScreenBarStyle"],
+      ]),
+    ),
     item(undefined, subsection("Lamp screens")),
     item("Blink", everyDialBlink),
     item("Turn on", globalCheckbox("setBrightnessLampScreensTurnLampsOn", "Set Brightness dials turn the lamp on")),

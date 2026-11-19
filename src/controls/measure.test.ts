@@ -44,10 +44,17 @@ const BEAM = reachedLamp("00000000000000a1", AT_ITS_CAP);
 const OTHER_BEAM = reachedLamp("00000000000000b2", AT_ITS_CAP);
 
 /** What the fake dials' main screen shows, whatever the lamps are at. */
-const MAIN: MainScreen = { title: "Fake", value: "42 u", indicator: { value: 42, bar_fill_c: "white" } };
+const MAIN: MainScreen = { title: "Fake", value: "42 u", levels: [42] };
 
-/** What a dial shows of {@link MAIN}, with the value in the Primary style's color, as the default settings give it. */
-const SHOWN: FeedbackPayload = { ...MAIN, value: { value: "42 u", color: "#ffffff" } };
+/**
+ * What a dial shows of {@link MAIN}, with the value and the bar in the Primary style's color, as the default settings
+ * give it.
+ */
+const SHOWN: FeedbackPayload = {
+  title: "Fake",
+  value: { value: "42 u", color: "#ffffff" },
+  indicator: { value: 42, bar_fill_c: "#ffffff" },
+};
 
 /** What the fake keys set: the preset in their settings, or 50, on the lamps checked, or every lamp. */
 const PRESET = {
@@ -233,7 +240,22 @@ describe("a dial of a MeasureAction", () => {
       await vi.runAllTimersAsync();
       const dial = await deck.dial(FAKE);
 
-      expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith({ ...MAIN, value: { value: "42 u", color: "#ff8800" } });
+      expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith({
+        ...SHOWN,
+        value: { value: "42 u", color: "#ff8800" },
+      });
+    });
+
+    it("draws its bar in the color of the text style the global settings give it, apart from its value's (#183)", async () => {
+      changeGlobalSettings({ mainScreenBarStyle: "alert", lampScreenAlertColor: "#ff8800" });
+      await vi.runAllTimersAsync();
+      MEASURE.mainScreen.mockResolvedValue({ ...MAIN, levels: [21, 42] });
+      const dial = await deck.dial(FAKE);
+
+      expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith({
+        ...SHOWN,
+        indicator: { value: 42, bar_fill_c: "0:#ff8800,0.5:#ff8800,0.501:#c06600,1:#c06600" },
+      });
     });
 
     it("redraws on every dial when the color of its value's text style changes (#183)", async () => {
@@ -245,7 +267,7 @@ describe("a dial of a MeasureAction", () => {
       changeGlobalSettings({ mainScreenValueStyle: "accent", lampScreenAccentColor: "#ff8800" });
       await vi.runAllTimersAsync();
 
-      const shown = { ...MAIN, value: { value: "42 u", color: "#ff8800" } };
+      const shown = { ...SHOWN, value: { value: "42 u", color: "#ff8800" } };
       expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith(shown);
       expect(otherDial.setFeedback).toHaveBeenCalledExactlyOnceWith(shown);
     });
@@ -569,42 +591,58 @@ describe("a MeasureAction logs", () => {
 
 describe("bar", () => {
   it("is filled up to the highest level, and banded by barFill", () => {
-    expect(bar([63, 79])).toEqual({ value: 79, bar_fill_c: "0:#ffffff,0.797:#ffffff,0.798:#c0c0c0,1:#c0c0c0" });
+    expect(bar([63, 79], "#ffffff")).toEqual({
+      value: 79,
+      bar_fill_c: "0:#ffffff,0.797:#ffffff,0.798:#c0c0c0,1:#c0c0c0",
+    });
   });
 
   it("is empty with no lamp", () => {
-    expect(bar([])).toEqual({ value: 0, bar_fill_c: "white" });
+    expect(bar([], "#ffffff")).toEqual({ value: 0, bar_fill_c: "#ffffff" });
   });
 });
 
 describe("barFill", () => {
-  it("is plain white for one lamp", () => {
-    expect(barFill([79])).toBe("white");
+  it("is plain in its color for one lamp", () => {
+    expect(barFill([79], "#ffffff")).toBe("#ffffff");
   });
 
-  it("is plain white when every lamp is at the same level", () => {
-    expect(barFill([50, 50])).toBe("white");
+  it("is plain in its color when every lamp is at the same level", () => {
+    expect(barFill([50, 50], "#ffffff")).toBe("#ffffff");
   });
 
-  it("is plain white when no lamp is lit or none is shown", () => {
-    expect(barFill([0, 0])).toBe("white");
-    expect(barFill([])).toBe("white");
+  it("is plain in its color when no lamp is lit or none is shown", () => {
+    expect(barFill([0, 0], "#ffffff")).toBe("#ffffff");
+    expect(barFill([], "#ffffff")).toBe("#ffffff");
   });
 
-  it("is white up to the dimmest lamp, then fainter up to the brightest, placed as shares of the brightest", () => {
-    expect(barFill([79, 63])).toBe("0:#ffffff,0.797:#ffffff,0.798:#c0c0c0,1:#c0c0c0");
+  it("is in its color up to the dimmest lamp, then fainter up to the brightest, placed as shares of the brightest", () => {
+    expect(barFill([79, 63], "#ffffff")).toBe("0:#ffffff,0.797:#ffffff,0.798:#c0c0c0,1:#c0c0c0");
   });
 
   it("adds a fainter band for each level fewer lamps reach", () => {
     // Up to 25: all three lamps. Up to 50: two of them. Up to 100: one.
-    expect(barFill([25, 50, 100])).toBe("0:#ffffff,0.25:#ffffff,0.251:#d5d5d5,0.5:#d5d5d5,0.501:#aaaaaa,1:#aaaaaa");
+    expect(barFill([25, 50, 100], "#ffffff")).toBe(
+      "0:#ffffff,0.25:#ffffff,0.251:#d5d5d5,0.5:#d5d5d5,0.501:#aaaaaa,1:#aaaaaa",
+    );
   });
 
   it("counts lamps at the same level together", () => {
-    expect(barFill([40, 80, 80])).toBe("0:#ffffff,0.5:#ffffff,0.501:#d5d5d5,1:#d5d5d5");
+    expect(barFill([40, 80, 80], "#ffffff")).toBe("0:#ffffff,0.5:#ffffff,0.501:#d5d5d5,1:#d5d5d5");
+  });
+
+  it("is the color it's given, and fades each of its channels alike where fewer lamps reach (#183)", () => {
+    expect(barFill([42], "#4dd0e1")).toBe("#4dd0e1");
+    expect(barFill([63, 79], "#ff8800")).toBe("0:#ff8800,0.797:#ff8800,0.798:#c06600,1:#c06600");
+  });
+
+  it("fades a dark color towards white, since black has nothing darker to fade to (#183)", () => {
+    expect(barFill([63, 79], "#000000")).toBe("0:#000000,0.797:#000000,0.798:#404040,1:#404040");
+    expect(barFill([63, 79], "#333333")).toBe("0:#333333,0.797:#333333,0.798:#666666,1:#666666");
+    expect(barFill([40, 80, 80], "#000000")).toBe("0:#000000,0.5:#000000,0.501:#2a2a2a,1:#2a2a2a");
   });
 
   it("is fainter from the start when a lamp is at 0%, since it lights none of the bar", () => {
-    expect(barFill([0, 60])).toBe("0:#c0c0c0,1:#c0c0c0");
+    expect(barFill([0, 60], "#ffffff")).toBe("0:#c0c0c0,1:#c0c0c0");
   });
 });
