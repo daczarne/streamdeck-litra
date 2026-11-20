@@ -115,31 +115,6 @@
       "Controllers": [
         "Encoder"
       ],
-      "UserTitleEnabled": true,
-      "Encoder": {
-        "layout": "$B1",
-        "Icon": "imgs/actions/brightness/glyph",
-        "TriggerDescription": {
-          "Rotate": "Brightness",
-          "Push": "Power",
-          "Touch": "Lamps"
-        }
-      },
-      "States": [
-        {
-          "Image": "imgs/actions/brightness/key"
-        }
-      ]
-    },
-    {
-      "Name": "Brightness 2",
-      "UUID": "com.daczarne.litra.brightness-2",
-      "Icon": "imgs/actions/brightness/icon",
-      "Tooltip": "Adjust Litra lights' brightness with a dial (press toggles power, tap shows each lamp).",
-      "PropertyInspectorPath": "ui/brightness.html",
-      "Controllers": [
-        "Encoder"
-      ],
       "UserTitleEnabled": false,
       "Encoder": {
         "layout": "layouts/main.json",
@@ -222,9 +197,9 @@
       "Controllers": [
         "Encoder"
       ],
-      "UserTitleEnabled": true,
+      "UserTitleEnabled": false,
       "Encoder": {
-        "layout": "$B1",
+        "layout": "layouts/main.json",
         "Icon": "imgs/actions/temperature/glyph",
         "TriggerDescription": {
           "Rotate": "Temperature",

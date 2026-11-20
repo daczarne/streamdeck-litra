@@ -27,7 +27,7 @@ Stream Deck ships six layouts, chosen by name:
 | `$B2`  | Like `$A1`, with a gradient bar and a marker beneath the value.        |
 | `$C1`  | The title at the top, two rows of an icon and a bar.                   |
 
-The dials use `$B1`, the layout of Stream Deck's own volume and microphone dials. Its slots are `title`, `icon`, `value` and `indicator` (the bar, filled by a number from 0 to 100). The `icon` slot shows the action's dial icon, `Encoder.Icon` in `manifest.json`: a PNG or SVG at 72x72 px and 144x144 px. The icon reads best as white line art on a transparent background, like Stream Deck's own: anything drawn behind the glyph shows up as a box on the strip.
+`$B1` is the layout of Stream Deck's own volume and microphone dials. Its slots are `title`, `icon`, `value` and `indicator` (the bar, filled by a number from 0 to 100). The dials' main screens use a copy of it (see [The main screen's layout](#the-main-screens-layout)). The `icon` slot shows the action's dial icon, `Encoder.Icon` in `manifest.json`: a PNG or SVG at 72x72 px and 144x144 px. The icon reads best as white line art on a transparent background, like Stream Deck's own: anything drawn behind the glyph shows up as a box on the strip.
 
 ## Custom layouts
 
@@ -44,11 +44,21 @@ An icon and a text can't be joined into one string: the icon is a `pixmap`, in a
 
 So the lamp layout fixes each icon's place, on its cell's outer edge, with the cell's text aligned to its side: a left cell reads icon, value and unit from its left edge, and a right cell value, unit and icon up to its right edge. An icon on a cell's inner edge, at the middle of the row, with the text aligned against it, also worked on the Deck, but the slots on the cell's outer edge were left empty, so its value was drawn toward the middle of the row, out of line with the text of the rows above and below it, which starts at the cell's edge. It was tried as a choice for each cell, and dropped for a single fixed design ([#177]).
 
+## The main screen's layout
+
+The dials' main screens use `layouts/main.json`, a copy of `$B1` made to look the same, but for its title: a slot keyed `title` belongs to Stream Deck's title settings, which take no color from the plugin (see [Updating what a dial shows](#updating-what-a-dial-shows)), so the copy's title is a text keyed `heading`, which the plugin fills and colors, from a title the plugin settings hold ([#183]). Its items, matched by eye against `$B1` on the Deck, side by side on the strip:
+
+- The title, a 16 px text at weight 600, left-aligned in `[16, 10, 136, 24]`, and the value, a 24 px text at weight 600, right-aligned in `[76, 40, 108, 32]`.
+- The icon, a `pixmap` in `[16, 40, 48, 48]`.
+- The bar, in `[76, 74, 108, 12]`, a groove (`subtype` 4, the default, written out) with no border (`border_w` 0) on a `#808080` background. With the schema's defaults, a 2 px white border and a light grey background, and 20 px high, it drew as a thick pill with a white edge, unlike `$B1`'s.
+
+Since the title is the plugin's, Stream Deck's title menu would change nothing on the strip, so the dial actions turn it off (`UserTitleEnabled`, see [the notes on actions][actions]).
+
 ## Updating what a dial shows
 
 - `Encoder.layout` in `manifest.json` sets a dial's layout, by name or by the path to a custom one. `setFeedbackLayout` replaces it at runtime.
 - `setFeedback` fills the slots, keyed by their `key`. A slot takes either a plain value (a string or a number) or an object that changes its other properties too, such as a text's color, except its `key`, `rect` and `type`, which are fixed. A built-in layout's slots take one too: `$B1`'s `value` takes a `color`, and keeps its own font, size and place, so a dial can color its value without a layout of its own ([#183]). Its `icon` takes an SVG as a data URL, as a custom layout's `pixmap` does, drawn as sharp as the PNG of `Encoder.Icon` and in its place, which lets a dial draw its icon in a color ([#183]). Its `title` doesn't take a color: Stream Deck's own title settings own the title's color, and a color sent with `setFeedback` changes nothing, on a dial whose title was edited and on one just placed alike. The manifest's `TitleColor` doesn't reach a dial either, so the title is white until the user picks a color in its title settings ([#183]).
-- The integration tests check that every key the plugin sends is one of its layout's: a custom layout's items, read from its file, and a built-in layout's slots, as listed in this document. A screen that uses another built-in layout needs its slots added to the tests.
+- The integration tests check that every key the plugin sends is one of its layout's items, read from its file.
 - `enabled: false` in `setFeedback` hides a slot, a text or a pixmap, and `enabled: true` shows it again. A hidden slot leaves its place empty, and the slots around it stay where they are ([#177]).
 - `showAlert` on a dial flashes its part of the touch strip red, where a key shows a yellow triangle (see [the notes on keys][keys]). It showed in full on a dial that went back to its main screen as it was shown, with another layout and new values.
 - A bar's `bar_fill_c` takes a single color or a gradient of `{offset}:{color}` stops. The stops span the bar's filled part, not the whole bar, so a point at a given level sits at that level divided by the bar's `value`. Two stops 0.001 apart draw a sharp edge between two colors.
@@ -83,6 +93,7 @@ Checked against `@elgato/streamdeck` 3.0.3 and the schemas in `@elgato/schemas`,
 - A `pixmap`'s SVG data URL: seen on the Deck, drawing the lamp screens' icons in their text's color ([#153]).
 - `$B1`'s `value` taking a color, and its `icon` an SVG: seen on the Deck, coloring the main screens' value and icon from a text style ([#183]).
 - `$B1`'s `title` refusing one, from `setFeedback` or the manifest's `TitleColor`: seen on the Deck, on a dial with a title of its own, and on one just placed ([#183]).
+- The main screen's layout matching `$B1`: seen on the Deck, a dial on each side by side ([#183]).
 
 [#8]: https://github.com/daczarne/streamdeck-litra/issues/8
 [#20]: https://github.com/daczarne/streamdeck-litra/issues/20
@@ -92,4 +103,5 @@ Checked against `@elgato/streamdeck` 3.0.3 and the schemas in `@elgato/schemas`,
 [#153]: https://github.com/daczarne/streamdeck-litra/issues/153
 [#177]: https://github.com/daczarne/streamdeck-litra/issues/177
 [#183]: https://github.com/daczarne/streamdeck-litra/issues/183
+[actions]: actions.md
 [keys]: keys.md

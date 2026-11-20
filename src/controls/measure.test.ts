@@ -56,7 +56,7 @@ const MAIN: MainScreen = { title: "Fake", value: "42 u", levels: [42] };
  * settings give it.
  */
 const SHOWN: FeedbackPayload = {
-  title: "Fake",
+  heading: { value: "Fake", color: "#ffffff" },
   icon: iconIn(fakeGlyph),
   value: { value: "42 u", color: "#ffffff" },
   indicator: { value: 42, bar_fill_c: "#ffffff" },
@@ -131,7 +131,7 @@ describe("a dial of a MeasureAction", () => {
       const dial = await deck.dial(FAKE, { step: 5 });
 
       expect(MEASURE.readStep).toHaveBeenCalledExactlyOnceWith({ step: 5 }, logger);
-      expect(dial.setFeedbackLayout).toHaveBeenCalledExactlyOnceWith("$B1");
+      expect(dial.setFeedbackLayout).toHaveBeenCalledExactlyOnceWith("layouts/main.json");
       expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith(SHOWN);
     });
 
@@ -154,6 +154,17 @@ describe("a dial of a MeasureAction", () => {
       expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith({
         ...SHOWN,
         value: { value: "42 u", color: "#ff8800" },
+      });
+    });
+
+    it("shows its title in the color of the text style the global settings give it, apart from its value's (#183)", async () => {
+      changeGlobalSettings({ mainScreenTitleStyle: "accent", lampScreenAccentColor: "#ff8800" });
+      await vi.runAllTimersAsync();
+      const dial = await deck.dial(FAKE);
+
+      expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith({
+        ...SHOWN,
+        heading: { value: "Fake", color: "#ff8800" },
       });
     });
 
@@ -286,7 +297,7 @@ describe("a dial of a MeasureAction", () => {
       expect(dial.setFeedbackLayout).toHaveBeenLastCalledWith("layouts/lamp.json");
 
       await deck.tap(dial);
-      expect(dial.setFeedbackLayout).toHaveBeenLastCalledWith("$B1");
+      expect(dial.setFeedbackLayout).toHaveBeenLastCalledWith("layouts/main.json");
       expect(dial.setFeedback).toHaveBeenLastCalledWith(SHOWN);
     });
 
@@ -388,7 +399,7 @@ describe("a dial of a MeasureAction", () => {
 
       await lampsChanged();
 
-      expect(dial.setFeedbackLayout).toHaveBeenLastCalledWith("$B1");
+      expect(dial.setFeedbackLayout).toHaveBeenLastCalledWith("layouts/main.json");
       expect(dial.setFeedback).toHaveBeenLastCalledWith(SHOWN);
     });
 

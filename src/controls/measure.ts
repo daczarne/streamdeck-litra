@@ -16,7 +16,7 @@ import { LampScreen } from "./lamp-screens";
 const FAINTEST_BAR_SHARE = 0x80;
 
 /**
- * The bar a Brightness or Temperature dial's main screen shows, in the $B1 layout's indicator, for each lamp's
+ * The bar a Brightness or Temperature dial's main screen shows, in its layout's indicator, for each lamp's
  * place in its range, in %: filled up to the highest one, in a color as `#rrggbb`, and banded by how many lamps reach
  * each part of it (#59, #183, #229).
  */
@@ -67,7 +67,7 @@ function fade(color: string, share: number): string {
 }
 
 /**
- * What a Brightness or Temperature dial's main screen shows of every lamp, in the slots of the $B1 layout: its
+ * What a Brightness or Temperature dial's main screen shows of every lamp, in the slots of its layout, a copy of $B1: its
  * title, the value as text, and each lamp's place in its range, in %, which the bar under it shows, before the dial
  * gives them their colors (#183).
  */
@@ -95,8 +95,6 @@ export type Measure = {
   ) => Promise<OperationResult>;
   glyph: Glyph;
   mainScreen: () => Promise<MainScreen>;
-  // A trial of a custom copy of $B1, whose title is a text of the plugin's own, so it can take a color.
-  layout?: { path: string; titleKey: string };
 };
 
 /** The Brightness or the Temperature dial action, which gives each dial a {@link MeasureDial}. */
@@ -135,11 +133,7 @@ class MeasureDial extends ActionInstance<{ step: number }, DialAction<JsonObject
     private readonly measure: Measure,
   ) {
     super(control, settings, (saved) => ({ step: measure.readStep(saved, logger) }));
-    this.screen = new LampScreen(control, {
-      showMain: () => this.showMainScreen(),
-      adjusts: measure.adjusts,
-      ...(measure.layout === undefined ? {} : { mainLayout: measure.layout.path }),
-    });
+    this.screen = new LampScreen(control, { showMain: () => this.showMainScreen(), adjusts: measure.adjusts });
   }
 
   /** Starts the dial on its main screen, with what the lamps are at. */
@@ -243,9 +237,7 @@ class MeasureDial extends ActionInstance<{ step: number }, DialAction<JsonObject
     const { title, value, levels } = await this.measure.mainScreen();
     const colors = globalSettings.mainScreenColors;
     const feedback: FeedbackPayload = {
-      ...(this.measure.layout === undefined
-        ? { title }
-        : { [this.measure.layout.titleKey]: { value: title, color: colors.title } }),
+      heading: { value: title, color: colors.title },
       icon: iconOf(this.measure.glyph, colors.icon),
       value: { value, color: colors.value },
       indicator: bar(levels, colors.bar),

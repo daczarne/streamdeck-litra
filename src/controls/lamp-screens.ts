@@ -25,12 +25,13 @@ type DialOwner = {
   showMain: () => Promise<void>;
   /** What turning the dial adjusts, which the app shows as the description of a turn. */
   adjusts: string;
-  mainLayout?: string;
 };
 
 const logger = pluginLogger.createScope("Lamp screens");
 
-export const MAIN_LAYOUT = "$B1";
+// The main screen's layout copies $B1, Stream Deck's own volume dials', but for its title, a text of the plugin's own,
+// keyed "heading": Stream Deck's title settings own a slot keyed "title", which takes no color from the plugin (#183).
+export const MAIN_LAYOUT = "layouts/main.json";
 const LAMP_LAYOUT = "layouts/lamp.json";
 
 // The gestures on a lamp screen act on its lamp alone (#20).
@@ -135,7 +136,7 @@ export class LampScreen {
   appear(): Promise<void> {
     return this.enqueue(async () => {
       this.shown = undefined;
-      await this.dial.setFeedbackLayout(this.owner.mainLayout ?? MAIN_LAYOUT);
+      await this.dial.setFeedbackLayout(MAIN_LAYOUT);
       await this.dial.setTriggerDescription();
     });
   }
@@ -162,7 +163,7 @@ export class LampScreen {
   /** Switches the dial back to the main layout and lets it draw its main screen. */
   private async backToMain(): Promise<void> {
     this.shown = undefined;
-    await this.dial.setFeedbackLayout(this.owner.mainLayout ?? MAIN_LAYOUT);
+    await this.dial.setFeedbackLayout(MAIN_LAYOUT);
     await this.dial.setTriggerDescription();
     await this.owner.showMain();
   }

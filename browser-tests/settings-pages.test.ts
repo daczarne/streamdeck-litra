@@ -147,7 +147,9 @@ const TEXT_STYLES = {
 const TEXT_STYLE_CONTROLS = Object.keys(TEXT_STYLES).flatMap((style) =>
   ["Color", "Weight", "Size"].map((part) => `${style}${part}`),
 );
-const MAIN_SCREEN_PARTS = ["mainScreenIconStyle", "mainScreenValueStyle", "mainScreenBarStyle"];
+// The dials' titles, which the plugin draws on their main screens, with their defaults (#183).
+const DIAL_TITLES = { brightnessDialTitle: "Brightness", temperatureDialTitle: "Temperature" };
+const MAIN_SCREEN_PARTS = ["mainScreenTitleStyle", "mainScreenValueStyle", "mainScreenIconStyle", "mainScreenBarStyle"];
 const PLUGIN_SETTINGS_GLOBALS = [
   "resyncDirection",
   ...LAMPS_CHECKBOXES,
@@ -155,6 +157,7 @@ const PLUGIN_SETTINGS_GLOBALS = [
   ...KEY_TURN_ON_CHECKBOXES,
   ...TEXT_STYLE_CONTROLS,
   ...DIAL_TURN_ON_CHECKBOXES,
+  ...Object.keys(DIAL_TITLES),
   ...MAIN_SCREEN_PARTS,
   ...LAMP_SCREEN_TURN_ON_CHECKBOXES,
   ...LAMP_SCREEN_LISTS,
@@ -1032,6 +1035,71 @@ describe("settings pages", () => {
   });
 
   // The text style each part of the dials' main screens takes its color from, in the plugin settings (#183).
+  describe.each(Object.entries(DIAL_TITLES))(
+    "the global %s in the plugin settings on ui/power.html",
+    (setting, name) => {
+      const panel = at(PANELS, 0);
+
+      afterEach(() => {
+        streamDeck.globalSettings = {};
+      });
+
+      /** Types a title into the setting's field, as the user does. */
+      function typeTitle(page: Page, title: string): Promise<void> {
+        return page.evaluate(`(async () => {
+        const host = document.querySelector('[setting="${setting}"]');
+        await host.updateComplete;
+        const input = host.shadowRoot.querySelector("input");
+        input.focus();
+        input.value = ${JSON.stringify(title)};
+        input.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+      })()`);
+      }
+
+      it("defaults to the dial's name, its default in settings.ts, as a text field", async () => {
+        const { page } = await openPanel(panel);
+        const control = await controlOf(page, setting);
+        await page.close();
+
+        expect(control).toMatchObject({ tag: "sdpi-textfield", default: name });
+        expect(read(setting, name)).toEqual({ value: defaultOf(setting), valid: true });
+      });
+
+      it("saves the title typed, and an empty one, to the global settings, as settings.ts takes them", async () => {
+        streamDeck.globalSettings = { blinkOnLampScreen: true };
+        const { page } = await openPanel(panel);
+        await page.evaluate(`SDPIComponents.useGlobalSettings("${setting}")[0]()`);
+        await clickInPluginSettings(page, "Plugin settings");
+
+        await typeTitle(page, "Desk");
+        await expect.poll(() => streamDeck.globalSettings).toEqual({ blinkOnLampScreen: true, [setting]: "Desk" });
+        await typeTitle(page, "");
+        await expect.poll(() => streamDeck.globalSettings).toEqual({ blinkOnLampScreen: true, [setting]: "" });
+        await page.close();
+
+        expect(read(setting, "Desk")).toEqual({ value: "Desk", valid: true });
+        expect(read(setting, "")).toEqual({ value: "", valid: true });
+      });
+
+      it("goes back to the dial's name on its Reset, and keeps the other dial's title and the parts' styles", async () => {
+        const others = Object.fromEntries(Object.keys(DIAL_TITLES).map((title) => [title, "Desk"]));
+        streamDeck.globalSettings = { ...others, mainScreenTitleStyle: "alert" };
+        const { page } = await openPanel(panel);
+        await page.evaluate(`SDPIComponents.useGlobalSettings("${setting}")[0]()`);
+        await clickInPluginSettings(page, "Plugin settings");
+        await page.evaluate(`(async () => {
+        const host = document.querySelector('[setting="${setting}"]').parentElement.querySelector("sdpi-button");
+        await host.updateComplete;
+        host.shadowRoot.querySelector("button").click();
+      })()`);
+        await expect
+          .poll(() => streamDeck.globalSettings)
+          .toEqual({ ...others, [setting]: name, mainScreenTitleStyle: "alert" });
+        await page.close();
+      });
+    },
+  );
+
   describe.each(MAIN_SCREEN_PARTS)("the global %s in the plugin settings on ui/power.html", (setting) => {
     const panel = at(PANELS, 0);
 
@@ -2270,8 +2338,8 @@ describe("settings pages", () => {
       expect(await pluginSettingsOf(page)).toMatchObject({
         open: true,
         actionShown: false,
-        // A Reset button under each text style (#153) and each part of the main screens (#183), and a Configure button
-        // under each of the lamp screens' cells (#177).
+        // A Reset button under each text style (#153), beside each dial's title and under each part of the main
+        // screens (#183), and a Configure button under each of the lamp screens' cells (#177).
         buttons: [
           "Back",
           "Find lamps",
@@ -2279,6 +2347,7 @@ describe("settings pages", () => {
           `Forget ${FIRST.label}`,
           "Re-sync lamps",
           ...Object.keys(TEXT_STYLES).map(() => "Reset"),
+          ...Object.keys(DIAL_TITLES).map(() => "Reset"),
           ...MAIN_SCREEN_PARTS.map(() => "Reset"),
           ...LAMP_SCREEN_LISTS.map(() => "Configure"),
         ],

@@ -1,6 +1,5 @@
 import streamDeck from "@elgato/streamdeck";
 import { BrightnessAction } from "./actions/brightness";
-import { Brightness2Action } from "./actions/brightness-2";
 import { BrightnessDownAction } from "./actions/brightness-down";
 import { BrightnessUpAction } from "./actions/brightness-up";
 import { PowerAction } from "./actions/power";
@@ -28,7 +27,6 @@ streamDeck.actions.registerAction(new SetBrightnessAction());
 streamDeck.actions.registerAction(new BrightnessUpAction());
 streamDeck.actions.registerAction(new BrightnessDownAction());
 streamDeck.actions.registerAction(new BrightnessAction());
-streamDeck.actions.registerAction(new Brightness2Action());
 streamDeck.actions.registerAction(new SetTemperatureAction());
 streamDeck.actions.registerAction(new TemperatureUpAction());
 streamDeck.actions.registerAction(new TemperatureDownAction());

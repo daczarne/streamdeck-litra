@@ -109,7 +109,7 @@ A section's parts with several settings get a heading, such as "Lamp screens". A
 
 ## The dials' text styles are roles
 
-Stream Deck lets each user pick the touch strip's background, which the plugin can't read, so no fixed look reads on every strip. The dials' text takes its look from four styles, set in the plugin settings, which every dial shares ([#153]): the lamp screens' text takes their color, weight and size, and the main screen's icon, value and bar their color alone, since the rest is the `$B1` layout's, and its title's color is Stream Deck's own title settings' ([#183]). Each is named for its role, not its look, so a user who restyles them keeps what each one means, and a text picks its style by what it says:
+Stream Deck lets each user pick the touch strip's background, which the plugin can't read, so no fixed look reads on every strip. The dials' text takes its look from four styles, set in the plugin settings, which every dial shares ([#153]): the lamp screens' text takes their color, weight and size, and the main screen's title, icon, value and bar their color alone, since the rest is its layout's, a copy of `$B1` ([#183]). Each is named for its role, not its look, so a user who restyles them keeps what each one means, and a text picks its style by what it says:
 
 | Style     | Role                                          | Default look            | Used by default for                            |
 | --------- | --------------------------------------------- | ----------------------- | ---------------------------------------------- |

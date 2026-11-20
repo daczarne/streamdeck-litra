@@ -38,7 +38,7 @@ Stream Deck starts ─► reads manifest.json ─► spawns Node 24 on bin/plugi
 
 Stream Deck reads [manifest.json] from every folder in `Plugins/`. Everything it shows before the plugin runs comes from there, not from the plugin's code:
 
-- the Litra category and the 10 actions, each with its `UUID`, icon, tooltip, settings page (`PropertyInspectorPath`), the controllers it can sit on (`Keypad`, `Encoder`), its states and, for a dial, its layout (`$B1`) and trigger descriptions;
+- the Litra category and the 10 actions, each with its `UUID`, icon, tooltip, settings page (`PropertyInspectorPath`), the controllers it can sit on (`Keypad`, `Encoder`), its states and, for a dial, its layout (`layouts/main.json`) and trigger descriptions;
 - `CodePath` (`bin/plugin.js`), the file to run;
 - `Nodejs.Version` (`24`), the runtime to run it with, which Stream Deck downloads into `~/Library/Application Support/com.elgato.StreamDeck/NodeJS/`.
 
@@ -113,7 +113,7 @@ Two things arrive, and nothing in the plugin depends on which comes first.
 | --- | --- |
 | Set Brightness key (`PresetKey`) | Its preset as its title, with its unit, whatever the lamps are at |
 | Power key | `areLampsOn`: with no lamp reached yet, none is on, so state 0 |
-| Brightness dial (`MeasureDial`) | Sets the `$B1` layout, then its main screen: with no lamp reached, `—` and an empty bar |
+| Brightness dial (`MeasureDial`) | Sets its main screen's layout, `layouts/main.json`, then its main screen: with no lamp reached, `—` and an empty bar |
 | Brightness Up key | Its title, from the lamps shown, none yet |
 
 **The answer to `getGlobalSettings`.** It carries the request's id, so the `onDidReceiveGlobalSettings` listener ignores it (that one only reports a page's changes), and it resolves the promise `syncGlobalSettings` returned in [4](#4-the-body-of-plugints) instead. Then:

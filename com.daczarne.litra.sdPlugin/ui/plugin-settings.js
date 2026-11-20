@@ -899,8 +899,8 @@
     item(undefined, subsection("Main screen")),
     item("Turn on", globalCheckbox("setBrightnessDialsTurnLampsOn", "Brightness dials turn lamps on")),
     item(undefined, globalCheckbox("setTemperatureDialsTurnLampsOn", "Temperature dials turn lamps on")),
-    item("Brightness title", globalText("setBrightnessDialTitle", "Brightness")),
-    item("Temperature title", globalText("setTemperatureDialTitle", "Temperature")),
+    item("Brightness title", globalText("brightnessDialTitle", "Brightness")),
+    item("Temperature title", globalText("temperatureDialTitle", "Temperature")),
     item(
       "Layout",
       mainScreenParts([

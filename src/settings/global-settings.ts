@@ -237,9 +237,9 @@ export class GlobalSettings {
     };
   }
 
-  /** A trial: the title each action's dials show on their main screen, which may be empty. */
+  /** The title each action's dials show on their main screen, which an empty one hides (#183). */
   get mainScreenTitles(): { brightness: string; temperature: string } {
-    return { brightness: this.parsed.setBrightnessDialTitle, temperature: this.parsed.setTemperatureDialTitle };
+    return { brightness: this.parsed.brightnessDialTitle, temperature: this.parsed.temperatureDialTitle };
   }
 
   /** The color each part of a dial's main screen takes, from the text style the settings give it (#183). */

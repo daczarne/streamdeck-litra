@@ -8,7 +8,7 @@ import { globalSettings } from "../settings/global-settings";
 import { parseSettings, temperatureDialSettingsSchema } from "../settings/schemas";
 
 /**
- * What a Temperature dial steps, and shows on its main screen, in the slots of the $B1 layout: the highest
+ * What a Temperature dial steps, and shows on its main screen, in the slots of its layout, a copy of $B1: the highest
  * temperature as text, and its place in the lamps' range as the bar under it, banded by how many lamps reach each part
  * of it, as the Brightness dial's (#229), or a dash with no lamp.
  */
@@ -24,7 +24,7 @@ const TEMPERATURE: Measure = {
   mainScreen: async () => {
     const shown = await temperatureShown("connected");
     return {
-      title: "Temperature",
+      title: globalSettings.mainScreenTitles.temperature,
       value: temperatureText(shown),
       levels: shown.map(({ percentage }) => percentage),
     };
@@ -32,8 +32,8 @@ const TEMPERATURE: Measure = {
 };
 
 /**
- * The Temperature action, on dials alone: it steps the temperature as the dial turns, toggles the lamps when pushed, and shows
- * each lamp on its own screen when the strip is tapped (#20). The Set Temperature action is its key.
+ * The Temperature action, on dials alone: it steps the temperature as the dial turns, toggles the lamps when pushed,
+ * and shows each lamp on its own screen when the strip is tapped (#20). The Set Temperature action is its key.
  */
 @action({ UUID: "com.daczarne.litra.temperature" })
 export class TemperatureAction extends MeasureAction {
