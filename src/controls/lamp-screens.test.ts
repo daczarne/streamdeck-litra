@@ -114,15 +114,21 @@ const C = beam("00c3");
 
 type Dial = ReturnType<typeof createFakeDial>;
 
-// The lamp screen of each dial a test made, as each Brightness and Temperature dial makes its own.
+// The lamp screen of each dial a test made, as each Brightness and Temperature dial makes its own, and the screen
+// each starts on, its main screen unless a test says otherwise (#278).
 let screens: Map<Dial, LampScreen>;
+let startsOn: Map<Dial, string>;
 let showMain: () => Promise<void>;
 
 /** A dial's lamp screen, made the first time it's asked for, for a dial that adjusts the brightness. */
 function screenOf(dial: Dial): LampScreen {
   let screen = screens.get(dial);
   if (screen === undefined) {
-    screen = new LampScreen(dial, { showMain, adjusts: "Brightness" });
+    screen = new LampScreen(dial, {
+      showMain,
+      adjusts: "Brightness",
+      startOn: () => startsOn.get(dial) ?? "main",
+    });
     screens.set(dial, screen);
   }
   return screen;
@@ -141,6 +147,7 @@ await syncGlobalSettings();
 beforeEach(() => {
   changeGlobalSettings({});
   screens = new Map();
+  startsOn = new Map();
   showMain = vi.fn(async () => {});
   connect(A, B);
   // A tap finds the lamps, then shows what the plugin holds of them, which each test sets as lampsShown.
@@ -150,6 +157,104 @@ beforeEach(() => {
 //* Tests
 
 describe("LampScreen", () => {
+  describe("on the screen its dial starts on (#278)", () => {
+    /** A dial that starts on a lamp's screen, as it appears. */
+    async function appearing(startOn: string): Promise<Dial> {
+      const dial = createFakeDial();
+      startsOn.set(dial, startOn);
+      await screenOf(dial).appear();
+      vi.mocked(dial.setFeedbackLayout).mockClear();
+      vi.mocked(dial.setTriggerDescription).mockClear();
+      return dial;
+    }
+
+    it("shows its lamp once it's connected, on the lamp layout, without a blink", async () => {
+      changeGlobalSettings({ blinkOnLampScreen: true });
+      const dial = await appearing(B.id);
+
+      await screenOf(dial).settle();
+
+      expect(dial.setFeedbackLayout).toHaveBeenCalledExactlyOnceWith(LAMP_LAYOUT);
+      expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith(lampScreenOf(B, 2, 2));
+      expect(screenOf(dial).lamp).toBe(B.id);
+      expect(screenOf(dial).isUntouched).toBe(true);
+      expect(identifyLamp).not.toHaveBeenCalled();
+    });
+
+    it("stays on the main screen, which its dial draws, while its lamp isn't connected, and goes to it once it is", async () => {
+      const dial = await appearing(C.id);
+
+      await screenOf(dial).settle();
+
+      expect(screenOf(dial).isShowing).toBe(false);
+      expect(dial.setFeedbackLayout).not.toHaveBeenCalled();
+      expect(showMain).not.toHaveBeenCalled();
+
+      connect(A, B, C);
+      await screenOf(dial).settle();
+
+      expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith(lampScreenOf(C, 3, 3));
+    });
+
+    it("goes back to the main layout, for its dial to draw on, once its lamp is unplugged", async () => {
+      const dial = await appearing(B.id);
+      await screenOf(dial).settle();
+      connect(A);
+
+      await screenOf(dial).settle();
+
+      expect(dial.setFeedbackLayout).toHaveBeenLastCalledWith(MAIN_LAYOUT);
+      expect(dial.setTriggerDescription).toHaveBeenLastCalledWith();
+      expect(screenOf(dial).isShowing).toBe(false);
+      expect(showMain).not.toHaveBeenCalled();
+    });
+
+    it("finds the lamps first as its dial appears, as a tap does, and goes by what the plugin holds otherwise", async () => {
+      const dial = await appearing(B.id);
+      vi.mocked(findLampsShown).mockResolvedValue([A]);
+
+      await screenOf(dial).settle({ find: true });
+
+      expect(findLampsShown).toHaveBeenCalledOnce();
+      expect(screenOf(dial).isShowing).toBe(false);
+
+      await screenOf(dial).settle();
+
+      expect(findLampsShown).toHaveBeenCalledOnce();
+      expect(screenOf(dial).lamp).toBe(B.id);
+    });
+
+    it("stays on the main screen for a dial that starts there, and touches nothing", async () => {
+      const dial = await appearing("main");
+
+      await screenOf(dial).settle();
+
+      expect(screenOf(dial).isShowing).toBe(false);
+      expect(dial.setFeedbackLayout).not.toHaveBeenCalled();
+      expect(lampsShown).not.toHaveBeenCalled();
+
+      await screenOf(dial).settle({ find: true });
+
+      expect(findLampsShown).not.toHaveBeenCalled();
+    });
+
+    it("is left to the taps once the strip is tapped, until the dial appears again", async () => {
+      const dial = await appearing(B.id);
+      await screenOf(dial).settle();
+
+      await screenOf(dial).tap();
+      expect(screenOf(dial).isUntouched).toBe(false);
+      expect(screenOf(dial).isShowing).toBe(false);
+
+      await screenOf(dial).settle();
+      expect(screenOf(dial).isShowing).toBe(false);
+
+      await screenOf(dial).appear();
+      await screenOf(dial).settle();
+      expect(screenOf(dial).lamp).toBe(B.id);
+    });
+  });
+
   describe("on a tap", () => {
     it("shows the first lamp from the main screen, on the lamp layout", async () => {
       const dial = createFakeDial();

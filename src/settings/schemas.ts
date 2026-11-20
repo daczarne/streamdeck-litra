@@ -243,14 +243,25 @@ export const temperatureSettingsSchema = {
 // share (#181). 24 characters at most, as the plugin settings' title.
 const dialTitle = shortText("", 24);
 
+// The screen a dial starts on, each time it appears (#278): its main screen, or a lamp's, by the lamp's id, which it
+// shows while the lamp is connected, until its strip is tapped. A lamp the plugin doesn't know leaves it on its main
+// screen, and its id is kept, so the lamp is the dial's again once the plugin knows it.
+const startOn: Setting<string> = {
+  default: "main",
+  expected: '"main", or a lamp\'s id',
+  parse: (value) => (typeof value === "string" && value !== "" ? value : undefined),
+};
+
 export const brightnessDialSettingsSchema = {
   stepPercentage: wholeNumberFrom(1, 25, 10),
   title: dialTitle,
+  startOn,
 };
 
 export const temperatureDialSettingsSchema = {
   stepKelvin: steppedFrom(100, 500, 100, 300),
   title: dialTitle,
+  startOn,
 };
 
 // The step keys step as the dials do, by the same steps.

@@ -15,8 +15,8 @@ import { parseSettings, temperatureDialSettingsSchema } from "../settings/schema
 const TEMPERATURE: Measure = {
   adjusts: "Temperature",
   readSettings: (settings, logger) => {
-    const { stepKelvin, title } = parseSettings(settings, temperatureDialSettingsSchema, logger);
-    return { step: stepKelvin, title };
+    const { stepKelvin, title, startOn } = parseSettings(settings, temperatureDialSettingsSchema, logger);
+    return { step: stepKelvin, title, startOn };
   },
   unit: " K",
   stepping: () => globalSettings.temperatureStepping,

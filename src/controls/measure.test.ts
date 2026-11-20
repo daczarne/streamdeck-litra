@@ -68,6 +68,7 @@ const MEASURE = {
   readSettings: vi.fn((settings: JsonObject) => ({
     step: typeof settings.step === "number" ? settings.step : 2,
     title: typeof settings.title === "string" ? settings.title : "",
+    startOn: typeof settings.startOn === "string" ? settings.startOn : "main",
   })),
   unit: " u",
   stepping: vi.fn<Measure["stepping"]>(),
@@ -328,6 +329,84 @@ describe("a dial of a MeasureAction", () => {
 
       expect(identifyLamp).not.toHaveBeenCalled();
       expect(dial.setFeedbackLayout).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("on the screen it starts on (#278)", () => {
+    it("appears on its lamp's screen when the lamp is connected, with no main screen drawn first, nor a blink", async () => {
+      vi.mocked(lampsShown).mockResolvedValue([BEAM, OTHER_BEAM]);
+      changeGlobalSettings({ blinkOnLampScreen: true });
+      await vi.runAllTimersAsync();
+
+      const dial = await deck.dial(FAKE, { startOn: OTHER_BEAM.id });
+
+      expect(dial.setFeedbackLayout).toHaveBeenLastCalledWith("layouts/lamp.json");
+      expect(dial.setFeedback).toHaveBeenCalledOnce();
+      expect(dial.setFeedback).not.toHaveBeenCalledWith(SHOWN);
+      expect(identifyLamp).not.toHaveBeenCalled();
+    });
+
+    it("appears on its main screen while its lamp isn't connected, and goes to it once it is", async () => {
+      const dial = await deck.dial(FAKE, { startOn: OTHER_BEAM.id });
+
+      expect(dial.setFeedbackLayout).toHaveBeenCalledExactlyOnceWith("layouts/main.json");
+      expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith(SHOWN);
+
+      vi.mocked(lampsShown).mockResolvedValue([BEAM, OTHER_BEAM]);
+      await lampsChanged();
+
+      expect(dial.setFeedbackLayout).toHaveBeenLastCalledWith("layouts/lamp.json");
+    });
+
+    it("goes back to its main screen, drawn once, when its lamp is unplugged, and to the lamp again when it's back", async () => {
+      vi.mocked(lampsShown).mockResolvedValue([BEAM, OTHER_BEAM]);
+      const dial = await deck.dial(FAKE, { startOn: OTHER_BEAM.id });
+      clearCalls();
+
+      vi.mocked(lampsShown).mockResolvedValue([BEAM]);
+      await lampsChanged();
+
+      expect(dial.setFeedbackLayout).toHaveBeenCalledExactlyOnceWith("layouts/main.json");
+      expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith(SHOWN);
+
+      vi.mocked(lampsShown).mockResolvedValue([BEAM, OTHER_BEAM]);
+      await lampsChanged();
+
+      expect(dial.setFeedbackLayout).toHaveBeenLastCalledWith("layouts/lamp.json");
+    });
+
+    it("goes to the screen its settings page now chooses, until its strip is tapped", async () => {
+      vi.mocked(lampsShown).mockResolvedValue([BEAM, OTHER_BEAM]);
+      const dial = await deck.dial(FAKE);
+
+      await deck.changeSettings(dial, { startOn: BEAM.id });
+      expect(dial.setFeedbackLayout).toHaveBeenLastCalledWith("layouts/lamp.json");
+
+      await deck.changeSettings(dial, { startOn: "main" });
+      expect(dial.setFeedbackLayout).toHaveBeenLastCalledWith("layouts/main.json");
+      expect(dial.setFeedback).toHaveBeenLastCalledWith(SHOWN);
+
+      await deck.tap(dial);
+      clearCalls();
+      await deck.changeSettings(dial, { startOn: OTHER_BEAM.id });
+
+      expect(dial.setFeedbackLayout).not.toHaveBeenCalled();
+    });
+
+    it("stays where the taps got to, whatever the lamps do, until it appears again", async () => {
+      vi.mocked(lampsShown).mockResolvedValue([BEAM, OTHER_BEAM]);
+      const dial = await deck.dial(FAKE, { startOn: OTHER_BEAM.id });
+      await deck.tap(dial);
+      expect(dial.setFeedbackLayout).toHaveBeenLastCalledWith("layouts/main.json");
+
+      await lampsChanged();
+
+      expect(dial.setFeedbackLayout).toHaveBeenLastCalledWith("layouts/main.json");
+
+      await deck.remove(dial);
+      await deck.show(dial);
+
+      expect(dial.setFeedbackLayout).toHaveBeenLastCalledWith("layouts/lamp.json");
     });
   });
 

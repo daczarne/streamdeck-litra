@@ -58,6 +58,16 @@ export class FakeDeck {
     await this.send(placed, "onWillDisappear", {});
   }
 
+  /**
+   * Shows a key or a dial taken off the Deck again, with the settings it kept, as when the user switches back to its
+   * page or profile.
+   */
+  async show(placed: FakeAction): Promise<void> {
+    this.placed.push(placed);
+    show(...this.placed);
+    await this.send(placed, "onWillAppear", {});
+  }
+
   /** Presses a key. */
   press(key: FakeAction): Promise<void> {
     return this.send(key, "onKeyDown", {});
