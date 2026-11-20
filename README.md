@@ -26,10 +26,10 @@ Not an official Logitech or Elgato product.
 |   ![Brightness Up][bright-up]   | **Brightness Up**    | Key  | Step up by the key's %                                                    |
 | ![Brightness Down][bright-down] | **Brightness Down**  | Key  | Step down by the key's %                                                  |
 |      ![Brightness][bright]      | **Brightness**       | Dial | Rotate to adjust, press toggles power, tap the strip to control each lamp |
-|     ![Set Temperature][temp]    | **Set Temperature**  | Key  | Jump to a preset Kelvin                                                   |
-|    ![Temperature Up][temp-up]   | **Temperature Up**   | Key  | Step up, cooler, by the key's Kelvin                                      |
-|  ![Temperature Down][temp-down] | **Temperature Down** | Key  | Step down, warmer, by the key's Kelvin                                    |
-|       ![Temperature][temp]      | **Temperature**      | Dial | Rotate to adjust, press toggles power, tap the strip to control each lamp |
+|    ![Set Temperature][temp]     | **Set Temperature**  | Key  | Jump to a preset Kelvin                                                   |
+|   ![Temperature Up][temp-up]    | **Temperature Up**   | Key  | Step up, cooler, by the key's Kelvin                                      |
+| ![Temperature Down][temp-down]  | **Temperature Down** | Key  | Step down, warmer, by the key's Kelvin                                    |
+|      ![Temperature][temp]       | **Temperature**      | Dial | Rotate to adjust, press toggles power, tap the strip to control each lamp |
 
 Dials are on the Stream Deck + and the Stream Deck + XL.
 
@@ -39,15 +39,17 @@ Dials are on the Stream Deck + and the Stream Deck + XL.
 
 ## Supported hardware
 
-| Lamp          | Power, brightness and temperature     |
-|---------------|---------------------------------------|
-| Litra Beam    | Yes, checked on the lamp              |
-| Litra Beam LX | Front light only, checked on the lamp |
-| Litra Glow    | Not checked on a lamp                 |
+| Model   | Power | Brightness | Temperature | Backlight |
+|---------|:-----:|:----------:|:-----------:|:---------:|
+| Beam    |  ✅   |     ✅     |     ✅      |     —     |
+| Beam LX |  ✅   |     ✅     |     ✅      |    ❌     |
+| Glow    |  ❔   |     ❔     |     ❔      |     —     |
+
+✅ Supported, and checked on the lamp. ❔ Should work, but not checked on a lamp. ❌ Not supported. — The lamp has none.
 
 The plugin is made and checked on Litra Beams, and was checked on a Beam LX's front light, which its tests cover on every change. The Glow takes the same commands, with its own range, so the plugin should control it too, but it hasn't been checked on one, and isn't planned: see "Supported lamps" in [the contributing guide][contributing]. If you try one, [an issue][issues] saying how it went helps.
 
-The Beam LX back light (RGB and G HUB effect presets) isn't supported. What's known about it so far, from the original author's research, is in [#19].
+The Beam LX backlight (RGB and G HUB effect presets) isn't supported. What's known about it so far, from the original author's research, is in [#19].
 
 Lamps connect over USB only: the underlying HID stack doesn't support Bluetooth. A lamp plugged into a hub with limited power may cap its brightness. On a Stream Deck + XL's hub (7.5 W), a Beam stops between about 60% and 80%, depending on the port and the lamp, while plugged into the computer it reaches 100%. A Beam LX runs on a power supply of its own, which it needs plugged in, and reaches 100%. The plugin learns each lamp's cap each time the lamp falls short of what it was sent, so it follows a cap that drops by a few lumens over time, and never asks it for more until the lamp is plugged in again, which is how it moves to another power supply. Right after it learns one, the next brightness change waits about a second, since until then the lamp can undo it.
 
@@ -184,7 +186,7 @@ To update it, download `dist/sdpi-components.js` from the new upstream tag (not 
 
 ## Credits
 
-- Seth Sheppard: the original plugin this repository forked, its design, and the Beam LX back-light research it was based on.
+- Seth Sheppard: the original plugin this repository forked, its design, and the Beam LX backlight research it was based on.
 - [timrogers/litra][litra]: the HID protocol and Node library.
 - [Elgato Stream Deck SDK][sdk].
 

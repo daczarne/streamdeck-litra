@@ -113,7 +113,7 @@ What the Deck shows isn't its job. `src/controls/shown.ts` works it out from the
 
 ## Why litra, not litra-rs
 
-Two libraries speak the lamps' protocol, both by Tim Rogers: `litra`, in TypeScript on `node-hid`, and [`litra-rs`][litra-rs], in Rust, with a CLI and an MCP server. `litra-rs` is the only one that drives the Beam LX's back light. But every way of using it from a Node plugin adds something to own:
+Two libraries speak the lamps' protocol, both by Tim Rogers: `litra`, in TypeScript on `node-hid`, and [`litra-rs`][litra-rs], in Rust, with a CLI and an MCP server. `litra-rs` is the only one that drives the Beam LX's backlight. But every way of using it from a Node plugin adds something to own:
 
 - Running its CLI for every operation starts a process each time.
 - Keeping it running as an MCP server over standard input and output means managing a second, long-running process.
@@ -123,7 +123,7 @@ Two libraries speak the lamps' protocol, both by Tim Rogers: `litra`, in TypeScr
 
 ## One module talks to the lamps
 
-`src/lamps/connection.ts` is the only module that imports `litra`, and nothing outside it sees `litra`'s types. The rest of the plugin reaches a lamp plugged in through a `LampConnection` (see [LampConnection](#lampconnection)), whose methods are what a `Lamp` needs from its lamp, such as switching it on or reading its brightness, rather than `litra`'s own functions. So whatever lies under it can change without touching the rest of the plugin: a fork or a copy of `litra`, or more HID++ calls of the plugin's own, besides the ones it already makes to read a brightness and a Beam LX's serial number, such as the ones the Beam LX's back light needs ([#19]).
+`src/lamps/connection.ts` is the only module that imports `litra`, and nothing outside it sees `litra`'s types. The rest of the plugin reaches a lamp plugged in through a `LampConnection` (see [LampConnection](#lampconnection)), whose methods are what a `Lamp` needs from its lamp, such as switching it on or reading its brightness, rather than `litra`'s own functions. So whatever lies under it can change without touching the rest of the plugin: a fork or a copy of `litra`, or more HID++ calls of the plugin's own, besides the ones it already makes to read a brightness and a Beam LX's serial number, such as the ones the Beam LX's backlight needs ([#19]).
 
 ## The lamps the plugin knows
 
