@@ -51,7 +51,7 @@ Selecting another action replaces the page, so the key and the dial each need th
 
 ## Checks
 
-Stream Deck treats every page the same way, so one key and one dial are enough: a Set Brightness key and a Set Brightness dial, for example. Open each one's page in DevTools.
+Stream Deck treats every page the same way, so one key and one dial are enough: a Set Brightness key and a Brightness dial, for example. Open each one's page in DevTools.
 
 1. **Stream Deck enforces the policy.** On one of the two pages:
     - The console shows no red errors after the page loads. A Chromium that doesn't understand a directive of the policy says so there.

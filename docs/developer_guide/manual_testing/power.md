@@ -4,7 +4,7 @@
 - [Setup](#setup)
 - [Checks](#checks)
 
-The unit tests check against emulated lamps how a toggle chooses one state for every lamp: off if every lamp is on, on otherwise ([#23]). The integration tests check against emulated lamps and a fake Stream Deck that a Set Brightness dial reaches that toggle, and that the plugin sets the new state on every Power key, whichever key or dial changed the lamps ([#57]). They also check that a failed press shows its alert after the key's state, never before it, since a state set right after an alert covers it. The checks below cover what they take for granted: that the lamps report their state and follow the command, and that Stream Deck shows the state the plugin sets, in a look that tells on from off. The keys here act on every connected lamp, as one group: picking a key's lamps is checked in [`lamp_picker.md`][lamp-picker].
+The unit tests check against emulated lamps how a toggle chooses one state for every lamp: off if every lamp is on, on otherwise ([#23]). The integration tests check against emulated lamps and a fake Stream Deck that a Brightness dial reaches that toggle, and that the plugin sets the new state on every Power key, whichever key or dial changed the lamps ([#57]). They also check that a failed press shows its alert after the key's state, never before it, since a state set right after an alert covers it. The checks below cover what they take for granted: that the lamps report their state and follow the command, and that Stream Deck shows the state the plugin sets, in a look that tells on from off. The keys here act on every connected lamp, as one group: picking a key's lamps is checked in [`lamp_picker.md`][lamp-picker].
 
 ## When to run these checks
 
@@ -13,7 +13,7 @@ The unit tests check against emulated lamps how a toggle chooses one state for e
 
 ## Setup
 
-Plug in two Beams. Place two Power keys in their default toggle mode, a Set Brightness key, a Set Brightness dial and a Set Temperature dial on the Deck. Build the branch and restart the plugin:
+Plug in two Beams. Place two Power keys in their default toggle mode, a Set Brightness key, a Brightness dial and a Temperature dial on the Deck. Build the branch and restart the plugin:
 
 ```shell
 npm run build
@@ -22,22 +22,22 @@ npx streamdeck restart com.daczarne.litra
 
 In VS Code, the `Build and restart` task runs both.
 
-To put the lamps out of sync, turn one Beam off on its lamp screen: tap the Set Brightness dial's strip until it shows that lamp, press the dial, and tap the strip until the dial is back on its main screen. A lamp's own power button won't do: the plugin doesn't follow it, by design ([#198]).
+To put the lamps out of sync, turn one Beam off on its lamp screen: tap the Brightness dial's strip until it shows that lamp, press the dial, and tap the strip until the dial is back on its main screen. A lamp's own power button won't do: the plugin doesn't follow it, by design ([#198]).
 
 ## Checks
 
 1. **The key brings lamps out of sync together.** Turn both lamps on, then one off on its lamp screen. Press the Power key: both lamps turn on, and the key shows on.
 2. **The key turns lamps in sync off.** Press the Power key again: both lamps turn off, and the key shows off. Press it once more: both turn on.
-3. **A dial press brings lamps out of sync together.** Turn one lamp off on its lamp screen. With both dials on their main screen, press the Set Brightness dial: both lamps turn on. Turn one off again, on the Set Temperature dial's lamp screen, and press the Set Temperature dial on its main screen: both lamps turn on.
+3. **A dial press brings lamps out of sync together.** Turn one lamp off on its lamp screen. With both dials on their main screen, press the Brightness dial: both lamps turn on. Turn one off again, on the Temperature dial's lamp screen, and press the Temperature dial on its main screen: both lamps turn on.
 4. **A dial press turns lamps in sync off.** With both lamps on, press either dial on its main screen: both lamps turn off. Press it again: both turn on.
 5. **Every Power key follows a Power key.** Press one Power key: both lamps change, and both Power keys show the new state.
 6. **Every Power key follows a dial press.** Press either dial: both lamps change, and both Power keys show the new state.
-7. **Every Power key follows a Set Brightness key that turns the lamps on.** In the plugin settings, check "Set Brightness keys turn lamps on" and "Set Brightness dials turn lamps on" ([#268]). With both lamps off, press the Set Brightness key: both lamps turn on at its preset, and both Power keys show on. Turn the lamps off again and turn the Set Brightness dial: the same happens. Leave both checked for check 11.
+7. **Every Power key follows a Set Brightness key that turns the lamps on.** In the plugin settings, check "Set Brightness keys turn lamps on" and "Brightness dials turn lamps on" ([#268]). With both lamps off, press the Set Brightness key: both lamps turn on at its preset, and both Power keys show on. Turn the lamps off again and turn the Brightness dial: the same happens. Leave both checked for check 11.
 8. **An alert shows when no lamp answers.** With both lamps on, unplug them, then press a Power key: it shows off, then Stream Deck's alert over it ([#132]). The other Power key shows off, without an alert.
 9. **A lamp's own button isn't followed.** With both lamps on, turn one off with its own power button: both Power keys still show on. Press a Power key: the plugin turns both lamps off, the one already off staying off, and both keys show off. Press it again: both turn on.
 10. **The keys show their state in color.** A Power key shows an orange power symbol when the lamps are on and a grey one when they're off, with nothing drawn behind it, like the transparent icons around it. A key given a custom image keeps it.
-11. **A brightness change undoes a lamp's own buttons.** With both lamps on, turn one off with its own power button, and dim the other with its own buttons. Turn the Set Brightness dial one tick up, with its dials turning lamps on, as in check 7: both lamps turn on, one step above the brightness the dial showed, and the dimmed one comes back up with the other. `logs/litra.log` has a `put back to …` line for the dimmed lamp, and no `turned on` line, since the plugin held both lamps as on. Uncheck the two checkboxes of check 7.
-12. **A press during a brightness change waits for it.** With both lamps on, turn the Set Brightness dial quickly up and then down, and press it while the lamps are still changing: once the change is done, both lamps turn off, both Power keys show off, and the dials show the lamps' brightness and temperature, not `—`. `logs/litra.log` has no `finding the lamps failed` or `no longer found` line. Do the same with a press of a Power key.
+11. **A brightness change undoes a lamp's own buttons.** With both lamps on, turn one off with its own power button, and dim the other with its own buttons. Turn the Brightness dial one tick up, with its dials turning lamps on, as in check 7: both lamps turn on, one step above the brightness the dial showed, and the dimmed one comes back up with the other. `logs/litra.log` has a `put back to …` line for the dimmed lamp, and no `turned on` line, since the plugin held both lamps as on. Uncheck the two checkboxes of check 7.
+12. **A press during a brightness change waits for it.** With both lamps on, turn the Brightness dial quickly up and then down, and press it while the lamps are still changing: once the change is done, both lamps turn off, both Power keys show off, and the dials show the lamps' brightness and temperature, not `—`. `logs/litra.log` has no `finding the lamps failed` or `no longer found` line. Do the same with a press of a Power key.
 13. **An alert shows when one lamp is unplugged.** With both lamps on, unplug the second, then press a Power key: the first lamp turns off, and the key shows off, then Stream Deck's alert over it. `logs/litra.log` has a `toggle:` line saying the second lamp isn't connected. Plug it back in, and press the key: both lamps turn on, without an alert.
 
 [#23]: https://github.com/daczarne/streamdeck-litra/issues/23

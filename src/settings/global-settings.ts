@@ -247,12 +247,12 @@ export class GlobalSettings {
     };
   }
 
-  /** How a turn on a Set Brightness dial's main screen, or a Brightness step key's press, steps the lamps (#145). */
+  /** How a turn on a Brightness dial's main screen, or a Brightness step key's press, steps the lamps (#145). */
   get brightnessStepping(): Stepping {
     return this.parsed.keepBrightnessDifference ? "each" : "together";
   }
 
-  /** How a turn on a Set Temperature dial's main screen, or a Temperature step key's press, steps the lamps (#145). */
+  /** How a turn on a Temperature dial's main screen, or a Temperature step key's press, steps the lamps (#145). */
   get temperatureStepping(): Stepping {
     return this.parsed.keepTemperatureDifference ? "each" : "together";
   }

@@ -209,27 +209,34 @@ export const powerSettingsSchema = {
 
 export const brightnessSettingsSchema = {
   presetPercentage: numberFrom(0, 100, 0),
-  stepPercentage: wholeNumberFrom(1, 25, 10),
   lamps,
   leftOutLamps,
 };
 
 export const temperatureSettingsSchema = {
   presetKelvin: numberFrom(2700, 6500, 2700),
-  stepKelvin: steppedFrom(100, 500, 100, 300),
   lamps,
   leftOutLamps,
 };
 
+// A dial acts on every lamp from its main screen and on one from its lamp screens, so it saves only its step.
+export const brightnessDialSettingsSchema = {
+  stepPercentage: wholeNumberFrom(1, 25, 10),
+};
+
+export const temperatureDialSettingsSchema = {
+  stepKelvin: steppedFrom(100, 500, 100, 300),
+};
+
 // The step keys step as the dials do, by the same steps.
 export const brightnessStepSettingsSchema = {
-  stepPercentage: brightnessSettingsSchema.stepPercentage,
+  stepPercentage: brightnessDialSettingsSchema.stepPercentage,
   lamps,
   leftOutLamps,
 };
 
 export const temperatureStepSettingsSchema = {
-  stepKelvin: temperatureSettingsSchema.stepKelvin,
+  stepKelvin: temperatureDialSettingsSchema.stepKelvin,
   lamps,
   leftOutLamps,
 };

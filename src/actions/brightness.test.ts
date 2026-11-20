@@ -2,7 +2,7 @@ import { brightnessGlyph } from "@daczarne/streamdeck-icons";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createDebouncer } from "../controls/debouncer";
 import { brightnessShown } from "../controls/shown";
-import { adjustLampsBrightness, type OperationResult, setLampsBrightness } from "../lamps/manager";
+import { adjustLampsBrightness, type OperationResult } from "../lamps/manager";
 import { logger } from "../logging";
 import { syncGlobalSettings } from "../settings/global-settings";
 import { FakeDeck } from "../test-support/fake-deck";
@@ -27,11 +27,7 @@ vi.mock("../controls/shown", async (importOriginal) => ({
 }));
 
 // The real lamp manager loads node-hid's native binary on import and talks to real lamps.
-vi.mock("../lamps/manager", () => ({
-  adjustLampsBrightness: vi.fn(),
-  onLampsChanged: vi.fn(),
-  setLampsBrightness: vi.fn(),
-}));
+vi.mock("../lamps/manager", () => ({ adjustLampsBrightness: vi.fn(), onLampsChanged: vi.fn() }));
 
 const BRIGHTNESS = "com.daczarne.litra.brightness";
 
@@ -56,7 +52,6 @@ beforeEach(async () => {
   // The debouncer flushes every turn at once: its own timing is debouncer.test.ts's to check.
   vi.mocked(createDebouncer).mockImplementation((flush) => (ticks) => void flush(ticks));
   vi.mocked(brightnessShown).mockResolvedValue(AT_THEIR_CAPS);
-  vi.mocked(setLampsBrightness).mockResolvedValue(DONE);
   vi.mocked(adjustLampsBrightness).mockResolvedValue(DONE);
   deck = new FakeDeck([new BrightnessAction()]);
 });
@@ -68,18 +63,8 @@ afterEach(() => {
 //* Tests
 
 describe("BrightnessAction", () => {
-  describe("with no settings", () => {
-    it("has a key show its default preset, 0%, and set every lamp to it", async () => {
-      const key = await deck.key(BRIGHTNESS);
-
-      await deck.press(key);
-
-      expect(key.setTitle).toHaveBeenCalledExactlyOnceWith("0%");
-      expect(setLampsBrightness).toHaveBeenCalledExactlyOnceWith("all", 0, false);
-      expect(logger.warn).not.toHaveBeenCalled();
-    });
-
-    it("has a dial step every lamp connected by its default step, 10%, together", async () => {
+  describe("reads its settings", () => {
+    it("with none, stepping every lamp connected by its default step, 10%, together", async () => {
       const dial = await deck.dial(BRIGHTNESS);
 
       await deck.turn(dial, 3);
@@ -87,20 +72,8 @@ describe("BrightnessAction", () => {
       expect(adjustLampsBrightness).toHaveBeenCalledExactlyOnceWith("connected", 3, 10, "together", false);
       expect(logger.warn).not.toHaveBeenCalled();
     });
-  });
 
-  describe("reads its settings", () => {
-    it("a key's preset, in % of the lamps' range, which its title and log line show", async () => {
-      const key = await deck.key(BRIGHTNESS, { presetPercentage: 40 });
-
-      await deck.press(key);
-
-      expect(key.setTitle).toHaveBeenCalledExactlyOnceWith("40%");
-      expect(setLampsBrightness).toHaveBeenCalledExactlyOnceWith("all", 40, false);
-      expect(logger.info).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("preset 40%"));
-    });
-
-    it.each([5, "5"])("a dial's step, %j, in %, which its log line shows", async (step) => {
+    it.each([5, "5"])("a step, %j, in %, which its log line shows", async (step) => {
       const dial = await deck.dial(BRIGHTNESS, { stepPercentage: step });
 
       await deck.turn(dial, 3);
@@ -109,52 +82,30 @@ describe("BrightnessAction", () => {
       expect(logger.info).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("3 ticks of 5%"));
     });
 
-    it("with the default for a preset or a step that isn't valid, and a warning that names it (#22)", async () => {
-      const key = await deck.key(BRIGHTNESS, { presetPercentage: "abc" });
+    it("with the default for a step that isn't valid, and a warning that names it (#22)", async () => {
       const dial = await deck.dial(BRIGHTNESS, { stepPercentage: 0 });
 
-      await deck.press(key);
       await deck.turn(dial, 3);
 
-      expect(setLampsBrightness).toHaveBeenCalledExactlyOnceWith("all", 0, false);
       expect(adjustLampsBrightness).toHaveBeenCalledExactlyOnceWith("connected", 3, 10, "together", false);
-      expect(vi.mocked(logger.warn).mock.calls).toEqual([
-        [expect.stringContaining("presetPercentage")],
-        [expect.stringContaining("stepPercentage")],
-      ]);
+      expect(vi.mocked(logger.warn).mock.calls).toEqual([[expect.stringContaining("stepPercentage")]]);
     });
   });
 
-  describe("turns the lamps on as it changes them, once the global settings say so (#268)", () => {
-    /** Presses a key and turns a dial on its main screen, and returns whether each turned the lamps on. */
-    async function pressAndTurn(): Promise<{ key: unknown; dial: unknown }> {
-      const key = await deck.key(BRIGHTNESS);
+  describe("turns the lamps on as it changes them on its main screen (#268)", () => {
+    it("once Brightness dials turn lamps on", async () => {
+      changeGlobalSettings({ setBrightnessDialsTurnLampsOn: true });
       const dial = await deck.dial(BRIGHTNESS);
-      await deck.press(key);
+
       await deck.turn(dial, 3);
-      return {
-        key: vi.mocked(setLampsBrightness).mock.calls.at(-1)?.[2],
-        dial: vi.mocked(adjustLampsBrightness).mock.calls.at(-1)?.[4],
-      };
-    }
 
-    it("on a key, once Set Brightness keys turn lamps on", async () => {
-      changeGlobalSettings({ setBrightnessKeysTurnLampsOn: true });
-
-      expect(await pressAndTurn()).toEqual({ key: true, dial: false });
-      expect(setLampsBrightness).toHaveBeenCalledExactlyOnceWith("all", 0, true);
+      expect(adjustLampsBrightness).toHaveBeenCalledExactlyOnceWith("connected", 3, 10, "together", true);
       expect(logger.info).toHaveBeenCalledWith(expect.stringContaining("turning lamps on"));
     });
 
-    it("on a dial's main screen, once Set Brightness dials turn lamps on", async () => {
-      changeGlobalSettings({ setBrightnessDialsTurnLampsOn: true });
-
-      expect(await pressAndTurn()).toEqual({ key: false, dial: true });
-      expect(adjustLampsBrightness).toHaveBeenCalledExactlyOnceWith("connected", 3, 10, "together", true);
-    });
-
-    it("on neither, whichever other keys and dials turn lamps on", async () => {
+    it("but not whichever other keys and dials turn lamps on", async () => {
       changeGlobalSettings({
+        setBrightnessKeysTurnLampsOn: true,
         brightnessUpKeysTurnLampsOn: true,
         brightnessDownKeysTurnLampsOn: true,
         setTemperatureKeysTurnLampsOn: true,
@@ -164,8 +115,11 @@ describe("BrightnessAction", () => {
         setBrightnessLampScreensTurnLampsOn: true,
         setTemperatureLampScreensTurnLampsOn: true,
       });
+      const dial = await deck.dial(BRIGHTNESS);
 
-      expect(await pressAndTurn()).toEqual({ key: false, dial: false });
+      await deck.turn(dial, 3);
+
+      expect(adjustLampsBrightness).toHaveBeenCalledExactlyOnceWith("connected", 3, 10, "together", false);
     });
   });
 
@@ -195,7 +149,7 @@ describe("BrightnessAction", () => {
 
       expect(brightnessShown).toHaveBeenCalledExactlyOnceWith("connected");
       expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith({
-        title: "Set Brightness",
+        title: "Brightness",
         icon: iconIn(brightnessGlyph),
         value: { value: "79%", color: "#ffffff" },
         indicator: { value: 79, bar_fill_c: "0:#ffffff,0.797:#ffffff,0.798:#c0c0c0,1:#c0c0c0" },
@@ -208,7 +162,7 @@ describe("BrightnessAction", () => {
       const dial = await deck.dial(BRIGHTNESS);
 
       expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith({
-        title: "Set Brightness",
+        title: "Brightness",
         icon: iconIn(brightnessGlyph),
         value: { value: "—", color: "#ffffff" },
         indicator: { value: 0, bar_fill_c: "#ffffff" },

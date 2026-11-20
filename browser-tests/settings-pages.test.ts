@@ -6,6 +6,7 @@ import type { JsonValue } from "@elgato/utils";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import {
+  brightnessDialSettingsSchema,
   brightnessSettingsSchema,
   globalSettingsSchema,
   LAMP_SCREEN_ITEMS,
@@ -15,6 +16,7 @@ import {
   RESYNC_DIRECTIONS,
   sceneGroupSettingsSchema,
   sceneSettingsSchema,
+  temperatureDialSettingsSchema,
   temperatureSettingsSchema,
 } from "../src/settings/schemas";
 import { at } from "../src/test-support/at";
@@ -50,7 +52,7 @@ const PANELS: Panel[] = [
     change: { setting: "mode", value: "off", saved: "off" },
   },
   {
-    page: "ui/brightness.html",
+    page: "ui/set-brightness.html",
     controller: "Keypad",
     settings: ["presetPercentage"],
     change: { setting: "presetPercentage", value: "40", saved: 40 },
@@ -64,7 +66,7 @@ const PANELS: Panel[] = [
     numbers: [{ setting: "stepPercentage", unit: "%", value: "20" }],
   },
   {
-    page: "ui/temperature.html",
+    page: "ui/set-temperature.html",
     controller: "Keypad",
     settings: ["presetKelvin"],
     change: { setting: "presetKelvin", value: "5000", saved: 5000 },
@@ -162,7 +164,14 @@ const PLUGIN_SETTINGS_GLOBALS = [
 // each page offers, and the pages' own defaults. A key's or dial's settings and the global ones are apart, as the
 // plugin reads them, since a name can be in both, such as `lamps`: a key's, and the ones the plugin knows (#194).
 const SCHEMAS = {
-  action: { ...powerSettingsSchema, ...brightnessSettingsSchema, ...temperatureSettingsSchema, ...sceneSettingsSchema },
+  action: {
+    ...powerSettingsSchema,
+    ...brightnessSettingsSchema,
+    ...temperatureSettingsSchema,
+    ...brightnessDialSettingsSchema,
+    ...temperatureDialSettingsSchema,
+    ...sceneSettingsSchema,
+  },
   global: globalSettingsSchema,
 };
 

@@ -505,7 +505,7 @@ export class Lamp {
 
   /**
    * Where a value sits in a range, from 0 to 100, such as a brightness in lumens, or a temperature in kelvin, which a
-   * Set Temperature dial's bar shows.
+   * Temperature dial's bar shows.
    */
   static percentageInRange(value: number, min: number, max: number): number {
     if (max <= min) {

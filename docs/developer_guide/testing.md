@@ -83,7 +83,7 @@ The Beam LX differs from the Beam where the plugin has to help it, such as its s
 
 ### The controls
 
-An abstract class is tested on its own, through a fake subclass its test declares, so what the tests check holds for every implementation, and they import none of them. `measure.test.ts`, for example, tests `MeasureAction` through `FakeMeasureAction`, with fakes for what an action built on it gives it, what it sets and steps. Each action built on it then has its own tests, next to it (see [The actions](#the-actions)).
+An abstract class is tested on its own, through a fake subclass its test declares, so what the tests check holds for every implementation, and they import none of them. `measure.test.ts`, for example, tests `MeasureAction` through `FakeMeasureAction`, with fakes for what an action built on it gives it, what it steps and shows, and `preset-key.test.ts` tests `PresetKeyAction` the same way. Each action built on it then has its own tests, next to it (see [The actions](#the-actions)).
 
 `shown.test.ts` builds the `Lamp`s an operation leaves with `reached-lamps.ts`, and checks what the keys and dials show of them. The other controls, such as the lamp screens, the debouncer and the text styles, are tested with what they build on replaced, as any unit.
 
