@@ -92,7 +92,7 @@ For each lamp, [`readBackBrightness`][read-back-brightness]:
 
 ## 7. The Deck follows
 
-**The Set Brightness key** shows nothing new. Its title is its preset, and it doesn't follow the lamps. Back in `keyDown`, it calls `showAlert()` (the ⚠) only when `!result.ok`, such as when the LX couldn't be identified or a write failed. The other lamps are set even then.
+**The Set Brightness key** shows nothing new. Its title is its preset, by default, which doesn't follow the lamps. With its Title value at Current, it shows what its lamps are at, and follows them as an Up or Down key does. Back in `keyDown`, it calls `showAlert()` (the ⚠) only when `!result.ok`, such as when the LX couldn't be identified or a write failed. The other lamps are set even then.
 
 **Every other control** hears it through [`announceLampsChanged`][announce]. Each listener runs on its own, once the operation has returned, and each action goes through its instances:
 
@@ -102,8 +102,9 @@ For each lamp, [`readBackBrightness`][read-back-brightness]:
 | Brightness dial, main screen | The brightest lamp's % as text, and a bar that fades where fewer lamps reach, such as `[100, 100, 100, 72]` when one is capped | [measure.ts][dial-lamps-changed], [brightness.ts] |
 | A dial on a lamp screen | Redraws its lamp, or goes back to the main screen when the lamp wasn't found | [lamp-screens.ts][lamp-screen-refresh] |
 | Temperature dial | Redraws: the temperature didn't change, but the power may have | [measure.ts][dial-lamps-changed] |
-| Brightness and Temperature Up and Down keys | Their title, from the lamps' new values | [step-key.ts][step-key-lamps-changed] |
-| Scene, Set Brightness and Set Temperature keys | Nothing | `ActionInstance`'s default |
+| Brightness and Temperature Up and Down keys | Their title, from the lamps' new values: what they're at, or where the next press takes them, or their step, which the lamps don't change | [step-key.ts][step-key-lamps-changed] |
+| Set Brightness and Set Temperature keys | Their title, from the lamps' new values, when it shows what they're at, and nothing when it shows their preset | [preset-key.ts][preset-key-lamps-changed] |
+| Scene keys | Nothing | `ActionInstance`'s default |
 
 Each one reads through [src/controls/shown.ts], which first awaits `lampsSettled()` (the queue of operations, so the Deck never shows a change halfway), then works out what to show from the `Lamp`s' held state. No lamp is read to redraw the Deck. `setState`, `setFeedback` and `setTitle` go back over the WebSocket, and Stream Deck draws them on the Deck.
 
@@ -146,6 +147,7 @@ Almost all of the HID work is synchronous, so it holds the plugin's event loop, 
 [percentage-to-lumen]: ../../src/lamps/lamp.ts
 [power-lamps-changed]: ../../src/actions/power.ts
 [preset-key-down]: ../../src/controls/preset-key.ts
+[preset-key-lamps-changed]: ../../src/controls/preset-key.ts
 [put-back-setting]: ../../src/lamps/lamp.ts
 [read-back]: ../../src/lamps/lamp.ts
 [read-back-brightness]: ../../src/lamps/lamp.ts
