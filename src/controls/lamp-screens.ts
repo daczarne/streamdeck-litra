@@ -36,7 +36,7 @@ const LAMP_LAYOUT = "layouts/lamp.json";
 const LAMP_TRIGGER_DESCRIPTIONS = { push: "Power", touch: "Next lamp", longTouch: "Identify" };
 
 /**
- * The lamp screens of one Set Brightness or Set Temperature dial (#48), which the dial creates and drops with itself
+ * The lamp screens of one Brightness or Temperature dial (#48), which the dial creates and drops with itself
  * (#198). Tapping the dial's strip shows each lamp in turn, in the order of their ids, then the dial's main screen
  * again. The dial stays on a lamp screen until it's tapped past the last lamp, and while it's there, the dial turns and
  * toggles that lamp alone (#20). It remembers the id of the lamp it shows rather than its position, so a lamp unplugged

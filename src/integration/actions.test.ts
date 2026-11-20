@@ -14,6 +14,8 @@ import { iconIn } from "../test-support/icons";
 //* Fakes
 
 const POWER = "com.daczarne.litra.power";
+const SET_BRIGHTNESS = "com.daczarne.litra.set-brightness";
+const SET_TEMPERATURE = "com.daczarne.litra.set-temperature";
 const BRIGHTNESS = "com.daczarne.litra.brightness";
 const TEMPERATURE = "com.daczarne.litra.temperature";
 const SCENE = "com.daczarne.litra.scene";
@@ -182,7 +184,7 @@ describe("the Power key", () => {
     const pair = [newLamp({ on: false }), newLamp({ on: false })];
     await plugIn(...pair);
     const powerKey = await deck.key(POWER, { mode: "toggle" });
-    const brightnessKey = await deck.key(BRIGHTNESS, { presetPercentage: 50 });
+    const brightnessKey = await deck.key(SET_BRIGHTNESS, { presetPercentage: 50 });
 
     await deck.press(brightnessKey);
 
@@ -194,7 +196,7 @@ describe("the Power key", () => {
     const pair = [newLamp({ on: false }), newLamp({ on: false })];
     await plugIn(...pair);
     const powerKey = await deck.key(POWER, { mode: "toggle" });
-    const brightnessKey = await deck.key(BRIGHTNESS, { presetPercentage: 80 });
+    const brightnessKey = await deck.key(SET_BRIGHTNESS, { presetPercentage: 80 });
 
     await deck.press(brightnessKey);
 
@@ -205,7 +207,7 @@ describe("the Power key", () => {
     expect(stateOf(powerKey)).toBe(0);
   });
 
-  it("follows a Set Brightness dial pushed to toggle the lamps (#57)", async () => {
+  it("follows a Brightness dial pushed to toggle the lamps (#57)", async () => {
     const pair = [newLamp(), newLamp()];
     await plugIn(...pair);
     const powerKey = await deck.key(POWER, { mode: "toggle" });
@@ -248,7 +250,7 @@ describe("the Power key", () => {
 describe("the Set Brightness action", () => {
   it("draws its bar in the color of the text style the plugin settings give it, fainter where only one lamp reaches (#183)", async () => {
     await plugIn(newLamp({ capInLumen: 264 }), newLamp({ capInLumen: 324 }));
-    const key = await deck.key(BRIGHTNESS, { presetPercentage: 100 });
+    const key = await deck.key(SET_BRIGHTNESS, { presetPercentage: 100 });
     const dial = await deck.dial(BRIGHTNESS);
 
     await saveFromPage({ mainScreenBarStyle: "accent" });
@@ -291,14 +293,14 @@ describe("the Set Brightness action", () => {
   it("shows the brightest of lamps at their caps, the bar fainter where only one reaches (#13, #59)", async () => {
     // Two lamps on a Stream Deck + XL's USB hub, which stop at 63% and 79%.
     await plugIn(newLamp({ capInLumen: 264 }), newLamp({ capInLumen: 324 }));
-    const key = await deck.key(BRIGHTNESS, { presetPercentage: 100 });
+    const key = await deck.key(SET_BRIGHTNESS, { presetPercentage: 100 });
     const dial = await deck.dial(BRIGHTNESS);
 
     await deck.press(key);
 
     expect(lamps.map((lamp) => lamp.brightnessInLumen)).toEqual([264, 324]);
     expect(feedbackOf(dial)).toEqual({
-      title: "Set Brightness",
+      title: "Brightness",
       icon: iconIn(brightnessGlyph),
       value: { value: "79%", color: "#ffffff" },
       indicator: { value: 79, bar_fill_c: "0:#ffffff,0.797:#ffffff,0.798:#c0c0c0,1:#c0c0c0" },
@@ -310,7 +312,7 @@ describe("the Set Brightness action", () => {
     // second after being asked for more.
     const pair = [newLamp({ capInLumen: 264 }), newLamp({ capInLumen: 324 })];
     await plugIn(...pair);
-    const key = await deck.key(BRIGHTNESS, { presetPercentage: 100 });
+    const key = await deck.key(SET_BRIGHTNESS, { presetPercentage: 100 });
     const dial = await deck.dial(BRIGHTNESS, { stepPercentage: 10 });
 
     await deck.quickly(() => {
@@ -326,7 +328,7 @@ describe("the Set Brightness action", () => {
   it("lets the lamps reach 100% once moved from a hub to the computer, without a restart (#55)", async () => {
     const onAHub = [newLamp({ capInLumen: 264 }), newLamp({ capInLumen: 324 })];
     await plugIn(...onAHub);
-    const key = await deck.key(BRIGHTNESS, { presetPercentage: 100 });
+    const key = await deck.key(SET_BRIGHTNESS, { presetPercentage: 100 });
     const dial = await deck.dial(BRIGHTNESS);
     await deck.press(key);
 
@@ -386,7 +388,7 @@ describe("the Set Brightness action", () => {
   it("shows an alert when a lamp fails, and still sets the others, which the dial shows", async () => {
     const [failing, working] = [newLamp({ brightnessInLumen: 30 }), newLamp({ brightnessInLumen: 30 })];
     await plugIn(failing, working);
-    const key = await deck.key(BRIGHTNESS, { presetPercentage: 50 });
+    const key = await deck.key(SET_BRIGHTNESS, { presetPercentage: 50 });
     const dial = await deck.dial(BRIGHTNESS);
     failing.fail("everything");
 
@@ -402,14 +404,14 @@ describe("the Set Temperature action", () => {
   it("sets every lamp to a key's preset, snapped to a temperature they allow, and shows it on the dials", async () => {
     const pair = [newLamp(), newLamp()];
     await plugIn(...pair);
-    const key = await deck.key(TEMPERATURE, { presetKelvin: 4230 });
+    const key = await deck.key(SET_TEMPERATURE, { presetKelvin: 4230 });
     const dial = await deck.dial(TEMPERATURE);
 
     await deck.press(key);
 
     expect(pair.map((lamp) => lamp.temperatureInKelvin)).toEqual([4200, 4200]);
     expect(feedbackOf(dial)).toEqual({
-      title: "Set Temperature",
+      title: "Temperature",
       icon: iconIn(temperatureGlyph),
       value: { value: "4200 K", color: "#ffffff" },
       indicator: { value: 39, bar_fill_c: "#ffffff" },
@@ -422,7 +424,7 @@ describe("the Set Temperature action", () => {
     const dial = await deck.dial(TEMPERATURE);
 
     expect(feedbackOf(dial)).toEqual({
-      title: "Set Temperature",
+      title: "Temperature",
       icon: iconIn(temperatureGlyph),
       value: { value: "4900 K", color: "#ffffff" },
       indicator: { value: 58, bar_fill_c: "0:#ffffff,0.276:#ffffff,0.277:#c0c0c0,1:#c0c0c0" },
@@ -645,7 +647,7 @@ describe("the step keys", () => {
 });
 
 describe("the lamp screens", () => {
-  /** Two lamps, plugged in out of the order of their ids, and a Set Brightness dial showing the first. */
+  /** Two lamps, plugged in out of the order of their ids, and a Brightness dial showing the first. */
   async function onFirstLampScreen() {
     const second = newLamp({ serialNumber: "SERIAL-B" });
     const first = newLamp({
@@ -678,7 +680,7 @@ describe("the lamp screens", () => {
 
   it("follow what another action changes", async () => {
     const { dial } = await onFirstLampScreen();
-    const key = await deck.key(TEMPERATURE, { presetKelvin: 5000 });
+    const key = await deck.key(SET_TEMPERATURE, { presetKelvin: 5000 });
 
     await deck.press(key);
 
@@ -722,8 +724,8 @@ describe("the lamp screens", () => {
   });
 
   it.each([
-    ["Set Brightness", BRIGHTNESS, "setBrightnessLampScreensTurnLampsOn"],
-    ["Set Temperature", TEMPERATURE, "setTemperatureLampScreensTurnLampsOn"],
+    ["Brightness", BRIGHTNESS, "setBrightnessLampScreensTurnLampsOn"],
+    ["Temperature", TEMPERATURE, "setTemperatureLampScreensTurnLampsOn"],
   ])(
     "let a %s dial turn the lamp on screen on alone, once the plugin settings say so (#268)",
     async (_name, uuid, setting) => {
@@ -845,8 +847,8 @@ describe("the lamp screens", () => {
   });
 
   it.each([
-    ["Set Brightness", BRIGHTNESS],
-    ["Set Temperature", TEMPERATURE],
+    ["Brightness", BRIGHTNESS],
+    ["Temperature", TEMPERATURE],
   ])(
     "blink the lamp on a %s dial's screen when its strip is held, and nothing on its main screen",
     async (_name, manifestId) => {
@@ -894,12 +896,12 @@ describe("the lamp screens", () => {
     await deck.press(key);
 
     expect(dial.setFeedbackLayout).toHaveBeenLastCalledWith("$B1");
-    expect(feedbackOf(dial)).toMatchObject({ title: "Set Brightness" });
+    expect(feedbackOf(dial)).toMatchObject({ title: "Brightness" });
   });
 
   it.each([
-    ["Set Brightness", BRIGHTNESS],
-    ["Set Temperature", TEMPERATURE],
+    ["Brightness", BRIGHTNESS],
+    ["Temperature", TEMPERATURE],
   ])("forget a %s dial taken off the Deck, which the lamps changing no longer redraws", async (_name, manifestId) => {
     await plugIn(newLamp({ serialNumber: "SERIAL-A" }), newLamp({ serialNumber: "SERIAL-B" }));
     const dial = await deck.dial(manifestId);
@@ -1050,7 +1052,7 @@ describe("the plugin's state is the lamps' state (#198)", () => {
     await plugIn(lamp);
     const dial = await deck.dial(BRIGHTNESS);
     const powerKey = await deck.key(POWER, { mode: "toggle" });
-    const temperatureKey = await deck.key(TEMPERATURE, { presetKelvin: 5000 });
+    const temperatureKey = await deck.key(SET_TEMPERATURE, { presetKelvin: 5000 });
     // The lamp's own buttons turn it off and brighten it, which the plugin doesn't see.
     lamp.on = false;
     lamp.brightnessInLumen = LUMEN_AT_80;
@@ -1065,7 +1067,7 @@ describe("the plugin's state is the lamps' state (#198)", () => {
   it("steps from what it last set: a lamp set to 10%, then 20% by its button, goes to 20%", async () => {
     const lamp = newLamp();
     await plugIn(lamp);
-    const key = await deck.key(BRIGHTNESS, { presetPercentage: 10 });
+    const key = await deck.key(SET_BRIGHTNESS, { presetPercentage: 10 });
     const dial = await deck.dial(BRIGHTNESS, { stepPercentage: 10 });
     await deck.press(key);
     lamp.brightnessInLumen = LUMEN_AT_20;
@@ -1081,7 +1083,7 @@ describe("the plugin's state is the lamps' state (#198)", () => {
   it("leaves a lamp turned off with its own button off as it steps its brightness, by default (#268)", async () => {
     const lamp = newLamp();
     await plugIn(lamp);
-    const key = await deck.key(BRIGHTNESS, { presetPercentage: 10 });
+    const key = await deck.key(SET_BRIGHTNESS, { presetPercentage: 10 });
     const dial = await deck.dial(BRIGHTNESS, { stepPercentage: 10 });
     await deck.press(key);
     lamp.on = false;
@@ -1097,7 +1099,7 @@ describe("the plugin's state is the lamps' state (#198)", () => {
     await saveFromPage({ setBrightnessDialsTurnLampsOn: true });
     const lamp = newLamp();
     await plugIn(lamp);
-    const key = await deck.key(BRIGHTNESS, { presetPercentage: 10 });
+    const key = await deck.key(SET_BRIGHTNESS, { presetPercentage: 10 });
     const dial = await deck.dial(BRIGHTNESS, { stepPercentage: 10 });
     await deck.press(key);
     lamp.on = false;
@@ -1144,7 +1146,7 @@ describe("the plugin's state is the lamps' state (#198)", () => {
     const lamp = newLamp({ serialNumber: "SERIAL-A" });
     await plugIn(lamp);
     const dial = await deck.dial(BRIGHTNESS);
-    const temperatureKey = await deck.key(TEMPERATURE, { presetKelvin: 5000 });
+    const temperatureKey = await deck.key(SET_TEMPERATURE, { presetKelvin: 5000 });
     const pluggedInAgain = newLamp({ serialNumber: "SERIAL-A", brightnessInLumen: LUMEN_AT_80 });
     lamps.push(pluggedInAgain);
     connect(pluggedInAgain);
@@ -1232,12 +1234,12 @@ describe("what the dials show", () => {
   }
 
   it.each([
-    ["Set Brightness", BRIGHTNESS, { presetPercentage: 50 }],
-    ["Set Temperature", TEMPERATURE, { presetKelvin: 5000 }],
-  ])("fits the layout the %s dial is on, on every screen it shows", async (_name, manifestId, keySettings) => {
+    ["Brightness", BRIGHTNESS, SET_BRIGHTNESS, { presetPercentage: 50 }],
+    ["Temperature", TEMPERATURE, SET_TEMPERATURE, { presetKelvin: 5000 }],
+  ])("fits the layout the %s dial is on, on every screen it shows", async (_name, manifestId, keyId, keySettings) => {
     await plugIn(newLamp({ serialNumber: "SERIAL-A" }), newLamp({ serialNumber: "SERIAL-B" }));
     const dial = await deck.dial(manifestId);
-    const key = await deck.key(manifestId, keySettings);
+    const key = await deck.key(keyId, keySettings);
 
     // The main screen, redrawn by a turn, a key and a push.
     await deck.turn(dial, 1);
@@ -1293,7 +1295,7 @@ describe("a Beam and a Beam LX together (#100)", () => {
 
   it("show an alert on a key for every lamp when the Beam LX can't be told apart, but not on the Beam's lamp screen", async () => {
     const { beam, lx } = await beamAndBeamLx();
-    const key = await deck.key(BRIGHTNESS, { presetPercentage: 100 });
+    const key = await deck.key(SET_BRIGHTNESS, { presetPercentage: 100 });
     const dial = await deck.dial(BRIGHTNESS, { stepPercentage: 10 });
     await deck.tap(dial);
     lx.fail("identifying");
@@ -1534,8 +1536,8 @@ describe("the lamps the plugin knows (#194)", () => {
 
 describe("keys and dials whose lamps can't be reached", () => {
   it.each([
-    ["Set Brightness", BRIGHTNESS],
-    ["Set Temperature", TEMPERATURE],
+    ["Brightness", BRIGHTNESS],
+    ["Temperature", TEMPERATURE],
   ])("show an alert on a %s dial pushed or turned once its lamps are unplugged", async (_name, manifestId) => {
     await plugIn(newLamp());
     const dial = await deck.dial(manifestId);
@@ -1549,7 +1551,7 @@ describe("keys and dials whose lamps can't be reached", () => {
 
   it("show an alert on a Set Temperature key once its lamps are unplugged", async () => {
     await plugIn(newLamp());
-    const key = await deck.key(TEMPERATURE, { presetKelvin: 5000 });
+    const key = await deck.key(SET_TEMPERATURE, { presetKelvin: 5000 });
     connect();
 
     await deck.press(key);
@@ -1612,7 +1614,7 @@ describe("keys and dials whose lamps can't be reached", () => {
 
   it("show an alert when finding the lamps fails, and no value on the dials", async () => {
     await plugIn(newLamp());
-    const key = await deck.key(BRIGHTNESS, { presetPercentage: 100 });
+    const key = await deck.key(SET_BRIGHTNESS, { presetPercentage: 100 });
     const dial = await deck.dial(BRIGHTNESS);
     failFindingLamps(new Error("Cannot list HID devices"));
 

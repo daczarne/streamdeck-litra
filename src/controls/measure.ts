@@ -1,13 +1,11 @@
-import type { DialAction, FeedbackPayload, KeyAction } from "@elgato/streamdeck";
+import type { DialAction, FeedbackPayload } from "@elgato/streamdeck";
 import type { JsonObject } from "@elgato/utils";
 import type { Logger } from "@elgato/utils/logging";
 import { type OperationResult, type Stepping, toggleLamps } from "../lamps/manager";
 import type { LampSelection } from "../lamps/selection";
 import { globalSettings } from "../settings/global-settings";
-import type { CheckedLamps } from "../settings/schemas";
 import { ActionInstance, type DeckControl, RoutingAction } from "./action-instance";
 import { createDebouncer } from "./debouncer";
-import { describeLamps } from "./describe-lamps";
 import { type Glyph, iconOf } from "./icons";
 import { LampScreen } from "./lamp-screens";
 
@@ -18,7 +16,7 @@ import { LampScreen } from "./lamp-screens";
 const FAINTEST_BAR_SHARE = 0x80;
 
 /**
- * The bar a Set Brightness or Set Temperature dial's main screen shows, in the $B1 layout's indicator, for each lamp's
+ * The bar a Brightness or Temperature dial's main screen shows, in the $B1 layout's indicator, for each lamp's
  * place in its range, in %: filled up to the highest one, in a color as `#rrggbb`, and banded by how many lamps reach
  * each part of it (#59, #183, #229).
  */
@@ -69,29 +67,14 @@ function fade(color: string, share: number): string {
 }
 
 /**
- * What a Set Brightness or Set Temperature key does: how it reads its preset and its lamps from its settings, the unit
- * its title and its log line give the preset in, whether the global settings have it turn its lamps on (#268), and how
- * it sets its lamps to it.
- */
-export type Preset = {
-  read: (
-    settings: JsonObject,
-    logger: Logger,
-  ) => { preset: number; lamps: CheckedLamps; leftOutLamps: readonly string[] };
-  unit: string;
-  turnsLampsOn: () => boolean;
-  set: (lamps: LampSelection, preset: number, turnOn: boolean) => Promise<OperationResult>;
-};
-
-/**
- * What a Set Brightness or Set Temperature dial's main screen shows of every lamp, in the slots of the $B1 layout: its
+ * What a Brightness or Temperature dial's main screen shows of every lamp, in the slots of the $B1 layout: its
  * title, the value as text, and each lamp's place in its range, in %, which the bar under it shows, before the dial
  * gives them their colors (#183).
  */
 export type MainScreen = { title: string; value: string; levels: readonly number[] };
 
 /**
- * What a Set Brightness or Set Temperature dial steps: what a turn adjusts, which describes a turn on a lamp screen,
+ * What a Brightness or Temperature dial steps: what a turn adjusts, which describes a turn on a lamp screen,
  * how it reads its step from its settings, the unit its log line gives the step in, how the global settings step
  * several lamps (#145), whether they have a turn on its main screen or on a lamp screen turn the lamps on (#268), how
  * it moves the lamps by its step, the glyph its main screen's icon is drawn from, and what its main screen shows of
@@ -114,81 +97,24 @@ export type Measure = {
   mainScreen: () => Promise<MainScreen>;
 };
 
-/**
- * The Set Brightness or the Set Temperature action, which gives each key a {@link PresetKey} and each dial a
- * {@link MeasureDial}.
- */
-export abstract class MeasureAction extends RoutingAction<PresetKey | MeasureDial> {
-  /** Takes the action's logger, and what its keys set and its dials step. */
+/** The Brightness or the Temperature dial action, which gives each dial a {@link MeasureDial}. */
+export abstract class MeasureAction extends RoutingAction<MeasureDial> {
+  /** Takes the action's logger, and what its dials step. */
   constructor(
     private readonly logger: Logger,
-    private readonly preset: Preset,
     private readonly measure: Measure,
   ) {
     super();
   }
 
-  /**
-   * A key that sets its preset, or a dial that steps the lamps: the manifest places the action on keys and dials alone.
-   */
-  protected override create(control: DeckControl, settings: JsonObject): PresetKey | MeasureDial | undefined {
-    if (control.isKey()) {
-      return new PresetKey(control, settings, this.logger, this.preset);
-    }
+  /** A dial that steps the lamps: the manifest places the action on dials alone. */
+  protected override create(control: DeckControl, settings: JsonObject): MeasureDial | undefined {
     return control.isDial() ? new MeasureDial(control, settings, this.logger, this.measure) : undefined;
   }
 }
 
 /**
- * A Set Brightness or Set Temperature key: it sets its lamps to its preset, and shows the preset as its title, which
- * the user can replace or hide. It keeps showing its preset whatever the lamps reach, so it follows no change.
- */
-class PresetKey extends ActionInstance<ReturnType<Preset["read"]>, KeyAction<JsonObject>> {
-  /** Takes the key, its settings, the action's logger and what the key sets. */
-  constructor(
-    control: KeyAction<JsonObject>,
-    settings: JsonObject,
-    private readonly logger: Logger,
-    private readonly preset: Preset,
-  ) {
-    super(control, settings, (saved) => preset.read(saved, logger));
-  }
-
-  /** Shows the preset as the key appears. */
-  override appear(): Promise<void> {
-    return this.showPreset();
-  }
-
-  /** Shows the key's new preset. */
-  override settingsChanged(): Promise<void> {
-    return this.showPreset();
-  }
-
-  /**
-   * Sets the key's lamps to its preset, turning them on first when the global settings say so (#268). The dials follow
-   * through the lamp manager's notice, with what the lamps reached, which is less for a lamp at its cap, or a
-   * temperature snapped to one it allows.
-   */
-  override async keyDown(): Promise<void> {
-    const { preset } = this.config;
-    const lamps = globalSettings.actionKeyLamps(this.control.id, this.config);
-    const turnOn = this.preset.turnsLampsOn();
-    const turning = turnOn ? ", turning lamps on" : "";
-    this.logger.info(`Key pressed: preset ${preset}${this.preset.unit}, on ${describeLamps(lamps)}${turning}`);
-    const result = await this.preset.set(lamps, preset, turnOn);
-    if (!result.ok) {
-      await this.control.showAlert();
-    }
-  }
-
-  /** Writes the preset as the key's title, with its unit, as the step keys and the dials show their value. */
-  private async showPreset(): Promise<void> {
-    await this.control.setTitle(`${Math.round(this.config.preset)}${this.preset.unit}`);
-  }
-}
-
-/**
- * A Set Brightness or Set Temperature dial. On its main screen, it steps every lamp as it turns, toggles them when
+ * A Brightness or Temperature dial. On its main screen, it steps every lamp as it turns, toggles them when
  * pushed, and shows what they're at. Tapping its strip shows each lamp on its own screen, where turning and pushing it
  * act on that lamp alone, and holding the strip blinks it (#20). Its {@link LampScreen} draws it there, and tells which
  * lamp it shows.
@@ -300,9 +226,9 @@ class MeasureDial extends ActionInstance<{ step: number }, DialAction<JsonObject
   }
 
   /**
-   * Fills the main screen's layout with what the lamps are at, its icon, its value and its bar each in the color of the text style
-   * the global settings give it (#183), unless the dial shows a lamp screen, which has another layout, which its lamp screen
-   * draws. Nothing is worked out then.
+   * Fills the main screen's layout with what the lamps are at, its icon, its value and its bar each in the color of the
+   * text style the global settings give it (#183), unless the dial shows a lamp screen, which has another layout, which
+   * its lamp screen draws. Nothing is worked out then.
    */
   private async showMainScreen(): Promise<void> {
     if (this.screen.isShowing) {

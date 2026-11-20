@@ -1,10 +1,11 @@
 import streamDeck from "@elgato/streamdeck";
-
 import { BrightnessAction } from "./actions/brightness";
 import { BrightnessDownAction } from "./actions/brightness-down";
 import { BrightnessUpAction } from "./actions/brightness-up";
 import { PowerAction } from "./actions/power";
 import { SceneAction } from "./actions/scene";
+import { SetBrightnessAction } from "./actions/set-brightness";
+import { SetTemperatureAction } from "./actions/set-temperature";
 import { TemperatureAction } from "./actions/temperature";
 import { TemperatureDownAction } from "./actions/temperature-down";
 import { TemperatureUpAction } from "./actions/temperature-up";
@@ -22,12 +23,14 @@ logger.info("Plugin started");
 // In the order the manifest lists them, which is the order Stream Deck's actions list shows them in (#236).
 streamDeck.actions.registerAction(new PowerAction());
 streamDeck.actions.registerAction(new SceneAction());
-streamDeck.actions.registerAction(new BrightnessAction());
+streamDeck.actions.registerAction(new SetBrightnessAction());
 streamDeck.actions.registerAction(new BrightnessUpAction());
 streamDeck.actions.registerAction(new BrightnessDownAction());
-streamDeck.actions.registerAction(new TemperatureAction());
+streamDeck.actions.registerAction(new BrightnessAction());
+streamDeck.actions.registerAction(new SetTemperatureAction());
 streamDeck.actions.registerAction(new TemperatureUpAction());
 streamDeck.actions.registerAction(new TemperatureDownAction());
+streamDeck.actions.registerAction(new TemperatureAction());
 answerPluginSettingsPage();
 
 // The lamp manager acts on the lamps the global settings hold, handed to it rather than imported, so it doesn't depend

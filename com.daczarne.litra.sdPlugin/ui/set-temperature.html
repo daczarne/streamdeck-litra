@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+
+  <head lang="en">
+    <title>Litra Set Temperature</title>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="
+        default-src 'none';
+        script-src 'self';
+        style-src 'self' 'sha256-vKw8ls2elF9883OhOYVfGxLK/KT9XeS8Exwh3wy8CrM=';
+        img-src data:;
+        connect-src ws://localhost:*;
+        base-uri 'none';
+        form-action 'none'
+      "
+    />
+    <link rel="stylesheet" href="settings.css" />
+    <script src="vendor/sdpi-components.js"></script>
+    <script src="number-field.js"></script>
+  </head>
+
+  <body>
+    <!-- The plugin's own settings, the same on every page, which plugin-settings.js shows in place of the action's
+      (#146). -->
+    <div id="plugin-settings"></div>
+    <!-- What the key sets its lamps to: a fixed temperature, in kelvin. -->
+    <sdpi-item label="Temperature">
+      <litra-number setting="presetKelvin" min="2700" max="6500" step="100" default="2700" unit="K"></litra-number>
+    </sdpi-item>
+    <!-- The lamps the key acts on, which lamp-picker.js lists and saves (#20), and whether lamps added later
+      join them, which plugin-settings.js shows and saves (#147). -->
+    <sdpi-item label="Lamps">
+      <div id="lamp-picker"></div>
+      <div id="key-new-lamps"></div>
+    </sdpi-item>
+    <script src="lamp-picker.js"></script>
+    <script src="plugin-settings.js"></script>
+  </body>
+
+</html>
