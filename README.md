@@ -18,18 +18,20 @@ Not an official Logitech or Elgato product.
 
 ## Actions
 
-|                                 | Action               | Key                                        | Dial (Stream Deck +)                                                      |
-|:-------------------------------:|:---------------------|:-------------------------------------------|:--------------------------------------------------------------------------|
-|         ![Power][power]         | **Power**            | On, off or toggle                          | None                                                                      |
-|         ![Scene][scene]         | **Scene**            | Turn groups of lamps on at presets, or off | None                                                                      |
-|    ![Set Brightness][bright]    | **Set Brightness**   | Jump to a preset %                         | None                                                                      |
-|   ![Brightness Up][bright-up]   | **Brightness Up**    | Step up by the key's %                     | None                                                                      |
-| ![Brightness Down][bright-down] | **Brightness Down**  | Step down by the key's %                   | None                                                                      |
-|      ![Brightness][bright]      | **Brightness**       | None                                       | Rotate to adjust, press toggles power, tap the strip to control each lamp |
-|    ![Set Temperature][temp]     | **Set Temperature**  | Jump to a preset Kelvin                    | None                                                                      |
-|   ![Temperature Up][temp-up]    | **Temperature Up**   | Step up, cooler, by the key's Kelvin       | None                                                                      |
-| ![Temperature Down][temp-down]  | **Temperature Down** | Step down, warmer, by the key's Kelvin     | None                                                                      |
-|      ![Temperature][temp]       | **Temperature**      | None                                       | Rotate to adjust, press toggles power, tap the strip to control each lamp |
+|                                                                           | Action               | Type | Description                                                               |
+|:-------------------------------------------------------------------------:|:---------------------|:-----|:--------------------------------------------------------------------------|
+|                 ![Power][power-dark]![Power][power-light]                 | **Power**            | Key  | On, off or toggle                                                         |
+|                 ![Scene][scene-dark]![Scene][scene-light]                 | **Scene**            | Key  | Turn groups of lamps on at presets, or off                                |
+|       ![Set Brightness][bright-dark]![Set Brightness][bright-light]       | **Set Brightness**   | Key  | Jump to a preset %                                                        |
+|     ![Brightness Up][bright-up-dark]![Brightness Up][bright-up-light]     | **Brightness Up**    | Key  | Step up by the key's %                                                    |
+| ![Brightness Down][bright-down-dark]![Brightness Down][bright-down-light] | **Brightness Down**  | Key  | Step down by the key's %                                                  |
+|           ![Brightness][bright-dark]![Brightness][bright-light]           | **Brightness**       | Dial | Rotate to adjust, press toggles power, tap the strip to control each lamp |
+|        ![Set Temperature][temp-dark]![Set Temperature][temp-light]        | **Set Temperature**  | Key  | Jump to a preset Kelvin                                                   |
+|      ![Temperature Up][temp-up-dark]![Temperature Up][temp-up-light]      | **Temperature Up**   | Key  | Step up, cooler, by the key's Kelvin                                      |
+|  ![Temperature Down][temp-down-dark]![Temperature Down][temp-down-light]  | **Temperature Down** | Key  | Step down, warmer, by the key's Kelvin                                    |
+|            ![Temperature][temp-dark]![Temperature][temp-light]            | **Temperature**      | Dial | Rotate to adjust, press toggles power, tap the strip to control each lamp |
+
+Dials are on the Stream Deck + and the Stream Deck + XL.
 
 - Each key acts on the lamps picked on its settings page: every lamp the plugin knows, unless others are picked. A dial's main screen acts on every lamp connected, and its lamp screens on one lamp at a time. [The user guide][user-guide] describes each action, and the settings they share.
 - The plugin talks to the lamps in-process over USB HID, through the [`litra`][litra] Node library, with no CLI subprocess. [The architecture document][architecture] explains why, and how the plugin's parts fit together.
@@ -37,15 +39,17 @@ Not an official Logitech or Elgato product.
 
 ## Supported hardware
 
-| Lamp          | Power, brightness and temperature     |
-|---------------|---------------------------------------|
-| Litra Beam    | Yes, checked on the lamp              |
-| Litra Beam LX | Front light only, checked on the lamp |
-| Litra Glow    | Not checked on a lamp                 |
+| Model   | Power | Brightness | Temperature | Backlight |
+|---------|:-----:|:----------:|:-----------:|:---------:|
+| Beam    |  ✅   |     ✅     |     ✅      |     —     |
+| Beam LX |  ✅   |     ✅     |     ✅      |    ❌     |
+| Glow    |  ❔   |     ❔     |     ❔      |     —     |
+
+✅ Supported, and checked on the lamp. ❔ Should work, but not checked on a lamp. ❌ Not supported. — The lamp has none.
 
 The plugin is made and checked on Litra Beams, and was checked on a Beam LX's front light, which its tests cover on every change. The Glow takes the same commands, with its own range, so the plugin should control it too, but it hasn't been checked on one, and isn't planned: see "Supported lamps" in [the contributing guide][contributing]. If you try one, [an issue][issues] saying how it went helps.
 
-The Beam LX back light (RGB and G HUB effect presets) isn't supported. What's known about it so far, from the original author's research, is in [#19].
+The Beam LX backlight (RGB and G HUB effect presets) isn't supported. What's known about it so far, from the original author's research, is in [#19].
 
 Lamps connect over USB only: the underlying HID stack doesn't support Bluetooth. A lamp plugged into a hub with limited power may cap its brightness. On a Stream Deck + XL's hub (7.5 W), a Beam stops between about 60% and 80%, depending on the port and the lamp, while plugged into the computer it reaches 100%. A Beam LX runs on a power supply of its own, which it needs plugged in, and reaches 100%. The plugin learns each lamp's cap each time the lamp falls short of what it was sent, so it follows a cap that drops by a few lumens over time, and never asks it for more until the lamp is plugged in again, which is how it moves to another power supply. Right after it learns one, the next brightness change waits about a second, since until then the lamp can undo it.
 
@@ -122,7 +126,7 @@ npm run test:browser      # run the browser tests of the settings pages, which n
 npm run check:docs        # every function, class, method and constructor has a doc comment
 npm run check:ui          # settings pages: no remote resources or inline styles, CSP and stylesheet on every page, vendored file matches its hash
 npm run validate          # check:ui, build and streamdeck validate
-npm run icons             # regenerate the icons in imgs/ from scripts/generate-icons.mjs
+npm run icons             # regenerate the icons in imgs/ and docs/images/ from scripts/generate-icons.mjs
 ```
 
 In VS Code, the `Build and restart` task builds once and restarts the plugin. It's the default build task, so **Tasks: Run Build Task** (⇧⌘B) starts it.
@@ -143,7 +147,7 @@ How a release is made, from the version to publishing it, is in [`docs/developer
 
 ## Icons
 
-The plugin's images are drawn by code, from the glyphs of [`streamdeck-icons`][streamdeck-icons], a dependency pinned to a commit. That repository also holds the palette, and the Litra icon pack, which adds these icons and variants of them to Stream Deck's Icon Library. `scripts/generate-icons.mjs` decides which glyph goes where, and renders each to the PNG sizes Stream Deck needs, while the lamp screens draw the thermometer and the sun at runtime, in their cell's text color. The key images are drawn at the icon pack's sizes, leaving room for a title, while the dials' icons on the touch strip fill their canvas.
+The plugin's images are drawn by code, from the glyphs of [`streamdeck-icons`][streamdeck-icons], a dependency pinned to a commit. That repository also holds the palette, and the Litra icon pack, which adds these icons and variants of them to Stream Deck's Icon Library. `scripts/generate-icons.mjs` decides which glyph goes where, and renders each to the PNG sizes Stream Deck needs, while the lamp screens draw the thermometer and the sun at runtime, in their cell's text color. The key images are drawn at the icon pack's sizes, leaving room for a title, while the dials' icons on the touch strip fill their canvas. The script also draws the icons of this README's actions table, in `docs/images/actions/`, outside the plugin folder: each action's glyph as its keys and dials show it, once for GitHub's dark theme and once for its light one, which the table picks between with `#gh-dark-mode-only` and `#gh-light-mode-only`, so no theme shows a white icon on a white page.
 
 To take a change to the glyphs, update the commit the dependency is pinned to, run `npm run icons`, and commit the regenerated images with it. CI regenerates them too, and fails when the committed images aren't what the script draws.
 
@@ -182,7 +186,7 @@ To update it, download `dist/sdpi-components.js` from the new upstream tag (not 
 
 ## Credits
 
-- Seth Sheppard: the original plugin this repository forked, its design, and the Beam LX back-light research it was based on.
+- Seth Sheppard: the original plugin this repository forked, its design, and the Beam LX backlight research it was based on.
 - [timrogers/litra][litra]: the HID protocol and Node library.
 - [Elgato Stream Deck SDK][sdk].
 
@@ -192,9 +196,12 @@ The plugin is MIT licensed: see [`LICENSE`][license].
 [#21]: https://github.com/daczarne/streamdeck-litra/issues/21
 [#247]: https://github.com/daczarne/streamdeck-litra/issues/247
 [architecture]: docs/developer_guide/architecture.md
-[bright]: com.daczarne.litra.sdPlugin/imgs/actions/brightness/icon@2x.png
-[bright-down]: com.daczarne.litra.sdPlugin/imgs/actions/brightness-down/icon@2x.png
-[bright-up]: com.daczarne.litra.sdPlugin/imgs/actions/brightness-up/icon@2x.png
+[bright-dark]: docs/images/actions/dark/brightness.png#gh-dark-mode-only
+[bright-down-dark]: docs/images/actions/dark/brightness-down.png#gh-dark-mode-only
+[bright-down-light]: docs/images/actions/light/brightness-down.png#gh-light-mode-only
+[bright-light]: docs/images/actions/light/brightness.png#gh-light-mode-only
+[bright-up-dark]: docs/images/actions/dark/brightness-up.png#gh-dark-mode-only
+[bright-up-light]: docs/images/actions/light/brightness-up.png#gh-light-mode-only
 [check-ui]: scripts/check-ui.mjs
 [contributing]: docs/contributing.md
 [issues]: https://github.com/daczarne/streamdeck-litra/issues
@@ -205,10 +212,12 @@ The plugin is MIT licensed: see [`LICENSE`][license].
 [manual-test]: docs/developer_guide/manual_testing/settings_pages.md
 [manual-testing]: docs/developer_guide/manual_testing/
 [n]: https://github.com/tj/n
-[power]: com.daczarne.litra.sdPlugin/imgs/actions/power/icon@2x.png
+[power-dark]: docs/images/actions/dark/power.png#gh-dark-mode-only
+[power-light]: docs/images/actions/light/power.png#gh-light-mode-only
 [releases]: docs/developer_guide/releases.md
 [request-journey]: docs/developer_guide/request_journey.md
-[scene]: com.daczarne.litra.sdPlugin/imgs/actions/scene/icon@2x.png
+[scene-dark]: docs/images/actions/dark/scene.png#gh-dark-mode-only
+[scene-light]: docs/images/actions/light/scene.png#gh-light-mode-only
 [sdk]: https://docs.elgato.com/streamdeck
 [sdpi]: https://github.com/GeekyEggo/sdpi-components
 [sdpi-source]: https://github.com/GeekyEggo/sdpi-components/blob/v4.0.1/dist/sdpi-components.js
@@ -216,9 +225,12 @@ The plugin is MIT licensed: see [`LICENSE`][license].
 [stream-deck]: https://www.elgato.com/streamdeck
 [streamdeck-icons]: https://github.com/daczarne/streamdeck-icons
 [style-guide]: docs/developer_guide/style_guide.md
-[temp]: com.daczarne.litra.sdPlugin/imgs/actions/temperature/icon@2x.png
-[temp-down]: com.daczarne.litra.sdPlugin/imgs/actions/temperature-down/icon@2x.png
-[temp-up]: com.daczarne.litra.sdPlugin/imgs/actions/temperature-up/icon@2x.png
+[temp-dark]: docs/images/actions/dark/temperature.png#gh-dark-mode-only
+[temp-down-dark]: docs/images/actions/dark/temperature-down.png#gh-dark-mode-only
+[temp-down-light]: docs/images/actions/light/temperature-down.png#gh-light-mode-only
+[temp-light]: docs/images/actions/light/temperature.png#gh-light-mode-only
+[temp-up-dark]: docs/images/actions/dark/temperature-up.png#gh-dark-mode-only
+[temp-up-light]: docs/images/actions/light/temperature-up.png#gh-light-mode-only
 [testing]: docs/developer_guide/testing.md
 [troubleshooting]: docs/user_guide/README.md#when-something-doesnt-work
 [user-guide]: docs/user_guide/README.md
