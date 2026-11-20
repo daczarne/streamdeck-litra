@@ -1,31 +1,20 @@
 import { brightnessGlyph } from "@daczarne/streamdeck-icons";
 import { action } from "@elgato/streamdeck";
-import { type Measure, MeasureAction, type Preset } from "../controls/measure";
+import { type Measure, MeasureAction } from "../controls/measure";
 import { brightnessShown, brightnessText } from "../controls/shown";
-import { adjustLampsBrightness, setLampsBrightness } from "../lamps/manager";
+import { adjustLampsBrightness } from "../lamps/manager";
 import { logger as pluginLogger } from "../logging";
 import { globalSettings } from "../settings/global-settings";
-import { brightnessSettingsSchema, parseSettings } from "../settings/schemas";
-
-/** What a Set Brightness key sets its lamps to: its preset, in % of their range. */
-export const PRESET: Preset = {
-  read: (settings, logger) => {
-    const { presetPercentage, lamps, leftOutLamps } = parseSettings(settings, brightnessSettingsSchema, logger);
-    return { preset: presetPercentage, lamps, leftOutLamps };
-  },
-  unit: "%",
-  turnsLampsOn: () => globalSettings.turnsLampsOn("setBrightnessKeys"),
-  set: setLampsBrightness,
-};
+import { brightnessDialSettingsSchema, parseSettings } from "../settings/schemas";
 
 /**
- * What a Set Brightness dial steps, and shows on its main screen, in the slots of the $B1 layout: the brightest
+ * What a Brightness dial steps, and shows on its main screen, in the slots of the $B1 layout: the brightest
  * lamp's % as text, and again as the bar under it, banded by how many lamps reach each part of it, or a dash with no
  * lamp.
  */
 export const BRIGHTNESS: Measure = {
   adjusts: "Brightness",
-  readStep: (settings, logger) => parseSettings(settings, brightnessSettingsSchema, logger).stepPercentage,
+  readStep: (settings, logger) => parseSettings(settings, brightnessDialSettingsSchema, logger).stepPercentage,
   unit: "%",
   stepping: () => globalSettings.brightnessStepping,
   turnsLampsOn: (screen) =>
@@ -35,7 +24,7 @@ export const BRIGHTNESS: Measure = {
   mainScreen: async () => {
     const levels = await brightnessShown("connected");
     return {
-      title: "Set Brightness",
+      title: "Brightness",
       value: brightnessText(levels),
       levels,
     };
@@ -43,13 +32,13 @@ export const BRIGHTNESS: Measure = {
 };
 
 /**
- * The Set Brightness action. On a key, it sets its lamps to the key's preset. On a dial, it steps the brightness as
- * the dial turns, toggles the lamps when pushed, and shows each lamp on its own screen when the strip is tapped (#20).
+ * The Brightness action, on dials alone: it steps the brightness as the dial turns, toggles the lamps when pushed, and shows
+ * each lamp on its own screen when the strip is tapped (#20). The Set Brightness action is its key.
  */
 @action({ UUID: "com.daczarne.litra.brightness" })
 export class BrightnessAction extends MeasureAction {
-  /** Steps and sets the brightness. */
+  /** Steps the brightness. */
   constructor() {
-    super(pluginLogger.createScope("Set Brightness"), PRESET, BRIGHTNESS);
+    super(pluginLogger.createScope("Brightness"), BRIGHTNESS);
   }
 }

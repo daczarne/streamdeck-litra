@@ -114,7 +114,7 @@ const C = beam("00c3");
 
 type Dial = ReturnType<typeof createFakeDial>;
 
-// The lamp screen of each dial a test made, as each Set Brightness and Set Temperature dial makes its own.
+// The lamp screen of each dial a test made, as each Brightness and Temperature dial makes its own.
 let screens: Map<Dial, LampScreen>;
 let showMain: () => Promise<void>;
 

@@ -1,31 +1,20 @@
 import { temperatureGlyph } from "@daczarne/streamdeck-icons";
 import { action } from "@elgato/streamdeck";
-import { type Measure, MeasureAction, type Preset } from "../controls/measure";
+import { type Measure, MeasureAction } from "../controls/measure";
 import { temperatureShown, temperatureText } from "../controls/shown";
-import { adjustLampsTemperature, setLampsTemperature } from "../lamps/manager";
+import { adjustLampsTemperature } from "../lamps/manager";
 import { logger as pluginLogger } from "../logging";
 import { globalSettings } from "../settings/global-settings";
-import { parseSettings, temperatureSettingsSchema } from "../settings/schemas";
-
-/** What a Set Temperature key sets its lamps to: its preset, in kelvin, which each lamp snaps to one it allows. */
-const PRESET: Preset = {
-  read: (settings, logger) => {
-    const { presetKelvin, lamps, leftOutLamps } = parseSettings(settings, temperatureSettingsSchema, logger);
-    return { preset: presetKelvin, lamps, leftOutLamps };
-  },
-  unit: " K",
-  turnsLampsOn: () => globalSettings.turnsLampsOn("setTemperatureKeys"),
-  set: setLampsTemperature,
-};
+import { parseSettings, temperatureDialSettingsSchema } from "../settings/schemas";
 
 /**
- * What a Set Temperature dial steps, and shows on its main screen, in the slots of the $B1 layout: the highest
+ * What a Temperature dial steps, and shows on its main screen, in the slots of the $B1 layout: the highest
  * temperature as text, and its place in the lamps' range as the bar under it, banded by how many lamps reach each part
- * of it, as the Set Brightness dial's (#229), or a dash with no lamp.
+ * of it, as the Brightness dial's (#229), or a dash with no lamp.
  */
 const TEMPERATURE: Measure = {
   adjusts: "Temperature",
-  readStep: (settings, logger) => parseSettings(settings, temperatureSettingsSchema, logger).stepKelvin,
+  readStep: (settings, logger) => parseSettings(settings, temperatureDialSettingsSchema, logger).stepKelvin,
   unit: " K",
   stepping: () => globalSettings.temperatureStepping,
   turnsLampsOn: (screen) =>
@@ -35,7 +24,7 @@ const TEMPERATURE: Measure = {
   mainScreen: async () => {
     const shown = await temperatureShown("connected");
     return {
-      title: "Set Temperature",
+      title: "Temperature",
       value: temperatureText(shown),
       levels: shown.map(({ percentage }) => percentage),
     };
@@ -43,13 +32,13 @@ const TEMPERATURE: Measure = {
 };
 
 /**
- * The Set Temperature action. On a key, it sets its lamps to the key's preset. On a dial, it steps the temperature as
- * the dial turns, toggles the lamps when pushed, and shows each lamp on its own screen when the strip is tapped (#20).
+ * The Temperature action, on dials alone: it steps the temperature as the dial turns, toggles the lamps when pushed, and shows
+ * each lamp on its own screen when the strip is tapped (#20). The Set Temperature action is its key.
  */
 @action({ UUID: "com.daczarne.litra.temperature" })
 export class TemperatureAction extends MeasureAction {
-  /** Steps and sets the temperature. */
+  /** Steps the temperature. */
   constructor() {
-    super(pluginLogger.createScope("Set Temperature"), PRESET, TEMPERATURE);
+    super(pluginLogger.createScope("Temperature"), TEMPERATURE);
   }
 }

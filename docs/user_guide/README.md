@@ -67,13 +67,15 @@ By default, a key also takes in lamps added later: it acts on every lamp but the
 
 ## Dials
 
+The dials have actions of their own, Brightness and Temperature, apart from the Set Brightness and Set Temperature keys, since a dial steps its lamps and shows each one, while a key sets them to its preset.
+
 ### The main screen
 
-Dials look like Stream Deck's own volume dials: the value, with a bar under it. The keys, and the dials' pictures in the Stream Deck app, show the same line icon as the strip, smaller, at the size of the Icon Library's Litra icons. The brightness bar is white up to the dimmest lamp's level, and a lighter grey from there to the brightest lamp's, the part only some lamps reach. The temperature bar runs from the lamps' warmest setting (empty) to their coolest (full), and is white up to the warmest lamp's temperature, and a lighter grey from there to the coolest lamp's. Their title is their action's name ("Set Brightness", "Set Temperature"), and can be replaced or hidden like a key's.
+Dials look like Stream Deck's own volume dials: the value, with a bar under it. The keys, and the dials' pictures in the Stream Deck app, show the same line icon as the strip, smaller, at the size of the Icon Library's Litra icons. The brightness bar is white up to the dimmest lamp's level, and a lighter grey from there to the brightest lamp's, the part only some lamps reach. The temperature bar runs from the lamps' warmest setting (empty) to their coolest (full), and is white up to the warmest lamp's temperature, and a lighter grey from there to the coolest lamp's. Their title is their action's name ("Brightness", "Temperature"), and can be replaced or hidden like a key's.
 
 The icon, the value and the bar each take their color from one of the [text styles](#text-styles), Primary by default, chosen under "Layout", in the plugin settings' "Main screen", the same on every dial. Each one's **Reset** button brings back Primary. Only the color is chosen: the icon keeps its shape and size, the value Stream Deck's font and size, and each keeps its place on the strip. The title's color is picked in Stream Deck's own title settings, on each dial, which the plugin can't change. Where only some lamps reach, the bar is a darker shade of a light color, as white turns grey, and a lighter shade of a dark one, as black turns dark grey, so the color chosen is always where every lamp reaches.
 
-Rotating adjusts every lamp (see [Steps](#steps)), and pressing toggles every lamp, as a Power key in its toggle mode does (see [Power](#power)). A Set Brightness dial shows the brightest lamp's %, and a Set Temperature dial the highest temperature, and a dash when no lamp is connected. Holding the strip does nothing on the main screen.
+Rotating adjusts every lamp (see [Steps](#steps)), and pressing toggles every lamp, as a Power key in its toggle mode does (see [Power](#power)). A Brightness dial shows the brightest lamp's %, and a Temperature dial the highest temperature, and a dash when no lamp is connected. Holding the strip does nothing on the main screen.
 
 ### Lamp screens
 
@@ -81,7 +83,7 @@ Tapping a dial's part of the strip shows one screen per lamp. Each tap shows the
 
 On a lamp screen, the dial controls that lamp alone: turning it changes the lamp's brightness or temperature, and pressing it turns the lamp on or off. Holding the strip blinks the lamp once, to show which one it is. A turn on the dial's own screen sets every lamp to the same value again, unless the lamps keep their difference (see [Lamps together or apart](#lamps-together-or-apart)).
 
-With "Blink each lamp as it's shown, on this dial" checked on a Set Brightness or Set Temperature dial's settings page, each tap that shows a lamp blinks it too, and the next tap waits for the blink to end. The plugin settings turn it on or off for every dial at once, and their checkbox shows a bar when the dials differ. It's off by default, since every lamp then blinks in turn, which shows on camera.
+With "Blink each lamp as it's shown, on this dial" checked on a Brightness or Temperature dial's settings page, each tap that shows a lamp blinks it too, and the next tap waits for the blink to end. The plugin settings turn it on or off for every dial at once, and their checkbox shows a bar when the dials differ. It's off by default, since every lamp then blinks in turn, which shows on camera.
 
 ### What a lamp screen shows
 
@@ -139,7 +141,7 @@ Under the lamps come how each lamp steps, for its brightness and its temperature
 
 ### Dials
 
-"Dials" starts with the text styles, which both screens take (see [Text styles](#text-styles)). It holds, under "Main screen", whether a turn on a Set Brightness or a Set Temperature dial's own screen turns its lamps on as it changes them, and the text styles its icon, its value and its bar take their colors from (see [The main screen](#the-main-screen)). Under "Lamp screens" come the lamp screens' blink for every dial (see [Lamp screens](#lamp-screens)), whether a turn on a lamp screen turns its lamp on, and what they show (see [What a lamp screen shows](#what-a-lamp-screen-shows)). The settings that turn lamps on are unchecked by default, like the keys'.
+"Dials" starts with the text styles, which both screens take (see [Text styles](#text-styles)). It holds, under "Main screen", whether a turn on a Brightness or a Temperature dial's own screen turns its lamps on as it changes them, and the text styles its icon, its value and its bar take their colors from (see [The main screen](#the-main-screen)). Under "Lamp screens" come the lamp screens' blink for every dial (see [Lamp screens](#lamp-screens)), whether a turn on a lamp screen turns its lamp on, and what they show (see [What a lamp screen shows](#what-a-lamp-screen-shows)). The settings that turn lamps on are unchecked by default, like the keys'.
 
 ## When something doesn't work
 

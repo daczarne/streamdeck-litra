@@ -51,52 +51,14 @@
     },
     {
       "Name": "Set Brightness",
-      "UUID": "com.daczarne.litra.brightness",
+      "UUID": "com.daczarne.litra.set-brightness",
       "Icon": "imgs/actions/brightness/icon",
-      "Tooltip": "Set brightness on a key, or adjust with a dial (press toggles power).",
-      "PropertyInspectorPath": "ui/brightness.html",
+      "Tooltip": "Set Litra lights to a brightness.",
+      "PropertyInspectorPath": "ui/set-brightness.html",
       "Controllers": [
-        "Keypad",
-        "Encoder"
+        "Keypad"
       ],
       "UserTitleEnabled": true,
-      "Encoder": {
-        "layout": "$B1",
-        "Icon": "imgs/actions/brightness/glyph",
-        "TriggerDescription": {
-          "Rotate": "Brightness",
-          "Push": "Power",
-          "Touch": "Lamps"
-        }
-      },
-      "States": [
-        {
-          "Image": "imgs/actions/brightness/key",
-          "TitleAlignment": "bottom",
-          "FontSize": 14,
-          "TitleColor": "#ffffff"
-        }
-      ]
-    },
-    {
-      "Name": "Set Brightness 2",
-      "UUID": "com.daczarne.litra.brightness-2",
-      "Icon": "imgs/actions/brightness/icon",
-      "Tooltip": "Set brightness on a key, or adjust with a dial (press toggles power).",
-      "PropertyInspectorPath": "ui/brightness.html",
-      "Controllers": [
-        "Encoder"
-      ],
-      "UserTitleEnabled": false,
-      "Encoder": {
-        "layout": "layouts/main.json",
-        "Icon": "imgs/actions/brightness/glyph",
-        "TriggerDescription": {
-          "Rotate": "Brightness",
-          "Push": "Power",
-          "Touch": "Lamps"
-        }
-      },
       "States": [
         {
           "Image": "imgs/actions/brightness/key",
@@ -145,25 +107,65 @@
       ]
     },
     {
-      "Name": "Set Temperature",
-      "UUID": "com.daczarne.litra.temperature",
-      "Icon": "imgs/actions/temperature/icon",
-      "Tooltip": "Set color temperature on a key, or adjust with a dial (press toggles power).",
-      "PropertyInspectorPath": "ui/temperature.html",
+      "Name": "Brightness",
+      "UUID": "com.daczarne.litra.brightness",
+      "Icon": "imgs/actions/brightness/icon",
+      "Tooltip": "Adjust Litra lights' brightness with a dial (press toggles power, tap shows each lamp).",
+      "PropertyInspectorPath": "ui/brightness.html",
       "Controllers": [
-        "Keypad",
         "Encoder"
       ],
       "UserTitleEnabled": true,
       "Encoder": {
         "layout": "$B1",
-        "Icon": "imgs/actions/temperature/glyph",
+        "Icon": "imgs/actions/brightness/glyph",
         "TriggerDescription": {
-          "Rotate": "Temperature",
+          "Rotate": "Brightness",
           "Push": "Power",
           "Touch": "Lamps"
         }
       },
+      "States": [
+        {
+          "Image": "imgs/actions/brightness/key"
+        }
+      ]
+    },
+    {
+      "Name": "Brightness 2",
+      "UUID": "com.daczarne.litra.brightness-2",
+      "Icon": "imgs/actions/brightness/icon",
+      "Tooltip": "Adjust Litra lights' brightness with a dial (press toggles power, tap shows each lamp).",
+      "PropertyInspectorPath": "ui/brightness.html",
+      "Controllers": [
+        "Encoder"
+      ],
+      "UserTitleEnabled": false,
+      "Encoder": {
+        "layout": "layouts/main.json",
+        "Icon": "imgs/actions/brightness/glyph",
+        "TriggerDescription": {
+          "Rotate": "Brightness",
+          "Push": "Power",
+          "Touch": "Lamps"
+        }
+      },
+      "States": [
+        {
+          "Image": "imgs/actions/brightness/key"
+        }
+      ]
+    },
+    {
+      "Name": "Set Temperature",
+      "UUID": "com.daczarne.litra.set-temperature",
+      "Icon": "imgs/actions/temperature/icon",
+      "Tooltip": "Set Litra lights to a temperature.",
+      "PropertyInspectorPath": "ui/set-temperature.html",
+      "Controllers": [
+        "Keypad"
+      ],
+      "UserTitleEnabled": true,
       "States": [
         {
           "Image": "imgs/actions/temperature/key",
@@ -208,6 +210,31 @@
           "TitleAlignment": "bottom",
           "FontSize": 12,
           "TitleColor": "#ffffff"
+        }
+      ]
+    },
+    {
+      "Name": "Temperature",
+      "UUID": "com.daczarne.litra.temperature",
+      "Icon": "imgs/actions/temperature/icon",
+      "Tooltip": "Adjust Litra lights' temperature with a dial (press toggles power, tap shows each lamp).",
+      "PropertyInspectorPath": "ui/temperature.html",
+      "Controllers": [
+        "Encoder"
+      ],
+      "UserTitleEnabled": true,
+      "Encoder": {
+        "layout": "$B1",
+        "Icon": "imgs/actions/temperature/glyph",
+        "TriggerDescription": {
+          "Rotate": "Temperature",
+          "Push": "Power",
+          "Touch": "Lamps"
+        }
+      },
+      "States": [
+        {
+          "Image": "imgs/actions/temperature/key"
         }
       ]
     }

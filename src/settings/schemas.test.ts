@@ -2,7 +2,14 @@ import type { JsonValue } from "@elgato/utils";
 import { assert, describe, expect, it, vi } from "vitest";
 import { at } from "../test-support/at";
 
-import { brightnessSettingsSchema, parseSettings, powerSettingsSchema, temperatureSettingsSchema } from "./schemas";
+import {
+  brightnessDialSettingsSchema,
+  brightnessSettingsSchema,
+  parseSettings,
+  powerSettingsSchema,
+  temperatureDialSettingsSchema,
+  temperatureSettingsSchema,
+} from "./schemas";
 
 //* Fakes
 
@@ -13,16 +20,10 @@ const logger = { warn: vi.fn() };
 describe("parseSettings", () => {
   it.each([
     ["Power", powerSettingsSchema, { mode: "toggle", lamps: "all", leftOutLamps: [] }],
-    [
-      "Set Brightness",
-      brightnessSettingsSchema,
-      { presetPercentage: 0, stepPercentage: 10, lamps: "all", leftOutLamps: [] },
-    ],
-    [
-      "Set Temperature",
-      temperatureSettingsSchema,
-      { presetKelvin: 2700, stepKelvin: 300, lamps: "all", leftOutLamps: [] },
-    ],
+    ["Set Brightness", brightnessSettingsSchema, { presetPercentage: 0, lamps: "all", leftOutLamps: [] }],
+    ["Set Temperature", temperatureSettingsSchema, { presetKelvin: 2700, lamps: "all", leftOutLamps: [] }],
+    ["Brightness", brightnessDialSettingsSchema, { stepPercentage: 10 }],
+    ["Temperature", temperatureDialSettingsSchema, { stepKelvin: 300 }],
   ])("gives %s's defaults for the settings that are missing, without a warning", (_action, schema, defaults) => {
     expect(parseSettings({}, schema, logger)).toEqual(defaults);
     expect(logger.warn).not.toHaveBeenCalled();
@@ -30,16 +31,10 @@ describe("parseSettings", () => {
 
   it.each([
     ["Power", powerSettingsSchema, { mode: "off", lamps: "all", leftOutLamps: [] }],
-    [
-      "Set Brightness",
-      brightnessSettingsSchema,
-      { presetPercentage: 40, stepPercentage: 20, lamps: "all", leftOutLamps: [] },
-    ],
-    [
-      "Set Temperature",
-      temperatureSettingsSchema,
-      { presetKelvin: 5000, stepKelvin: 500, lamps: "all", leftOutLamps: [] },
-    ],
+    ["Set Brightness", brightnessSettingsSchema, { presetPercentage: 40, lamps: "all", leftOutLamps: [] }],
+    ["Set Temperature", temperatureSettingsSchema, { presetKelvin: 5000, lamps: "all", leftOutLamps: [] }],
+    ["Brightness", brightnessDialSettingsSchema, { stepPercentage: 20 }],
+    ["Temperature", temperatureDialSettingsSchema, { stepKelvin: 500 }],
   ])("keeps %s's valid settings", (_action, schema, settings) => {
     expect(parseSettings(settings, schema, logger)).toEqual(settings);
     expect(logger.warn).not.toHaveBeenCalled();
@@ -47,9 +42,9 @@ describe("parseSettings", () => {
 
   it.each([
     ["presetPercentage", brightnessSettingsSchema, [0, 100]],
-    ["stepPercentage", brightnessSettingsSchema, [1, 25]],
+    ["stepPercentage", brightnessDialSettingsSchema, [1, 25]],
     ["presetKelvin", temperatureSettingsSchema, [2700, 6500]],
-    ["stepKelvin", temperatureSettingsSchema, [100, 500]],
+    ["stepKelvin", temperatureDialSettingsSchema, [100, 500]],
   ])("keeps %s at either end of its range", (name, schema, ends) => {
     for (const end of ends) {
       expect(parseSettings({ [name]: end }, schema, logger)).toMatchObject({ [name]: end });
@@ -59,7 +54,7 @@ describe("parseSettings", () => {
 
   it("keeps every step of the temperature's step, 400 included, as its number field offers them (#195)", () => {
     for (const step of [100, 200, 300, 400, 500]) {
-      expect(parseSettings({ stepKelvin: step }, temperatureSettingsSchema, logger)).toMatchObject({
+      expect(parseSettings({ stepKelvin: step }, temperatureDialSettingsSchema, logger)).toMatchObject({
         stepKelvin: step,
       });
     }
@@ -67,7 +62,9 @@ describe("parseSettings", () => {
   });
 
   it("reads text that is a number as the number, as a select saves it", () => {
-    expect(parseSettings({ stepKelvin: "200" }, temperatureSettingsSchema, logger)).toMatchObject({ stepKelvin: 200 });
+    expect(parseSettings({ stepKelvin: "200" }, temperatureDialSettingsSchema, logger)).toMatchObject({
+      stepKelvin: 200,
+    });
     expect(parseSettings({ presetPercentage: "40" }, brightnessSettingsSchema, logger)).toMatchObject({
       presetPercentage: 40,
     });
@@ -95,18 +92,18 @@ describe("parseSettings", () => {
       ["presetPercentage", brightnessSettingsSchema, -1],
       ["presetPercentage", brightnessSettingsSchema, 101],
       // A step of 0 would make the dial do nothing, and a negative one would turn it the other way.
-      ["stepPercentage", brightnessSettingsSchema, 0],
-      ["stepPercentage", brightnessSettingsSchema, -5],
-      ["stepPercentage", brightnessSettingsSchema, 26],
-      ["stepPercentage", brightnessSettingsSchema, 2.5],
+      ["stepPercentage", brightnessDialSettingsSchema, 0],
+      ["stepPercentage", brightnessDialSettingsSchema, -5],
+      ["stepPercentage", brightnessDialSettingsSchema, 26],
+      ["stepPercentage", brightnessDialSettingsSchema, 2.5],
       ["presetKelvin", temperatureSettingsSchema, "warm"],
       ["presetKelvin", temperatureSettingsSchema, 2600],
       ["presetKelvin", temperatureSettingsSchema, 6600],
-      ["stepKelvin", temperatureSettingsSchema, 0],
-      ["stepKelvin", temperatureSettingsSchema, -100],
-      ["stepKelvin", temperatureSettingsSchema, 600],
-      ["stepKelvin", temperatureSettingsSchema, 150],
-      ["stepKelvin", temperatureSettingsSchema, "250"],
+      ["stepKelvin", temperatureDialSettingsSchema, 0],
+      ["stepKelvin", temperatureDialSettingsSchema, -100],
+      ["stepKelvin", temperatureDialSettingsSchema, 600],
+      ["stepKelvin", temperatureDialSettingsSchema, 150],
+      ["stepKelvin", temperatureDialSettingsSchema, "250"],
       ["mode", powerSettingsSchema, "blink"],
       ["mode", powerSettingsSchema, "On"],
       ["mode", powerSettingsSchema, ""],
@@ -138,9 +135,13 @@ describe("parseSettings", () => {
   });
 
   it("warns once for each setting that isn't valid, and keeps the others", () => {
-    const parsed = parseSettings({ presetPercentage: "abc", stepPercentage: 20 }, brightnessSettingsSchema, logger);
+    const parsed = parseSettings(
+      { presetPercentage: "abc", lamps: ["0123456789abcdef"] },
+      brightnessSettingsSchema,
+      logger,
+    );
 
-    expect(parsed).toEqual({ presetPercentage: 0, stepPercentage: 20, lamps: "all", leftOutLamps: [] });
+    expect(parsed).toEqual({ presetPercentage: 0, lamps: ["0123456789abcdef"], leftOutLamps: [] });
     expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("presetPercentage"));
   });
 

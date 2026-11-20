@@ -38,7 +38,7 @@ Stream Deck starts ─► reads manifest.json ─► spawns Node 24 on bin/plugi
 
 Stream Deck reads [manifest.json] from every folder in `Plugins/`. Everything it shows before the plugin runs comes from there, not from the plugin's code:
 
-- the Litra category and the 8 actions, each with its `UUID`, icon, tooltip, settings page (`PropertyInspectorPath`), the controllers it can sit on (`Keypad`, `Encoder`), its states and, for a dial, its layout (`$B1`) and trigger descriptions;
+- the Litra category and the 10 actions, each with its `UUID`, icon, tooltip, settings page (`PropertyInspectorPath`), the controllers it can sit on (`Keypad`, `Encoder`), its states and, for a dial, its layout (`$B1`) and trigger descriptions;
 - `CodePath` (`bin/plugin.js`), the file to run;
 - `Nodejs.Version` (`24`), the runtime to run it with, which Stream Deck downloads into `~/Library/Application Support/com.elgato.StreamDeck/NodeJS/`.
 
@@ -67,15 +67,15 @@ Before the first line of `plugin.ts` runs, every module it imports is evaluated,
 - **[src/logging.ts]** creates the plugin's logger, which writes to `logs/litra.log`, rotated by size. The file is created on the first entry.
 - **[src/lamps/manager.ts]** sets up its module state: no known lamps yet, an already resolved `operations` promise (the queue every operation on the lamps goes through), and empty listener lists.
 - **[src/settings/global-settings.ts]** creates the `globalSettings` instance, holding the settings' defaults and no lamps, which saves through `streamDeck.settings.setGlobalSettings`.
-- **The action classes** are defined. `@action({ UUID })` (`actions/decorators.js`) replaces each class with a subclass that has a `manifestId` field set to the UUID, such as `com.daczarne.litra.brightness` for `BrightnessAction` ([brightness.ts]).
+- **The action classes** are defined. `@action({ UUID })` (`actions/decorators.js`) replaces each class with a subclass that has a `manifestId` field set to the UUID, such as `com.daczarne.litra.set-brightness` for `SetBrightnessAction` ([set-brightness.ts]).
 
 ## 4. The body of plugin.ts
 
 [src/plugin.ts] then runs, top to bottom, in one go, before any message from Stream Deck can be handled:
 
 1. **Logging.** It sets the SDK's logger to `info`, and logs `Plugin started` to `litra.log`, which marks where each run starts.
-2. **8 × `registerAction(new XAction())`.** For each action:
-   - `new XAction()` runs the [`RoutingAction` constructor][action-instance-constructor], which subscribes once to `onLampsChanged` (the lamp manager) and to `globalSettings.onChanged`. These two subscriptions are how every key and dial of the action follows a change later. `BrightnessAction` also passes its logger scope, its `PRESET` (what a key sets) and its `BRIGHTNESS` measure (what a dial steps and shows) to `MeasureAction`.
+2. **10 × `registerAction(new XAction())`.** For each action:
+   - `new XAction()` runs the [`RoutingAction` constructor][action-instance-constructor], which subscribes once to `onLampsChanged` (the lamp manager) and to `globalSettings.onChanged`. These two subscriptions are how every key and dial of the action follows a change later. `SetBrightnessAction` also passes its logger scope and its `PRESET` (what a key sets) to `PresetKeyAction`, and `BrightnessAction` its own and its `BRIGHTNESS` measure (what a dial steps and shows) to `MeasureAction`.
    - `registerAction` (`actions/service.js`) checks the `manifestId`. It throws when the id is missing, or when `manifest.json` doesn't list it, which stops the plugin as it starts.
    - It then routes the action's events. For each handler the action has (a `RoutingAction` has `onWillAppear`, `onWillDisappear`, `onDidReceiveSettings`, `onKeyDown`, `onDialDown`, `onDialRotate` and `onTouchTap`), it subscribes a listener to that event on the connection, which calls the handler only when the event's `manifestId` is the action's own.
 
@@ -106,14 +106,14 @@ Two things arrive, and nothing in the plugin depends on which comes first.
 **A `willAppear` for each key and dial on screen.** For each:
 
 1. The SDK's prepended listener creates the `KeyAction` or `DialAction`, stores it, and caches its settings.
-2. The routed listener of the matching action calls [`RoutingAction.onWillAppear`][action-instance-appear], which calls the action's `create` and stores the instance under the key's or dial's id. For the Set Brightness action, [`MeasureAction.create`][measure-create] gives a key a `PresetKey` and a dial a `MeasureDial`. Each instance reads its settings against their schema as it's built, so an invalid setting is warned about once.
+2. The routed listener of the matching action calls [`RoutingAction.onWillAppear`][action-instance-appear], which calls the action's `create` and stores the instance under the key's or dial's id. For the Set Brightness action, [`PresetKeyAction.create`][preset-key-create] gives a key a `PresetKey`, and for the Brightness action, [`MeasureAction.create`][measure-create] gives a dial a `MeasureDial`. Each instance reads its settings against their schema as it's built, so an invalid setting is warned about once.
 3. `instance.appear()` draws the control. What it can show depends on whether the lamps were read yet:
 
 | Control | What it shows as it appears |
 | --- | --- |
 | Set Brightness key (`PresetKey`) | Its preset as its title, with its unit, whatever the lamps are at |
 | Power key | `areLampsOn`: with no lamp reached yet, none is on, so state 0 |
-| Set Brightness dial (`MeasureDial`) | Sets the `$B1` layout, then its main screen: with no lamp reached, `—` and an empty bar |
+| Brightness dial (`MeasureDial`) | Sets the `$B1` layout, then its main screen: with no lamp reached, `—` and an empty bar |
 | Brightness Up key | Its title, from the lamps shown, none yet |
 
 **The answer to `getGlobalSettings`.** It carries the request's id, so the `onDidReceiveGlobalSettings` listener ignores it (that one only reports a page's changes), and it resolves the promise `syncGlobalSettings` returned in [4](#4-the-body-of-plugints) instead. Then:
@@ -145,15 +145,16 @@ Once that's done, the plugin waits for events, holding:
 
 [action-instance-appear]: ../../src/controls/action-instance.ts
 [action-instance-constructor]: ../../src/controls/action-instance.ts
-[brightness.ts]: ../../src/actions/brightness.ts
 [elgato-sdk-actions]: ../elgato_sdk/actions.md
 [global-settings-read]: ../../src/settings/global-settings.ts
 [manifest.json]: ../../com.daczarne.litra.sdPlugin/manifest.json
 [measure-create]: ../../src/controls/measure.ts
 [plugin-settings-page]: ../../src/settings/plugin-settings-page.ts
+[preset-key-create]: ../../src/controls/preset-key.ts
 [reach-every-lamp]: ../../src/lamps/manager.ts
 [request-journey]: request_journey.md
 [rollup.config.mjs]: ../../rollup.config.mjs
+[set-brightness.ts]: ../../src/actions/set-brightness.ts
 [src/lamps/manager.ts]: ../../src/lamps/manager.ts
 [src/logging.ts]: ../../src/logging.ts
 [src/plugin.ts]: ../../src/plugin.ts

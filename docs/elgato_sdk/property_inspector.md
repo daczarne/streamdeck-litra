@@ -15,7 +15,7 @@ An action's settings page is its Property Inspector: an HTML page from the plugi
 ## How Stream Deck loads a page
 
 - Stream Deck renders the pages with Qt WebEngine, which is Chromium. A page that works in Chrome generally works there too.
-- A plugin's page loads from `file://`, at its path in the plugin folder. For this linked plugin, that's the repository: `file:///Users/.../streamdeck-litra/com.daczarne.litra.sdPlugin/ui/temperature.html`. Stream Deck also registers its own `sdpi:` scheme, but uses it for its own panels (`sdpi://ui`), not for plugins' pages.
+- A plugin's page loads from `file://`, at its path in the plugin folder. For this linked plugin, that's the repository: `file:///Users/.../streamdeck-litra/com.daczarne.litra.sdPlugin/ui/set-temperature.html`. Stream Deck also registers its own `sdpi:` scheme, but uses it for its own panels (`sdpi://ui`), not for plugins' pages.
 - Only the page of the selected action exists. Selecting another action replaces it with a new page.
 - A manifest names a page per action, or one at its top for every action that names none (`PropertyInspectorPath`), and nothing else: Stream Deck 7.6 has no page for a plugin's own settings, such as under Preferences > Plugins. Checked in `@elgato/schemas` and in the manifest keys the app's binary reads. The plugin settings ([#146]) are therefore a view that every action's page shows, from one script.
 - Stream Deck calls a global function on the page, `connectElgatoStreamDeckSocket`, with a port and the action's details, including whether it sits on a key or a dial. The page then opens a WebSocket to `ws://localhost:<port>`, through which it reads and saves the settings. sdpi-components defines that function, so the pages here don't.

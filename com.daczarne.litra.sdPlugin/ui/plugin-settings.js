@@ -897,8 +897,8 @@
     item(undefined, textStyle("Accent", "lampScreenAccent", "#4dd0e1")),
     item(undefined, textStyle("Alert", "lampScreenAlert", "#ff6b6b", "bold")),
     item(undefined, subsection("Main screen")),
-    item("Turn on", globalCheckbox("setBrightnessDialsTurnLampsOn", "Set Brightness dials turn lamps on")),
-    item(undefined, globalCheckbox("setTemperatureDialsTurnLampsOn", "Set Temperature dials turn lamps on")),
+    item("Turn on", globalCheckbox("setBrightnessDialsTurnLampsOn", "Brightness dials turn lamps on")),
+    item(undefined, globalCheckbox("setTemperatureDialsTurnLampsOn", "Temperature dials turn lamps on")),
     item("Brightness title", globalText("setBrightnessDialTitle", "Brightness")),
     item("Temperature title", globalText("setTemperatureDialTitle", "Temperature")),
     item(
@@ -912,8 +912,8 @@
     ),
     item(undefined, subsection("Lamp screens")),
     item("Blink", everyDialBlink),
-    item("Turn on", globalCheckbox("setBrightnessLampScreensTurnLampsOn", "Set Brightness dials turn the lamp on")),
-    item(undefined, globalCheckbox("setTemperatureLampScreensTurnLampsOn", "Set Temperature dials turn the lamp on")),
+    item("Turn on", globalCheckbox("setBrightnessLampScreensTurnLampsOn", "Brightness dials turn the lamp on")),
+    item(undefined, globalCheckbox("setTemperatureLampScreensTurnLampsOn", "Temperature dials turn the lamp on")),
     item("Layout", lampScreenCells()),
   );
   container.append(item(undefined, toggleButton), view, editor);
