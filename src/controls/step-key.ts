@@ -20,13 +20,13 @@ type StepConfig = { step: number; lamps: CheckedLamps; leftOutLamps: readonly st
 
 /**
  * What a step key moves: how it reads its settings, how the global settings step several lamps (#145), whether they
- * have the keys that step it up, or down, turn the lamps on (#268), how it moves the lamps by its step, and the title
- * it shows of them.
+ * have a key that steps it up, or down, by its id, turn the lamps on (#268, #181), how it moves the lamps by its step,
+ * and the title it shows of them.
  */
 type Stepped = {
   read: (settings: JsonObject, logger: Logger) => StepConfig;
   stepping: () => Stepping;
-  turnsLampsOn: (direction: 1 | -1) => boolean;
+  turnsLampsOn: (direction: 1 | -1, keyId: string) => boolean;
   unit: string;
   adjust: (
     lamps: LampSelection,
@@ -48,7 +48,8 @@ export const BRIGHTNESS: Stepped = {
     return { step: stepPercentage, ...lamps };
   },
   stepping: () => globalSettings.brightnessStepping,
-  turnsLampsOn: (direction) => globalSettings.turnsLampsOn(direction > 0 ? "brightnessUpKeys" : "brightnessDownKeys"),
+  turnsLampsOn: (direction, keyId) =>
+    globalSettings.turnsLampsOn(direction > 0 ? "brightnessUpKeys" : "brightnessDownKeys", keyId),
   unit: "%",
   adjust: adjustLampsBrightness,
   title: async (lamps) => brightnessText(await brightnessShown(lamps)),
@@ -64,7 +65,8 @@ export const TEMPERATURE: Stepped = {
     return { step: stepKelvin, ...lamps };
   },
   stepping: () => globalSettings.temperatureStepping,
-  turnsLampsOn: (direction) => globalSettings.turnsLampsOn(direction > 0 ? "temperatureUpKeys" : "temperatureDownKeys"),
+  turnsLampsOn: (direction, keyId) =>
+    globalSettings.turnsLampsOn(direction > 0 ? "temperatureUpKeys" : "temperatureDownKeys", keyId),
   unit: " K",
   adjust: adjustLampsTemperature,
   title: async (lamps) => temperatureText(await temperatureShown(lamps)),
@@ -145,7 +147,7 @@ class StepKey extends ActionInstance<StepConfig, KeyAction<JsonObject>> {
   private async step(presses: number): Promise<void> {
     const { step } = this.config;
     const stepping = this.stepped.stepping();
-    const turnOn = this.stepped.turnsLampsOn(this.direction);
+    const turnOn = this.stepped.turnsLampsOn(this.direction, this.control.id);
     const lamps = this.lamps();
     const steps = `${presses} ${presses === 1 ? "step" : "steps"} of ${step}${this.stepped.unit}`;
     const each = stepping === "each" ? ", each lamp from its own" : "";

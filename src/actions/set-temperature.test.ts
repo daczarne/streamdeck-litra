@@ -89,6 +89,25 @@ describe("SetTemperatureAction", () => {
     expect(logger.info).toHaveBeenCalledWith(expect.stringContaining("turning lamps on"));
   });
 
+  it("turns the lamps on, or not, as a key chose on its own page, whatever the other keys do (#181)", async () => {
+    const key = await deck.key(SET_TEMPERATURE);
+    const other = await deck.key(SET_TEMPERATURE);
+    changeGlobalSettings({ setTemperatureKeysTurnLampsOnExceptions: [key.id] });
+
+    await deck.press(key);
+    await deck.press(other);
+    changeGlobalSettings({ setTemperatureKeysTurnLampsOn: true, setTemperatureKeysTurnLampsOnExceptions: [key.id] });
+    await deck.press(key);
+    await deck.press(other);
+
+    expect(vi.mocked(setLampsTemperature).mock.calls).toEqual([
+      ["all", 2700, true],
+      ["all", 2700, false],
+      ["all", 2700, false],
+      ["all", 2700, true],
+    ]);
+  });
+
   it("leaves the lamps' power as it is, whichever other keys and dials turn lamps on (#268)", async () => {
     changeGlobalSettings({
       setBrightnessKeysTurnLampsOn: true,

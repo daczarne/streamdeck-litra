@@ -80,6 +80,25 @@ describe("SetBrightnessAction", () => {
     expect(logger.info).toHaveBeenCalledWith(expect.stringContaining("turning lamps on"));
   });
 
+  it("turns the lamps on, or not, as a key chose on its own page, whatever the other keys do (#181)", async () => {
+    const key = await deck.key(SET_BRIGHTNESS);
+    const other = await deck.key(SET_BRIGHTNESS);
+    changeGlobalSettings({ setBrightnessKeysTurnLampsOnExceptions: [key.id] });
+
+    await deck.press(key);
+    await deck.press(other);
+    changeGlobalSettings({ setBrightnessKeysTurnLampsOn: true, setBrightnessKeysTurnLampsOnExceptions: [key.id] });
+    await deck.press(key);
+    await deck.press(other);
+
+    expect(vi.mocked(setLampsBrightness).mock.calls).toEqual([
+      ["all", 0, true],
+      ["all", 0, false],
+      ["all", 0, false],
+      ["all", 0, true],
+    ]);
+  });
+
   it("leaves the lamps' power as it is, whichever other keys and dials turn lamps on (#268)", async () => {
     changeGlobalSettings({
       brightnessUpKeysTurnLampsOn: true,

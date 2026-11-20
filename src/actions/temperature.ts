@@ -20,8 +20,8 @@ const TEMPERATURE: Measure = {
   },
   unit: " K",
   stepping: () => globalSettings.temperatureStepping,
-  turnsLampsOn: (screen) =>
-    globalSettings.turnsLampsOn(screen === "main" ? "setTemperatureDials" : "setTemperatureLampScreens"),
+  turnsLampsOn: (screen, dialId) =>
+    globalSettings.turnsLampsOn(screen === "main" ? "setTemperatureDials" : "setTemperatureLampScreens", dialId),
   adjust: adjustLampsTemperature,
   glyph: temperatureGlyph,
   mainScreen: async () => {

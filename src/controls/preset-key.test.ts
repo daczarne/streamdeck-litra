@@ -123,6 +123,7 @@ describe("a key of a PresetKeyAction", () => {
 
     await deck.press(key);
 
+    expect(PRESET.turnsLampsOn).toHaveBeenCalledExactlyOnceWith(key.id);
     expect(PRESET.set).toHaveBeenCalledExactlyOnceWith("all", 40, true);
     expect(logger.info).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("turning lamps on"));
   });

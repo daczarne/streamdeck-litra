@@ -20,8 +20,8 @@ export const BRIGHTNESS: Measure = {
   },
   unit: "%",
   stepping: () => globalSettings.brightnessStepping,
-  turnsLampsOn: (screen) =>
-    globalSettings.turnsLampsOn(screen === "main" ? "setBrightnessDials" : "setBrightnessLampScreens"),
+  turnsLampsOn: (screen, dialId) =>
+    globalSettings.turnsLampsOn(screen === "main" ? "setBrightnessDials" : "setBrightnessLampScreens", dialId),
   adjust: adjustLampsBrightness,
   glyph: brightnessGlyph,
   mainScreen: async () => {

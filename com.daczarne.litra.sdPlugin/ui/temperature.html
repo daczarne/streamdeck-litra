@@ -27,8 +27,9 @@
     <div id="plugin-settings"></div>
     <!-- The title the dial's main screen shows, empty for the title the plugin settings give the action's dials, which
       plugin-settings.js shows in it, greyed out, as it holds it, with a × that empties it (title-field.js, #181),
-      how far a tick of the dial moves the lamps, and its own blink of each lamp as its lamp screen shows it, which
-      plugin-settings.js shows and saves to the plugin's global settings, beside every dial's (#144). -->
+      how far a tick of the dial moves the lamps, and, which plugin-settings.js shows and saves to the plugin's global
+      settings, beside every dial's, whether a turn on its main screen turns the lamps on (#268, #181), its own blink of
+      each lamp as its lamp screen shows it (#144), and whether a turn there turns the lamp on. -->
     <sdpi-item label="Title">
       <div class="text-and-clear">
         <sdpi-textfield
@@ -47,8 +48,14 @@
     <sdpi-item label="Step K">
       <litra-number setting="stepKelvin" min="100" max="500" step="100" default="300" unit="K"></litra-number>
     </sdpi-item>
+    <sdpi-item label="Turn on">
+      <div id="dial-turn-on"></div>
+    </sdpi-item>
     <sdpi-item label="Lamp screens">
       <div id="dial-blink"></div>
+    </sdpi-item>
+    <sdpi-item>
+      <div id="lamp-screen-turn-on"></div>
     </sdpi-item>
     <script src="title-field.js"></script>
     <script src="plugin-settings.js"></script>

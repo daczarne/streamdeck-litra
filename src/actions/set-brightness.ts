@@ -12,7 +12,7 @@ const PRESET: Preset = {
     return { preset: presetPercentage, lamps, leftOutLamps };
   },
   unit: "%",
-  turnsLampsOn: () => globalSettings.turnsLampsOn("setBrightnessKeys"),
+  turnsLampsOn: (keyId) => globalSettings.turnsLampsOn("setBrightnessKeys", keyId),
   set: setLampsBrightness,
 };
 

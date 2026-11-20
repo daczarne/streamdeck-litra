@@ -99,6 +99,32 @@ describe("TemperatureAction", () => {
   });
 
   describe("turns the lamps on as it changes them on its main screen (#268)", () => {
+    it("on a dial that chose to on its own page, while the other dials leave them off (#181)", async () => {
+      const dial = await deck.dial(TEMPERATURE);
+      const other = await deck.dial(TEMPERATURE);
+      changeGlobalSettings({ setTemperatureDialsTurnLampsOnExceptions: [dial.id] });
+
+      await deck.turn(other, 3);
+      await deck.turn(dial, 3);
+
+      expect(vi.mocked(adjustLampsTemperature).mock.calls).toEqual([
+        ["connected", 3, 300, "together", false],
+        ["connected", 3, 300, "together", true],
+      ]);
+    });
+
+    it("but not on a dial that chose otherwise on its own page, once Temperature dials turn lamps on (#181)", async () => {
+      const dial = await deck.dial(TEMPERATURE);
+      changeGlobalSettings({
+        setTemperatureDialsTurnLampsOn: true,
+        setTemperatureDialsTurnLampsOnExceptions: [dial.id],
+      });
+
+      await deck.turn(dial, 3);
+
+      expect(adjustLampsTemperature).toHaveBeenCalledExactlyOnceWith("connected", 3, 300, "together", false);
+    });
+
     it("once Temperature dials turn lamps on", async () => {
       changeGlobalSettings({ setTemperatureDialsTurnLampsOn: true });
       const dial = await deck.dial(TEMPERATURE);

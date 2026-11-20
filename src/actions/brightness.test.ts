@@ -93,6 +93,29 @@ describe("BrightnessAction", () => {
   });
 
   describe("turns the lamps on as it changes them on its main screen (#268)", () => {
+    it("on a dial that chose to on its own page, while the other dials leave them off (#181)", async () => {
+      const dial = await deck.dial(BRIGHTNESS);
+      const other = await deck.dial(BRIGHTNESS);
+      changeGlobalSettings({ setBrightnessDialsTurnLampsOnExceptions: [dial.id] });
+
+      await deck.turn(other, 3);
+      await deck.turn(dial, 3);
+
+      expect(vi.mocked(adjustLampsBrightness).mock.calls).toEqual([
+        ["connected", 3, 10, "together", false],
+        ["connected", 3, 10, "together", true],
+      ]);
+    });
+
+    it("but not on a dial that chose otherwise on its own page, once Brightness dials turn lamps on (#181)", async () => {
+      const dial = await deck.dial(BRIGHTNESS);
+      changeGlobalSettings({ setBrightnessDialsTurnLampsOn: true, setBrightnessDialsTurnLampsOnExceptions: [dial.id] });
+
+      await deck.turn(dial, 3);
+
+      expect(adjustLampsBrightness).toHaveBeenCalledExactlyOnceWith("connected", 3, 10, "together", false);
+    });
+
     it("once Brightness dials turn lamps on", async () => {
       changeGlobalSettings({ setBrightnessDialsTurnLampsOn: true });
       const dial = await deck.dial(BRIGHTNESS);

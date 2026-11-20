@@ -78,15 +78,15 @@ export type MainScreen = { title: string; value: string; levels: readonly number
  * What a Brightness or Temperature dial steps: what a turn adjusts, which describes a turn on a lamp screen, how it
  * reads its step and its own title from its settings, an empty one when it has none (#181), the unit its log line gives
  * the step in, how the global settings step several lamps (#145), whether they have a turn on its main screen or on a
- * lamp screen turn the lamps on (#268), how it moves the lamps by its step, the glyph its main screen's icon is drawn
- * from, and what its main screen shows of every lamp, its title included.
+ * lamp screen turn the lamps on, for the dial, by its id (#268, #181), how it moves the lamps by its step, the glyph
+ * its main screen's icon is drawn from, and what its main screen shows of every lamp, its title included.
  */
 export type Measure = {
   adjusts: string;
   readSettings: (settings: JsonObject, logger: Logger) => DialSettings;
   unit: string;
   stepping: () => Stepping;
-  turnsLampsOn: (screen: "main" | "lamp") => boolean;
+  turnsLampsOn: (screen: "main" | "lamp", dialId: string) => boolean;
   adjust: (
     lamps: LampSelection,
     ticks: number,
@@ -216,7 +216,7 @@ class MeasureDial extends ActionInstance<DialSettings, DialAction<JsonObject>> {
     const { step } = this.config;
     // A lamp screen turns its lamp alone, and the main screen every lamp, together or each from its own (#145).
     const stepping = lamp === undefined ? this.measure.stepping() : "together";
-    const turnOn = this.measure.turnsLampsOn(lamp === undefined ? "main" : "lamp");
+    const turnOn = this.measure.turnsLampsOn(lamp === undefined ? "main" : "lamp", this.control.id);
     const screen = lamp === undefined ? "" : " on a lamp screen";
     const each = stepping === "each" ? ", each lamp from its own" : "";
     const turning = turnOn ? ", turning lamps on" : "";

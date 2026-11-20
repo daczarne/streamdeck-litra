@@ -189,6 +189,10 @@ describe("a key of a StepKeyAction", () => {
         await deck.press(key);
         await deck.press(other);
 
+        expect(STEPPED.turnsLampsOn.mock.calls).toEqual([
+          [direction, key.id],
+          [-direction, other.id],
+        ]);
         expect(STEPPED.adjust.mock.calls).toEqual([
           ["all", direction, 2, "together", true],
           ["all", -direction, 2, "together", false],
@@ -320,19 +324,30 @@ describe("BRIGHTNESS, what the Brightness Up and Down keys step", () => {
   });
 
   it("turns the lamps on, for a key stepping up or one stepping down, once the global settings say so (#268)", () => {
-    expect(BRIGHTNESS.turnsLampsOn(1)).toBe(false);
-    expect(BRIGHTNESS.turnsLampsOn(-1)).toBe(false);
+    expect(BRIGHTNESS.turnsLampsOn(1, "a-key")).toBe(false);
+    expect(BRIGHTNESS.turnsLampsOn(-1, "a-key")).toBe(false);
 
     changeGlobalSettings({ temperatureUpKeysTurnLampsOn: true });
-    expect(BRIGHTNESS.turnsLampsOn(1)).toBe(false);
+    expect(BRIGHTNESS.turnsLampsOn(1, "a-key")).toBe(false);
 
     changeGlobalSettings({ brightnessUpKeysTurnLampsOn: true });
-    expect(BRIGHTNESS.turnsLampsOn(1)).toBe(true);
-    expect(BRIGHTNESS.turnsLampsOn(-1)).toBe(false);
+    expect(BRIGHTNESS.turnsLampsOn(1, "a-key")).toBe(true);
+    expect(BRIGHTNESS.turnsLampsOn(-1, "a-key")).toBe(false);
 
     changeGlobalSettings({ brightnessDownKeysTurnLampsOn: true });
-    expect(BRIGHTNESS.turnsLampsOn(1)).toBe(false);
-    expect(BRIGHTNESS.turnsLampsOn(-1)).toBe(true);
+    expect(BRIGHTNESS.turnsLampsOn(1, "a-key")).toBe(false);
+    expect(BRIGHTNESS.turnsLampsOn(-1, "a-key")).toBe(true);
+  });
+
+  it("turns the lamps on, or not, for a key that chose otherwise on its own page (#181)", () => {
+    changeGlobalSettings({ brightnessUpKeysTurnLampsOnExceptions: ["a-key"] });
+    expect(BRIGHTNESS.turnsLampsOn(1, "a-key")).toBe(true);
+    expect(BRIGHTNESS.turnsLampsOn(1, "other-key")).toBe(false);
+    expect(BRIGHTNESS.turnsLampsOn(-1, "a-key")).toBe(false);
+
+    changeGlobalSettings({ brightnessDownKeysTurnLampsOn: true, brightnessDownKeysTurnLampsOnExceptions: ["a-key"] });
+    expect(BRIGHTNESS.turnsLampsOn(-1, "a-key")).toBe(false);
+    expect(BRIGHTNESS.turnsLampsOn(-1, "other-key")).toBe(true);
   });
 
   it("shows the brightest of its lamps, as the dials do, or a dash with none", async () => {
@@ -373,19 +388,30 @@ describe("TEMPERATURE, what the Temperature Up and Down keys step", () => {
   });
 
   it("turns the lamps on, for a key stepping up or one stepping down, once the global settings say so (#268)", () => {
-    expect(TEMPERATURE.turnsLampsOn(1)).toBe(false);
-    expect(TEMPERATURE.turnsLampsOn(-1)).toBe(false);
+    expect(TEMPERATURE.turnsLampsOn(1, "a-key")).toBe(false);
+    expect(TEMPERATURE.turnsLampsOn(-1, "a-key")).toBe(false);
 
     changeGlobalSettings({ brightnessUpKeysTurnLampsOn: true });
-    expect(TEMPERATURE.turnsLampsOn(1)).toBe(false);
+    expect(TEMPERATURE.turnsLampsOn(1, "a-key")).toBe(false);
 
     changeGlobalSettings({ temperatureUpKeysTurnLampsOn: true });
-    expect(TEMPERATURE.turnsLampsOn(1)).toBe(true);
-    expect(TEMPERATURE.turnsLampsOn(-1)).toBe(false);
+    expect(TEMPERATURE.turnsLampsOn(1, "a-key")).toBe(true);
+    expect(TEMPERATURE.turnsLampsOn(-1, "a-key")).toBe(false);
 
     changeGlobalSettings({ temperatureDownKeysTurnLampsOn: true });
-    expect(TEMPERATURE.turnsLampsOn(1)).toBe(false);
-    expect(TEMPERATURE.turnsLampsOn(-1)).toBe(true);
+    expect(TEMPERATURE.turnsLampsOn(1, "a-key")).toBe(false);
+    expect(TEMPERATURE.turnsLampsOn(-1, "a-key")).toBe(true);
+  });
+
+  it("turns the lamps on, or not, for a key that chose otherwise on its own page (#181)", () => {
+    changeGlobalSettings({ temperatureUpKeysTurnLampsOnExceptions: ["a-key"] });
+    expect(TEMPERATURE.turnsLampsOn(1, "a-key")).toBe(true);
+    expect(TEMPERATURE.turnsLampsOn(1, "other-key")).toBe(false);
+    expect(TEMPERATURE.turnsLampsOn(-1, "a-key")).toBe(false);
+
+    changeGlobalSettings({ temperatureDownKeysTurnLampsOn: true, temperatureDownKeysTurnLampsOnExceptions: ["a-key"] });
+    expect(TEMPERATURE.turnsLampsOn(-1, "a-key")).toBe(false);
+    expect(TEMPERATURE.turnsLampsOn(-1, "other-key")).toBe(true);
   });
 
   it("shows the highest of its lamps, as the dials do, or a dash with none", async () => {

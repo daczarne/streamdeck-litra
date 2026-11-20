@@ -8,11 +8,12 @@
 // it (#214). Then come the global settings that every dial and key shares, such as whether each lamp steps from its own
 // value (#145), how long a blink lasts (#171), whether keys take in lamps added later (#147), which a key's own page
 // can choose for that key alone, and tells its lamp picker, the lamp screens' blink (#144), which a dial's own page can
-// turn on or off for that dial alone, the title each action's dials show on their main screen, which a dial's own page
-// shows as the placeholder of its own title (#181), and what each cell of the lamp screens shows, with a Configure
-// button that shows the cell's options in place of the plugin settings (#177), and Back, which shows the plugin
-// settings again, scrolled to where they were. A file rather than an inline script, so the pages'
-// Content-Security-Policy doesn't have to allow inline scripts.
+// turn on or off for that dial alone, whether each kind of key, and each action's dials, turn the lamps on as they
+// change them (#268), which a key's or a dial's own page can choose for it alone (#181), the title each action's dials
+// show on their main screen, which a dial's own page shows as the placeholder of its own title (#181), and what each
+// cell of the lamp screens shows, with a Configure button that shows the cell's options in place of the plugin settings
+// (#177), and Back, which shows the plugin settings again, scrolled to where they were. A file rather than an inline
+// script, so the pages' Content-Security-Policy doesn't have to allow inline scripts.
 //
 // Its styles are in settings.css, with every page's (#247).
 (() => {
@@ -718,7 +719,9 @@
   }
 
   //* Choices every dial or every key shares, which one dial or one key can make otherwise on its own page: the lamp
-  // screens' blink (#144), and whether a key takes in lamps added later (#147). Each is a global setting, and the ids
+  // screens' blink (#144), whether a key takes in lamps added later (#147), and whether each kind of key, and each
+  // action's dials, on their main screen and on their lamp screens, turn the lamps on as they change them (#268, #181).
+  // Each is a global setting, and the ids
   // of the dials or keys that chose otherwise. The plugin settings show every one's at once, indeterminate when they
   // differ, and a click there gives every one the same again, even the ones not on screen. A dial's or key's page shows
   // its own, in the element the page has for it.
@@ -732,9 +735,20 @@
    * A choice every dial or every key shares, kept in the global setting `setting` and the ids in `exceptions`, which
    * holds `fallback` until the global settings arrive. Returns the plugin settings' checkbox for every one, labeled
    * `every`, and puts the page's own, labeled `own`, in the element with the id `ownElement`, on a page for that
-   * `controller` ("Encoder" or "Keypad"). `onOwnChange` hears the page's own choice each time it's shown.
+   * `controller` ("Encoder" or "Keypad"), and for that `action` alone when it's given, by its UUID, since the Up and
+   * Down keys of a step share a page. `onOwnChange` hears the page's own choice each time it's shown.
    */
-  function sharedChoice({ setting, exceptions, fallback, every, own, ownElement, controller, onOwnChange = () => {} }) {
+  function sharedChoice({
+    setting,
+    exceptions,
+    fallback,
+    every,
+    own,
+    ownElement,
+    controller,
+    action,
+    onOwnChange = () => {},
+  }) {
     // The plugin's setting, the ids that chose otherwise, and the id of the dial or key whose page this is, if it is
     // one.
     let chosen = fallback;
@@ -803,7 +817,8 @@
     (async () => {
       const info = await client.getConnectionInfo();
       const ownContainer = document.getElementById(ownElement);
-      if (info?.actionInfo?.payload?.controller === controller && ownContainer !== null) {
+      const forThisAction = action === undefined || info?.actionInfo?.action === action;
+      if (info?.actionInfo?.payload?.controller === controller && forThisAction && ownContainer !== null) {
         ownId = info.actionInfo.context;
         ownContainer.append(ownBox);
       }
@@ -835,6 +850,62 @@
     controller: "Keypad",
     onOwnChange: (adds) => document.dispatchEvent(new CustomEvent("litra:adds-new-lamps", { detail: adds })),
   });
+
+  /**
+   * Whether these keys or dials turn the lamps on as they change them (#268), kept in the global setting
+   * `${controls}TurnLampsOn` and its exceptions, labeled `every` in the plugin settings, and `own` on the page of a key
+   * or dial of `action` (#181), in the element with the id `ownElement`. Off by default, as src/settings/schemas.ts
+   * says.
+   */
+  function turnsLampsOn(controls, { every, own, ownElement, controller, action }) {
+    return sharedChoice({
+      setting: `${controls}TurnLampsOn`,
+      exceptions: `${controls}TurnLampsOnExceptions`,
+      fallback: false,
+      every,
+      own,
+      ownElement,
+      controller,
+      action: `com.daczarne.litra.${action}`,
+    });
+  }
+
+  // A key's own is in its page's "Turn on" row, a dial's main screen's in its own, and its lamp screens' under its
+  // blink.
+  const KEY_TURNS_ON = { own: "This key turns lamps on", ownElement: "key-turn-on", controller: "Keypad" };
+  const DIAL_TURNS_ON = { own: "This dial turns lamps on", ownElement: "dial-turn-on", controller: "Encoder" };
+  const LAMP_SCREEN_TURNS_ON = {
+    own: "This dial turns the lamp on",
+    ownElement: "lamp-screen-turn-on",
+    controller: "Encoder",
+  };
+  const keysTurnLampsOn = [
+    ["setBrightnessKeys", "Set Brightness", "set-brightness"],
+    ["brightnessUpKeys", "Brightness Up", "brightness-up"],
+    ["brightnessDownKeys", "Brightness Down", "brightness-down"],
+    ["setTemperatureKeys", "Set Temperature", "set-temperature"],
+    ["temperatureUpKeys", "Temperature Up", "temperature-up"],
+    ["temperatureDownKeys", "Temperature Down", "temperature-down"],
+  ].map(([controls, name, action]) =>
+    turnsLampsOn(controls, { ...KEY_TURNS_ON, every: `${name} keys turn lamps on`, action }),
+  );
+  const dialsTurnLampsOn = [
+    ["setBrightnessDials", "Brightness", "brightness"],
+    ["setTemperatureDials", "Temperature", "temperature"],
+  ].map(([controls, name, action]) =>
+    turnsLampsOn(controls, { ...DIAL_TURNS_ON, every: `${name} dials turn lamps on`, action }),
+  );
+  const lampScreensTurnLampsOn = [
+    ["setBrightnessLampScreens", "Brightness", "brightness"],
+    ["setTemperatureLampScreens", "Temperature", "temperature"],
+  ].map(([controls, name, action]) =>
+    turnsLampsOn(controls, { ...LAMP_SCREEN_TURNS_ON, every: `${name} dials turn the lamp on`, action }),
+  );
+
+  /** A row for each of `boxes`, one under the other, labeled `label` on the first. */
+  function rows(label, boxes) {
+    return boxes.map((box, index) => item(index === 0 ? label : undefined, box));
+  }
 
   //* Re-sync lamps (#214): brings the lamps the plugin knows that are connected and the plugin back in step, after a
   // change made another way, such as with a lamp's own buttons, in the direction the radio buttons above it choose. The
@@ -900,20 +971,14 @@
     item("Blink length", globalNumber("identifyBlinkMs", { min: 300, max: 1500, step: 50, fallback: 400, unit: "ms" })),
     section("Keys"),
     item("New lamps", everyKeyAddsNewLamps),
-    item("Turn on", globalCheckbox("setBrightnessKeysTurnLampsOn", "Set Brightness keys turn lamps on")),
-    item(undefined, globalCheckbox("brightnessUpKeysTurnLampsOn", "Brightness Up keys turn lamps on")),
-    item(undefined, globalCheckbox("brightnessDownKeysTurnLampsOn", "Brightness Down keys turn lamps on")),
-    item(undefined, globalCheckbox("setTemperatureKeysTurnLampsOn", "Set Temperature keys turn lamps on")),
-    item(undefined, globalCheckbox("temperatureUpKeysTurnLampsOn", "Temperature Up keys turn lamps on")),
-    item(undefined, globalCheckbox("temperatureDownKeysTurnLampsOn", "Temperature Down keys turn lamps on")),
+    ...rows("Turn on", keysTurnLampsOn),
     section("Dials"),
     item("Text styles", textStyle("Primary", "lampScreenPrimary", "#ffffff")),
     item(undefined, textStyle("Secondary", "lampScreenSecondary", "#202020")),
     item(undefined, textStyle("Accent", "lampScreenAccent", "#4dd0e1")),
     item(undefined, textStyle("Alert", "lampScreenAlert", "#ff6b6b", "bold")),
     item(undefined, subsection("Main screen")),
-    item("Turn on", globalCheckbox("setBrightnessDialsTurnLampsOn", "Brightness dials turn lamps on")),
-    item(undefined, globalCheckbox("setTemperatureDialsTurnLampsOn", "Temperature dials turn lamps on")),
+    ...rows("Turn on", dialsTurnLampsOn),
     item("Brightness title", globalText("brightnessDialTitle", "Brightness")),
     item("Temperature title", globalText("temperatureDialTitle", "Temperature")),
     item(
@@ -927,8 +992,7 @@
     ),
     item(undefined, subsection("Lamp screens")),
     item("Blink", everyDialBlink),
-    item("Turn on", globalCheckbox("setBrightnessLampScreensTurnLampsOn", "Brightness dials turn the lamp on")),
-    item(undefined, globalCheckbox("setTemperatureLampScreensTurnLampsOn", "Temperature dials turn the lamp on")),
+    ...rows("Turn on", lampScreensTurnLampsOn),
     item("Layout", lampScreenCells()),
   );
   container.append(item(undefined, toggleButton), view, editor);
