@@ -22,8 +22,8 @@ describe("parseSettings", () => {
     ["Power", powerSettingsSchema, { mode: "toggle", lamps: "all", leftOutLamps: [] }],
     ["Set Brightness", brightnessSettingsSchema, { presetPercentage: 0, lamps: "all", leftOutLamps: [] }],
     ["Set Temperature", temperatureSettingsSchema, { presetKelvin: 2700, lamps: "all", leftOutLamps: [] }],
-    ["Brightness", brightnessDialSettingsSchema, { stepPercentage: 10 }],
-    ["Temperature", temperatureDialSettingsSchema, { stepKelvin: 300 }],
+    ["Brightness", brightnessDialSettingsSchema, { stepPercentage: 10, title: "" }],
+    ["Temperature", temperatureDialSettingsSchema, { stepKelvin: 300, title: "" }],
   ])("gives %s's defaults for the settings that are missing, without a warning", (_action, schema, defaults) => {
     expect(parseSettings({}, schema, logger)).toEqual(defaults);
     expect(logger.warn).not.toHaveBeenCalled();
@@ -33,8 +33,8 @@ describe("parseSettings", () => {
     ["Power", powerSettingsSchema, { mode: "off", lamps: "all", leftOutLamps: [] }],
     ["Set Brightness", brightnessSettingsSchema, { presetPercentage: 40, lamps: "all", leftOutLamps: [] }],
     ["Set Temperature", temperatureSettingsSchema, { presetKelvin: 5000, lamps: "all", leftOutLamps: [] }],
-    ["Brightness", brightnessDialSettingsSchema, { stepPercentage: 20 }],
-    ["Temperature", temperatureDialSettingsSchema, { stepKelvin: 500 }],
+    ["Brightness", brightnessDialSettingsSchema, { stepPercentage: 20, title: "Desk" }],
+    ["Temperature", temperatureDialSettingsSchema, { stepKelvin: 500, title: "Desk" }],
   ])("keeps %s's valid settings", (_action, schema, settings) => {
     expect(parseSettings(settings, schema, logger)).toEqual(settings);
     expect(logger.warn).not.toHaveBeenCalled();
@@ -104,6 +104,9 @@ describe("parseSettings", () => {
       ["stepKelvin", temperatureDialSettingsSchema, 600],
       ["stepKelvin", temperatureDialSettingsSchema, 150],
       ["stepKelvin", temperatureDialSettingsSchema, "250"],
+      // A dial's own title is text no longer than the plugin settings' (#181).
+      ["title", brightnessDialSettingsSchema, "x".repeat(25)],
+      ["title", temperatureDialSettingsSchema, 1],
       ["mode", powerSettingsSchema, "blink"],
       ["mode", powerSettingsSchema, "On"],
       ["mode", powerSettingsSchema, ""],

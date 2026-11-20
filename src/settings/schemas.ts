@@ -228,13 +228,19 @@ export const temperatureSettingsSchema = {
   leftOutLamps,
 };
 
-// A dial acts on every lamp from its main screen and on one from its lamp screens, so it saves only its step.
+// A dial acts on every lamp from its main screen and on one from its lamp screens, so it saves no lamps: only its step,
+// and the title its main screen shows, which an empty one leaves to the plugin settings, the title its action's dials
+// share (#181). 24 characters at most, as the plugin settings' title.
+const dialTitle = shortText("", 24);
+
 export const brightnessDialSettingsSchema = {
   stepPercentage: wholeNumberFrom(1, 25, 10),
+  title: dialTitle,
 };
 
 export const temperatureDialSettingsSchema = {
   stepKelvin: steppedFrom(100, 500, 100, 300),
+  title: dialTitle,
 };
 
 // The step keys step as the dials do, by the same steps.
@@ -396,9 +402,9 @@ export const globalSettingsSchema = {
   setTemperatureDialsTurnLampsOn: flag(false),
   setBrightnessLampScreensTurnLampsOn: flag(false),
   setTemperatureLampScreensTurnLampsOn: flag(false),
-  // The title each action's dials show on their main screen, the same on every dial of it, which the plugin draws, since
-  // Stream Deck's own title settings would take the title's color from the text styles (#183). Its name by default, and
-  // an empty one hides it. 24 characters, as a lamp's name, fill the title's width on the strip at most.
+  // The title each action's dials show on their main screen, unless a dial has its own (#181), which the plugin draws,
+  // since Stream Deck's own title settings would take the title's color from the text styles (#183). Its name by
+  // default, and an empty one hides it. 24 characters, as a lamp's name, fill the title's width on the strip at most.
   brightnessDialTitle: shortText("Brightness", 24),
   temperatureDialTitle: shortText("Temperature", 24),
   // Each part of a dial's main screen takes its color from one of the text styles, the same on every dial (#183). Only

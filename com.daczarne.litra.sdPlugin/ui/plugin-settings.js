@@ -4,13 +4,15 @@
 // forgets it. The plugin alone saves the lamps: this asks it to find them, and to rename or forget one, and shows them
 // as Stream Deck passes on what the plugin saved. Find lamps is the only time they're looked for, and marks the ones it
 // didn't find. The keys' lamp pickers list the same lamps, with their names (lamp-picker.js). Under the lamps, Re-sync
-// lamps brings the lamps the plugin knows that are connected and the plugin back in step, in the direction chosen
-// above it (#214). Then come the global settings that every dial and key shares, such as whether each lamp steps from its own value (#145), how long a
-// blink lasts (#171), whether keys take in lamps added later (#147), which a key's own page can choose for that key
-// alone, and tells its lamp picker, the lamp screens' blink (#144), which a dial's own page can turn on or off for that
-// dial alone, and what each cell of the lamp screens shows, with a Configure button that shows the cell's options in
-// place of the plugin settings (#177), and Back, which shows the plugin settings again, scrolled to where they were. A
-// file rather than an inline script, so the pages' Content-Security-Policy doesn't have to allow inline scripts.
+// lamps brings the lamps the plugin knows that are connected and the plugin back in step, in the direction chosen above
+// it (#214). Then come the global settings that every dial and key shares, such as whether each lamp steps from its own
+// value (#145), how long a blink lasts (#171), whether keys take in lamps added later (#147), which a key's own page
+// can choose for that key alone, and tells its lamp picker, the lamp screens' blink (#144), which a dial's own page can
+// turn on or off for that dial alone, the title each action's dials show on their main screen, which a dial's own page
+// shows as the placeholder of its own title (#181), and what each cell of the lamp screens shows, with a Configure
+// button that shows the cell's options in place of the plugin settings (#177), and Back, which shows the plugin
+// settings again, scrolled to where they were. A file rather than an inline script, so the pages'
+// Content-Security-Policy doesn't have to allow inline scripts.
 //
 // Its styles are in settings.css, with every page's (#247).
 (() => {
@@ -163,7 +165,9 @@
 
   /**
    * A text field from sdpi-components that reads and saves a global setting itself, with a Reset button beside it,
-   * which brings back its default.
+   * which brings back its default. A field of the page's own that takes the setting as its placeholder, such as a
+   * dial's own title (#181), shows it as this field holds it: as the global settings arrive, and as it's typed in or
+   * reset, which sdpi-components tells no other field of the page.
    */
   function globalText(setting, fallback) {
     const field = document.createElement("sdpi-textfield");
@@ -171,6 +175,17 @@
     field.setAttribute("global", "");
     field.setAttribute("default", fallback);
     field.setAttribute("maxlength", "24");
+    const own = document.querySelector(`[data-placeholder-from="${setting}"]`);
+    if (own !== null) {
+      // sdpi-components redraws a placeholder only when one is added or removed, not when it changes to another, so the
+      // old one is removed first.
+      const show = () => {
+        own.removeAttribute("placeholder");
+        own.setAttribute("placeholder", field.value ?? fallback);
+      };
+      field.addEventListener("valuechange", show);
+      show();
+    }
     const reset = button("Reset", () => {
       field.value = fallback;
     });
