@@ -81,6 +81,15 @@ function oneOf<T extends string>(allowed: readonly T[], fallback: T): Setting<T>
   };
 }
 
+/** A setting that takes a text of up to `maxLength` characters, an empty one included, as a text field saves it. */
+function shortText(fallback: string, maxLength: number): Setting<string> {
+  return {
+    default: fallback,
+    expected: `a text of up to ${maxLength} characters`,
+    parse: (value) => (typeof value === "string" && value.length <= maxLength ? value : undefined),
+  };
+}
+
 /** A setting that is on or off, as a checkbox saves it. */
 function flag(fallback: boolean): Setting<boolean> {
   return {
@@ -387,9 +396,15 @@ export const globalSettingsSchema = {
   setTemperatureDialsTurnLampsOn: flag(false),
   setBrightnessLampScreensTurnLampsOn: flag(false),
   setTemperatureLampScreensTurnLampsOn: flag(false),
+  // The title each action's dials show on their main screen, the same on every dial of it, which the plugin draws, since
+  // Stream Deck's own title settings would take the title's color from the text styles (#183). Its name by default, and
+  // an empty one hides it. 24 characters, as a lamp's name, fill the title's width on the strip at most.
+  brightnessDialTitle: shortText("Brightness", 24),
+  temperatureDialTitle: shortText("Temperature", 24),
   // Each part of a dial's main screen takes its color from one of the text styles, the same on every dial (#183). Only
-  // the color: the weight and size of its text, and where each part sits, are the $B1 layout's. Every part follows
-  // Primary by default, whose white draws the main screen as Stream Deck's own dials draw theirs.
+  // the color: the weight and size of its text, and where each part sits, are the layout's, a copy of $B1. Every part
+  // follows Primary by default, whose white draws the main screen as Stream Deck's own dials draw theirs.
+  mainScreenTitleStyle: oneOf(TEXT_STYLES, "primary"),
   mainScreenIconStyle: oneOf(TEXT_STYLES, "primary"),
   mainScreenValueStyle: oneOf(TEXT_STYLES, "primary"),
   mainScreenBarStyle: oneOf(TEXT_STYLES, "primary"),

@@ -149,11 +149,30 @@ describe("BrightnessAction", () => {
 
       expect(brightnessShown).toHaveBeenCalledExactlyOnceWith("connected");
       expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith({
-        title: "Brightness",
+        heading: { value: "Brightness", color: "#ffffff" },
         icon: iconIn(brightnessGlyph),
         value: { value: "79%", color: "#ffffff" },
         indicator: { value: 79, bar_fill_c: "0:#ffffff,0.797:#ffffff,0.798:#c0c0c0,1:#c0c0c0" },
       });
+    });
+
+    it("the title the plugin settings give the Brightness dials, and none when it's empty (#183)", async () => {
+      changeGlobalSettings({ brightnessDialTitle: "Desk", temperatureDialTitle: "Not mine" });
+      await vi.runAllTimersAsync();
+      const dial = await deck.dial(BRIGHTNESS);
+
+      changeGlobalSettings({ brightnessDialTitle: "" });
+      await vi.runAllTimersAsync();
+
+      expect(dial.setFeedback).toHaveBeenCalledTimes(2);
+      expect(dial.setFeedback).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({ heading: { value: "Desk", color: "#ffffff" } }),
+      );
+      expect(dial.setFeedback).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({ heading: { value: "", color: "#ffffff" } }),
+      );
     });
 
     it("a dash and an empty bar when no lamp is connected", async () => {
@@ -162,7 +181,7 @@ describe("BrightnessAction", () => {
       const dial = await deck.dial(BRIGHTNESS);
 
       expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith({
-        title: "Brightness",
+        heading: { value: "Brightness", color: "#ffffff" },
         icon: iconIn(brightnessGlyph),
         value: { value: "—", color: "#ffffff" },
         indicator: { value: 0, bar_fill_c: "#ffffff" },

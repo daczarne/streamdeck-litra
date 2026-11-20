@@ -8,11 +8,11 @@ import { globalSettings } from "../settings/global-settings";
 import { brightnessDialSettingsSchema, parseSettings } from "../settings/schemas";
 
 /**
- * What a Brightness dial steps, and shows on its main screen, in the slots of the $B1 layout: the brightest
+ * What a Brightness dial steps, and shows on its main screen, in the slots of its layout, a copy of $B1: the brightest
  * lamp's % as text, and again as the bar under it, banded by how many lamps reach each part of it, or a dash with no
  * lamp.
  */
-const BRIGHTNESS: Measure = {
+export const BRIGHTNESS: Measure = {
   adjusts: "Brightness",
   readStep: (settings, logger) => parseSettings(settings, brightnessDialSettingsSchema, logger).stepPercentage,
   unit: "%",
@@ -24,7 +24,7 @@ const BRIGHTNESS: Measure = {
   mainScreen: async () => {
     const levels = await brightnessShown("connected");
     return {
-      title: "Brightness",
+      title: globalSettings.mainScreenTitles.brightness,
       value: brightnessText(levels),
       levels,
     };

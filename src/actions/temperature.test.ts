@@ -155,7 +155,7 @@ describe("TemperatureAction", () => {
 
       expect(temperatureShown).toHaveBeenCalledExactlyOnceWith("connected");
       expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith({
-        title: "Temperature",
+        heading: { value: "Temperature", color: "#ffffff" },
         icon: iconIn(temperatureGlyph),
         value: { value: "4000 K", color: "#ffffff" },
         indicator: { value: 34, bar_fill_c: "0:#ffffff,0.529:#ffffff,0.53:#c0c0c0,1:#c0c0c0" },
@@ -171,11 +171,30 @@ describe("TemperatureAction", () => {
       const dial = await deck.dial(TEMPERATURE);
 
       expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith({
-        title: "Temperature",
+        heading: { value: "Temperature", color: "#ffffff" },
         icon: iconIn(temperatureGlyph),
         value: { value: "4000 K", color: "#ffffff" },
         indicator: { value: 34, bar_fill_c: "#ffffff" },
       });
+    });
+
+    it("the title the plugin settings give the Temperature dials, and none when it's empty (#183)", async () => {
+      changeGlobalSettings({ temperatureDialTitle: "Desk", brightnessDialTitle: "Not mine" });
+      await vi.runAllTimersAsync();
+      const dial = await deck.dial(TEMPERATURE);
+
+      changeGlobalSettings({ temperatureDialTitle: "" });
+      await vi.runAllTimersAsync();
+
+      expect(dial.setFeedback).toHaveBeenCalledTimes(2);
+      expect(dial.setFeedback).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({ heading: { value: "Desk", color: "#ffffff" } }),
+      );
+      expect(dial.setFeedback).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({ heading: { value: "", color: "#ffffff" } }),
+      );
     });
 
     it("a dash and an empty bar when no lamp is connected", async () => {
@@ -184,7 +203,7 @@ describe("TemperatureAction", () => {
       const dial = await deck.dial(TEMPERATURE);
 
       expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith({
-        title: "Temperature",
+        heading: { value: "Temperature", color: "#ffffff" },
         icon: iconIn(temperatureGlyph),
         value: { value: "—", color: "#ffffff" },
         indicator: { value: 0, bar_fill_c: "#ffffff" },

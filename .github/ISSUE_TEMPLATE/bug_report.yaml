@@ -15,7 +15,7 @@ body:
     attributes:
       label: Plugin version
       description: In Stream Deck's preferences, under Plugins.
-      placeholder: 0.6.1
+      placeholder: 0.7.0
     validations:
       required: true
   - type: dropdown

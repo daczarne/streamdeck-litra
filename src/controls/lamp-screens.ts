@@ -29,7 +29,9 @@ type DialOwner = {
 
 const logger = pluginLogger.createScope("Lamp screens");
 
-export const MAIN_LAYOUT = "$B1";
+// The main screen's layout copies $B1, Stream Deck's own volume dials', but for its title, a text of the plugin's own,
+// keyed "heading": Stream Deck's title settings own a slot keyed "title", which takes no color from the plugin (#183).
+export const MAIN_LAYOUT = "layouts/main.json";
 const LAMP_LAYOUT = "layouts/lamp.json";
 
 // The gestures on a lamp screen act on its lamp alone (#20).

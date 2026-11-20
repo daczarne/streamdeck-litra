@@ -262,6 +262,21 @@ describe("the Set Brightness action", () => {
     });
   });
 
+  it("shows the title the plugin settings give it, in the color of its text style, apart from its value's (#183)", async () => {
+    await plugIn(newLamp());
+    const dial = await deck.dial(BRIGHTNESS);
+    const temperatureDial = await deck.dial(TEMPERATURE);
+
+    await saveFromPage({ brightnessDialTitle: "Desk", mainScreenTitleStyle: "accent" });
+    await vi.runAllTimersAsync();
+
+    expect(feedbackOf(dial)).toMatchObject({
+      heading: { value: "Desk", color: "#4dd0e1" },
+      value: { value: "50%", color: "#ffffff" },
+    });
+    expect(feedbackOf(temperatureDial)).toMatchObject({ heading: { value: "Temperature", color: "#4dd0e1" } });
+  });
+
   it("draws its icon in the color of the text style the plugin settings give it, apart from its value's (#183)", async () => {
     await plugIn(newLamp());
     const dial = await deck.dial(BRIGHTNESS);
@@ -300,7 +315,7 @@ describe("the Set Brightness action", () => {
 
     expect(lamps.map((lamp) => lamp.brightnessInLumen)).toEqual([264, 324]);
     expect(feedbackOf(dial)).toEqual({
-      title: "Brightness",
+      heading: { value: "Brightness", color: "#ffffff" },
       icon: iconIn(brightnessGlyph),
       value: { value: "79%", color: "#ffffff" },
       indicator: { value: 79, bar_fill_c: "0:#ffffff,0.797:#ffffff,0.798:#c0c0c0,1:#c0c0c0" },
@@ -411,7 +426,7 @@ describe("the Set Temperature action", () => {
 
     expect(pair.map((lamp) => lamp.temperatureInKelvin)).toEqual([4200, 4200]);
     expect(feedbackOf(dial)).toEqual({
-      title: "Temperature",
+      heading: { value: "Temperature", color: "#ffffff" },
       icon: iconIn(temperatureGlyph),
       value: { value: "4200 K", color: "#ffffff" },
       indicator: { value: 39, bar_fill_c: "#ffffff" },
@@ -424,7 +439,7 @@ describe("the Set Temperature action", () => {
     const dial = await deck.dial(TEMPERATURE);
 
     expect(feedbackOf(dial)).toEqual({
-      title: "Temperature",
+      heading: { value: "Temperature", color: "#ffffff" },
       icon: iconIn(temperatureGlyph),
       value: { value: "4900 K", color: "#ffffff" },
       indicator: { value: 58, bar_fill_c: "0:#ffffff,0.276:#ffffff,0.277:#c0c0c0,1:#c0c0c0" },
@@ -819,7 +834,7 @@ describe("the lamp screens", () => {
     // The second lamp blinks on and back off, as it was, and the way back to the main screen blinks nothing.
     expect([first.writes("power"), second.writes("power")]).toEqual([[], [1, 0]]);
     expect([first.on, second.on]).toEqual([true, false]);
-    expect(brightnessDial.setFeedbackLayout).toHaveBeenLastCalledWith("$B1");
+    expect(brightnessDial.setFeedbackLayout).toHaveBeenLastCalledWith("layouts/main.json");
 
     await deck.tap(temperatureDial);
 
@@ -895,8 +910,8 @@ describe("the lamp screens", () => {
 
     await deck.press(key);
 
-    expect(dial.setFeedbackLayout).toHaveBeenLastCalledWith("$B1");
-    expect(feedbackOf(dial)).toMatchObject({ title: "Brightness" });
+    expect(dial.setFeedbackLayout).toHaveBeenLastCalledWith("layouts/main.json");
+    expect(feedbackOf(dial)).toMatchObject({ heading: { value: "Brightness", color: "#ffffff" } });
   });
 
   it.each([
@@ -1198,17 +1213,8 @@ describe("what the dials show", () => {
     Actions: { UUID: string; Encoder?: { layout: string } }[];
   };
 
-  // The slots of Stream Deck's built-in layouts the dials use, as docs/elgato_sdk/layouts.md lists them.
-  const BUILT_IN_SLOTS: Record<string, string[]> = { $B1: ["title", "icon", "value", "indicator"] };
-
-  /**
-   * The keys a dial can fill on a layout: a built-in one's slots, or the items of a layout file in the plugin folder.
-   */
+  /** The keys a dial can fill on a layout: the items of a layout file in the plugin folder. */
   function slotsOf(layout: string): string[] {
-    const builtIn = BUILT_IN_SLOTS[layout];
-    if (builtIn !== undefined) {
-      return builtIn;
-    }
     const file = path.join(PLUGIN, layout);
     expect(fs.existsSync(file), `layout ${layout} isn't in the plugin folder`).toBe(true);
     const { items } = JSON.parse(fs.readFileSync(file, "utf8")) as { items: { key: string }[] };
@@ -1255,7 +1261,7 @@ describe("what the dials show", () => {
     await deck.hold(dial);
 
     const shown = shownWithLayouts(dial, manifestId);
-    expect(new Set(shown.map(({ layout }) => layout))).toEqual(new Set(["$B1", "layouts/lamp.json"]));
+    expect(new Set(shown.map(({ layout }) => layout))).toEqual(new Set(["layouts/main.json", "layouts/lamp.json"]));
     for (const { layout, keys } of shown) {
       expect(slotsOf(layout)).toEqual(expect.arrayContaining(keys));
     }

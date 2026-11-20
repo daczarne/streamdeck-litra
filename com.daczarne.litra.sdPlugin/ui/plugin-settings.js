@@ -161,6 +161,25 @@
     return field;
   }
 
+  /**
+   * A text field from sdpi-components that reads and saves a global setting itself, with a Reset button beside it,
+   * which brings back its default.
+   */
+  function globalText(setting, fallback) {
+    const field = document.createElement("sdpi-textfield");
+    field.setAttribute("setting", setting);
+    field.setAttribute("global", "");
+    field.setAttribute("default", fallback);
+    field.setAttribute("maxlength", "24");
+    const reset = button("Reset", () => {
+      field.value = fallback;
+    });
+    const row = document.createElement("div");
+    row.className = "text-and-reset";
+    row.append(field, reset);
+    return row;
+  }
+
   /** A color picker from sdpi-components that reads and saves a global setting itself. */
   function globalColor(setting, fallback) {
     const picker = document.createElement("sdpi-color");
@@ -880,11 +899,14 @@
     item(undefined, subsection("Main screen")),
     item("Turn on", globalCheckbox("setBrightnessDialsTurnLampsOn", "Brightness dials turn lamps on")),
     item(undefined, globalCheckbox("setTemperatureDialsTurnLampsOn", "Temperature dials turn lamps on")),
+    item("Brightness title", globalText("brightnessDialTitle", "Brightness")),
+    item("Temperature title", globalText("temperatureDialTitle", "Temperature")),
     item(
       "Layout",
       mainScreenParts([
-        ["Icon", "mainScreenIconStyle"],
+        ["Title", "mainScreenTitleStyle"],
         ["Value", "mainScreenValueStyle"],
+        ["Icon", "mainScreenIconStyle"],
         ["Bar", "mainScreenBarStyle"],
       ]),
     ),
