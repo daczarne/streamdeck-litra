@@ -22,12 +22,14 @@ Not an official Logitech or Elgato product.
 |:-------------------------------:|:---------------------|:-------------------------------------------|:--------------------------------------------------------------------------|
 |         ![Power][power]         | **Power**            | On, off or toggle                          | None                                                                      |
 |         ![Scene][scene]         | **Scene**            | Turn groups of lamps on at presets, or off | None                                                                      |
-|    ![Set Brightness][bright]    | **Set Brightness**   | Jump to a preset %                         | Rotate to adjust, press toggles power, tap the strip to control each lamp |
+|    ![Set Brightness][bright]    | **Set Brightness**   | Jump to a preset %                         | None                                                                      |
 |   ![Brightness Up][bright-up]   | **Brightness Up**    | Step up by the key's %                     | None                                                                      |
 | ![Brightness Down][bright-down] | **Brightness Down**  | Step down by the key's %                   | None                                                                      |
-|    ![Set Temperature][temp]     | **Set Temperature**  | Jump to a preset Kelvin                    | Rotate to adjust, press toggles power, tap the strip to control each lamp |
+|      ![Brightness][bright]      | **Brightness**       | None                                       | Rotate to adjust, press toggles power, tap the strip to control each lamp |
+|    ![Set Temperature][temp]     | **Set Temperature**  | Jump to a preset Kelvin                    | None                                                                      |
 |   ![Temperature Up][temp-up]    | **Temperature Up**   | Step up, cooler, by the key's Kelvin       | None                                                                      |
 | ![Temperature Down][temp-down]  | **Temperature Down** | Step down, warmer, by the key's Kelvin     | None                                                                      |
+|      ![Temperature][temp]       | **Temperature**      | None                                       | Rotate to adjust, press toggles power, tap the strip to control each lamp |
 
 - Each key acts on the lamps picked on its settings page: every lamp the plugin knows, unless others are picked. A dial's main screen acts on every lamp connected, and its lamp screens on one lamp at a time. [The user guide][user-guide] describes each action, and the settings they share.
 - The plugin talks to the lamps in-process over USB HID, through the [`litra`][litra] Node library, with no CLI subprocess. [The architecture document][architecture] explains why, and how the plugin's parts fit together.

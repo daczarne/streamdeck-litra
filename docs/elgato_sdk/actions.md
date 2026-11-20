@@ -1,6 +1,7 @@
 # Actions
 
 - [Registering an action](#registering-an-action)
+- [Keys and dials](#keys-and-dials)
 - [One object per action type, one per key or dial](#one-object-per-action-type-one-per-key-or-dial)
 - [A key's or dial's id](#a-keys-or-dials-id)
 - [Sources](#sources)
@@ -16,6 +17,10 @@ Once registered, an action receives only the events of the keys and dials whose 
 Stream Deck lists the actions from the manifest, not from the plugin, so an action in the manifest without a registered class is still offered in the app, and its events reach no code. That last part comes from how the two fit together, and hasn't been checked on the Deck. The list shows them under the plugin's category, by their `Name`, in the order `Actions` gives them, so the manifest sets the order users see ([#236]). `plugin.ts` registers them in the same order, so the two read side by side. A key or dial already placed is found by its UUID, so it keeps working when its action is renamed, and shows the new name.
 
 The tests check both directions: `src/plugin.test.ts` compares the actions `plugin.ts` registers with the manifest's, and the fake SDK in `src/test-support/fake-stream-deck.ts` refuses an action the manifest doesn't list.
+
+## Keys and dials
+
+An action lists the controls it goes on in `Controllers`, `Keypad`, `Encoder` or both, and Stream Deck offers it only on those. What the manifest sets beside it holds for every control the action goes on: `UserTitleEnabled`, which shows or hides the title menu of its settings page, has no switch of its own in `Encoder`, which takes only `Icon`, `StackColor`, `TriggerDescription`, `background` and `layout`. An action that does different things on a key and a dial is two actions, one on each, so each gets a manifest entry, a settings page and a title menu of its own.
 
 ## One object per action type, one per key or dial
 
@@ -38,6 +43,10 @@ A key's or dial's id (`action.id` in the plugin, `actionInfo.context` on its set
 - `SingletonAction.actions`: `dist/plugin/actions/singleton-action.js`.
 - The objects kept for the keys and dials on screen, and their settings: `dist/plugin/actions/store.js` and `dist/plugin/actions/cache.js`, which the listeners in `dist/plugin/actions/service.js` fill and empty.
 - Which settings events reach an action: `dist/plugin/settings.js`.
+
+`@elgato/schemas`:
+
+- `Controllers`, `UserTitleEnabled` and the `Encoder` definition: `streamdeck/plugins/manifest.json`.
 
 Checked on Stream Deck 7.6: each dial's id, logged as it appeared, across a restart of the plugin and of Stream Deck, and the list's names and order, and a key and a dial placed before a rename, which kept working under the new name ([`manual_testing/actions_list.md`][actions-list]). What the SDK keeps for each key and dial, and which events it sends, is read from its source.
 
