@@ -1055,6 +1055,27 @@ describe("the lamp screens", () => {
     },
   );
 
+  it("find the lamps as a dial that starts on one appears, so a lamp unplugged or plugged back in meanwhile shows (#278)", async () => {
+    const first = newLamp({ serialNumber: "SERIAL-A" });
+    const second = newLamp({ serialNumber: "SERIAL-B" });
+    await plugIn(first, second);
+    const dial = await deck.dial(TEMPERATURE, { startOn: Lamp.idOf("SERIAL-B") });
+    expect(dial.setFeedbackLayout).toHaveBeenLastCalledWith("layouts/lamp.json");
+
+    // Unplugged with nothing pressed, then the page is left and shown again.
+    connect(first);
+    await deck.remove(dial);
+    await deck.show(dial);
+
+    expect(dial.setFeedbackLayout).toHaveBeenLastCalledWith("layouts/main.json");
+
+    connect(first, second);
+    await deck.remove(dial);
+    await deck.show(dial);
+
+    expect(dial.setFeedbackLayout).toHaveBeenLastCalledWith("layouts/lamp.json");
+  });
+
   it("go back to the main screen once the lamps change, when the lamp on screen was unplugged", async () => {
     const { second, dial } = await onFirstLampScreen();
     const key = await deck.key(POWER, { mode: "toggle" });

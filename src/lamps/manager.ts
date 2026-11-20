@@ -57,6 +57,12 @@ const BRIGHTNESS_SETTLE_MS = 250;
 /** The last operation queued by {@link oneOperationAtATime}, which the next one waits for. */
 let operations: Promise<unknown> = Promise.resolve();
 
+/**
+ * A reach of every lamp that waits for its turn, not started yet, with the queue as it left it, so another asked for
+ * before anything else is queued joins it, rather than reaching every lamp again right after (#278).
+ */
+let waitingReach: { readonly queue: Promise<unknown>; readonly reached: Promise<OperationResult> } | undefined;
+
 const lampsChangedListeners: Array<() => void | Promise<void>> = [];
 const connectedListeners: Array<(ids: string[]) => void | Promise<void>> = [];
 
@@ -403,11 +409,21 @@ export function forEachLamp(
  * Reaches every lamp the plugin knows that's connected, which marks each one connected or not, and reads one reached
  * for the first time or plugged in again (#198), so the plugin holds the lamps as they are: as it starts, when Find
  * lamps adds lamps, and on a tap on a dial's strip, which then never shows a lamp unplugged since the last operation
- * (#48). Tells every key and dial once it's done, since a lamp read, or found unplugged or plugged in, changes what
- * they show.
+ * (#48), and as a dial that starts on a lamp's screen appears (#278). Tells every key and dial once it's done, since
+ * a lamp read, or found unplugged or plugged in, changes what they show. One asked for while another waits for its
+ * turn, with nothing queued after it, joins it, so several dials appearing at once, as a page of the Deck is shown,
+ * reach the lamps once.
  */
 export function reachEveryLamp(operation: string): Promise<OperationResult> {
-  return queuedAndAnnounced(() => forEachLamp(operation, () => {}, "connected"));
+  if (waitingReach !== undefined && waitingReach.queue === operations) {
+    return waitingReach.reached;
+  }
+  const reached = queuedAndAnnounced(() => {
+    waitingReach = undefined;
+    return forEachLamp(operation, () => {}, "connected");
+  });
+  waitingReach = { queue: operations, reached };
+  return reached;
 }
 
 /**

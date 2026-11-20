@@ -149,15 +149,17 @@ export class LampScreen {
    * Brings a dial whose strip wasn't tapped since it appeared to the screen it starts on (#278): its lamp's, drawn from
    * what the plugin holds, once the lamp is connected, without a blink, which is for a tap, so a dial that appears as a
    * page of the Deck is shown blinks nothing, or the main screen's layout otherwise, which the dial then draws. Does
-   * nothing once the strip was tapped.
+   * nothing once the strip was tapped. As the dial appears, it finds the lamps first, as a tap does, since the plugin
+   * learns a lamp was unplugged or plugged in only when it looks for the lamps, and none may have since the page was
+   * last shown. Otherwise, it goes by what the last operation found.
    */
-  settle(): Promise<void> {
+  settle({ find = false }: { find?: boolean } = {}): Promise<void> {
     return this.enqueue(async () => {
       if (!this.untouched) {
         return;
       }
       const startOn = this.owner.startOn();
-      const lamps = startOn === "main" ? [] : await lampsShown();
+      const lamps = startOn === "main" ? [] : await (find ? findLampsShown() : lampsShown());
       const lamp = lamps.find((candidate) => candidate.id === startOn);
       if (lamp !== undefined) {
         await this.show(lamp, lamps);

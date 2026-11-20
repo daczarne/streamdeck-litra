@@ -153,7 +153,7 @@ class MeasureDial extends ActionInstance<DialSettings, DialAction<JsonObject>> {
    */
   override async appear(): Promise<void> {
     await this.screen.appear();
-    await this.follow();
+    await this.follow({ find: true });
   }
 
   /**
@@ -247,12 +247,12 @@ class MeasureDial extends ActionInstance<DialSettings, DialAction<JsonObject>> {
   /**
    * Shows the screen the dial is on, after a change to the lamps or the settings: until its strip is tapped, the
    * screen its settings start it on, which the lamp screens draw, or its main screen while its lamp isn't connected
-   * (#278), and after a tap, the screen the taps got to, which goes back to the main screen once its lamp is no longer
-   * connected.
+   * (#278), found afresh as the dial appears, and after a tap, the screen the taps got to, which goes back to the main
+   * screen once its lamp is no longer connected.
    */
-  private async follow(): Promise<void> {
+  private async follow({ find = false }: { find?: boolean } = {}): Promise<void> {
     if (this.screen.isUntouched) {
-      await this.screen.settle();
+      await this.screen.settle({ find });
     } else if (this.screen.isShowing) {
       await this.screen.refresh();
       return;

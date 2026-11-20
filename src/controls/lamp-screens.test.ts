@@ -209,6 +209,21 @@ describe("LampScreen", () => {
       expect(showMain).not.toHaveBeenCalled();
     });
 
+    it("finds the lamps first as its dial appears, as a tap does, and goes by what the plugin holds otherwise", async () => {
+      const dial = await appearing(B.id);
+      vi.mocked(findLampsShown).mockResolvedValue([A]);
+
+      await screenOf(dial).settle({ find: true });
+
+      expect(findLampsShown).toHaveBeenCalledOnce();
+      expect(screenOf(dial).isShowing).toBe(false);
+
+      await screenOf(dial).settle();
+
+      expect(findLampsShown).toHaveBeenCalledOnce();
+      expect(screenOf(dial).lamp).toBe(B.id);
+    });
+
     it("stays on the main screen for a dial that starts there, and touches nothing", async () => {
       const dial = await appearing("main");
 
@@ -217,6 +232,10 @@ describe("LampScreen", () => {
       expect(screenOf(dial).isShowing).toBe(false);
       expect(dial.setFeedbackLayout).not.toHaveBeenCalled();
       expect(lampsShown).not.toHaveBeenCalled();
+
+      await screenOf(dial).settle({ find: true });
+
+      expect(findLampsShown).not.toHaveBeenCalled();
     });
 
     it("is left to the taps once the strip is tapped, until the dial appears again", async () => {

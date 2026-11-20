@@ -2229,6 +2229,56 @@ describe("reachEveryLamp", () => {
 
     expect(at(shown.lamps, 0).lumen).toBe(MAX_LUMEN);
   });
+
+  describe("asked for while another waits for its turn (#278)", () => {
+    /** How many times the lamp was opened. */
+    function opensOf(lamp: EmulatedLitra): number {
+      return hid.hidEvents().filter((event) => event.lamp === lamp && event.call === "open").length;
+    }
+
+    it("joins it, so dials that appear together reach the lamps once", async () => {
+      const lamp = newLamp();
+      connect(lamp);
+      const before = opensOf(lamp);
+      const busy = manager.setLampsBrightness("all", 100);
+
+      const reaches = [
+        manager.reachEveryLamp("lamp screen"),
+        manager.reachEveryLamp("lamp screen"),
+        manager.reachEveryLamp("lamp screen"),
+      ];
+      await settled(Promise.all([busy, ...reaches]));
+
+      expect(reaches[1]).toBe(reaches[0]);
+      expect(reaches[2]).toBe(reaches[0]);
+      expect(opensOf(lamp) - before).toBe(2);
+    });
+
+    it("but not once another operation was queued after it, which it would otherwise jump ahead of", async () => {
+      const lamp = newLamp();
+      connect(lamp);
+      const busy = manager.setLampsBrightness("all", 100);
+      const first = manager.reachEveryLamp("lamp screen");
+      const off = manager.turnLampsOff("all");
+
+      const second = manager.reachEveryLamp("lamp screen");
+      await settled(Promise.all([busy, first, off, second]));
+
+      expect(second).not.toBe(first);
+    });
+
+    it("but not once it started, so a reach asked for during one looks at the lamps again", async () => {
+      const lamp = newLamp();
+      connect(lamp);
+      const first = manager.reachEveryLamp("lamp screen");
+      await settled(first);
+
+      const second = manager.reachEveryLamp("lamp screen");
+      await settled(second);
+
+      expect(second).not.toBe(first);
+    });
+  });
 });
 
 describe("syncPluginToLamps (#214)", () => {
