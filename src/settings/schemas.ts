@@ -216,16 +216,26 @@ export const powerSettingsSchema = {
   leftOutLamps,
 };
 
+// What a Set Brightness or Set Temperature key's title shows: its preset, as it always did, or what its lamps are at,
+// as a step key shows them. A title typed in Stream Deck's own title settings replaces either.
+export const SET_KEY_TITLES = ["preset", "current"] as const;
+
+// What a step key's title shows: what its lamps are at, as it always did, where its next press takes them, or its
+// step, signed by its direction.
+export const STEP_KEY_TITLES = ["current", "next", "step"] as const;
+
 export const brightnessSettingsSchema = {
   presetPercentage: numberFrom(0, 100, 0),
   lamps,
   leftOutLamps,
+  setKeyTitle: oneOf(SET_KEY_TITLES, "preset"),
 };
 
 export const temperatureSettingsSchema = {
   presetKelvin: numberFrom(2700, 6500, 2700),
   lamps,
   leftOutLamps,
+  setKeyTitle: brightnessSettingsSchema.setKeyTitle,
 };
 
 // A dial acts on every lamp from its main screen and on one from its lamp screens, so it saves no lamps: only its step,
@@ -248,12 +258,14 @@ export const brightnessStepSettingsSchema = {
   stepPercentage: brightnessDialSettingsSchema.stepPercentage,
   lamps,
   leftOutLamps,
+  stepKeyTitle: oneOf(STEP_KEY_TITLES, "current"),
 };
 
 export const temperatureStepSettingsSchema = {
   stepKelvin: temperatureDialSettingsSchema.stepKelvin,
   lamps,
   leftOutLamps,
+  stepKeyTitle: brightnessStepSettingsSchema.stepKeyTitle,
 };
 
 // A scene is made of groups, each of which turns its lamps off, or on at its own brightness and temperature, taken as

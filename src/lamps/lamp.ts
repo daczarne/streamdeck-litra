@@ -155,6 +155,17 @@ export class Lamp {
   }
 
   /**
+   * The lumens the lamp is sent for a percentage of its range, as {@link lumenToSend} gives them, at the path it was
+   * last reached at, before any operation reaches it: what a step key's title shows its next press takes the lamp to.
+   * A cap it has was learned at that path, since reaching it at another forgets it, so this forgets and logs nothing.
+   */
+  lumenToSendNow(percentage: number): number {
+    const lumen = this.lumenAt(Math.max(0, Math.min(100, percentage)));
+    const cap = this.brightnessCap;
+    return cap === undefined || cap.path !== this.reachedPath ? lumen : Math.min(lumen, cap.lumen);
+  }
+
+  /**
    * Takes what the lamp reached for a brightness sent at `sentAt`, a time from `Date.now()`. A lamp that reached less
    * than it was sent is capped there, which is logged, and may go back to its cap for a while after the write.
    */

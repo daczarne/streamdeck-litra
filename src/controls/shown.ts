@@ -1,6 +1,7 @@
 import { Lamp, type ReachedLamp } from "../lamps/lamp";
 import { lampsSettled, reachEveryLamp } from "../lamps/manager";
 import { type LampSelection, selects } from "../lamps/selection";
+import { planBrightnessStep, planTemperatureStep, type Stepping } from "../lamps/steps";
 import { globalSettings } from "../settings/global-settings";
 
 /**
@@ -37,6 +38,48 @@ export async function temperatureShown(lamps: LampSelection): Promise<Temperatur
     kelvin: lamp.state.kelvin,
     percentage: Lamp.percentageInRange(lamp.state.kelvin, lamp.lowestKelvin, lamp.highestKelvin),
   }));
+}
+
+/**
+ * Each lamp's brightness, in % of its range, as some ticks of a step would leave it, which a step key's title shows of
+ * its next press: planned as the lamp manager plans the press, from what the plugin holds of the lamps, within the
+ * caps it learned. A cap it hasn't learned yet shows only once a change finds it.
+ */
+export async function brightnessNext(
+  lamps: LampSelection,
+  ticks: number,
+  step: number,
+  stepping: Stepping,
+): Promise<number[]> {
+  await lampsSettled();
+  const from = shownOf(lamps).map((lamp) => ({
+    key: lamp,
+    lamp,
+    lumen: lamp.state.lumen,
+    reach: (percentage: number) => lamp.lumenToSendNow(percentage),
+  }));
+  return planBrightnessStep(from, stepping, ticks, step).map(({ key, percentage }) =>
+    key.brightnessPercentage(key.lumenToSendNow(percentage)),
+  );
+}
+
+/**
+ * Each lamp's temperature as some ticks of a step would leave it, which a step key's title shows of its next press:
+ * planned as the lamp manager plans the press, from what the plugin holds of the lamps, at the temperature each allows
+ * nearest to it.
+ */
+export async function temperatureNext(
+  lamps: LampSelection,
+  ticks: number,
+  step: number,
+  stepping: Stepping,
+): Promise<TemperatureShown[]> {
+  await lampsSettled();
+  const from = shownOf(lamps).map((lamp) => ({ key: lamp, lamp, kelvin: lamp.state.kelvin }));
+  return planTemperatureStep(from, stepping, ticks, step).map(({ key, kelvin }) => {
+    const allowed = key.snapKelvin(kelvin);
+    return { kelvin: allowed, percentage: Lamp.percentageInRange(allowed, key.lowestKelvin, key.highestKelvin) };
+  });
 }
 
 /**
