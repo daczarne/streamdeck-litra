@@ -32,7 +32,7 @@ The plugin builds on this ([#198]): each action is a `RoutingAction` (`src/contr
 
 ## A key's or dial's id
 
-A key's or dial's id (`action.id` in the plugin, `actionInfo.context` on its settings page) lasts across restarts of the plugin and of Stream Deck, so it can be stored, as the lamp screens' blink stores the dials that chose otherwise ([#144]). It isn't the `ActionID` that the profile in `ProfilesV3/` saves for the action, nor its MD5. Stream Deck doesn't tell the plugin when an action is deleted, only when it leaves the screen, so an id stored this way outlives its dial.
+A key's or dial's id (`action.id` in the plugin, `actionInfo.context` on its settings page) lasts across restarts of the plugin and of Stream Deck, so it can be stored, as the lamp screens' blink and turning the lamps on store the keys and dials that chose otherwise ([#144], [#181]). It isn't the `ActionID` that the profile in `ProfilesV3/` saves for the action, nor its MD5. Stream Deck doesn't tell the plugin when an action is deleted, only when it leaves the screen, so an id stored this way outlives its dial.
 
 ## Sources
 
@@ -51,6 +51,7 @@ A key's or dial's id (`action.id` in the plugin, `actionInfo.context` on its set
 Checked on Stream Deck 7.6: each dial's id, logged as it appeared, across a restart of the plugin and of Stream Deck, and the list's names and order, and a key and a dial placed before a rename, which kept working under the new name ([`manual_testing/actions_list.md`][actions-list]). What the SDK keeps for each key and dial, and which events it sends, is read from its source.
 
 [#144]: https://github.com/daczarne/streamdeck-litra/issues/144
+[#181]: https://github.com/daczarne/streamdeck-litra/issues/181
 [#198]: https://github.com/daczarne/streamdeck-litra/issues/198
 [#236]: https://github.com/daczarne/streamdeck-litra/issues/236
 [actions-list]: ../developer_guide/manual_testing/actions_list.md

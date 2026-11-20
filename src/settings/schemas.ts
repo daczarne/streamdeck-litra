@@ -391,17 +391,29 @@ export const globalSettingsSchema = {
   keepTemperatureDifference: flag(false),
   // Whether a change to the brightness or the temperature also turns on the lamps it changes, for each kind of key, for
   // a turn on a dial's main screen, and for a turn on a dial's lamp screen (#268). All are off by default: a change to
-  // the brightness or the temperature changes only that, and pushing a dial turns its lamps on or off.
+  // the brightness or the temperature changes only that, and pushing a dial turns its lamps on or off. A key or a dial
+  // can choose otherwise on its own page (#181): the ones that do are kept by id, as the dials that chose otherwise
+  // about the blink are, so the plugin settings can tell when they differ, and give every one the same choice again.
   setBrightnessKeysTurnLampsOn: flag(false),
+  setBrightnessKeysTurnLampsOnExceptions: textList(),
   brightnessUpKeysTurnLampsOn: flag(false),
+  brightnessUpKeysTurnLampsOnExceptions: textList(),
   brightnessDownKeysTurnLampsOn: flag(false),
+  brightnessDownKeysTurnLampsOnExceptions: textList(),
   setTemperatureKeysTurnLampsOn: flag(false),
+  setTemperatureKeysTurnLampsOnExceptions: textList(),
   temperatureUpKeysTurnLampsOn: flag(false),
+  temperatureUpKeysTurnLampsOnExceptions: textList(),
   temperatureDownKeysTurnLampsOn: flag(false),
+  temperatureDownKeysTurnLampsOnExceptions: textList(),
   setBrightnessDialsTurnLampsOn: flag(false),
+  setBrightnessDialsTurnLampsOnExceptions: textList(),
   setTemperatureDialsTurnLampsOn: flag(false),
+  setTemperatureDialsTurnLampsOnExceptions: textList(),
   setBrightnessLampScreensTurnLampsOn: flag(false),
+  setBrightnessLampScreensTurnLampsOnExceptions: textList(),
   setTemperatureLampScreensTurnLampsOn: flag(false),
+  setTemperatureLampScreensTurnLampsOnExceptions: textList(),
   // The title each action's dials show on their main screen, unless a dial has its own (#181), which the plugin draws,
   // since Stream Deck's own title settings would take the title's color from the text styles (#183). Its name by
   // default, and an empty one hides it. 24 characters, as a lamp's name, fill the title's width on the strip at most.

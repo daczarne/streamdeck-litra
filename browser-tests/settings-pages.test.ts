@@ -36,6 +36,8 @@ type NumberSetting = { setting: string; unit: string; value: string };
 type Panel = {
   page: string;
   controller: Controller;
+  /** The action the page is opened for, by its UUID, for a page several actions share: the first listed by default. */
+  action?: string;
   /** The settings whose controls the panel shows, by their `setting` attribute. */
   settings: string[];
   /** A setting to change through its control, and the value Stream Deck should receive for it. */
@@ -106,29 +108,12 @@ const PANELS: Panel[] = [
 ];
 
 // The global checkboxes of sdpi-components the plugin settings show, on every page, which every dial and key shares
-// (#145, #146): the lamps', whether the keys and dials' changes turn lamps on (#268), by each kind of key, then each
-// dial's main screen, and whether a turn on a lamp screen does. Then the lists of the lamp screens' cells, in the order
+// (#145, #146): the lamps'. Then the lists of the lamp screens' cells, in the order
 // the cells are read (#177), the controls of the dials' text styles (#153), the text style each part of the main
 // screens takes its color from (#183), and every global setting they show through sdpi-components, in their order: the
 // lamps' first, the blink's length (#171) last among them, then the keys', then the dials', their text styles before
 // their main screens' and their lamp screens'.
 const LAMPS_CHECKBOXES = ["keepBrightnessDifference", "keepTemperatureDifference"];
-const KEY_TURN_ON_CHECKBOXES = [
-  "setBrightnessKeysTurnLampsOn",
-  "brightnessUpKeysTurnLampsOn",
-  "brightnessDownKeysTurnLampsOn",
-  "setTemperatureKeysTurnLampsOn",
-  "temperatureUpKeysTurnLampsOn",
-  "temperatureDownKeysTurnLampsOn",
-];
-const DIAL_TURN_ON_CHECKBOXES = ["setBrightnessDialsTurnLampsOn", "setTemperatureDialsTurnLampsOn"];
-const LAMP_SCREEN_TURN_ON_CHECKBOXES = ["setBrightnessLampScreensTurnLampsOn", "setTemperatureLampScreensTurnLampsOn"];
-const PLUGIN_SETTINGS_CHECKBOXES = [
-  ...LAMPS_CHECKBOXES,
-  ...KEY_TURN_ON_CHECKBOXES,
-  ...DIAL_TURN_ON_CHECKBOXES,
-  ...LAMP_SCREEN_TURN_ON_CHECKBOXES,
-];
 const LAMP_SCREEN_LISTS = [
   "lampScreenTopLeft",
   "lampScreenTopRight",
@@ -154,12 +139,9 @@ const PLUGIN_SETTINGS_GLOBALS = [
   "resyncDirection",
   ...LAMPS_CHECKBOXES,
   "identifyBlinkMs",
-  ...KEY_TURN_ON_CHECKBOXES,
   ...TEXT_STYLE_CONTROLS,
-  ...DIAL_TURN_ON_CHECKBOXES,
   ...Object.keys(DIAL_TITLES),
   ...MAIN_SCREEN_PARTS,
-  ...LAMP_SCREEN_TURN_ON_CHECKBOXES,
   ...LAMP_SCREEN_LISTS,
 ];
 
@@ -250,7 +232,7 @@ type OpenedPanel = {
  * settings and its id, `context`, a new one unless given.
  */
 async function openPanel(
-  { page: file, controller }: Panel,
+  { page: file, controller, action: uuidOf }: Panel,
   settings: Record<string, unknown> = {},
   context = randomUUID().replaceAll("-", ""),
 ): Promise<OpenedPanel> {
@@ -280,7 +262,9 @@ async function openPanel(
   });
 
   await page.goto(pathToFileURL(path.join(pluginDir, file)).href);
-  const action = manifest.Actions.find((a) => a.PropertyInspectorPath === file);
+  const action = manifest.Actions.find(
+    (a) => a.PropertyInspectorPath === file && (uuidOf === undefined || a.UUID === uuidOf),
+  );
   if (action === undefined) throw new Error(`No action in manifest.json uses ${file}`);
   const info = {
     application: { language: "en", platform: "mac", version: "7.6" },
@@ -776,7 +760,7 @@ describe("settings pages", () => {
   // Every checkbox of sdpi-components that saves a global setting itself, in the plugin settings, on a key's page and a
   // dial's (#145, #146, #268).
   const globalCheckboxes = [at(PANELS, 0), at(PANELS, 2)].flatMap((panel) =>
-    PLUGIN_SETTINGS_CHECKBOXES.map((setting) => ({ panel, setting })),
+    LAMPS_CHECKBOXES.map((setting) => ({ panel, setting })),
   );
   describe.each(globalCheckboxes)(
     "the global $setting in the plugin settings on $panel.page on $panel.controller",
@@ -2463,6 +2447,174 @@ describe("settings pages", () => {
       await clickDialBlink(page);
 
       expect(await openEveryDialBlink(page)).toBe("mixed");
+      await page.close();
+    });
+  });
+
+  // Whether each kind of key, and each action's dials, on their main screen and on their lamp screens, turn the lamps
+  // on as they change them (#268): every one's in the plugin settings, and a key's or dial's own on its page (#181).
+  const UUID = "com.daczarne.litra.";
+  const KEY_TURN_ON = { element: "key-turn-on", own: "This key turns lamps on" };
+  const DIAL_TURN_ON = { element: "dial-turn-on", own: "This dial turns lamps on" };
+  const LAMP_SCREEN_TURN_ON = { element: "lamp-screen-turn-on", own: "This dial turns the lamp on" };
+  describe.each([
+    { controls: "setBrightnessKeys", panel: at(PANELS, 1), every: "Set Brightness keys", ...KEY_TURN_ON },
+    {
+      controls: "brightnessUpKeys",
+      panel: { ...at(PANELS, 6), action: `${UUID}brightness-up` },
+      every: "Brightness Up keys",
+      ...KEY_TURN_ON,
+    },
+    {
+      controls: "brightnessDownKeys",
+      panel: { ...at(PANELS, 6), action: `${UUID}brightness-down` },
+      every: "Brightness Down keys",
+      ...KEY_TURN_ON,
+    },
+    { controls: "setTemperatureKeys", panel: at(PANELS, 3), every: "Set Temperature keys", ...KEY_TURN_ON },
+    {
+      controls: "temperatureUpKeys",
+      panel: { ...at(PANELS, 7), action: `${UUID}temperature-up` },
+      every: "Temperature Up keys",
+      ...KEY_TURN_ON,
+    },
+    {
+      controls: "temperatureDownKeys",
+      panel: { ...at(PANELS, 7), action: `${UUID}temperature-down` },
+      every: "Temperature Down keys",
+      ...KEY_TURN_ON,
+    },
+    { controls: "setBrightnessDials", panel: at(PANELS, 2), every: "Brightness dials turn lamps", ...DIAL_TURN_ON },
+    { controls: "setTemperatureDials", panel: at(PANELS, 4), every: "Temperature dials turn lamps", ...DIAL_TURN_ON },
+    {
+      controls: "setBrightnessLampScreens",
+      panel: at(PANELS, 2),
+      every: "Brightness dials turn the lamp",
+      ...LAMP_SCREEN_TURN_ON,
+    },
+    {
+      controls: "setTemperatureLampScreens",
+      panel: at(PANELS, 4),
+      every: "Temperature dials turn the lamp",
+      ...LAMP_SCREEN_TURN_ON,
+    },
+  ])("whether $controls turn lamps on, on their own pages (#268, #181)", ({ controls, panel, every, element, own }) => {
+    const setting = `${controls}TurnLampsOn`;
+    const exceptions = `${controls}TurnLampsOnExceptions`;
+    const OWN = `document.querySelector("#${element} sdpi-checkbox")`;
+    const NEW_CONTEXT = "0123456789abcdef0123456789abcdef";
+
+    afterEach(() => {
+      streamDeck.globalSettings = {};
+    });
+
+    /** Opens the page once it shows its own choice as the global settings hold it. */
+    async function openOwn(context?: string) {
+      const opened = await openPanel(panel, {}, context);
+      await opened.page.evaluate(`Promise.all([
+        SDPIComponents.useGlobalSettings("${setting}")[0](),
+        SDPIComponents.useGlobalSettings("${exceptions}")[0](),
+      ])`);
+      await expect.poll(() => ownOf(opened.page)).toMatchObject({ shown: true });
+      return opened;
+    }
+
+    /** Whether the page shows its own checkbox, and with what. */
+    function ownOf(page: Page): Promise<{ shown: boolean; label?: string | null; checked?: boolean }> {
+      return page.evaluate(`(() => {
+        const box = ${OWN};
+        return box === null || !box.checkVisibility()
+          ? { shown: false }
+          : { shown: true, label: box.getAttribute("label"), checked: box.value === true };
+      })()`);
+    }
+
+    /** Clicks the page's own checkbox, as the user would: on the input inside the component. */
+    function clickOwn(page: Page): Promise<void> {
+      return page.evaluate(`(async () => {
+        const host = ${OWN};
+        await host.updateComplete;
+        host.shadowRoot.querySelector("input").click();
+      })()`);
+    }
+
+    /** What every one's checkbox shows in the plugin settings: "true", "false" or "mixed". */
+    function everyOf(page: Page): Promise<string | null> {
+      return page.evaluate(`${triState(every)}.getAttribute("aria-checked")`);
+    }
+
+    it("shows the page's own, as the plugin's setting, or its opposite for one that chose otherwise", async () => {
+      streamDeck.globalSettings = { [setting]: true, [exceptions]: ["other-control"] };
+      const { page } = await openOwn();
+      expect(await ownOf(page)).toEqual({ shown: true, label: own, checked: true });
+      await page.close();
+
+      streamDeck.globalSettings = { [setting]: true, [exceptions]: [NEW_CONTEXT] };
+      const { page: otherwise } = await openOwn(NEW_CONTEXT);
+      expect(await ownOf(otherwise)).toMatchObject({ checked: false });
+      await otherwise.close();
+    });
+
+    it("shows one checkbox of its own for each of the page's choices, and none of another action's", async () => {
+      const { page } = await openOwn();
+      const owns = await page.evaluate<string[]>(`
+        [...document.querySelectorAll("[id$='-turn-on'] sdpi-checkbox")]
+          .map((box) => box.closest("[id]").id)
+      `);
+      await page.close();
+
+      expect(owns).toEqual(element === "key-turn-on" ? [element] : ["dial-turn-on", "lamp-screen-turn-on"]);
+    });
+
+    it("saves a click on the page's own as its choice, keeping the other global settings, and a second click takes it back", async () => {
+      streamDeck.globalSettings = { keepBrightnessDifference: true };
+      const { page, uuid, context } = await openOwn();
+
+      await clickOwn(page);
+
+      await expect
+        .poll(() => streamDeck.globalSettings)
+        .toEqual({ keepBrightnessDifference: true, [exceptions]: [context] });
+      expect(await ownOf(page)).toMatchObject({ checked: true });
+      expect(read(exceptions, [context])).toEqual({ value: [context], valid: true });
+
+      await clickOwn(page);
+
+      await expect.poll(() => streamDeck.globalSettings).toEqual({ keepBrightnessDifference: true, [exceptions]: [] });
+      expect(await ownOf(page)).toMatchObject({ checked: false });
+      expect(streamDeck.messages.filter((m) => m.event === "setSettings" && m.context === uuid)).toEqual([]);
+      await page.close();
+    });
+
+    it("shows every one's in the plugin settings, off by default, and indeterminate once one chose otherwise", async () => {
+      const { page } = await openOwn();
+      await clickInPluginSettings(page, "Plugin settings");
+      expect(await everyOf(page)).toBe("false");
+      expect(read(setting, false)).toEqual({ value: defaultOf(setting), valid: true });
+
+      await clickInPluginSettings(page, "Back");
+      await clickOwn(page);
+      await clickInPluginSettings(page, "Plugin settings");
+
+      await expect.poll(() => everyOf(page)).toBe("mixed");
+      await page.close();
+    });
+
+    it("gives every one the same choice again on a click on every one's, which the page's own follows", async () => {
+      streamDeck.globalSettings = { keepTemperatureDifference: true, [setting]: false, [exceptions]: [NEW_CONTEXT] };
+      const { page } = await openOwn(NEW_CONTEXT);
+      expect(await ownOf(page)).toMatchObject({ checked: true });
+      await clickInPluginSettings(page, "Plugin settings");
+      expect(await everyOf(page)).toBe("mixed");
+
+      await page.evaluate(`${triState(every)}.click()`);
+
+      await expect
+        .poll(() => streamDeck.globalSettings)
+        .toEqual({ keepTemperatureDifference: true, [setting]: true, [exceptions]: [] });
+      expect(await everyOf(page)).toBe("true");
+      await clickInPluginSettings(page, "Back");
+      expect(await ownOf(page)).toMatchObject({ checked: true });
       await page.close();
     });
   });

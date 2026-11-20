@@ -144,19 +144,34 @@ describe("whether the keys and dials' changes turn lamps on (#268)", () => {
   ];
 
   it("is no for every one by default", () => {
-    expect(CONTROLS.filter((controls) => globalSettings.turnsLampsOn(controls))).toEqual([]);
+    expect(CONTROLS.filter((controls) => globalSettings.turnsLampsOn(controls, "a-control"))).toEqual([]);
   });
 
   it.each(CONTROLS)("is yes for %s alone once its setting says so", (controls) => {
     globalSettings.read({ [`${controls}TurnLampsOn`]: true });
 
-    expect(CONTROLS.filter((other) => globalSettings.turnsLampsOn(other))).toEqual([controls]);
+    expect(CONTROLS.filter((other) => globalSettings.turnsLampsOn(other, "a-control"))).toEqual([controls]);
   });
+
+  it.each(CONTROLS)(
+    "is the opposite of its setting for a key or a dial that chose otherwise, for %s alone (#181)",
+    (controls) => {
+      globalSettings.read({ [`${controls}TurnLampsOnExceptions`]: ["a-control"] });
+
+      expect(CONTROLS.filter((other) => globalSettings.turnsLampsOn(other, "a-control"))).toEqual([controls]);
+      expect(CONTROLS.filter((other) => globalSettings.turnsLampsOn(other, "other-control"))).toEqual([]);
+
+      globalSettings.read({ [`${controls}TurnLampsOn`]: true, [`${controls}TurnLampsOnExceptions`]: ["a-control"] });
+
+      expect(globalSettings.turnsLampsOn(controls, "a-control")).toBe(false);
+      expect(globalSettings.turnsLampsOn(controls, "other-control")).toBe(true);
+    },
+  );
 
   it("is no, with a warning, when the setting isn't true or false", () => {
     globalSettings.read({ setBrightnessKeysTurnLampsOn: "yes" });
 
-    expect(globalSettings.turnsLampsOn("setBrightnessKeys")).toBe(false);
+    expect(globalSettings.turnsLampsOn("setBrightnessKeys", "a-control")).toBe(false);
     expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("setBrightnessKeysTurnLampsOn"));
   });
 });

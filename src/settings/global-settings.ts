@@ -263,9 +263,13 @@ export class GlobalSettings {
     return this.parsed.keepTemperatureDifference ? "each" : "together";
   }
 
-  /** Whether the brightness and temperature changes of these keys or dials also turn on the lamps they change (#268). */
-  turnsLampsOn(controls: TurningLampsOn): boolean {
-    return this.parsed[`${controls}TurnLampsOn`];
+  /**
+   * Whether a key's or a dial's changes to the brightness or the temperature also turn on the lamps they change (#268):
+   * the plugin's setting for its kind of key, or for its dial's screen, or the opposite for a key or a dial that chose
+   * otherwise on its own page (#181).
+   */
+  turnsLampsOn(controls: TurningLampsOn, id: string): boolean {
+    return this.parsed[`${controls}TurnLampsOn`] !== this.parsed[`${controls}TurnLampsOnExceptions`].includes(id);
   }
 
   /** The lamps the plugin knows, as the global settings save them: by id, with what's kept of each. */

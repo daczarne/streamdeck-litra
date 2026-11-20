@@ -12,7 +12,7 @@ const PRESET: Preset = {
     return { preset: presetKelvin, lamps, leftOutLamps };
   },
   unit: " K",
-  turnsLampsOn: () => globalSettings.turnsLampsOn("setTemperatureKeys"),
+  turnsLampsOn: (keyId) => globalSettings.turnsLampsOn("setTemperatureKeys", keyId),
   set: setLampsTemperature,
 };
 

@@ -416,6 +416,22 @@ describe("the Set Brightness action", () => {
     expect(stateOf(powerKey)).toBe(1);
   });
 
+  it("turns the lamps on from the one dial that chose to on its own page, while the others leave them off (#181)", async () => {
+    const pair = [newLamp({ on: false }), newLamp({ on: false })];
+    await plugIn(...pair);
+    const dial = await deck.dial(BRIGHTNESS, { stepPercentage: 10 });
+    const other = await deck.dial(BRIGHTNESS, { stepPercentage: 10 });
+    await saveFromPage({ setBrightnessDialsTurnLampsOnExceptions: [dial.id] });
+
+    await deck.turn(other, 1);
+
+    expect(pair.map((lamp) => lamp.on)).toEqual([false, false]);
+
+    await deck.turn(dial, 1);
+
+    expect(pair.map((lamp) => lamp.on)).toEqual([true, true]);
+  });
+
   it("shows an alert when a lamp fails, and still sets the others, which the dial shows", async () => {
     const [failing, working] = [newLamp({ brightnessInLumen: 30 }), newLamp({ brightnessInLumen: 30 })];
     await plugIn(failing, working);
@@ -777,6 +793,30 @@ describe("the lamp screens", () => {
       await deck.turn(dial, 1);
 
       expect([shown.on, other.on]).toEqual([true, false]);
+    },
+  );
+
+  it.each([
+    ["Brightness", BRIGHTNESS, "setBrightnessLampScreensTurnLampsOnExceptions"],
+    ["Temperature", TEMPERATURE, "setTemperatureLampScreensTurnLampsOnExceptions"],
+  ])(
+    "let the one %s dial that chose to on its own page turn the lamp on screen on (#181)",
+    async (_name, uuid, exceptions) => {
+      const shown = newLamp({ serialNumber: "SERIAL-A", on: false });
+      await plugIn(shown);
+      const dial = await deck.dial(uuid);
+      const other = await deck.dial(uuid);
+      await saveFromPage({ [exceptions]: [dial.id] });
+      await deck.tap(other);
+      await deck.tap(dial);
+
+      await deck.turn(other, 1);
+
+      expect(shown.on).toBe(false);
+
+      await deck.turn(dial, 1);
+
+      expect(shown.on).toBe(true);
     },
   );
 

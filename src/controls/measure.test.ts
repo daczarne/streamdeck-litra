@@ -282,7 +282,7 @@ describe("a dial of a MeasureAction", () => {
 
       await deck.turn(dial, 3);
 
-      expect(MEASURE.turnsLampsOn).toHaveBeenCalledWith("main");
+      expect(MEASURE.turnsLampsOn).toHaveBeenCalledWith("main", dial.id);
       expect(MEASURE.adjust).toHaveBeenCalledExactlyOnceWith("connected", 3, 5, "together", true);
       expect(logger.info).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("turning lamps on"));
     });
@@ -391,7 +391,7 @@ describe("a dial of a MeasureAction", () => {
 
       await deck.turn(dial, 3);
 
-      expect(MEASURE.turnsLampsOn).toHaveBeenCalledWith("lamp");
+      expect(MEASURE.turnsLampsOn).toHaveBeenCalledWith("lamp", dial.id);
       expect(MEASURE.adjust).toHaveBeenCalledExactlyOnceWith([BEAM.id], 3, 5, "together", true);
     });
 

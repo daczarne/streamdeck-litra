@@ -10,8 +10,8 @@ import { describeLamps } from "./describe-lamps";
 
 /**
  * What a Set Brightness or Set Temperature key does: how it reads its preset and its lamps from its settings, the unit
- * its title and its log line give the preset in, whether the global settings have it turn its lamps on (#268), and how
- * it sets its lamps to it.
+ * its title and its log line give the preset in, whether the global settings have the key, by its id, turn its lamps on
+ * (#268, #181), and how it sets its lamps to it.
  */
 export type Preset = {
   read: (
@@ -19,7 +19,7 @@ export type Preset = {
     logger: Logger,
   ) => { preset: number; lamps: CheckedLamps; leftOutLamps: readonly string[] };
   unit: string;
-  turnsLampsOn: () => boolean;
+  turnsLampsOn: (keyId: string) => boolean;
   set: (lamps: LampSelection, preset: number, turnOn: boolean) => Promise<OperationResult>;
 };
 
@@ -72,7 +72,7 @@ class PresetKey extends ActionInstance<ReturnType<Preset["read"]>, KeyAction<Jso
   override async keyDown(): Promise<void> {
     const { preset } = this.config;
     const lamps = globalSettings.actionKeyLamps(this.control.id, this.config);
-    const turnOn = this.preset.turnsLampsOn();
+    const turnOn = this.preset.turnsLampsOn(this.control.id);
     const turning = turnOn ? ", turning lamps on" : "";
     this.logger.info(`Key pressed: preset ${preset}${this.preset.unit}, on ${describeLamps(lamps)}${turning}`);
     const result = await this.preset.set(lamps, preset, turnOn);
