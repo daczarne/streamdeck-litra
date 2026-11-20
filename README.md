@@ -18,18 +18,20 @@ Not an official Logitech or Elgato product.
 
 ## Actions
 
-|                                 | Action               | Key                                        | Dial (Stream Deck +)                                                      |
-|:-------------------------------:|:---------------------|:-------------------------------------------|:--------------------------------------------------------------------------|
-|         ![Power][power]         | **Power**            | On, off or toggle                          | None                                                                      |
-|         ![Scene][scene]         | **Scene**            | Turn groups of lamps on at presets, or off | None                                                                      |
-|    ![Set Brightness][bright]    | **Set Brightness**   | Jump to a preset %                         | None                                                                      |
-|   ![Brightness Up][bright-up]   | **Brightness Up**    | Step up by the key's %                     | None                                                                      |
-| ![Brightness Down][bright-down] | **Brightness Down**  | Step down by the key's %                   | None                                                                      |
-|      ![Brightness][bright]      | **Brightness**       | None                                       | Rotate to adjust, press toggles power, tap the strip to control each lamp |
-|    ![Set Temperature][temp]     | **Set Temperature**  | Jump to a preset Kelvin                    | None                                                                      |
-|   ![Temperature Up][temp-up]    | **Temperature Up**   | Step up, cooler, by the key's Kelvin       | None                                                                      |
-| ![Temperature Down][temp-down]  | **Temperature Down** | Step down, warmer, by the key's Kelvin     | None                                                                      |
-|      ![Temperature][temp]       | **Temperature**      | None                                       | Rotate to adjust, press toggles power, tap the strip to control each lamp |
+|                                 | Action               | Type | Description                                                               |
+|:-------------------------------:|:---------------------|:-----|:--------------------------------------------------------------------------|
+|         ![Power][power]         | **Power**            | Key  | On, off or toggle                                                         |
+|         ![Scene][scene]         | **Scene**            | Key  | Turn groups of lamps on at presets, or off                                |
+|    ![Set Brightness][bright]    | **Set Brightness**   | Key  | Jump to a preset %                                                        |
+|   ![Brightness Up][bright-up]   | **Brightness Up**    | Key  | Step up by the key's %                                                    |
+| ![Brightness Down][bright-down] | **Brightness Down**  | Key  | Step down by the key's %                                                  |
+|      ![Brightness][bright]      | **Brightness**       | Dial | Rotate to adjust, press toggles power, tap the strip to control each lamp |
+|     ![Set Temperature][temp]    | **Set Temperature**  | Key  | Jump to a preset Kelvin                                                   |
+|    ![Temperature Up][temp-up]   | **Temperature Up**   | Key  | Step up, cooler, by the key's Kelvin                                      |
+|  ![Temperature Down][temp-down] | **Temperature Down** | Key  | Step down, warmer, by the key's Kelvin                                    |
+|       ![Temperature][temp]      | **Temperature**      | Dial | Rotate to adjust, press toggles power, tap the strip to control each lamp |
+
+Dials are on the Stream Deck + and the Stream Deck + XL.
 
 - Each key acts on the lamps picked on its settings page: every lamp the plugin knows, unless others are picked. A dial's main screen acts on every lamp connected, and its lamp screens on one lamp at a time. [The user guide][user-guide] describes each action, and the settings they share.
 - The plugin talks to the lamps in-process over USB HID, through the [`litra`][litra] Node library, with no CLI subprocess. [The architecture document][architecture] explains why, and how the plugin's parts fit together.
