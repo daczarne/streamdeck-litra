@@ -120,6 +120,8 @@ Stream Deck lets each user pick the touch strip's background, which the plugin c
 
 Every style is 18 px by default, and Normal but for Alert, which is bold so it stands out even when its color is changed. Accent's cyan is far from Alert's red and Secondary's grey, and suggests neither a warning, as amber would, nor that all is well, as green would. Alert's red is the one the plugin settings show "No lamps found" in, so red means the same thing on the strip and in the panel. The defaults draw the lamp screens as they were before the styles, and the main screens as Stream Deck's own dials: only Primary and Secondary are used until the user picks the others for a cell, a power state or a part of the main screen. On a lamp screen, an icon takes the color of the text beside it, so a cell reads as one piece in whatever style it picks. On the main screen, the icon picks a style of its own, as the title, the value and the bar do.
 
+A dial can show the lamp it starts on in a color of its own, so a page with a dial for each lamp tells them apart. The color takes Primary's place alone, so the other styles keep what they set apart. It comes from a few colors rather than any, at hues apart from one another and from Accent's cyan and Alert's red, so no two dials' lamps, nor a dial's lamp and an alert, look alike. It's the dial's, not the lamp's, so the same lamp shown elsewhere keeps the styles, and no strip has to read with every lamp's color.
+
 A text that the plugin itself would show in another style, such as a brightness held below what was asked, picks the style of its role, and comes as its own change: the styles don't change what the lamp screens show by default.
 
 ## Numbers are set with a number field
