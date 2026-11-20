@@ -42,8 +42,8 @@ describe("parseSettings", () => {
       temperatureStepSettingsSchema,
       { stepKelvin: 300, lamps: "all", leftOutLamps: [], stepKeyTitle: "current" },
     ],
-    ["Brightness", brightnessDialSettingsSchema, { stepPercentage: 10, title: "" }],
-    ["Temperature", temperatureDialSettingsSchema, { stepKelvin: 300, title: "" }],
+    ["Brightness", brightnessDialSettingsSchema, { stepPercentage: 10, title: "", startOn: "main" }],
+    ["Temperature", temperatureDialSettingsSchema, { stepKelvin: 300, title: "", startOn: "main" }],
   ])("gives %s's defaults for the settings that are missing, without a warning", (_action, schema, defaults) => {
     expect(parseSettings({}, schema, logger)).toEqual(defaults);
     expect(logger.warn).not.toHaveBeenCalled();
@@ -71,8 +71,8 @@ describe("parseSettings", () => {
       temperatureStepSettingsSchema,
       { stepKelvin: 200, lamps: "all", leftOutLamps: [], stepKeyTitle: "step" },
     ],
-    ["Brightness", brightnessDialSettingsSchema, { stepPercentage: 20, title: "Desk" }],
-    ["Temperature", temperatureDialSettingsSchema, { stepKelvin: 500, title: "Desk" }],
+    ["Brightness", brightnessDialSettingsSchema, { stepPercentage: 20, title: "Desk", startOn: "00000000000000a1" }],
+    ["Temperature", temperatureDialSettingsSchema, { stepKelvin: 500, title: "Desk", startOn: "main" }],
   ])("keeps %s's valid settings", (_action, schema, settings) => {
     expect(parseSettings(settings, schema, logger)).toEqual(settings);
     expect(logger.warn).not.toHaveBeenCalled();
@@ -150,6 +150,9 @@ describe("parseSettings", () => {
       // A dial's own title is text no longer than the plugin settings' (#181).
       ["title", brightnessDialSettingsSchema, "x".repeat(25)],
       ["title", temperatureDialSettingsSchema, 1],
+      // A dial starts on its main screen, or a lamp's, by the lamp's id (#278).
+      ["startOn", brightnessDialSettingsSchema, ""],
+      ["startOn", temperatureDialSettingsSchema, 1],
       ["mode", powerSettingsSchema, "blink"],
       ["mode", powerSettingsSchema, "On"],
       ["mode", powerSettingsSchema, ""],

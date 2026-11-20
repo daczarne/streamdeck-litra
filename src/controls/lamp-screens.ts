@@ -20,11 +20,15 @@ type LampScreenDial = Pick<
   "id" | "setFeedback" | "setFeedbackLayout" | "setTriggerDescription" | "showAlert"
 >;
 
-/** What only a dial's action knows: how to draw its main screen, and what turning the dial adjusts. */
+/**
+ * What only a dial knows: how to draw its main screen, what turning it adjusts, and the screen it starts on.
+ */
 type DialOwner = {
   showMain: () => Promise<void>;
   /** What turning the dial adjusts, which the app shows as the description of a turn. */
   adjusts: string;
+  /** The screen the dial starts on as it appears (#278): `"main"`, or a lamp's id. */
+  startOn: () => string;
 };
 
 const logger = pluginLogger.createScope("Lamp screens");
@@ -56,6 +60,8 @@ const LAMP_TRIGGER_DESCRIPTIONS = { push: "Power", touch: "Next lamp", longTouch
 export class LampScreen {
   // The id of the lamp on screen, or undefined on the main screen.
   private shown: string | undefined;
+  // Whether the strip wasn't tapped since the dial appeared, so the dial shows the screen it starts on (#278).
+  private untouched = false;
   private queue: Promise<void> = Promise.resolve();
 
   /** Takes the dial, and what only the dial knows: how to draw its main screen, and what turning it adjusts. */
@@ -75,10 +81,20 @@ export class LampScreen {
   }
 
   /**
+   * Whether the strip wasn't tapped since the dial appeared, so the dial shows the screen it starts on (#278), which
+   * {@link settle} brings it to.
+   */
+  get isUntouched(): boolean {
+    return this.untouched;
+  }
+
+  /**
    * Shows the lamp after the one on screen, the first lamp from the main screen, and the main screen after the last.
    * With the blink on for the dial, the lamp shown blinks once it's drawn.
    */
   tap(): Promise<void> {
+    // From the first tap, the taps choose the screen, rather than the one the dial starts on (#278).
+    this.untouched = false;
     return this.enqueue(async () => {
       const lamps = await findLampsShown();
       const current = this.shown;
@@ -130,12 +146,35 @@ export class LampScreen {
   }
 
   /**
-   * Starts the dial on the main screen as it appears. Stream Deck may keep the layout a dial had when it disappeared,
-   * or when the plugin stopped.
+   * Brings a dial whose strip wasn't tapped since it appeared to the screen it starts on (#278): its lamp's, drawn from
+   * what the plugin holds, once the lamp is connected, without a blink, which is for a tap, so a dial that appears as a
+   * page of the Deck is shown blinks nothing, or the main screen's layout otherwise, which the dial then draws. Does
+   * nothing once the strip was tapped.
+   */
+  settle(): Promise<void> {
+    return this.enqueue(async () => {
+      if (!this.untouched) {
+        return;
+      }
+      const startOn = this.owner.startOn();
+      const lamps = startOn === "main" ? [] : await lampsShown();
+      const lamp = lamps.find((candidate) => candidate.id === startOn);
+      if (lamp !== undefined) {
+        await this.show(lamp, lamps);
+      } else if (this.shown !== undefined) {
+        await this.toMainLayout();
+      }
+    });
+  }
+
+  /**
+   * Starts the dial on the main screen as it appears, until {@link settle} brings it to the screen it starts on.
+   * Stream Deck may keep the layout a dial had when it disappeared, or when the plugin stopped.
    */
   appear(): Promise<void> {
     return this.enqueue(async () => {
       this.shown = undefined;
+      this.untouched = true;
       await this.dial.setFeedbackLayout(MAIN_LAYOUT);
       await this.dial.setTriggerDescription();
     });
@@ -162,10 +201,15 @@ export class LampScreen {
 
   /** Switches the dial back to the main layout and lets it draw its main screen. */
   private async backToMain(): Promise<void> {
+    await this.toMainLayout();
+    await this.owner.showMain();
+  }
+
+  /** Switches the dial back to the main layout, with no lamp on screen, for the dial to draw its main screen on. */
+  private async toMainLayout(): Promise<void> {
     this.shown = undefined;
     await this.dial.setFeedbackLayout(MAIN_LAYOUT);
     await this.dial.setTriggerDescription();
-    await this.owner.showMain();
   }
 }
 

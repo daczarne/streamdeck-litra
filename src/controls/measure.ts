@@ -98,8 +98,11 @@ export type Measure = {
   mainScreen: () => Promise<MainScreen>;
 };
 
-/** What a Brightness or Temperature dial's settings hold: its step, and its own title, or an empty one (#181). */
-export type DialSettings = { step: number; title: string };
+/**
+ * What a Brightness or Temperature dial's settings hold: its step, its own title, or an empty one (#181), and the
+ * screen it starts on, `"main"` or a lamp's id (#278).
+ */
+export type DialSettings = { step: number; title: string; startOn: string };
 
 /** The Brightness or the Temperature dial action, which gives each dial a {@link MeasureDial}. */
 export abstract class MeasureAction extends RoutingAction<MeasureDial> {
@@ -137,34 +140,46 @@ class MeasureDial extends ActionInstance<DialSettings, DialAction<JsonObject>> {
     private readonly measure: Measure,
   ) {
     super(control, settings, (saved) => measure.readSettings(saved, logger));
-    this.screen = new LampScreen(control, { showMain: () => this.showMainScreen(), adjusts: measure.adjusts });
+    this.screen = new LampScreen(control, {
+      showMain: () => this.showMainScreen(),
+      adjusts: measure.adjusts,
+      startOn: () => this.config.startOn,
+    });
   }
 
-  /** Starts the dial on its main screen, with what the lamps are at. */
+  /**
+   * Starts the dial on the screen its settings choose (#278): the lamp's, once it's connected, or its main screen, with
+   * what the lamps are at.
+   */
   override async appear(): Promise<void> {
     await this.screen.appear();
-    await this.showMainScreen();
+    await this.follow();
   }
 
-  /** Redraws the main screen, whose title may have changed (#181), and leaves a lamp screen as it is. */
+  /**
+   * Redraws the main screen, whose title may have changed (#181), and leaves a lamp screen the taps got to as it is,
+   * since nothing on it is the dial's. A dial whose strip wasn't tapped since it appeared goes to the screen it now
+   * starts on (#278).
+   */
   override settingsChanged(): Promise<void> {
-    return this.showMainScreen();
+    return this.screen.isUntouched ? this.follow() : this.showMainScreen();
   }
 
   /**
    * Shows what the lamps are at, whichever key or dial changed them: every lamp on the main screen, or the lamp on
-   * screen, which goes back to the main screen once it's no longer connected.
+   * screen, which goes back to the main screen once it's no longer connected. A dial whose strip wasn't tapped since it
+   * appeared goes to the lamp it starts on as soon as the lamp is connected, such as once the plugin first reaches it.
    */
   override lampsChanged(): Promise<void> {
-    return this.screen.isShowing ? this.screen.refresh() : this.showMainScreen();
+    return this.follow();
   }
 
   /**
    * Redraws the lamp on screen, whose cells and text styles are global settings (#153, #177), or the main screen, whose
-   * colors are too (#183).
+   * colors are too (#183). A lamp forgotten leaves the dial that starts on it on its main screen.
    */
   override globalSettingsChanged(): Promise<void> {
-    return this.screen.isShowing ? this.screen.refresh() : this.showMainScreen();
+    return this.follow();
   }
 
   /** Toggles every lamp from the main screen, or the lamp on screen from a lamp screen. */
@@ -227,6 +242,22 @@ class MeasureDial extends ActionInstance<DialSettings, DialAction<JsonObject>> {
     if (!result.ok) {
       await this.control.showAlert();
     }
+  }
+
+  /**
+   * Shows the screen the dial is on, after a change to the lamps or the settings: until its strip is tapped, the
+   * screen its settings start it on, which the lamp screens draw, or its main screen while its lamp isn't connected
+   * (#278), and after a tap, the screen the taps got to, which goes back to the main screen once its lamp is no longer
+   * connected.
+   */
+  private async follow(): Promise<void> {
+    if (this.screen.isUntouched) {
+      await this.screen.settle();
+    } else if (this.screen.isShowing) {
+      await this.screen.refresh();
+      return;
+    }
+    await this.showMainScreen();
   }
 
   /**

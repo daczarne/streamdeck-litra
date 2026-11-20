@@ -2623,6 +2623,129 @@ describe("settings pages", () => {
     });
   });
 
+  describe.each([at(PANELS, 2), at(PANELS, 4)])("the screen a dial starts on, on $page (#278)", (panel) => {
+    const LIST = `document.querySelector("#start-on sdpi-select")`;
+    // Three lamps the plugin knows, out of the order of their ids, one with a name (#146).
+    const LAMPS: Record<string, KnownLamp> = {
+      "0123456789ab3333": { model: "Beam LX" },
+      "0123456789ab1111": { model: "Beam", name: "Key light" },
+      "0123456789ab2222": { model: "Beam" },
+    };
+
+    afterEach(() => {
+      streamDeck.globalSettings = {};
+    });
+
+    /** The list's options, as each value and its text, and the one chosen. */
+    function listOf(page: Page): Promise<{ options: string[][]; chosen: string } | null> {
+      return page.evaluate(`(() => {
+        const list = ${LIST};
+        return list === null
+          ? null
+          : {
+              options: [...list.querySelectorAll("option")].map((option) => [option.value, option.textContent]),
+              chosen: list.value,
+            };
+      })()`);
+    }
+
+    /** The settings the page saved for the dial since the `after`th message. */
+    function savesOf(uuid: string, after: number) {
+      return streamDeck.messages
+        .slice(after)
+        .filter((m) => m.event === "setSettings" && m.context === uuid)
+        .map((m) => m.payload);
+    }
+
+    /**
+     * How many options the list draws inside its shadow DOM, which sdpi-components fills from its options a moment
+     * after the list is drawn, as a user sees them: a choice before then finds none.
+     */
+    function drawnOptionsOf(page: Page): Promise<number> {
+      return page.evaluate(`${LIST}?.shadowRoot?.querySelectorAll("option:not([disabled])").length ?? 0`);
+    }
+
+    it("offers the main screen, chosen by default, then every lamp, by name or label, in the order of their ids", async () => {
+      streamDeck.globalSettings = { lamps: LAMPS };
+      const { page } = await openPanel(panel);
+
+      await expect
+        .poll(() => listOf(page))
+        .toEqual({
+          options: [
+            ["main", "Main screen"],
+            ["0123456789ab1111", "Key light"],
+            ["0123456789ab2222", "Beam - 2222"],
+            ["0123456789ab3333", "Beam LX - 3333"],
+          ],
+          chosen: "main",
+        });
+      expect(read("startOn", "main", "action")).toEqual({ value: defaultOf("startOn", "action"), valid: true });
+      await page.close();
+    });
+
+    it("shows the lamp the dial saved, and the main screen for one the plugin no longer knows, saving nothing", async () => {
+      streamDeck.globalSettings = { lamps: LAMPS };
+      const { page, uuid } = await openPanel(panel, { startOn: "0123456789ab2222" });
+      await expect.poll(() => listOf(page)).toMatchObject({ chosen: "0123456789ab2222" });
+      await page.close();
+
+      const after = streamDeck.messages.length;
+      const { page: forgotten } = await openPanel(panel, { startOn: "fedcba9876543210" }, uuid);
+      await expect.poll(() => listOf(forgotten)).toMatchObject({ chosen: "main" });
+      // Long enough for a save, which there mustn't be.
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      expect(savesOf(uuid, after)).toEqual([]);
+      await forgotten.close();
+    });
+
+    it("saves a lamp chosen, and the main screen, to the dial's settings, as settings.ts takes them", async () => {
+      streamDeck.globalSettings = { lamps: LAMPS };
+      const { page, uuid } = await openPanel(panel);
+      await expect.poll(() => drawnOptionsOf(page)).toBe(4);
+
+      let after = streamDeck.messages.length;
+      await setControl(page, LIST, "0123456789ab3333");
+      await expect.poll(() => savesOf(uuid, after)).toEqual([{ startOn: "0123456789ab3333" }]);
+
+      after = streamDeck.messages.length;
+      await setControl(page, LIST, "main");
+      await expect.poll(() => savesOf(uuid, after)).toEqual([{ startOn: "main" }]);
+      expect(streamDeck.globalSettings).toEqual({ lamps: LAMPS });
+      await page.close();
+
+      expect(read("startOn", "0123456789ab3333", "action")).toEqual({ value: "0123456789ab3333", valid: true });
+    });
+
+    it("lists a lamp's new name once the plugin saves it", async () => {
+      streamDeck.globalSettings = { lamps: LAMPS };
+      const { page } = await openPanel(panel, { startOn: "0123456789ab2222" });
+      await expect.poll(() => listOf(page)).toMatchObject({ chosen: "0123456789ab2222" });
+
+      streamDeck.lamps = [{ id: "0123456789ab2222", label: "Beam - 2222", model: "Beam" }];
+      await page.evaluate(`SDPIComponents.streamDeckClient.send("sendToPlugin", {
+        event: "rename", id: "0123456789ab2222", name: "Fill light"
+      })`);
+
+      await expect
+        .poll(() => listOf(page))
+        .toMatchObject({
+          options: expect.arrayContaining([["0123456789ab2222", "Fill light"]]),
+          chosen: "0123456789ab2222",
+        });
+      streamDeck.lamps = [];
+      await page.close();
+    });
+  });
+
+  it.each(PANELS.filter((panel) => panel.controller === "Keypad"))("offers no Start on on $page", async (panel) => {
+    const { page } = await openPanel(panel);
+    const lists = await page.evaluate(`document.querySelectorAll("#start-on").length`);
+    await page.close();
+
+    expect(lists).toBe(0);
+  });
+
   describe.each(PANELS)("the plugin settings of $page on $controller (#146)", (panel) => {
     it("start closed, behind a Plugin settings button at the top of the page", async () => {
       const { page } = await openPanel(panel);
