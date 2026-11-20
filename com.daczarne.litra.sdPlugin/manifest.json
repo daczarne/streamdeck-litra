@@ -79,6 +79,34 @@
       ]
     },
     {
+      "Name": "Set Brightness 2",
+      "UUID": "com.daczarne.litra.brightness-2",
+      "Icon": "imgs/actions/brightness/icon",
+      "Tooltip": "Set brightness on a key, or adjust with a dial (press toggles power).",
+      "PropertyInspectorPath": "ui/brightness.html",
+      "Controllers": [
+        "Encoder"
+      ],
+      "UserTitleEnabled": false,
+      "Encoder": {
+        "layout": "layouts/main.json",
+        "Icon": "imgs/actions/brightness/glyph",
+        "TriggerDescription": {
+          "Rotate": "Brightness",
+          "Push": "Power",
+          "Touch": "Lamps"
+        }
+      },
+      "States": [
+        {
+          "Image": "imgs/actions/brightness/key",
+          "TitleAlignment": "bottom",
+          "FontSize": 14,
+          "TitleColor": "#ffffff"
+        }
+      ]
+    },
+    {
       "Name": "Brightness Up",
       "UUID": "com.daczarne.litra.brightness-up",
       "Icon": "imgs/actions/brightness-up/icon",

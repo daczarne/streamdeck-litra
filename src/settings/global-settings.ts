@@ -44,7 +44,7 @@ export type TurningLampsOn =
   | "setTemperatureLampScreens";
 
 /** The color of each part of a dial's main screen that takes one from the text styles, as `#rrggbb` (#183). */
-export type MainScreenColors = { icon: string; value: string; bar: string };
+export type MainScreenColors = { title: string; icon: string; value: string; bar: string };
 
 /** Every global setting but the lamps, which their `Lamp`s hold. */
 type Settings = Omit<ParsedGlobalSettings, "lamps">;
@@ -237,10 +237,16 @@ export class GlobalSettings {
     };
   }
 
+  /** A trial: the title each action's dials show on their main screen, which may be empty. */
+  get mainScreenTitles(): { brightness: string; temperature: string } {
+    return { brightness: this.parsed.setBrightnessDialTitle, temperature: this.parsed.setTemperatureDialTitle };
+  }
+
   /** The color each part of a dial's main screen takes, from the text style the settings give it (#183). */
   get mainScreenColors(): MainScreenColors {
     const styles = this.textStyles;
     return {
+      title: styles[this.parsed.mainScreenTitleStyle].color,
       icon: styles[this.parsed.mainScreenIconStyle].color,
       value: styles[this.parsed.mainScreenValueStyle].color,
       bar: styles[this.parsed.mainScreenBarStyle].color,

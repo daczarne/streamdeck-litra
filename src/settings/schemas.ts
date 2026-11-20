@@ -81,6 +81,15 @@ function oneOf<T extends string>(allowed: readonly T[], fallback: T): Setting<T>
   };
 }
 
+/** A setting that takes a text of up to `maxLength` characters, an empty one included, as a text field saves it. */
+function shortText(fallback: string, maxLength: number): Setting<string> {
+  return {
+    default: fallback,
+    expected: `a text of up to ${maxLength} characters`,
+    parse: (value) => (typeof value === "string" && value.length <= maxLength ? value : undefined),
+  };
+}
+
 /** A setting that is on or off, as a checkbox saves it. */
 function flag(fallback: boolean): Setting<boolean> {
   return {
@@ -383,6 +392,10 @@ export const globalSettingsSchema = {
   // Each part of a dial's main screen takes its color from one of the text styles, the same on every dial (#183). Only
   // the color: the weight and size of its text, and where each part sits, are the $B1 layout's. Every part follows
   // Primary by default, whose white draws the main screen as Stream Deck's own dials draw theirs.
+  // A trial: the title each dial's main screen shows, which the custom copy of $B1 draws itself. Empty hides it.
+  setBrightnessDialTitle: shortText("Brightness", 24),
+  setTemperatureDialTitle: shortText("Temperature", 24),
+  mainScreenTitleStyle: oneOf(TEXT_STYLES, "primary"),
   mainScreenIconStyle: oneOf(TEXT_STYLES, "primary"),
   mainScreenValueStyle: oneOf(TEXT_STYLES, "primary"),
   mainScreenBarStyle: oneOf(TEXT_STYLES, "primary"),

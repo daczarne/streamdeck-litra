@@ -8,7 +8,7 @@ import { globalSettings } from "../settings/global-settings";
 import { brightnessSettingsSchema, parseSettings } from "../settings/schemas";
 
 /** What a Set Brightness key sets its lamps to: its preset, in % of their range. */
-const PRESET: Preset = {
+export const PRESET: Preset = {
   read: (settings, logger) => {
     const { presetPercentage, lamps, leftOutLamps } = parseSettings(settings, brightnessSettingsSchema, logger);
     return { preset: presetPercentage, lamps, leftOutLamps };
@@ -23,7 +23,7 @@ const PRESET: Preset = {
  * lamp's % as text, and again as the bar under it, banded by how many lamps reach each part of it, or a dash with no
  * lamp.
  */
-const BRIGHTNESS: Measure = {
+export const BRIGHTNESS: Measure = {
   adjusts: "Brightness",
   readStep: (settings, logger) => parseSettings(settings, brightnessSettingsSchema, logger).stepPercentage,
   unit: "%",

@@ -25,6 +25,7 @@ type DialOwner = {
   showMain: () => Promise<void>;
   /** What turning the dial adjusts, which the app shows as the description of a turn. */
   adjusts: string;
+  mainLayout?: string;
 };
 
 const logger = pluginLogger.createScope("Lamp screens");
@@ -134,7 +135,7 @@ export class LampScreen {
   appear(): Promise<void> {
     return this.enqueue(async () => {
       this.shown = undefined;
-      await this.dial.setFeedbackLayout(MAIN_LAYOUT);
+      await this.dial.setFeedbackLayout(this.owner.mainLayout ?? MAIN_LAYOUT);
       await this.dial.setTriggerDescription();
     });
   }
@@ -161,7 +162,7 @@ export class LampScreen {
   /** Switches the dial back to the main layout and lets it draw its main screen. */
   private async backToMain(): Promise<void> {
     this.shown = undefined;
-    await this.dial.setFeedbackLayout(MAIN_LAYOUT);
+    await this.dial.setFeedbackLayout(this.owner.mainLayout ?? MAIN_LAYOUT);
     await this.dial.setTriggerDescription();
     await this.owner.showMain();
   }

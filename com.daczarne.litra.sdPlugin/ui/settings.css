@@ -375,7 +375,7 @@ body.plugin-settings-open > :not(#plugin-settings) {
 /* The lamp screens' cells, three rows of two, as the strip shows them. */
 #plugin-settings .cells {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 4px;
 }
 
@@ -456,4 +456,15 @@ body.plugin-settings-open > :not(#plugin-settings) {
 
 .tri-state[aria-checked="mixed"] .symbol {
   background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='2' viewBox='0 0 10 2'><rect width='10' height='2' fill='%23FFF'/></svg>");
+}
+
+/* A trial: a text field with its Reset button beside it, the field taking the room left. */
+#plugin-settings .text-and-reset {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+#plugin-settings .text-and-reset sdpi-textfield {
+  flex: 1;
 }

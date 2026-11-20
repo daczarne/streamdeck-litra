@@ -112,6 +112,8 @@ export type Measure = {
   ) => Promise<OperationResult>;
   glyph: Glyph;
   mainScreen: () => Promise<MainScreen>;
+  // A trial of a custom copy of $B1, whose title is a text of the plugin's own, so it can take a color.
+  layout?: { path: string; titleKey: string };
 };
 
 /**
@@ -207,7 +209,11 @@ class MeasureDial extends ActionInstance<{ step: number }, DialAction<JsonObject
     private readonly measure: Measure,
   ) {
     super(control, settings, (saved) => ({ step: measure.readStep(saved, logger) }));
-    this.screen = new LampScreen(control, { showMain: () => this.showMainScreen(), adjusts: measure.adjusts });
+    this.screen = new LampScreen(control, {
+      showMain: () => this.showMainScreen(),
+      adjusts: measure.adjusts,
+      ...(measure.layout === undefined ? {} : { mainLayout: measure.layout.path }),
+    });
   }
 
   /** Starts the dial on its main screen, with what the lamps are at. */
@@ -311,7 +317,9 @@ class MeasureDial extends ActionInstance<{ step: number }, DialAction<JsonObject
     const { title, value, levels } = await this.measure.mainScreen();
     const colors = globalSettings.mainScreenColors;
     const feedback: FeedbackPayload = {
-      title,
+      ...(this.measure.layout === undefined
+        ? { title }
+        : { [this.measure.layout.titleKey]: { value: title, color: colors.title } }),
       icon: iconOf(this.measure.glyph, colors.icon),
       value: { value, color: colors.value },
       indicator: bar(levels, colors.bar),
