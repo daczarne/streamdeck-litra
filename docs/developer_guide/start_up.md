@@ -111,10 +111,10 @@ Two things arrive, and nothing in the plugin depends on which comes first.
 
 | Control | What it shows as it appears |
 | --- | --- |
-| Set Brightness key (`PresetKey`) | Its preset as its title, with its unit, whatever the lamps are at |
+| Set Brightness key (`PresetKey`) | Its preset as its title, with its unit, whatever the lamps are at, or, with its Title value at Current, what its lamps are at, a dash with none reached yet |
 | Power key | `areLampsOn`: with no lamp reached yet, none is on, so state 0 |
 | Brightness dial (`MeasureDial`) | Sets its main screen's layout, `layouts/main.json`, then its main screen: with no lamp reached, `—` and an empty bar |
-| Brightness Up key | Its title, from the lamps shown, none yet |
+| Brightness Up key | Its title, from the lamps shown, none yet, so a dash, or its step, such as "+10%", whatever the lamps are at |
 
 **The answer to `getGlobalSettings`.** It carries the request's id, so the `onDidReceiveGlobalSettings` listener ignores it (that one only reports a page's changes), and it resolves the promise `syncGlobalSettings` returned in [4](#4-the-body-of-plugints) instead. Then:
 

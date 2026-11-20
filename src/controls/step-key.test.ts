@@ -8,7 +8,7 @@ import { at } from "../test-support/at";
 import { FakeDeck } from "../test-support/fake-deck";
 import { changeGlobalSettings } from "../test-support/fake-stream-deck";
 import { createDebouncer } from "./debouncer";
-import { brightnessShown, temperatureShown } from "./shown";
+import { brightnessNext, brightnessShown, temperatureNext, temperatureShown } from "./shown";
 import { BRIGHTNESS, StepKeyAction, TEMPERATURE } from "./step-key";
 
 //* Fakes
@@ -26,6 +26,8 @@ vi.mock("./shown", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./shown")>()),
   brightnessShown: vi.fn(),
   temperatureShown: vi.fn(),
+  brightnessNext: vi.fn(),
+  temperatureNext: vi.fn(),
 }));
 
 // The real lamp manager loads node-hid's native binary on import and talks to real lamps.
@@ -49,18 +51,26 @@ const LAMP_2 = "lamp-2";
 
 type Stepped = typeof BRIGHTNESS;
 
-/** What the fake keys step: by the step in their settings, or 2, on the lamps checked, or every lamp. */
+/**
+ * What the fake keys step: by the step in their settings, or 2, on the lamps checked, or every lamp, with the title in
+ * their settings, or what their lamps are at.
+ */
 const STEPPED = {
   read: vi.fn((settings: JsonObject) => ({
     step: typeof settings.step === "number" ? settings.step : 2,
     lamps: Array.isArray(settings.lamps) ? settings.lamps.filter((id) => typeof id === "string") : ("all" as const),
     leftOutLamps: [],
+    title: (settings.title === "next" || settings.title === "step" ? settings.title : "current") as
+      | "current"
+      | "next"
+      | "step",
   })),
   stepping: vi.fn<Stepped["stepping"]>(),
   turnsLampsOn: vi.fn<Stepped["turnsLampsOn"]>(),
   unit: " u",
   adjust: vi.fn<Stepped["adjust"]>(),
-  title: vi.fn<Stepped["title"]>(),
+  current: vi.fn<Stepped["current"]>(),
+  next: vi.fn<Stepped["next"]>(),
 } satisfies Stepped;
 
 /** A step action stepping up, as Brightness Up and Temperature Up are, with fakes for what it steps. */
@@ -97,7 +107,8 @@ beforeEach(() => {
   STEPPED.stepping.mockReturnValue("together");
   STEPPED.turnsLampsOn.mockReturnValue(false);
   STEPPED.adjust.mockResolvedValue(DONE);
-  STEPPED.title.mockResolvedValue("42 u");
+  STEPPED.current.mockResolvedValue("42 u");
+  STEPPED.next.mockResolvedValue("44 u");
   const actions = [new FakeStepUpAction(), new FakeStepDownAction()];
   const listeners = vi.mocked(onLampsChanged).mock.calls.map(([listener]) => listener);
   if (listeners.length !== actions.length) {
@@ -233,14 +244,14 @@ describe("a key of a StepKeyAction", () => {
       const key = await deck.key(FAKE_UP, { step: 5 });
 
       expect(STEPPED.read).toHaveBeenCalledWith({ step: 5 }, logger);
-      expect(STEPPED.title).toHaveBeenCalledWith("all");
+      expect(STEPPED.current).toHaveBeenCalledWith("all");
       expect(titleOf(key)).toBe("42 u");
     });
 
     it("on every key, whichever key or dial changed the lamps", async () => {
       const keys = [await deck.key(FAKE_UP), await deck.key(FAKE_UP), await deck.key(FAKE_DOWN)];
       clearCalls();
-      STEPPED.title.mockResolvedValue("50 u");
+      STEPPED.current.mockResolvedValue("50 u");
 
       await lampsChanged();
 
@@ -249,12 +260,63 @@ describe("a key of a StepKeyAction", () => {
 
     it("once a page changes the global settings, which choose its lamps (#147)", async () => {
       const key = await deck.key(FAKE_UP);
-      STEPPED.title.mockResolvedValue("50 u");
+      STEPPED.current.mockResolvedValue("50 u");
 
       changeGlobalSettings({ addNewLamps: false });
       await vi.runAllTimersAsync();
 
       expect(titleOf(key)).toBe("50 u");
+    });
+  });
+
+  describe("shows as its title what its settings choose", () => {
+    it.each([
+      ["up", FAKE_UP, 1],
+      ["down", FAKE_DOWN, -1],
+    ] as const)(
+      "where a press of a key stepping %s takes its lamps, with its step, as the lamps step",
+      async (_way, uuid, direction) => {
+        STEPPED.stepping.mockReturnValue("each");
+        const key = await deck.key(uuid, { step: 5, title: "next" });
+
+        // Keys of earlier tests still follow the global settings, so only this key's call is checked.
+        expect(STEPPED.next).toHaveBeenCalledWith("all", direction, 5, "each");
+        expect(titleOf(key)).toBe("44 u");
+      },
+    );
+
+    it("where a press takes its lamps, following every change to them and to the global settings", async () => {
+      const key = await deck.key(FAKE_UP, { title: "next" });
+      STEPPED.next.mockResolvedValue("46 u");
+
+      await lampsChanged();
+
+      expect(titleOf(key)).toBe("46 u");
+
+      STEPPED.next.mockResolvedValue("48 u");
+      changeGlobalSettings({ keepBrightnessDifference: true });
+      await vi.runAllTimersAsync();
+
+      expect(titleOf(key)).toBe("48 u");
+    });
+
+    it("its step, signed by its direction, with its unit, whatever the lamps are at", async () => {
+      const up = await deck.key(FAKE_UP, { step: 5, title: "step" });
+      const down = await deck.key(FAKE_DOWN, { step: 5, title: "step" });
+
+      await lampsChanged();
+
+      expect([titleOf(up), titleOf(down)]).toEqual(["+5 u", "−5 u"]);
+      expect(up.setTitle).toHaveBeenCalledTimes(2);
+    });
+
+    it("once its settings page changes it", async () => {
+      const key = await deck.key(FAKE_UP, { step: 5 });
+      expect(titleOf(key)).toBe("42 u");
+
+      await deck.changeSettings(key, { step: 5, title: "step" });
+
+      expect(titleOf(key)).toBe("+5 u");
     });
   });
 
@@ -282,7 +344,7 @@ describe("a key of a StepKeyAction", () => {
 
       await lampsChanged();
 
-      expect(STEPPED.title.mock.calls).toEqual([["all"], [[LAMP_1]], [[LAMP_2]]]);
+      expect(STEPPED.current.mock.calls).toEqual([["all"], [[LAMP_1]], [[LAMP_2]]]);
     });
 
     it("shows what the key's new lamps are at once they're changed on the settings page", async () => {
@@ -291,14 +353,15 @@ describe("a key of a StepKeyAction", () => {
 
       await deck.changeSettings(key, { lamps: [LAMP_2] });
 
-      expect(STEPPED.title).toHaveBeenCalledExactlyOnceWith([LAMP_2]);
+      expect(STEPPED.current).toHaveBeenCalledExactlyOnceWith([LAMP_2]);
     });
   });
 });
 
 describe("BRIGHTNESS, what the Brightness Up and Down keys step", () => {
-  it("reads the step, the dials' default of 10% without one, and the key's lamps", () => {
-    expect(BRIGHTNESS.read({}, logger)).toEqual({ step: 10, lamps: "all", leftOutLamps: [] });
+  it("reads the step, the dials' default of 10% without one, the key's lamps, and its title", () => {
+    expect(BRIGHTNESS.read({}, logger)).toEqual({ step: 10, lamps: "all", leftOutLamps: [], title: "current" });
+    expect(BRIGHTNESS.read({ stepKeyTitle: "next" }, logger)).toMatchObject({ title: "next" });
     expect(BRIGHTNESS.read({ stepPercentage: 5, lamps: [LAMP_1] }, logger)).toMatchObject({
       step: 5,
       lamps: [LAMP_1],
@@ -352,17 +415,27 @@ describe("BRIGHTNESS, what the Brightness Up and Down keys step", () => {
 
   it("shows the brightest of its lamps, as the dials do, or a dash with none", async () => {
     vi.mocked(brightnessShown).mockResolvedValue([63, 79]);
-    expect(await BRIGHTNESS.title([LAMP_1, LAMP_2])).toBe("79%");
+    expect(await BRIGHTNESS.current([LAMP_1, LAMP_2])).toBe("79%");
     expect(brightnessShown).toHaveBeenCalledExactlyOnceWith([LAMP_1, LAMP_2]);
 
     vi.mocked(brightnessShown).mockResolvedValue([]);
-    expect(await BRIGHTNESS.title("all")).toBe("—");
+    expect(await BRIGHTNESS.current("all")).toBe("—");
+  });
+
+  it("shows the brightest of its lamps after a press, or a dash with none", async () => {
+    vi.mocked(brightnessNext).mockResolvedValue([70, 79]);
+    expect(await BRIGHTNESS.next([LAMP_1, LAMP_2], -1, 5, "each")).toBe("79%");
+    expect(brightnessNext).toHaveBeenCalledExactlyOnceWith([LAMP_1, LAMP_2], -1, 5, "each");
+
+    vi.mocked(brightnessNext).mockResolvedValue([]);
+    expect(await BRIGHTNESS.next("all", 1, 5, "together")).toBe("—");
   });
 });
 
 describe("TEMPERATURE, what the Temperature Up and Down keys step", () => {
   it("reads the step, the dials' default of 300 K without one, and the key's lamps", () => {
-    expect(TEMPERATURE.read({}, logger)).toEqual({ step: 300, lamps: "all", leftOutLamps: [] });
+    expect(TEMPERATURE.read({}, logger)).toEqual({ step: 300, lamps: "all", leftOutLamps: [], title: "current" });
+    expect(TEMPERATURE.read({ stepKeyTitle: "step" }, logger)).toMatchObject({ title: "step" });
     expect(TEMPERATURE.read({ stepKelvin: "200", lamps: [LAMP_1] }, logger)).toMatchObject({
       step: 200,
       lamps: [LAMP_1],
@@ -419,10 +492,22 @@ describe("TEMPERATURE, what the Temperature Up and Down keys step", () => {
       { kelvin: 3400, percentage: 18 },
       { kelvin: 4000, percentage: 34 },
     ]);
-    expect(await TEMPERATURE.title([LAMP_1])).toBe("4000 K");
+    expect(await TEMPERATURE.current([LAMP_1])).toBe("4000 K");
     expect(temperatureShown).toHaveBeenCalledExactlyOnceWith([LAMP_1]);
 
     vi.mocked(temperatureShown).mockResolvedValue([]);
-    expect(await TEMPERATURE.title("all")).toBe("—");
+    expect(await TEMPERATURE.current("all")).toBe("—");
+  });
+
+  it("shows the highest of its lamps after a press, or a dash with none", async () => {
+    vi.mocked(temperatureNext).mockResolvedValue([
+      { kelvin: 3700, percentage: 26 },
+      { kelvin: 4300, percentage: 42 },
+    ]);
+    expect(await TEMPERATURE.next([LAMP_1], 1, 300, "each")).toBe("4300 K");
+    expect(temperatureNext).toHaveBeenCalledExactlyOnceWith([LAMP_1], 1, 300, "each");
+
+    vi.mocked(temperatureNext).mockResolvedValue([]);
+    expect(await TEMPERATURE.next("all", -1, 300, "together")).toBe("—");
   });
 });

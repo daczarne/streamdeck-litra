@@ -53,11 +53,11 @@ A Scene key shows only its image: a title typed in its settings shows at the bot
 
 ### Set Brightness and Set Temperature
 
-Set Brightness and Set Temperature keys set their lamps to the preset in their settings. They show their preset value with its unit, such as "70%" or "4000 K", at the bottom of the key, set by the plugin, as the Up and Down keys and the dials show theirs. A title typed in the key's settings replaces it, and the **Show Title** box under the **T** menu hides it.
+Set Brightness and Set Temperature keys set their lamps to the preset in their settings. They show their preset value with its unit, such as "70%" or "4000 K", at the bottom of the key, set by the plugin, as the Up and Down keys and the dials show theirs. With **Title value** at Current, in the key's settings, the key shows what its lamps are at instead, as an Up or Down key does, and follows every change to them. A title typed in the key's settings replaces either, and the **Show Title** box under the **T** menu hides it.
 
 ### Brightness and Temperature Up and Down
 
-Brightness and Temperature Up and Down keys step their lamps by the step in their settings, as one tick of a dial, for decks without dials (see [Steps](#steps)). They show what their lamps are at, as the dials do: the brightest lamp's %, or the highest temperature in Kelvin, and a dash when none of their lamps is connected. A title typed in the key's settings replaces it.
+Brightness and Temperature Up and Down keys step their lamps by the step in their settings, as one tick of a dial, for decks without dials (see [Steps](#steps)). They show what their lamps are at, as the dials do: the brightest lamp's %, or the highest temperature in Kelvin, and a dash when none of their lamps is connected. **Title value**, in the key's settings, chooses what the key shows instead: Current, what its lamps are at, by default, Next, what a press takes them to, which follows the grid of its step and stops at an end of their range, or Step, the key's step, such as "+10%" or "−300 K". Next stops at a lamp's cap only once the plugin has learned it, the first time the lamp falls short of what it was sent: until then, it shows the step's value, and the key shows the cap once it's pressed. A title typed in the key's settings replaces any of them.
 
 ### Picking a key's lamps
 

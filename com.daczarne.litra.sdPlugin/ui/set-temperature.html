@@ -29,6 +29,14 @@
     <sdpi-item label="Temperature">
       <litra-number setting="presetKelvin" min="2700" max="6500" step="100" default="2700" unit="K"></litra-number>
     </sdpi-item>
+    <!-- What the key's title shows, unless one is typed in Stream Deck's own title settings: its preset, or what its
+      lamps are at, as a step key shows them. -->
+    <sdpi-item label="Title value">
+      <sdpi-select setting="setKeyTitle" default="preset">
+        <option value="preset">Preset</option>
+        <option value="current">Current</option>
+      </sdpi-select>
+    </sdpi-item>
     <!-- The lamps the key acts on, which lamp-picker.js lists and saves (#20), and whether lamps added later
       join them, which plugin-settings.js shows and saves (#147). -->
     <sdpi-item label="Lamps">

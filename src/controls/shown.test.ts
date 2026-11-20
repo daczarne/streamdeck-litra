@@ -5,10 +5,12 @@ import { at } from "../test-support/at";
 import { reachedLamp } from "../test-support/reached-lamps";
 import {
   areLampsOn,
+  brightnessNext,
   brightnessShown,
   brightnessText,
   findLampsShown,
   lampsShown,
+  temperatureNext,
   temperatureShown,
   temperatureText,
 } from "./shown";
@@ -165,6 +167,45 @@ describe("what the Deck shows of the lamps (#198)", () => {
       expect(await findLampsShown()).toEqual([]);
       expect(reachEveryLamp).toHaveBeenCalledExactlyOnceWith("lamp screen");
     });
+  });
+});
+
+describe("where a step key's next press takes the lamps, which its title can show", () => {
+  it("is each lamp's brightness after the step, together from the brightest, within the cap the plugin learned", async () => {
+    held("00000000000a1111", { lumen: 215 });
+    const capped = held("00000000000b2222", { lumen: 215 });
+    // Sent 400 lm, it stopped at 324 lm, 79% of its range.
+    capped.brightnessReached("test", "path-1", 400, 324, 0);
+
+    expect(await brightnessNext("all", 4, 10, "together")).toEqual([90, 79]);
+    expect(await brightnessNext("all", -1, 10, "together")).toEqual([40, 40]);
+  });
+
+  it("is each lamp's brightness after its own step, for lamps kept apart (#145)", async () => {
+    held("00000000000a1111", { lumen: 104 });
+    held("00000000000b2222", { lumen: 215 });
+
+    expect(await brightnessNext("all", 1, 10, "each")).toEqual([30, 60]);
+  });
+
+  it("is each lamp's temperature after the step, at one it allows, as a dial shows it", async () => {
+    held("00000000000a1111", { kelvin: 3400 });
+    held("00000000000b2222", { kelvin: 4000 });
+
+    expect(await temperatureNext("all", 1, 300, "together")).toEqual([
+      { kelvin: 4200, percentage: 39 },
+      { kelvin: 4200, percentage: 39 },
+    ]);
+    expect(await temperatureNext("all", -1, 300, "each")).toEqual([
+      { kelvin: 3300, percentage: 16 },
+      { kelvin: 3900, percentage: 32 },
+    ]);
+  });
+
+  it("is nothing for no lamp, once the operations queued are done", async () => {
+    expect(await brightnessNext("all", 1, 10, "together")).toEqual([]);
+    expect(await temperatureNext("all", 1, 300, "each")).toEqual([]);
+    expect(lampsSettled).toHaveBeenCalledTimes(2);
   });
 });
 

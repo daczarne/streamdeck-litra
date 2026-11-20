@@ -693,6 +693,64 @@ describe("the step keys", () => {
   });
 });
 
+describe("the keys' titles, as their settings choose them", () => {
+  /**
+   * Places a key that shows where its next press takes its lamps, and one that shows what they're at, with the same
+   * settings, presses the first, and returns what it showed before, and what the second shows after.
+   */
+  async function nextThenCurrent(uuid: string, settings: JsonObject = {}): Promise<(string | undefined)[]> {
+    const next = await deck.key(uuid, { ...settings, stepKeyTitle: "next" });
+    const current = await deck.key(uuid, settings);
+    const shown = titleOf(next);
+    await deck.press(next);
+    return [shown, titleOf(current)];
+  }
+
+  it("show where a step key's press takes the lamps together, which they then show", async () => {
+    await plugIn(newLamp({ brightnessInLumen: LUMEN_AT_50 }), newLamp({ brightnessInLumen: LUMEN_AT_20 }));
+
+    expect(await nextThenCurrent(BRIGHTNESS_UP, { stepPercentage: 10 })).toEqual(["60%", "60%"]);
+    expect(await nextThenCurrent(TEMPERATURE_UP, { stepKelvin: 300 })).toEqual(["4200 K", "4200 K"]);
+  });
+
+  it("show where a step key's press takes lamps kept apart (#145)", async () => {
+    await saveFromPage({ keepBrightnessDifference: true });
+    await plugIn(newLamp({ brightnessInLumen: LUMEN_AT_50 }), newLamp({ brightnessInLumen: LUMEN_AT_20 }));
+
+    expect(await nextThenCurrent(BRIGHTNESS_DOWN, { stepPercentage: 10 })).toEqual(["40%", "40%"]);
+  });
+
+  it("show a cap a step key's press stops at once the plugin learned it, and the step before then", async () => {
+    // Two lamps on a Stream Deck + XL's USB hub, which stop at 63% and 79%.
+    const pair = [
+      newLamp({ brightnessInLumen: LUMEN_AT_60, capInLumen: 264 }),
+      newLamp({ brightnessInLumen: LUMEN_AT_60, capInLumen: 324 }),
+    ];
+    await plugIn(...pair);
+    const key = await deck.key(BRIGHTNESS_UP, { stepPercentage: 10, stepKeyTitle: "next" });
+    await deck.press(key);
+
+    // The brighter lamp hasn't stopped at its cap yet, so the plugin doesn't know it.
+    expect(titleOf(key)).toBe("80%");
+
+    expect(await nextThenCurrent(BRIGHTNESS_UP, { stepPercentage: 10 })).toEqual(["80%", "79%"]);
+    expect(await nextThenCurrent(BRIGHTNESS_UP, { stepPercentage: 10 })).toEqual(["79%", "79%"]);
+  });
+
+  it("show a step key's step, signed by its direction, and a Set key what its lamps are at", async () => {
+    await plugIn(newLamp(), newLamp());
+    const up = await deck.key(BRIGHTNESS_UP, { stepPercentage: 5, stepKeyTitle: "step" });
+    const down = await deck.key(TEMPERATURE_DOWN, { stepKelvin: 300, stepKeyTitle: "step" });
+    const set = await deck.key(SET_BRIGHTNESS, { presetPercentage: 80, setKeyTitle: "current" });
+
+    expect([titleOf(up), titleOf(down), titleOf(set)]).toEqual(["+5%", "−300 K", "50%"]);
+
+    await deck.press(set);
+
+    expect([titleOf(up), titleOf(set)]).toEqual(["+5%", "80%"]);
+  });
+});
+
 describe("the lamp screens", () => {
   /** Two lamps, plugged in out of the order of their ids, and a Brightness dial showing the first. */
   async function onFirstLampScreen() {

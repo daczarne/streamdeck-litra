@@ -5,10 +5,12 @@ import { at } from "../test-support/at";
 import {
   brightnessDialSettingsSchema,
   brightnessSettingsSchema,
+  brightnessStepSettingsSchema,
   parseSettings,
   powerSettingsSchema,
   temperatureDialSettingsSchema,
   temperatureSettingsSchema,
+  temperatureStepSettingsSchema,
 } from "./schemas";
 
 //* Fakes
@@ -20,8 +22,26 @@ const logger = { warn: vi.fn() };
 describe("parseSettings", () => {
   it.each([
     ["Power", powerSettingsSchema, { mode: "toggle", lamps: "all", leftOutLamps: [] }],
-    ["Set Brightness", brightnessSettingsSchema, { presetPercentage: 0, lamps: "all", leftOutLamps: [] }],
-    ["Set Temperature", temperatureSettingsSchema, { presetKelvin: 2700, lamps: "all", leftOutLamps: [] }],
+    [
+      "Set Brightness",
+      brightnessSettingsSchema,
+      { presetPercentage: 0, lamps: "all", leftOutLamps: [], setKeyTitle: "preset" },
+    ],
+    [
+      "Set Temperature",
+      temperatureSettingsSchema,
+      { presetKelvin: 2700, lamps: "all", leftOutLamps: [], setKeyTitle: "preset" },
+    ],
+    [
+      "Brightness Up and Down",
+      brightnessStepSettingsSchema,
+      { stepPercentage: 10, lamps: "all", leftOutLamps: [], stepKeyTitle: "current" },
+    ],
+    [
+      "Temperature Up and Down",
+      temperatureStepSettingsSchema,
+      { stepKelvin: 300, lamps: "all", leftOutLamps: [], stepKeyTitle: "current" },
+    ],
     ["Brightness", brightnessDialSettingsSchema, { stepPercentage: 10, title: "" }],
     ["Temperature", temperatureDialSettingsSchema, { stepKelvin: 300, title: "" }],
   ])("gives %s's defaults for the settings that are missing, without a warning", (_action, schema, defaults) => {
@@ -31,8 +51,26 @@ describe("parseSettings", () => {
 
   it.each([
     ["Power", powerSettingsSchema, { mode: "off", lamps: "all", leftOutLamps: [] }],
-    ["Set Brightness", brightnessSettingsSchema, { presetPercentage: 40, lamps: "all", leftOutLamps: [] }],
-    ["Set Temperature", temperatureSettingsSchema, { presetKelvin: 5000, lamps: "all", leftOutLamps: [] }],
+    [
+      "Set Brightness",
+      brightnessSettingsSchema,
+      { presetPercentage: 40, lamps: "all", leftOutLamps: [], setKeyTitle: "current" },
+    ],
+    [
+      "Set Temperature",
+      temperatureSettingsSchema,
+      { presetKelvin: 5000, lamps: "all", leftOutLamps: [], setKeyTitle: "current" },
+    ],
+    [
+      "Brightness Up and Down",
+      brightnessStepSettingsSchema,
+      { stepPercentage: 5, lamps: "all", leftOutLamps: [], stepKeyTitle: "next" },
+    ],
+    [
+      "Temperature Up and Down",
+      temperatureStepSettingsSchema,
+      { stepKelvin: 200, lamps: "all", leftOutLamps: [], stepKeyTitle: "step" },
+    ],
     ["Brightness", brightnessDialSettingsSchema, { stepPercentage: 20, title: "Desk" }],
     ["Temperature", temperatureDialSettingsSchema, { stepKelvin: 500, title: "Desk" }],
   ])("keeps %s's valid settings", (_action, schema, settings) => {
@@ -104,6 +142,11 @@ describe("parseSettings", () => {
       ["stepKelvin", temperatureDialSettingsSchema, 600],
       ["stepKelvin", temperatureDialSettingsSchema, 150],
       ["stepKelvin", temperatureDialSettingsSchema, "250"],
+      // A key's title shows one of the values its page offers.
+      ["setKeyTitle", brightnessSettingsSchema, "next"],
+      ["setKeyTitle", temperatureSettingsSchema, "Preset"],
+      ["stepKeyTitle", brightnessStepSettingsSchema, "preset"],
+      ["stepKeyTitle", temperatureStepSettingsSchema, 1],
       // A dial's own title is text no longer than the plugin settings' (#181).
       ["title", brightnessDialSettingsSchema, "x".repeat(25)],
       ["title", temperatureDialSettingsSchema, 1],
@@ -144,7 +187,12 @@ describe("parseSettings", () => {
       logger,
     );
 
-    expect(parsed).toEqual({ presetPercentage: 0, lamps: ["0123456789abcdef"], leftOutLamps: [] });
+    expect(parsed).toEqual({
+      presetPercentage: 0,
+      lamps: ["0123456789abcdef"],
+      leftOutLamps: [],
+      setKeyTitle: "preset",
+    });
     expect(logger.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("presetPercentage"));
   });
 

@@ -26,16 +26,21 @@ const DONE: OperationResult = { ok: true, lampCount: 2, failures: 0 };
 const FAILED: OperationResult = { ...DONE, ok: false, failures: 1 };
 const NO_LAMP: OperationResult = { ok: false, lampCount: 0, failures: 1 };
 
-/** What the fake keys set: the preset in their settings, or 50, on the lamps checked, or every lamp. */
+/**
+ * What the fake keys set: the preset in their settings, or 50, on the lamps checked, or every lamp, with the title in
+ * their settings, or their preset.
+ */
 const PRESET = {
   read: vi.fn((settings: JsonObject) => ({
     preset: typeof settings.preset === "number" ? settings.preset : 50,
     lamps: Array.isArray(settings.lamps) ? settings.lamps.filter((id) => typeof id === "string") : ("all" as const),
     leftOutLamps: [],
+    title: settings.title === "current" ? ("current" as const) : ("preset" as const),
   })),
   unit: " u",
   turnsLampsOn: vi.fn<Preset["turnsLampsOn"]>(),
   set: vi.fn<Preset["set"]>(),
+  current: vi.fn<Preset["current"]>(),
 } satisfies Preset;
 
 /**
@@ -63,6 +68,7 @@ beforeEach(() => {
   changeGlobalSettings({});
   PRESET.turnsLampsOn.mockReturnValue(false);
   PRESET.set.mockResolvedValue(DONE);
+  PRESET.current.mockResolvedValue("42 u");
   const fake = new FakePresetKeyAction();
   const listener = vi.mocked(onLampsChanged).mock.lastCall?.[0];
   if (listener === undefined) {
@@ -152,13 +158,49 @@ describe("a key of a PresetKeyAction", () => {
     expect(key.showAlert).toHaveBeenCalledOnce();
   });
 
-  it("follows no change to the lamps", async () => {
+  it("follows no change to the lamps, nor to the global settings, while it shows its preset", async () => {
     const key = await deck.key(FAKE);
     clearCalls();
 
     await lampsChanged();
+    changeGlobalSettings({ addNewLamps: false });
+    await vi.runAllTimersAsync();
 
     expect(key.setTitle).not.toHaveBeenCalled();
+  });
+
+  it("shows what its lamps are at once its settings choose it, following every change to them", async () => {
+    const key = await deck.key(FAKE, { preset: 40, title: "current" });
+
+    expect(PRESET.current).toHaveBeenCalledExactlyOnceWith("all");
+    expect(key.setTitle).toHaveBeenLastCalledWith("42 u");
+
+    PRESET.current.mockResolvedValue("50 u");
+    await lampsChanged();
+
+    expect(key.setTitle).toHaveBeenLastCalledWith("50 u");
+  });
+
+  it("shows what its own lamps are at, and the lamps the global settings now give it (#147)", async () => {
+    await deck.key(FAKE, { lamps: ["lamp-1"], title: "current" });
+    clearCalls();
+
+    changeGlobalSettings({ addNewLamps: false });
+    await vi.runAllTimersAsync();
+
+    // Keys of earlier tests still follow the global settings, so only this key's call is checked.
+    expect(PRESET.current).toHaveBeenCalledWith(["lamp-1"]);
+  });
+
+  it("goes from its preset to what its lamps are at, and back, as its settings page changes it", async () => {
+    const key = await deck.key(FAKE, { preset: 40 });
+    expect(key.setTitle).toHaveBeenLastCalledWith("40 u");
+
+    await deck.changeSettings(key, { preset: 40, title: "current" });
+    expect(key.setTitle).toHaveBeenLastCalledWith("42 u");
+
+    await deck.changeSettings(key, { preset: 40, title: "preset" });
+    expect(key.setTitle).toHaveBeenLastCalledWith("40 u");
   });
 });
 

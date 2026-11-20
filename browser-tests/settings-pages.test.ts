@@ -8,6 +8,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 import {
   brightnessDialSettingsSchema,
   brightnessSettingsSchema,
+  brightnessStepSettingsSchema,
   globalSettingsSchema,
   LAMP_SCREEN_ITEMS,
   lampScreenItemOptionsSchema,
@@ -18,6 +19,7 @@ import {
   sceneSettingsSchema,
   temperatureDialSettingsSchema,
   temperatureSettingsSchema,
+  temperatureStepSettingsSchema,
 } from "../src/settings/schemas";
 import { at } from "../src/test-support/at";
 import { Chrome, type ExceptionDetails, type Page } from "./support/chrome";
@@ -56,7 +58,7 @@ const PANELS: Panel[] = [
   {
     page: "ui/set-brightness.html",
     controller: "Keypad",
-    settings: ["presetPercentage"],
+    settings: ["presetPercentage", "setKeyTitle"],
     change: { setting: "presetPercentage", value: "40", saved: 40 },
     numbers: [{ setting: "presetPercentage", unit: "%", value: "40" }],
   },
@@ -70,7 +72,7 @@ const PANELS: Panel[] = [
   {
     page: "ui/set-temperature.html",
     controller: "Keypad",
-    settings: ["presetKelvin"],
+    settings: ["presetKelvin", "setKeyTitle"],
     change: { setting: "presetKelvin", value: "5000", saved: 5000 },
     numbers: [{ setting: "presetKelvin", unit: "K", value: "5000" }],
   },
@@ -94,14 +96,14 @@ const PANELS: Panel[] = [
   {
     page: "ui/brightness-step.html",
     controller: "Keypad",
-    settings: ["stepPercentage"],
+    settings: ["stepPercentage", "stepKeyTitle"],
     change: { setting: "stepPercentage", value: "20", saved: 20 },
     numbers: [{ setting: "stepPercentage", unit: "%", value: "20" }],
   },
   {
     page: "ui/temperature-step.html",
     controller: "Keypad",
-    settings: ["stepKelvin"],
+    settings: ["stepKelvin", "stepKeyTitle"],
     change: { setting: "stepKelvin", value: "400", saved: 400 },
     numbers: [{ setting: "stepKelvin", unit: "K", value: "400" }],
   },
@@ -155,6 +157,8 @@ const SCHEMAS = {
     ...temperatureSettingsSchema,
     ...brightnessDialSettingsSchema,
     ...temperatureDialSettingsSchema,
+    ...brightnessStepSettingsSchema,
+    ...temperatureStepSettingsSchema,
     ...sceneSettingsSchema,
   },
   global: globalSettingsSchema,

@@ -1,5 +1,6 @@
 import { action } from "@elgato/streamdeck";
 import { type Preset, PresetKeyAction } from "../controls/preset-key";
+import { temperatureShown, temperatureText } from "../controls/shown";
 import { setLampsTemperature } from "../lamps/manager";
 import { logger as pluginLogger } from "../logging";
 import { globalSettings } from "../settings/global-settings";
@@ -8,12 +9,17 @@ import { parseSettings, temperatureSettingsSchema } from "../settings/schemas";
 /** What a Set Temperature key sets its lamps to: its preset, in kelvin, which each lamp snaps to one it allows. */
 const PRESET: Preset = {
   read: (settings, logger) => {
-    const { presetKelvin, lamps, leftOutLamps } = parseSettings(settings, temperatureSettingsSchema, logger);
-    return { preset: presetKelvin, lamps, leftOutLamps };
+    const { presetKelvin, lamps, leftOutLamps, setKeyTitle } = parseSettings(
+      settings,
+      temperatureSettingsSchema,
+      logger,
+    );
+    return { preset: presetKelvin, lamps, leftOutLamps, title: setKeyTitle };
   },
   unit: " K",
   turnsLampsOn: (keyId) => globalSettings.turnsLampsOn("setTemperatureKeys", keyId),
   set: setLampsTemperature,
+  current: async (lamps) => temperatureText(await temperatureShown(lamps)),
 };
 
 /**

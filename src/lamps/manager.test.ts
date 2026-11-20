@@ -259,55 +259,6 @@ function asked(lamp: EmulatedLitra): number[][] {
   return lamp.written.filter((report) => !isIdentifying(report));
 }
 
-//* Pure functions
-
-describe("stepOnGrid", () => {
-  it("moves a value on the grid by whole steps, either way", () => {
-    expect(manager.stepOnGrid(50, 2, 5, 0, 100)).toBe(60);
-    expect(manager.stepOnGrid(50, -3, 5, 0, 100)).toBe(35);
-  });
-
-  it("counts the grid from the minimum", () => {
-    expect(manager.stepOnGrid(MIN_KELVIN, 1, 500, MIN_KELVIN, MAX_KELVIN)).toBe(3200);
-    expect(manager.stepOnGrid(3200, 2, 500, MIN_KELVIN, MAX_KELVIN)).toBe(4200);
-  });
-
-  it("clamps to the range", () => {
-    expect(manager.stepOnGrid(90, 5, 10, 0, 100)).toBe(100);
-    expect(manager.stepOnGrid(10, -5, 10, 0, 100)).toBe(0);
-  });
-
-  it("takes a value off the grid to the next grid value in the direction of the turn", () => {
-    // The 79% cap of a Beam on a Stream Deck + XL's hub, with a 5% step.
-    expect(manager.stepOnGrid(79, 1, 5, 0, 100)).toBe(80);
-    expect(manager.stepOnGrid(79, -1, 5, 0, 100)).toBe(75);
-    expect(manager.stepOnGrid(77, -1, 5, 0, 100)).toBe(75);
-    expect(manager.stepOnGrid(79, -2, 5, 0, 100)).toBe(70);
-  });
-
-  it("goes down through the values it went up through, when the step doesn't divide the range (#14, #16)", () => {
-    let value = 0;
-    const up = [value];
-    while (value < 100) {
-      value = manager.stepOnGrid(value, 1, 7, 0, 100);
-      up.push(value);
-    }
-    const down = [value];
-    while (value > 0) {
-      value = manager.stepOnGrid(value, -1, 7, 0, 100);
-      down.push(value);
-    }
-
-    expect(up).toEqual([0, 7, 14, 21, 28, 35, 42, 49, 56, 63, 70, 77, 84, 91, 98, 100]);
-    expect(down).toEqual(up.toReversed());
-  });
-
-  it("goes down from the clamped top to the grid, when the step doesn't divide the range", () => {
-    expect(manager.stepOnGrid(MAX_KELVIN, -1, 500, MIN_KELVIN, MAX_KELVIN)).toBe(6200);
-    expect(manager.stepOnGrid(MAX_KELVIN, -1, 300, MIN_KELVIN, MAX_KELVIN)).toBe(6300);
-  });
-});
-
 //* Broadcasting to lamps
 
 /** A lamp an operation reached, as {@link manager.forEachLamp} gives it to each step. */

@@ -74,6 +74,7 @@ The Beam LX differs from the Beam where the plugin has to help it, such as its s
 - `lamp.test.ts` checks a `Lamp` on its own, through a fake handle, with no lamp: what it sends, what it remembers, such as its cap, and how it converts within its range.
 - `connection.test.ts` runs `LampConnection` on emulated lamps, and checks how it finds them, names them, and reads what `litra` doesn't, such as a brightness from two bytes.
 - `manager.test.ts` runs the real `litra` on emulated lamps, on both models, and checks what reaches each lamp and in what order, and the `Lamp`s an operation leaves. Its `connect` reaches the lamps never reached, as the plugin does when it starts, and forgets what that wrote and logged, so each test sees only its own operation.
+- `steps.test.ts` checks where a step takes the lamps, from `Lamp`s reached through a fake handle: the grid, lamps together and kept apart, and the ends of their range.
 
 ### The settings
 

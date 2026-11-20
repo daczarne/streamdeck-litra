@@ -8,20 +8,33 @@ import {
   brightnessStepSettingsSchema,
   type CheckedLamps,
   parseSettings,
+  type STEP_KEY_TITLES,
   temperatureStepSettingsSchema,
 } from "../settings/schemas";
 import { ActionInstance, type DeckControl, RoutingAction } from "./action-instance";
 import { createDebouncer } from "./debouncer";
 import { describeLamps } from "./describe-lamps";
-import { brightnessShown, brightnessText, temperatureShown, temperatureText } from "./shown";
+import {
+  brightnessNext,
+  brightnessShown,
+  brightnessText,
+  temperatureNext,
+  temperatureShown,
+  temperatureText,
+} from "./shown";
 
-/** A step key's settings: its step, and its lamps. */
-type StepConfig = { step: number; lamps: CheckedLamps; leftOutLamps: readonly string[] };
+/** A step key's settings: its step, its lamps, and what its title shows. */
+type StepConfig = {
+  step: number;
+  lamps: CheckedLamps;
+  leftOutLamps: readonly string[];
+  title: (typeof STEP_KEY_TITLES)[number];
+};
 
 /**
  * What a step key moves: how it reads its settings, how the global settings step several lamps (#145), whether they
  * have a key that steps it up, or down, by its id, turn the lamps on (#268, #181), how it moves the lamps by its step,
- * and the title it shows of them.
+ * and what its title shows of them: what they're at, or where some ticks of a step take them.
  */
 type Stepped = {
   read: (settings: JsonObject, logger: Logger) => StepConfig;
@@ -35,7 +48,8 @@ type Stepped = {
     stepping: Stepping,
     turnOn: boolean,
   ) => Promise<OperationResult>;
-  title: (lamps: LampSelection) => Promise<string>;
+  current: (lamps: LampSelection) => Promise<string>;
+  next: (lamps: LampSelection, ticks: number, step: number, stepping: Stepping) => Promise<string>;
 };
 
 /**
@@ -44,15 +58,16 @@ type Stepped = {
  */
 export const BRIGHTNESS: Stepped = {
   read: (settings, logger) => {
-    const { stepPercentage, ...lamps } = parseSettings(settings, brightnessStepSettingsSchema, logger);
-    return { step: stepPercentage, ...lamps };
+    const { stepPercentage, stepKeyTitle, ...lamps } = parseSettings(settings, brightnessStepSettingsSchema, logger);
+    return { step: stepPercentage, title: stepKeyTitle, ...lamps };
   },
   stepping: () => globalSettings.brightnessStepping,
   turnsLampsOn: (direction, keyId) =>
     globalSettings.turnsLampsOn(direction > 0 ? "brightnessUpKeys" : "brightnessDownKeys", keyId),
   unit: "%",
   adjust: adjustLampsBrightness,
-  title: async (lamps) => brightnessText(await brightnessShown(lamps)),
+  current: async (lamps) => brightnessText(await brightnessShown(lamps)),
+  next: async (lamps, ticks, step, stepping) => brightnessText(await brightnessNext(lamps, ticks, step, stepping)),
 };
 
 /**
@@ -61,15 +76,16 @@ export const BRIGHTNESS: Stepped = {
  */
 export const TEMPERATURE: Stepped = {
   read: (settings, logger) => {
-    const { stepKelvin, ...lamps } = parseSettings(settings, temperatureStepSettingsSchema, logger);
-    return { step: stepKelvin, ...lamps };
+    const { stepKelvin, stepKeyTitle, ...lamps } = parseSettings(settings, temperatureStepSettingsSchema, logger);
+    return { step: stepKelvin, title: stepKeyTitle, ...lamps };
   },
   stepping: () => globalSettings.temperatureStepping,
   turnsLampsOn: (direction, keyId) =>
     globalSettings.turnsLampsOn(direction > 0 ? "temperatureUpKeys" : "temperatureDownKeys", keyId),
   unit: " K",
   adjust: adjustLampsTemperature,
-  title: async (lamps) => temperatureText(await temperatureShown(lamps)),
+  current: async (lamps) => temperatureText(await temperatureShown(lamps)),
+  next: async (lamps, ticks, step, stepping) => temperatureText(await temperatureNext(lamps, ticks, step, stepping)),
 };
 
 /**
@@ -95,8 +111,9 @@ export abstract class StepKeyAction extends RoutingAction<StepKey> {
 /**
  * A key that steps the brightness or the temperature up or down by its step, for decks without dials (#129). A press is
  * a dial's tick: it goes through the same operation, so the lamps stop on the same values and caps work the same, and
- * presses as quick as a dial's ticks are gathered into one move. Every key shows what its lamps are at as its title,
- * and follows every change through the lamp manager's notice, and the global settings, which choose its lamps (#147).
+ * presses as quick as a dial's ticks are gathered into one move. A key's title shows what its lamps are at, where its
+ * next press takes them, or its step, as its settings choose, and follows every change through the lamp manager's
+ * notice, and the global settings, which choose its lamps (#147) and how they step (#145).
  */
 class StepKey extends ActionInstance<StepConfig, KeyAction<JsonObject>> {
   /** The presses gathered for a moment, so quick ones move the lamps once. */
@@ -114,22 +131,22 @@ class StepKey extends ActionInstance<StepConfig, KeyAction<JsonObject>> {
     this.presses = createDebouncer((presses) => this.step(presses), logger);
   }
 
-  /** Shows what its lamps are at as soon as the key is placed or shown. */
+  /** Shows its title as soon as the key is placed or shown. */
   override appear(): Promise<void> {
     return this.showTitle();
   }
 
-  /** Shows what the key's lamps are at, with the lamps it now has. */
+  /** Shows the key's title, as its settings now choose, with the lamps and the step they now give it. */
   override settingsChanged(): Promise<void> {
     return this.showTitle();
   }
 
-  /** Shows what its lamps are at, whichever key or dial changed them. */
+  /** Shows the key's title for where its lamps now are, whichever key or dial changed them. */
   override lampsChanged(): Promise<void> {
     return this.showTitle();
   }
 
-  /** Shows what the lamps it now has are at, which may take in lamps it didn't before. */
+  /** Shows the key's title for the lamps it now has, which may take in new ones, and for how they now step. */
   override globalSettingsChanged(): Promise<void> {
     return this.showTitle();
   }
@@ -164,8 +181,19 @@ class StepKey extends ActionInstance<StepConfig, KeyAction<JsonObject>> {
     return globalSettings.actionKeyLamps(this.control.id, this.config);
   }
 
-  /** Shows what the key's lamps are at as its title. */
+  /**
+   * Shows the key's title, as its settings choose: what its lamps are at, where a press takes them, with its step, as
+   * the global settings step them, or its step, signed by its direction, with its unit.
+   */
   private async showTitle(): Promise<void> {
-    await this.control.setTitle(await this.stepped.title(this.lamps()));
+    const { title, step } = this.config;
+    const lamps = this.lamps();
+    const shown =
+      title === "step"
+        ? `${this.direction > 0 ? "+" : "−"}${step}${this.stepped.unit}`
+        : title === "next"
+          ? await this.stepped.next(lamps, this.direction, step, this.stepped.stepping())
+          : await this.stepped.current(lamps);
+    await this.control.setTitle(shown);
   }
 }
