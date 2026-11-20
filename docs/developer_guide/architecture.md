@@ -93,7 +93,7 @@ A `Lamp` outlives a read of the global settings that still holds its lamp: a pag
 
 ### Keys and dials
 
-Stream Deck owns the keys and dials: it registers one action per type, and only tells the plugin about the keys and dials on screen, through the events the SDK sends (see [the SDK notes on actions][actions]). So each action in `src/actions/` is a `RoutingAction` (`src/controls/action-instance.ts`), a `SingletonAction` as the SDK registers them, which hands every event to an object of its own for the key or dial it's about, an `ActionInstance`, by the key's or dial's id: a Power key, a Set Brightness key or dial, a Set Temperature key or dial, a Scene key, or an Up or Down key. The object is created when its key or dial appears, and dropped when it disappears. The SDK sends no event of a key or dial that isn't on screen, so none can come before its object or after it.
+Stream Deck owns the keys and dials: it registers one action per type, and only tells the plugin about the keys and dials on screen, through the events the SDK sends (see [the SDK notes on actions][actions]). So each action in `src/actions/` is a `RoutingAction` (`src/controls/action-instance.ts`), a `SingletonAction` as the SDK registers them, which hands every event to an object of its own for the key or dial it's about, an `ActionInstance`, by the key's or dial's id: a Power key, a Set Brightness or Set Temperature key, a Brightness or Temperature dial, a Scene key, or an Up or Down key. The object is created when its key or dial appears, and dropped when it disappears. The SDK sends no event of a key or dial that isn't on screen, so none can come before its object or after it.
 
 Each one holds its key or dial, as the SDK hands it, and its settings as a `config`, read against their schema from what Stream Deck last sent, so no handler reads them on its own. Stream Deck still owns the settings: the `config` is a copy, read again whenever an event carries settings that changed, so a setting that isn't valid is warned about once, not at every press. An object also holds what only matters while it's on screen, such as a press it still owes an alert for, a dial's queues of ticks and the lamp its lamp screen shows. The action also hands each of its objects the news that the lamps changed, or the global settings, which it subscribes to once (see [Keeping the Deck in step](#keeping-the-deck-in-step)). The lamps it acts on come from its `config` and the global settings: every lamp the plugin knows for a dial's main screen, the lamp on screen for a lamp screen, and for a key the lamps its page picked, or every lamp but the ones it left out, for a key that takes in lamps added later ([#147]).
 
@@ -167,7 +167,7 @@ After every write, it reads the write's ACK (`drainAck`), so that a read on the 
 
 After every operation that writes to the lamps, failed ones included, the lamp manager calls the listeners registered with `onLampsChanged` ([#57]). So it does after one that reaches every lamp, as the plugin starts, when Find lamps adds lamps, on a re-sync ([#214]), and on a tap on a dial's strip, since it can read a lamp, or find one unplugged or plugged in again, and after a blink that fails, which may find its lamp unplugged, or leave it switched the other way. Every action listens, once, and hands the news to each of its keys and dials, which redraws if it shows the lamps: the Power keys, the Up and Down keys, and the Brightness and Temperature dials, which redraw their main screen, or the lamp their lamp screen shows. So whichever key or dial changed the lamps, everything on the Deck follows, from the `Lamp`s, which no redraw reads from the lamps. A key or dial that fails to redraw doesn't stop the others: the action redraws the rest of its keys and dials, then logs what failed. A lamp screen whose lamp is no longer connected goes back to its dial's main screen.
 
-The global settings are followed the same way: each time `GlobalSettings` reads them, once the plugin is connected and whenever a page changes them, and each time it saves the lamps, it calls the listeners registered with its `onChanged`. The dials redraw the lamp their lamp screen shows, or their main screen, so a change to what its cells show ([#177]), to the text styles ([#153]), or to a dial's title or the style a part of the main screen takes its color from ([#183]), redraws every dial on the Deck at once, and the keys redraw too, since the global settings choose their lamps ([#147]).
+The global settings are followed the same way: each time `GlobalSettings` reads them, once the plugin is connected and whenever a page changes them, and each time it saves the lamps, it calls the listeners registered with its `onChanged`. The dials redraw the lamp their lamp screen shows, or their main screen, so a change to what its cells show ([#177]), to the text styles ([#153]), or to the title an action's dials share or the style a part of the main screen takes its color from ([#183]), redraws every dial on the Deck at once, and the keys redraw too, since the global settings choose their lamps ([#147]). A dial's own title ([#181]) is in its own settings, so a change to it redraws that dial alone, as a new step does.
 
 An action shows an alert on the key or dial that failed. On a key, the redraw that follows leaves the alert visible when it sets the title, and hides it when it sets the state: the Power key shows its alert after its state for that reason ([#132], see [the SDK notes on keys][keys]).
 
@@ -178,6 +178,8 @@ The settings pages run in Stream Deck's browser, apart from the plugin, and shar
 - The global settings, as Stream Deck keeps them: JSON, which the pages read and save, and which `GlobalSettings` turns into objects and back. So the lamps the plugin knows, with their names, reach a page as the global settings' `lamps`, and a key's lamp picker lists them without asking the plugin.
 - Each key's and dial's settings, which its own page saves, and its object reads as its `config`.
 - The messages a page sends the plugin, through Stream Deck, which `src/settings/plugin-settings-page.ts` answers for every page: find the lamps, blink one, rename one, forget one, and re-sync the lamps, in the direction the page sends with it ([#214]), rather than the one it saved, whose save reaches the plugin apart. An answer reaches only the page shown (see [the SDK notes on the settings pages][property-inspector]).
+
+A key's or dial's own setting, such as a dial's title ([#181]), is kept in its own settings, and leaves with it. A choice is kept in the global settings, by the key's or dial's id, only when the plugin settings show it for every key or dial, and tell when they differ, as for the lamp screens' blink ([#144]) and whether keys take in lamps added later ([#147]), since the plugin only knows the keys and dials on screen.
 
 The only thing added is which lamps are connected, which the global settings don't keep, since it's the plugin's to know and changes while it runs. The plugin settings ask for it as they open, with a `connected` message, and the plugin sends the same message to the page shown whenever an operation changes it (`onConnectedChanged`), so the table marks a lamp "Not found" from what the plugin last found, not only from the page's last Find lamps.
 
@@ -190,6 +192,7 @@ By default, the lamp manager steps the value the dial shows, the brightest lamp'
 [#100]: https://github.com/daczarne/streamdeck-litra/issues/100
 [#132]: https://github.com/daczarne/streamdeck-litra/issues/132
 [#14]: https://github.com/daczarne/streamdeck-litra/issues/14
+[#144]: https://github.com/daczarne/streamdeck-litra/issues/144
 [#145]: https://github.com/daczarne/streamdeck-litra/issues/145
 [#147]: https://github.com/daczarne/streamdeck-litra/issues/147
 [#153]: https://github.com/daczarne/streamdeck-litra/issues/153
@@ -198,6 +201,7 @@ By default, the lamp manager steps the value the dial shows, the brightest lamp'
 [#170]: https://github.com/daczarne/streamdeck-litra/issues/170
 [#174]: https://github.com/daczarne/streamdeck-litra/issues/174
 [#177]: https://github.com/daczarne/streamdeck-litra/issues/177
+[#181]: https://github.com/daczarne/streamdeck-litra/issues/181
 [#183]: https://github.com/daczarne/streamdeck-litra/issues/183
 [#19]: https://github.com/daczarne/streamdeck-litra/issues/19
 [#194]: https://github.com/daczarne/streamdeck-litra/issues/194
