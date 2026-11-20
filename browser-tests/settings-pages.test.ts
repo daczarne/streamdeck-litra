@@ -1188,6 +1188,44 @@ describe("settings pages", () => {
       await page.close();
     });
 
+    /** Whether the × at the end of the dial's own title row is greyed out, and what it's called. */
+    function clearOf(page: Page): Promise<{ disabled: boolean; label: string | null }> {
+      return page.evaluate(`(() => {
+        const clear = ${OWN}.closest(".text-and-clear").querySelector("button.clear");
+        return { disabled: clear.disabled, label: clear.getAttribute("aria-label") };
+      })()`);
+    }
+
+    it("ends with a ×, greyed out while the field is empty, which empties it, as the dial's settings save", async () => {
+      streamDeck.globalSettings = { [global]: "Lamps" };
+      const { page, uuid } = await openPanel(panel, { title: "Desk" });
+      await expect.poll(() => clearOf(page)).toEqual({ disabled: false, label: "Clear title" });
+
+      const after = streamDeck.messages.length;
+      await page.evaluate(`${OWN}.closest(".text-and-clear").querySelector("button.clear").click()`);
+
+      await expect
+        .poll(() =>
+          streamDeck.messages
+            .slice(after)
+            .filter((m) => m.event === "setSettings" && m.context === uuid)
+            .map((m) => m.payload),
+        )
+        .toEqual([{ title: "" }]);
+      expect(await ownTitleOf(page)).toEqual({ value: "", placeholder: "Lamps" });
+      expect(await clearOf(page)).toEqual({ disabled: true, label: "Clear title" });
+
+      await typeInto(page, OWN, "Shelf");
+      await expect.poll(() => clearOf(page)).toEqual({ disabled: false, label: "Clear title" });
+      await page.close();
+    });
+
+    it("greys out its × when the dial has no title of its own", async () => {
+      const { page } = await openPanel(panel);
+      await expect.poll(() => clearOf(page)).toEqual({ disabled: true, label: "Clear title" });
+      await page.close();
+    });
+
     it("saves the title typed, and an empty one, to the dial's settings, leaving the plugin's alone", async () => {
       streamDeck.globalSettings = { [global]: "Lamps" };
       const { page, uuid } = await openPanel(panel);
