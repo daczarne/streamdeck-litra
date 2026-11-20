@@ -67,22 +67,23 @@ function fade(color: string, share: number): string {
 }
 
 /**
- * What a Brightness or Temperature dial's main screen shows of every lamp, in the slots of its layout, a copy of $B1: its
- * title, the value as text, and each lamp's place in its range, in %, which the bar under it shows, before the dial
- * gives them their colors (#183).
+ * What a Brightness or Temperature dial's main screen shows of every lamp, in the slots of its layout, a copy of $B1:
+ * the title the plugin settings give its action's dials, which a dial with a title of its own shows instead (#181), the
+ * value as text, and each lamp's place in its range, in %, which the bar under it shows, before the dial gives them
+ * their colors (#183).
  */
 export type MainScreen = { title: string; value: string; levels: readonly number[] };
 
 /**
- * What a Brightness or Temperature dial steps: what a turn adjusts, which describes a turn on a lamp screen,
- * how it reads its step from its settings, the unit its log line gives the step in, how the global settings step
- * several lamps (#145), whether they have a turn on its main screen or on a lamp screen turn the lamps on (#268), how
- * it moves the lamps by its step, the glyph its main screen's icon is drawn from, and what its main screen shows of
- * every lamp, its title included.
+ * What a Brightness or Temperature dial steps: what a turn adjusts, which describes a turn on a lamp screen, how it
+ * reads its step and its own title from its settings, an empty one when it has none (#181), the unit its log line gives
+ * the step in, how the global settings step several lamps (#145), whether they have a turn on its main screen or on a
+ * lamp screen turn the lamps on (#268), how it moves the lamps by its step, the glyph its main screen's icon is drawn
+ * from, and what its main screen shows of every lamp, its title included.
  */
 export type Measure = {
   adjusts: string;
-  readStep: (settings: JsonObject, logger: Logger) => number;
+  readSettings: (settings: JsonObject, logger: Logger) => DialSettings;
   unit: string;
   stepping: () => Stepping;
   turnsLampsOn: (screen: "main" | "lamp") => boolean;
@@ -96,6 +97,9 @@ export type Measure = {
   glyph: Glyph;
   mainScreen: () => Promise<MainScreen>;
 };
+
+/** What a Brightness or Temperature dial's settings hold: its step, and its own title, or an empty one (#181). */
+export type DialSettings = { step: number; title: string };
 
 /** The Brightness or the Temperature dial action, which gives each dial a {@link MeasureDial}. */
 export abstract class MeasureAction extends RoutingAction<MeasureDial> {
@@ -119,7 +123,7 @@ export abstract class MeasureAction extends RoutingAction<MeasureDial> {
  * act on that lamp alone, and holding the strip blinks it (#20). Its {@link LampScreen} draws it there, and tells which
  * lamp it shows.
  */
-class MeasureDial extends ActionInstance<{ step: number }, DialAction<JsonObject>> {
+class MeasureDial extends ActionInstance<DialSettings, DialAction<JsonObject>> {
   /** The ticks gathered for each lamp the dial turns, by its id, or "all" for its main screen. */
   private readonly queues = new Map<string, (ticks: number) => void>();
   /** The dial's lamp screens, which tell which lamp it shows, if any. */
@@ -132,7 +136,7 @@ class MeasureDial extends ActionInstance<{ step: number }, DialAction<JsonObject
     private readonly logger: Logger,
     private readonly measure: Measure,
   ) {
-    super(control, settings, (saved) => ({ step: measure.readStep(saved, logger) }));
+    super(control, settings, (saved) => measure.readSettings(saved, logger));
     this.screen = new LampScreen(control, { showMain: () => this.showMainScreen(), adjusts: measure.adjusts });
   }
 
@@ -142,7 +146,7 @@ class MeasureDial extends ActionInstance<{ step: number }, DialAction<JsonObject
     await this.showMainScreen();
   }
 
-  /** Redraws the main screen, which the new step doesn't change, and leaves a lamp screen as it is. */
+  /** Redraws the main screen, whose title may have changed (#181), and leaves a lamp screen as it is. */
   override settingsChanged(): Promise<void> {
     return this.showMainScreen();
   }
@@ -226,9 +230,10 @@ class MeasureDial extends ActionInstance<{ step: number }, DialAction<JsonObject
   }
 
   /**
-   * Fills the main screen's layout with what the lamps are at, its icon, its value and its bar each in the color of the
-   * text style the global settings give it (#183), unless the dial shows a lamp screen, which has another layout, which
-   * its lamp screen draws. Nothing is worked out then.
+   * Fills the main screen's layout with the dial's own title, or its action's when it has none (#181), and what the
+   * lamps are at, its title, its icon, its value and its bar each in the color of the text style the global settings
+   * give it (#183), unless the dial shows a lamp screen, which has another layout, which its lamp screen draws. Nothing
+   * is worked out then.
    */
   private async showMainScreen(): Promise<void> {
     if (this.screen.isShowing) {
@@ -237,7 +242,7 @@ class MeasureDial extends ActionInstance<{ step: number }, DialAction<JsonObject
     const { title, value, levels } = await this.measure.mainScreen();
     const colors = globalSettings.mainScreenColors;
     const feedback: FeedbackPayload = {
-      heading: { value: title, color: colors.title },
+      heading: { value: this.config.title === "" ? title : this.config.title, color: colors.title },
       icon: iconOf(this.measure.glyph, colors.icon),
       value: { value, color: colors.value },
       indicator: bar(levels, colors.bar),

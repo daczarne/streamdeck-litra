@@ -43,12 +43,13 @@ Besides each key's and dial's own settings, a plugin has one set of global setti
 - A control with `global` only gets the global settings that arrive once it's on the page: it doesn't ask for them itself. One added later, such as when a view opens, shows its default until another answer arrives. The plugin settings therefore put their checkboxes, lists and color pickers on the page as it loads, hidden ([#146]). The plugin's own number fields ask for the global settings themselves, so they need no such care ([#195]).
 - The plugin reads them with `streamDeck.settings.getGlobalSettings()`, which waits for the connection to Stream Deck, and follows a page's changes with `streamDeck.settings.onDidReceiveGlobalSettings`. Since Stream Deck 7.1, the listener isn't called for the plugin's own reads. Its event holds the settings as `settings`, not `payload.settings` as an action's does.
 - The plugin saves them with `streamDeck.settings.setGlobalSettings`, whole, so it writes them from the latest ones it has: the ones Stream Deck last sent, or its own last save, when that came after. Stream Deck passes the save on to the pages, which keep it in what they save next: a page's save after a find keeps the lamps found, and every `useGlobalSettings` reader of the page hears of it, so a name the plugin saves reaches the lamp picker without a word from the page (checked on the Deck while adding the lamps the plugin knows, [#194]).
-- `SDPIComponents.useGlobalSettings(key)` does for a page script what `useSettings` does for the action's. A save from the page doesn't reach the page's other readers of that key, which only hear from Stream Deck's answers, so the plugin settings tell the lamp picker of whether its key takes in lamps added later ([#147]), through an event on the document.
+- `SDPIComponents.useGlobalSettings(key)` does for a page script what `useSettings` does for the action's. A save from the page doesn't reach the page's other readers of that key, which only hear from Stream Deck's answers, so the plugin settings tell the lamp picker of whether its key takes in lamps added later ([#147]), through an event on the document, and the plugin settings' title field gives a dial's own title field the title as its placeholder ([#181]).
 - A setting nested in another, such as a lamp screen cell's options, is out of the reach of a control with `global`, which saves a setting whole. The cells' editors use controls that save nothing themselves, and a script that reads and saves the options through `useGlobalSettings`. A list, a checkbox or a color picker reports a value set by a script as a change too, so the script keeps only the changes that differ from what it set ([#177]).
 - A control with `global` saves a value a script gives it, as it saves the user's: setting its `value` is enough. Each text style's Reset button sets its controls back to their `default` attributes that way, so the defaults are written once, in the controls ([#153]). A color picker (`sdpi-color`) saves the color, but draws it as its input's `defaultValue`, which a browser input no longer shows once the user has changed it: after a color picked by hand, the picker would go on showing that color. So the Reset also gives the picker's input the default as its `value`, through the picker's shadow root. Checked in the vendored `ui/vendor/sdpi-components.js`, in the browser tests and on the Deck, where the picker kept its color until the plugin settings were opened again.
 - A checkbox saves `true` or `false`. Its `default` attribute is text, so `default="false"` would check it: a checkbox that starts unchecked has none, and an unsaved setting reads as missing.
 - sdpi-components' button fixes its hover color inside its shadow DOM, with no part or custom property to change it, so the plugin settings' trash can, which turns red on hover, is a plain button that looks like one of sdpi-components' at rest ([#194]).
 - sdpi-components' checkbox has no indeterminate state, and draws its box inside its shadow DOM, out of a page's reach. The plugin settings draw their own for every dial's blink, with the same size, colors and check mark. A checkbox also reports a value set by a script as a change, so a script that sets one keeps only the changes that differ from what it set.
+- sdpi-components' text field redraws its placeholder only when one is added or removed, not when it changes to another: its check of whether the placeholder changed is backwards. A dial's own title field therefore has its placeholder removed before the new one is set ([#181]).
 
 ## Content-Security-Policy
 
@@ -92,6 +93,8 @@ Checked while adding the lamp screens' cells ([#177]): lists with `global`, made
 
 Checked while adding the lamps the plugin knows ([#194]): the plugin's save of the global settings reaching every reader of a page, `sdpi-textfield`'s `valuechange` and `sdpi-button`'s styles in the vendored `ui/vendor/sdpi-components.js`, in the browser tests and on the Deck.
 
+Checked while adding a dial's own title ([#181]): `sdpi-textfield`'s `placeholder` in the vendored `ui/vendor/sdpi-components.js`, in the browser tests and on the Deck.
+
 [#9]: https://github.com/daczarne/streamdeck-litra/issues/9
 [#20]: https://github.com/daczarne/streamdeck-litra/issues/20
 [#144]: https://github.com/daczarne/streamdeck-litra/issues/144
@@ -102,6 +105,7 @@ Checked while adding the lamps the plugin knows ([#194]): the plugin's save of t
 [#171]: https://github.com/daczarne/streamdeck-litra/issues/171
 [#174]: https://github.com/daczarne/streamdeck-litra/issues/174
 [#177]: https://github.com/daczarne/streamdeck-litra/issues/177
+[#181]: https://github.com/daczarne/streamdeck-litra/issues/181
 [#194]: https://github.com/daczarne/streamdeck-litra/issues/194
 [#195]: https://github.com/daczarne/streamdeck-litra/issues/195
 [#198]: https://github.com/daczarne/streamdeck-litra/issues/198

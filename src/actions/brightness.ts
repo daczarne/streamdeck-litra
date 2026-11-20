@@ -14,7 +14,10 @@ import { brightnessDialSettingsSchema, parseSettings } from "../settings/schemas
  */
 export const BRIGHTNESS: Measure = {
   adjusts: "Brightness",
-  readStep: (settings, logger) => parseSettings(settings, brightnessDialSettingsSchema, logger).stepPercentage,
+  readSettings: (settings, logger) => {
+    const { stepPercentage, title } = parseSettings(settings, brightnessDialSettingsSchema, logger);
+    return { step: stepPercentage, title };
+  },
   unit: "%",
   stepping: () => globalSettings.brightnessStepping,
   turnsLampsOn: (screen) =>

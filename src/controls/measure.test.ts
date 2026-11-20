@@ -62,10 +62,13 @@ const SHOWN: FeedbackPayload = {
   indicator: { value: 42, bar_fill_c: "#ffffff" },
 };
 
-/** What the fake dials step: by the step in their settings, or 2, and what they show. */
+/** What the fake dials step: by the step in their settings, or 2, under their title, if any, and what they show. */
 const MEASURE = {
   adjusts: "Fake",
-  readStep: vi.fn((settings: JsonObject) => (typeof settings.step === "number" ? settings.step : 2)),
+  readSettings: vi.fn((settings: JsonObject) => ({
+    step: typeof settings.step === "number" ? settings.step : 2,
+    title: typeof settings.title === "string" ? settings.title : "",
+  })),
   unit: " u",
   stepping: vi.fn<Measure["stepping"]>(),
   turnsLampsOn: vi.fn<Measure["turnsLampsOn"]>(),
@@ -127,10 +130,10 @@ function clearCalls(): void {
 
 describe("a dial of a MeasureAction", () => {
   describe("on its main screen", () => {
-    it("reads its step through what it steps, and starts on the main screen when it appears", async () => {
+    it("reads its settings through what it steps, and starts on the main screen when it appears", async () => {
       const dial = await deck.dial(FAKE, { step: 5 });
 
-      expect(MEASURE.readStep).toHaveBeenCalledExactlyOnceWith({ step: 5 }, logger);
+      expect(MEASURE.readSettings).toHaveBeenCalledExactlyOnceWith({ step: 5 }, logger);
       expect(dial.setFeedbackLayout).toHaveBeenCalledExactlyOnceWith("layouts/main.json");
       expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith(SHOWN);
     });
@@ -200,6 +203,45 @@ describe("a dial of a MeasureAction", () => {
       const shown = { ...SHOWN, value: { value: "42 u", color: "#ff8800" } };
       expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith(shown);
       expect(otherDial.setFeedback).toHaveBeenCalledExactlyOnceWith(shown);
+    });
+
+    it("shows its own title in place of its action's, in the same color, and its action's again once it's empty (#181)", async () => {
+      changeGlobalSettings({ mainScreenTitleStyle: "accent", lampScreenAccentColor: "#ff8800" });
+      await vi.runAllTimersAsync();
+      const dial = await deck.dial(FAKE, { title: "Desk" });
+      const otherDial = await deck.dial(FAKE);
+
+      await deck.changeSettings(dial, { title: "" });
+
+      expect(dial.setFeedback).toHaveBeenCalledTimes(2);
+      expect(dial.setFeedback).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({ heading: { value: "Desk", color: "#ff8800" } }),
+      );
+      expect(dial.setFeedback).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({ heading: { value: "Fake", color: "#ff8800" } }),
+      );
+      expect(otherDial.setFeedback).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({ heading: { value: "Fake", color: "#ff8800" } }),
+      );
+    });
+
+    it("keeps its own title when its action's changes, which the dials without one follow (#181)", async () => {
+      const dial = await deck.dial(FAKE, { title: "Desk" });
+      const otherDial = await deck.dial(FAKE);
+      clearCalls();
+      MEASURE.mainScreen.mockResolvedValue({ ...MAIN, title: "Changed" });
+
+      changeGlobalSettings({ brightnessDialTitle: "Changed" });
+      await vi.runAllTimersAsync();
+
+      expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({ heading: { value: "Desk", color: "#ffffff" } }),
+      );
+      expect(otherDial.setFeedback).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({ heading: { value: "Changed", color: "#ffffff" } }),
+      );
     });
 
     it("redraws once the settings page changes its step", async () => {

@@ -277,6 +277,22 @@ describe("the Set Brightness action", () => {
     expect(feedbackOf(temperatureDial)).toMatchObject({ heading: { value: "Temperature", color: "#4dd0e1" } });
   });
 
+  it("shows its own title over the plugin settings', until its page empties it (#181)", async () => {
+    await plugIn(newLamp());
+    const dial = await deck.dial(BRIGHTNESS, { title: "Desk" });
+    const otherDial = await deck.dial(BRIGHTNESS);
+
+    await saveFromPage({ brightnessDialTitle: "Lamps" });
+    await vi.runAllTimersAsync();
+
+    expect(feedbackOf(dial)).toMatchObject({ heading: { value: "Desk" } });
+    expect(feedbackOf(otherDial)).toMatchObject({ heading: { value: "Lamps" } });
+
+    await deck.changeSettings(dial, { title: "" });
+
+    expect(feedbackOf(dial)).toMatchObject({ heading: { value: "Lamps" } });
+  });
+
   it("draws its icon in the color of the text style the plugin settings give it, apart from its value's (#183)", async () => {
     await plugIn(newLamp());
     const dial = await deck.dial(BRIGHTNESS);

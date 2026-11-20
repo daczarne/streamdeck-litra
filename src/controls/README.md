@@ -6,7 +6,7 @@ A control, here, is a key or a dial on the Deck, as an action places it: each on
 
 1. `action-instance.ts`: `RoutingAction`, which every action is, and `ActionInstance`, each key's or dial's own.
 2. `preset-key.ts`: what the Set Brightness and Set Temperature keys share, a key that sets its lamps to a preset.
-3. `measure.ts`: what the Brightness and Temperature dials share, a dial that steps its lamps, with its main screen, whose title, icon, value and bar each take the color of a text style (#183).
+3. `measure.ts`: what the Brightness and Temperature dials share, a dial that steps its lamps, with its main screen, whose title, the dial's own or its action's (#181), icon, value and bar each take the color of a text style (#183).
 4. `step-key.ts`: what the four step actions share.
 5. `lamp-screens.ts`: a dial's lamp screens, one per lamp.
 6. `icons.ts`: the dials' icons, drawn in a color, on both their screens.

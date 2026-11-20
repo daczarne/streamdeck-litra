@@ -197,6 +197,21 @@ describe("TemperatureAction", () => {
       );
     });
 
+    it("the dial's own title in place of the plugin settings', and theirs for one that's too long (#181)", async () => {
+      changeGlobalSettings({ temperatureDialTitle: "Lamps" });
+      await vi.runAllTimersAsync();
+      const dial = await deck.dial(TEMPERATURE, { title: "Desk" });
+      const tooLong = await deck.dial(TEMPERATURE, { title: "x".repeat(25) });
+
+      expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({ heading: { value: "Desk", color: "#ffffff" } }),
+      );
+      expect(tooLong.setFeedback).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({ heading: { value: "Lamps", color: "#ffffff" } }),
+      );
+      expect(vi.mocked(logger.warn).mock.calls).toEqual([[expect.stringContaining("title")]]);
+    });
+
     it("a dash and an empty bar when no lamp is connected", async () => {
       vi.mocked(temperatureShown).mockResolvedValue([]);
 

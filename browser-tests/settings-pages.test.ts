@@ -61,7 +61,7 @@ const PANELS: Panel[] = [
   {
     page: "ui/brightness.html",
     controller: "Encoder",
-    settings: ["stepPercentage"],
+    settings: ["title", "stepPercentage"],
     change: { setting: "stepPercentage", value: "20", saved: 20 },
     numbers: [{ setting: "stepPercentage", unit: "%", value: "20" }],
   },
@@ -75,7 +75,7 @@ const PANELS: Panel[] = [
   {
     page: "ui/temperature.html",
     controller: "Encoder",
-    settings: ["stepKelvin"],
+    settings: ["title", "stepKelvin"],
     change: { setting: "stepKelvin", value: "400", saved: 400 },
     numbers: [{ setting: "stepKelvin", unit: "K", value: "400" }],
   },
@@ -312,13 +312,17 @@ function visibleSettings(page: Page, { global = false } = {}): Promise<string[]>
   `);
 }
 
-/** A control as the page declares it: its default, a number field's ends and step, a select's options. */
+/**
+ * A control as the page declares it: its default, a number field's ends and step, a text field's longest text, a
+ * select's options.
+ */
 type Control = {
   tag: string;
   default: string | null;
   min: string | null;
   max: string | null;
   step: string | null;
+  maxLength: string | null;
   options: string[];
 };
 
@@ -333,6 +337,7 @@ function controlOf(page: Page, setting: string): Promise<Control> {
       min: attribute("min"),
       max: attribute("max"),
       step: attribute("step"),
+      maxLength: attribute("maxlength"),
       options: [...control.querySelectorAll("option")].map((option) => option.value),
     };
   })()`);
@@ -547,15 +552,18 @@ describe("settings pages", () => {
       const control = await controlOf(page, setting);
       await page.close();
 
+      // A text field offers any text up to its longest, an empty one included.
       const offered =
         control.tag === "litra-switch"
           ? ["on", "off"]
-          : control.tag === "litra-number"
-            ? Array.from(
-                { length: (Number(control.max) - Number(control.min)) / Number(control.step) + 1 },
-                (_, index) => String(Number(control.min) + index * Number(control.step)),
-              )
-            : control.options;
+          : control.tag === "sdpi-textfield"
+            ? ["", "x".repeat(Number(control.maxLength))]
+            : control.tag === "litra-number"
+              ? Array.from(
+                  { length: (Number(control.max) - Number(control.min)) / Number(control.step) + 1 },
+                  (_, index) => String(Number(control.min) + index * Number(control.step)),
+                )
+              : control.options;
       expect(offered.length).toBeGreaterThan(0);
       for (const value of offered) {
         expect(read(setting, saved(control, value)), `${setting} set to ${value}`).toMatchObject({ valid: true });
@@ -1099,6 +1107,152 @@ describe("settings pages", () => {
       });
     },
   );
+
+  describe.each([
+    { panel: at(PANELS, 2), global: "brightnessDialTitle", name: "Brightness" },
+    { panel: at(PANELS, 4), global: "temperatureDialTitle", name: "Temperature" },
+  ])("a dial's own title on $panel.page (#181)", ({ panel, global, name }) => {
+    const OWN = `document.querySelector('[setting="title"]:not([global])')`;
+    const GLOBAL = `document.querySelector('[setting="${global}"]')`;
+
+    afterEach(() => {
+      streamDeck.globalSettings = {};
+    });
+
+    /** Types a title into a text field, as the user does. */
+    function typeInto(page: Page, field: string, title: string): Promise<void> {
+      return page.evaluate(`(async () => {
+        const host = ${field};
+        await host.updateComplete;
+        const input = host.shadowRoot.querySelector("input");
+        input.focus();
+        input.value = ${JSON.stringify(title)};
+        input.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+      })()`);
+    }
+
+    /** What the dial's own title field shows: its text, and its placeholder, greyed out while the text is empty. */
+    function ownTitleOf(page: Page): Promise<{ value: string; placeholder: string }> {
+      return page.evaluate(`(async () => {
+        const host = ${OWN};
+        await host.updateComplete;
+        const input = host.shadowRoot.querySelector("input");
+        return { value: input.value, placeholder: input.placeholder };
+      })()`);
+    }
+
+    it("is empty, with the action's name as its placeholder, before the plugin settings give the dials a title", async () => {
+      const { page } = await openPanel(panel);
+      await page.evaluate(`SDPIComponents.useGlobalSettings("${global}")[0]()`);
+
+      await expect.poll(() => ownTitleOf(page)).toEqual({ value: "", placeholder: name });
+      await page.close();
+    });
+
+    it("shows the title the plugin settings give the dials as its placeholder, and none when it's empty", async () => {
+      streamDeck.globalSettings = { [global]: "Lamps" };
+      const { page } = await openPanel(panel);
+      await expect.poll(() => ownTitleOf(page)).toEqual({ value: "", placeholder: "Lamps" });
+      await page.close();
+
+      streamDeck.globalSettings = { [global]: "" };
+      const { page: hidden } = await openPanel(panel);
+      await hidden.evaluate(`SDPIComponents.useGlobalSettings("${global}")[0]()`);
+      await expect.poll(() => ownTitleOf(hidden)).toEqual({ value: "", placeholder: "" });
+      await hidden.close();
+    });
+
+    it("follows the plugin settings' title as it's typed and reset on the same page", async () => {
+      streamDeck.globalSettings = { [global]: "Lamps" };
+      const { page } = await openPanel(panel);
+      await page.evaluate(`SDPIComponents.useGlobalSettings("${global}")[0]()`);
+      await clickInPluginSettings(page, "Plugin settings");
+
+      await typeInto(page, GLOBAL, "Desk");
+      await expect.poll(() => ownTitleOf(page)).toEqual({ value: "", placeholder: "Desk" });
+
+      await page.evaluate(`(async () => {
+        const host = ${GLOBAL}.parentElement.querySelector("sdpi-button");
+        await host.updateComplete;
+        host.shadowRoot.querySelector("button").click();
+      })()`);
+      await expect.poll(() => ownTitleOf(page)).toEqual({ value: "", placeholder: name });
+      await page.close();
+    });
+
+    it("shows the dial's saved title over the placeholder", async () => {
+      streamDeck.globalSettings = { [global]: "Lamps" };
+      const { page } = await openPanel(panel, { title: "Desk" });
+
+      await expect.poll(() => ownTitleOf(page)).toEqual({ value: "Desk", placeholder: "Lamps" });
+      await page.close();
+    });
+
+    /** Whether the × at the end of the dial's own title row is greyed out, and what it's called. */
+    function clearOf(page: Page): Promise<{ disabled: boolean; label: string | null }> {
+      return page.evaluate(`(() => {
+        const clear = ${OWN}.closest(".text-and-clear").querySelector("button.clear");
+        return { disabled: clear.disabled, label: clear.getAttribute("aria-label") };
+      })()`);
+    }
+
+    it("ends with a ×, greyed out while the field is empty, which empties it, as the dial's settings save", async () => {
+      streamDeck.globalSettings = { [global]: "Lamps" };
+      const { page, uuid } = await openPanel(panel, { title: "Desk" });
+      await expect.poll(() => clearOf(page)).toEqual({ disabled: false, label: "Clear title" });
+
+      const after = streamDeck.messages.length;
+      await page.evaluate(`${OWN}.closest(".text-and-clear").querySelector("button.clear").click()`);
+
+      await expect
+        .poll(() =>
+          streamDeck.messages
+            .slice(after)
+            .filter((m) => m.event === "setSettings" && m.context === uuid)
+            .map((m) => m.payload),
+        )
+        .toEqual([{ title: "" }]);
+      expect(await ownTitleOf(page)).toEqual({ value: "", placeholder: "Lamps" });
+      expect(await clearOf(page)).toEqual({ disabled: true, label: "Clear title" });
+
+      await typeInto(page, OWN, "Shelf");
+      await expect.poll(() => clearOf(page)).toEqual({ disabled: false, label: "Clear title" });
+      await page.close();
+    });
+
+    it("greys out its × when the dial has no title of its own", async () => {
+      const { page } = await openPanel(panel);
+      await expect.poll(() => clearOf(page)).toEqual({ disabled: true, label: "Clear title" });
+      await page.close();
+    });
+
+    it("saves the title typed, and an empty one, to the dial's settings, leaving the plugin's alone", async () => {
+      streamDeck.globalSettings = { [global]: "Lamps" };
+      const { page, uuid } = await openPanel(panel);
+      await page.evaluate(`SDPIComponents.useGlobalSettings("${global}")[0]()`);
+
+      await typeInto(page, OWN, "Desk");
+      const typed = await streamDeck.waitFor((m) => m.event === "setSettings" && m.context === uuid);
+      expect(typed.payload).toEqual({ title: "Desk" });
+
+      const after = streamDeck.messages.length;
+      await typeInto(page, OWN, "");
+      await expect
+        .poll(() =>
+          streamDeck.messages
+            .slice(after)
+            .filter((m) => m.event === "setSettings" && m.context === uuid)
+            .map((m) => m.payload),
+        )
+        .toEqual([{ title: "" }]);
+      expect(await ownTitleOf(page)).toEqual({ value: "", placeholder: "Lamps" });
+      expect(streamDeck.globalSettings).toEqual({ [global]: "Lamps" });
+      await page.close();
+
+      expect(read("title", "Desk", "action")).toEqual({ value: "Desk", valid: true });
+      expect(read("title", "", "action")).toEqual({ value: "", valid: true });
+    });
+  });
 
   describe.each(MAIN_SCREEN_PARTS)("the global %s in the plugin settings on ui/power.html", (setting) => {
     const panel = at(PANELS, 0);
