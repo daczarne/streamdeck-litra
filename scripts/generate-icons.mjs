@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * Generates the plugin's icons, rendered to the PNG sizes Stream Deck requires (1x and `@2x`). The glyphs come from
- * `@daczarne/streamdeck-icons`, which also builds the Litra icon pack: this script only decides which glyph goes where,
- * and at what size.
+ * Generates the plugin's icons, rendered to the PNG sizes Stream Deck requires (1x and `@2x`), and the README's, one for
+ * each of GitHub's light and dark themes. The glyphs come from `@daczarne/streamdeck-icons`, which also builds the Litra
+ * icon pack: this script only decides which glyph goes where, and at what size.
  */
 import { mkdirSync } from "node:fs";
 import path from "node:path";
@@ -27,6 +27,18 @@ import {
 import sharp from "sharp";
 
 const root = path.resolve("com.daczarne.litra.sdPlugin/imgs");
+// The README's images live outside the plugin folder, so the package leaves them out.
+const readmeRoot = path.resolve("docs/images/actions");
+
+/**
+ * The README's actions table shows each action's outlined glyph, as its keys and dials draw it, in the color of
+ * GitHub's text in each theme, with a link ending that GitHub reads to show only one of them: white for the dark theme,
+ * and GitHub's near-black for the light one, on which a white icon would vanish.
+ */
+const README_THEMES = { dark: "#FFFFFF", light: "#1F2328" };
+
+/** The size of the README's images, in pixels, as GitHub shows them, which is the size of the action list's `@2x`. */
+const README_SIZE = 40;
 
 /**
  * How much of its canvas each glyph covers as drawn (`span`), and how much of an icon it covers in the Litra icon pack
@@ -71,6 +83,19 @@ async function writePair(basePathNoExt, svgAt1x, size1x) {
 }
 
 /**
+ * A glyph drawn at `size`, scaled about its center by `factor`.
+ *
+ * @param {number} size
+ * @param {string} glyph its markup
+ * @param {number} factor
+ * @returns {string}
+ */
+function scaledAbout(size, glyph, factor) {
+  const c = size / 2;
+  return `<g transform="translate(${c} ${c}) scale(${factor}) translate(${-c} ${-c})">${glyph}</g>`;
+}
+
+/**
  * A glyph drawn at `size`, scaled about the center from its own span to its span in the pack, as the pack scales it.
  *
  * @param {number} size
@@ -79,8 +104,7 @@ async function writePair(basePathNoExt, svgAt1x, size1x) {
  * @returns {string}
  */
 function onAKey(size, glyph, { span, packSpan }) {
-  const c = size / 2;
-  return `<g transform="translate(${c} ${c}) scale(${packSpan / span}) translate(${-c} ${-c})">${glyph}</g>`;
+  return scaledAbout(size, glyph, packSpan / span);
 }
 
 /**
@@ -153,6 +177,26 @@ async function main() {
 
   // Marketplace (256 / 512)
   await writePair(path.join(root, "plugin/marketplace"), (s) => marketplaceGlyph(s), 256);
+
+  // The README's actions table (40), in each of GitHub's themes. The power glyph, drawn smaller than the others, is
+  // scaled up to the sun's span, so every icon in the table is about the same size.
+  const powerToSun = ON_A_KEY.brightness.span / ON_A_KEY.power.span;
+  /** @type {[string, (size: number, color: string) => string][]} */
+  const readmeIcons = [
+    ["power", (s, color) => scaledAbout(s, powerGlyph(s, { on: true, color }), powerToSun)],
+    ["scene", (s, color) => sceneGlyph(s, { color })],
+    ["brightness", (s, color) => brightnessGlyph(s, { color })],
+    ["brightness-up", (s, color) => brightnessStepGlyph(s, { step: "up", color })],
+    ["brightness-down", (s, color) => brightnessStepGlyph(s, { step: "down", color })],
+    ["temperature", (s, color) => temperatureGlyph(s, { color })],
+    ["temperature-up", (s, color) => temperatureStepGlyph(s, { step: "up", color })],
+    ["temperature-down", (s, color) => temperatureStepGlyph(s, { step: "down", color })],
+  ];
+  for (const [theme, color] of Object.entries(README_THEMES)) {
+    for (const [name, draw] of readmeIcons) {
+      await writePng(path.join(readmeRoot, theme, `${name}.png`), draw(README_SIZE, color), README_SIZE);
+    }
+  }
 
   console.log("Icons generated.");
 }
