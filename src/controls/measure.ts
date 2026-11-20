@@ -4,6 +4,7 @@ import type { Logger } from "@elgato/utils/logging";
 import { type OperationResult, type Stepping, toggleLamps } from "../lamps/manager";
 import type { LampSelection } from "../lamps/selection";
 import { globalSettings } from "../settings/global-settings";
+import type { StartColor } from "../settings/schemas";
 import { ActionInstance, type DeckControl, RoutingAction } from "./action-instance";
 import { createDebouncer } from "./debouncer";
 import { type Glyph, iconOf } from "./icons";
@@ -99,10 +100,10 @@ export type Measure = {
 };
 
 /**
- * What a Brightness or Temperature dial's settings hold: its step, its own title, or an empty one (#181), and the
- * screen it starts on, `"main"` or a lamp's id (#278).
+ * What a Brightness or Temperature dial's settings hold: its step, its own title, or an empty one (#181), the screen it
+ * starts on, `"main"` or a lamp's id (#278), and the color it shows that lamp in.
  */
-export type DialSettings = { step: number; title: string; startOn: string };
+export type DialSettings = { step: number; title: string; startOn: string; startColor: StartColor };
 
 /** The Brightness or the Temperature dial action, which gives each dial a {@link MeasureDial}. */
 export abstract class MeasureAction extends RoutingAction<MeasureDial> {
@@ -144,6 +145,7 @@ class MeasureDial extends ActionInstance<DialSettings, DialAction<JsonObject>> {
       showMain: () => this.showMainScreen(),
       adjusts: measure.adjusts,
       startOn: () => this.config.startOn,
+      startColor: () => this.config.startColor,
     });
   }
 
@@ -157,12 +159,12 @@ class MeasureDial extends ActionInstance<DialSettings, DialAction<JsonObject>> {
   }
 
   /**
-   * Redraws the main screen, whose title may have changed (#181), and leaves a lamp screen the taps got to as it is,
-   * since nothing on it is the dial's. A dial whose strip wasn't tapped since it appeared goes to the screen it now
-   * starts on (#278).
+   * Redraws the screen the dial shows: its main screen, whose title may have changed (#181), or a lamp screen the taps
+   * got to, which stays on the same lamp, the one the dial starts on taking the color its settings now give it. A dial
+   * whose strip wasn't tapped since it appeared goes to the screen it now starts on (#278).
    */
   override settingsChanged(): Promise<void> {
-    return this.screen.isUntouched ? this.follow() : this.showMainScreen();
+    return this.follow();
   }
 
   /**

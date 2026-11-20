@@ -1,4 +1,4 @@
-import type { FontWeight, SavedTextStyle, TextStyleName } from "../settings/schemas";
+import type { FontWeight, SavedTextStyle, StartColor, TextStyleName } from "../settings/schemas";
 
 /** A text's look on the lamp screens, as a layout's text slot takes it: its color, and its font's size and weight. */
 export type TextStyle = { color: string; font: { size: number; weight: number } };
@@ -22,4 +22,24 @@ export function textStylesOf(saved: Record<TextStyleName, SavedTextStyle>): Text
     accent: textStyle(saved.accent),
     alert: textStyle(saved.alert),
   };
+}
+
+// The colors a dial can show the lamp it starts on in, by the names its settings keep: bright enough to read on the
+// strip's black at the lamp screens' sizes, at hues apart from one another and from the Alert and Accent styles'
+// defaults. Gold and green are the icons' own, from @daczarne/streamdeck-icons' palette.
+const START_COLOR_VALUES: Record<Exclude<StartColor, "default">, string> = {
+  gold: "#f5c542",
+  orange: "#ff9f43",
+  green: "#4cbf68",
+  blue: "#6fa8ff",
+  violet: "#b39dff",
+  magenta: "#e77bf0",
+};
+
+/**
+ * The text styles with the Primary style in a dial's color, as the lamp it starts on shows them, or as they are for
+ * "default". The other styles keep their colors, so what they set apart stays apart.
+ */
+export function withPrimaryIn(styles: TextStyles, color: StartColor): TextStyles {
+  return color === "default" ? styles : { ...styles, primary: { ...styles.primary, color: START_COLOR_VALUES[color] } };
 }

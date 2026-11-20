@@ -58,9 +58,21 @@
       <div id="lamp-screen-turn-on"></div>
     </sdpi-item>
     <!-- The screen the dial starts on as it appears: its main screen, or a lamp's, which start-on.js lists and saves
-      (#278). -->
+      (#278), and the color the dial shows that lamp in, in the Primary text style's place, which start-on.js greys
+      out while the dial starts on its main screen. -->
     <sdpi-item label="Start on">
-      <div id="start-on"></div>
+      <div class="start-on">
+        <div id="start-on"></div>
+        <sdpi-select id="start-color" setting="startColor" default="default">
+          <option value="default">Default</option>
+          <option value="gold">Gold</option>
+          <option value="orange">Orange</option>
+          <option value="green">Green</option>
+          <option value="blue">Blue</option>
+          <option value="violet">Violet</option>
+          <option value="magenta">Magenta</option>
+        </sdpi-select>
+      </div>
     </sdpi-item>
     <script src="title-field.js"></script>
     <script src="start-on.js"></script>
