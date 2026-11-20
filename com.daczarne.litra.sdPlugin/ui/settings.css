@@ -261,6 +261,25 @@ litra-switch button[aria-checked="true"]::after {
 }
 
 /*
+ * The screen a dial starts on, and the color it shows its lamp in (start-on.js, #278)
+ */
+
+/* The lamps' list takes the row's width but for the colors', which fits the longest of their names. */
+.start-on {
+  display: flex;
+  gap: 4px;
+}
+
+.start-on #start-on {
+  flex: 1;
+  min-width: 0;
+}
+
+.start-on #start-color {
+  flex: 0 0 90px;
+}
+
+/*
  * The plugin settings (plugin-settings.js)
  */
 

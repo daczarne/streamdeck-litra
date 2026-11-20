@@ -252,16 +252,28 @@ const startOn: Setting<string> = {
   parse: (value) => (typeof value === "string" && value !== "" ? value : undefined),
 };
 
+// The colors a dial can show the lamp it starts on in, which take the Primary text style's place on that lamp's screen,
+// so a page with a dial for each lamp tells them apart at a glance. A few, rather than any color, at hues apart from
+// one another and from the Alert and Accent styles' defaults, red and cyan. "default" leaves the text styles as they
+// are. The dial saves the color's name, and src/controls/text-styles.ts holds each one's value.
+export const START_COLORS = ["default", "gold", "orange", "green", "blue", "violet", "magenta"] as const;
+
+export type StartColor = (typeof START_COLORS)[number];
+
+const startColor = oneOf(START_COLORS, "default");
+
 export const brightnessDialSettingsSchema = {
   stepPercentage: wholeNumberFrom(1, 25, 10),
   title: dialTitle,
   startOn,
+  startColor,
 };
 
 export const temperatureDialSettingsSchema = {
   stepKelvin: steppedFrom(100, 500, 100, 300),
   title: dialTitle,
   startOn,
+  startColor,
 };
 
 // The step keys step as the dials do, by the same steps.

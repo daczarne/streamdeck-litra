@@ -69,6 +69,7 @@ const MEASURE = {
     step: typeof settings.step === "number" ? settings.step : 2,
     title: typeof settings.title === "string" ? settings.title : "",
     startOn: typeof settings.startOn === "string" ? settings.startOn : "main",
+    startColor: settings.startColor === "gold" ? ("gold" as const) : ("default" as const),
   })),
   unit: " u",
   stepping: vi.fn<Measure["stepping"]>(),
@@ -393,6 +394,32 @@ describe("a dial of a MeasureAction", () => {
       expect(dial.setFeedbackLayout).not.toHaveBeenCalled();
     });
 
+    it("redraws the lamp it starts on in the color its settings page now gives it, wherever the taps got to it", async () => {
+      vi.mocked(lampsShown).mockResolvedValue([BEAM, OTHER_BEAM]);
+      const dial = await deck.dial(FAKE, { startOn: OTHER_BEAM.id });
+      clearCalls();
+
+      await deck.changeSettings(dial, { startOn: OTHER_BEAM.id, startColor: "gold" });
+
+      expect(dial.setFeedbackLayout).not.toHaveBeenCalled();
+      expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({ topLeft: expect.objectContaining({ color: "#f5c542" }) }),
+      );
+
+      await deck.tap(dial);
+      await deck.tap(dial);
+      await deck.tap(dial);
+      expect(dial.setFeedbackLayout).toHaveBeenLastCalledWith("layouts/lamp.json");
+      clearCalls();
+
+      await deck.changeSettings(dial, { startOn: OTHER_BEAM.id });
+
+      expect(dial.setFeedbackLayout).not.toHaveBeenCalled();
+      expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({ topLeft: expect.objectContaining({ color: "#ffffff" }) }),
+      );
+    });
+
     it("stays where the taps got to, whatever the lamps do, until it appears again", async () => {
       vi.mocked(lampsShown).mockResolvedValue([BEAM, OTHER_BEAM]);
       const dial = await deck.dial(FAKE, { startOn: OTHER_BEAM.id });
@@ -550,7 +577,7 @@ describe("a dial of a MeasureAction", () => {
       expect(lampsShown).not.toHaveBeenCalled();
     });
 
-    it("keeps a lamp screen drawn when the dial's settings change, and turns its lamp by the new step", async () => {
+    it("keeps a lamp screen on its lamp when the dial's settings change, and turns the lamp by the new step", async () => {
       const dial = await deck.dial(FAKE, { step: 5 });
       await deck.tap(dial);
       clearCalls();
@@ -558,7 +585,7 @@ describe("a dial of a MeasureAction", () => {
       await deck.changeSettings(dial, { step: 10 });
 
       expect(dial.setFeedbackLayout).not.toHaveBeenCalled();
-      expect(dial.setFeedback).not.toHaveBeenCalled();
+      expect(dial.setFeedback).not.toHaveBeenCalledWith(SHOWN);
 
       await deck.turn(dial, 1);
 

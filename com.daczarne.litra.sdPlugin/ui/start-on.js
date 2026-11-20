@@ -4,8 +4,9 @@
 // in the plugin settings (#146), or else its label, such as "Beam - c870", in the order of their ids. The dial saves
 // its choice as `startOn`: "main", or the lamp's id. A lamp the plugin no longer knows, such as one forgotten, shows
 // "Main screen" chosen, the screen the dial starts on then, while the dial keeps its id, so the lamp is the dial's
-// again once the plugin knows it. A file rather than an inline script, so the pages' Content-Security-Policy doesn't
-// have to allow inline scripts.
+// again once the plugin knows it. Beside it, the color the dial shows its lamp in, which the page saves itself, as
+// `startColor`, is greyed out while the list shows "Main screen", where it changes nothing. A file rather than an
+// inline script, so the pages' Content-Security-Policy doesn't have to allow inline scripts.
 //
 // Its styles are in settings.css, with every page's (#247).
 (() => {
@@ -14,6 +15,7 @@
     return;
   }
   const MAIN = "main";
+  const color = document.getElementById("start-color");
 
   // What the dial saved, and the lamps the plugin knows, by id, or undefined until they're read.
   let saved = MAIN;
@@ -90,15 +92,24 @@
     list.value = shown;
     // What the list last showed: the screen this script gave it, then each choice.
     let chosen = shown;
+    greyColor(shown);
     list.addEventListener("valuechange", () => {
       if (list.value === chosen || !screens.some(([id]) => id === list.value)) {
         return;
       }
       chosen = list.value;
       saved = list.value;
+      greyColor(chosen);
       save(saved).catch((error) => console.error("Can't save the screen the dial starts on", error));
     });
     container.replaceChildren(list);
+  }
+
+  /** Greys out the color while the dial starts on its main screen, where it shows no lamp to color. */
+  function greyColor(shown) {
+    if (color !== null) {
+      color.disabled = shown === MAIN;
+    }
   }
 
   Promise.all([readSaved(), readKnown()])

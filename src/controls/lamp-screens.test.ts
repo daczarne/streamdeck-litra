@@ -5,7 +5,7 @@ import type { LampState, ReachedLamp } from "../lamps/lamp";
 import { identifyLamp } from "../lamps/manager";
 import { logger } from "../logging";
 import { syncGlobalSettings } from "../settings/global-settings";
-import { globalSettingsSchema } from "../settings/schemas";
+import { globalSettingsSchema, type StartColor } from "../settings/schemas";
 import { at } from "../test-support/at";
 import { changeGlobalSettings, createFakeDial } from "../test-support/fake-stream-deck";
 import { iconIn } from "../test-support/icons";
@@ -97,14 +97,15 @@ function cell(name: string, text?: object, icon?: string) {
 }
 
 /** What a dial's lamp screen shows for a lamp, the `position`-th of `count`, with every cell at its default. */
-function lampScreenOf(lamp: ReachedLamp, position: number, count: number) {
+function lampScreenOf(lamp: ReachedLamp, position: number, count: number, primary = PLAIN.color) {
+  const look = { ...PLAIN, color: primary };
   return {
-    ...cell("topLeft", shown(lamp.label)),
-    ...cell("topRight", shown(`${position} of ${count}`)),
-    ...cell("middleLeft", shown(`${lamp.state.kelvin} K`), THERMOMETER),
-    ...cell("middleRight", lamp.state.on ? shown("ON") : shown("OFF", OFF_POWER)),
-    ...cell("bottomLeft", shown(`${percentageOf(lamp)}%`), SUN),
-    ...cell("bottomRight", shown(`${lamp.state.lumen} lm`)),
+    ...cell("topLeft", shown(lamp.label, look)),
+    ...cell("topRight", shown(`${position} of ${count}`, look)),
+    ...cell("middleLeft", shown(`${lamp.state.kelvin} K`, look), iconIn(temperatureGlyph, primary)),
+    ...cell("middleRight", lamp.state.on ? shown("ON", look) : shown("OFF", OFF_POWER)),
+    ...cell("bottomLeft", shown(`${percentageOf(lamp)}%`, look), iconIn(brightnessGlyph, primary)),
+    ...cell("bottomRight", shown(`${lamp.state.lumen} lm`, look)),
   };
 }
 
@@ -114,10 +115,12 @@ const C = beam("00c3");
 
 type Dial = ReturnType<typeof createFakeDial>;
 
-// The lamp screen of each dial a test made, as each Brightness and Temperature dial makes its own, and the screen
-// each starts on, its main screen unless a test says otherwise (#278).
+// The lamp screen of each dial a test made, as each Brightness and Temperature dial makes its own, the screen each
+// starts on, its main screen unless a test says otherwise (#278), and the color it shows that lamp in, none unless a
+// test says otherwise.
 let screens: Map<Dial, LampScreen>;
 let startsOn: Map<Dial, string>;
+let startColors: Map<Dial, StartColor>;
 let showMain: () => Promise<void>;
 
 /** A dial's lamp screen, made the first time it's asked for, for a dial that adjusts the brightness. */
@@ -128,6 +131,7 @@ function screenOf(dial: Dial): LampScreen {
       showMain,
       adjusts: "Brightness",
       startOn: () => startsOn.get(dial) ?? "main",
+      startColor: () => startColors.get(dial) ?? "default",
     });
     screens.set(dial, screen);
   }
@@ -148,6 +152,7 @@ beforeEach(() => {
   changeGlobalSettings({});
   screens = new Map();
   startsOn = new Map();
+  startColors = new Map();
   showMain = vi.fn(async () => {});
   connect(A, B);
   // A tap finds the lamps, then shows what the plugin holds of them, which each test sets as lampsShown.
@@ -236,6 +241,41 @@ describe("LampScreen", () => {
       await screenOf(dial).settle({ find: true });
 
       expect(findLampsShown).not.toHaveBeenCalled();
+    });
+
+    it("shows its lamp in the dial's color, in the Primary style's place, and the other styles as they are", async () => {
+      const dial = await appearing(B.id);
+      startColors.set(dial, "gold");
+
+      await screenOf(dial).settle();
+
+      // B is off, which the power shows in the Secondary style.
+      expect(dial.setFeedback).toHaveBeenCalledExactlyOnceWith(lampScreenOf(B, 2, 2, "#f5c542"));
+    });
+
+    it("takes the Primary style's weight and size, as the plugin settings give them, in the dial's color", async () => {
+      changeGlobalSettings(STYLES);
+      const dial = await appearing(A.id);
+      startColors.set(dial, "blue");
+
+      await screenOf(dial).settle();
+
+      expect(dial.setFeedback).toHaveBeenCalledWith(
+        expect.objectContaining({ topLeft: shown(A.label, { ...PRIMARY, color: "#6fa8ff" }) }),
+      );
+    });
+
+    it("shows every other lamp, tapped to, in the text styles, and its own in its color, however the taps got to it", async () => {
+      const dial = await appearing(B.id);
+      startColors.set(dial, "violet");
+      await screenOf(dial).settle();
+
+      await screenOf(dial).tap();
+      await screenOf(dial).tap();
+      expect(dial.setFeedback).toHaveBeenLastCalledWith(lampScreenOf(A, 1, 2));
+
+      await screenOf(dial).tap();
+      expect(dial.setFeedback).toHaveBeenLastCalledWith(lampScreenOf(B, 2, 2, "#b39dff"));
     });
 
     it("is left to the taps once the strip is tapped, until the dial appears again", async () => {

@@ -42,8 +42,16 @@ describe("parseSettings", () => {
       temperatureStepSettingsSchema,
       { stepKelvin: 300, lamps: "all", leftOutLamps: [], stepKeyTitle: "current" },
     ],
-    ["Brightness", brightnessDialSettingsSchema, { stepPercentage: 10, title: "", startOn: "main" }],
-    ["Temperature", temperatureDialSettingsSchema, { stepKelvin: 300, title: "", startOn: "main" }],
+    [
+      "Brightness",
+      brightnessDialSettingsSchema,
+      { stepPercentage: 10, title: "", startOn: "main", startColor: "default" },
+    ],
+    [
+      "Temperature",
+      temperatureDialSettingsSchema,
+      { stepKelvin: 300, title: "", startOn: "main", startColor: "default" },
+    ],
   ])("gives %s's defaults for the settings that are missing, without a warning", (_action, schema, defaults) => {
     expect(parseSettings({}, schema, logger)).toEqual(defaults);
     expect(logger.warn).not.toHaveBeenCalled();
@@ -71,8 +79,16 @@ describe("parseSettings", () => {
       temperatureStepSettingsSchema,
       { stepKelvin: 200, lamps: "all", leftOutLamps: [], stepKeyTitle: "step" },
     ],
-    ["Brightness", brightnessDialSettingsSchema, { stepPercentage: 20, title: "Desk", startOn: "00000000000000a1" }],
-    ["Temperature", temperatureDialSettingsSchema, { stepKelvin: 500, title: "Desk", startOn: "main" }],
+    [
+      "Brightness",
+      brightnessDialSettingsSchema,
+      { stepPercentage: 20, title: "Desk", startOn: "00000000000000a1", startColor: "gold" },
+    ],
+    [
+      "Temperature",
+      temperatureDialSettingsSchema,
+      { stepKelvin: 500, title: "Desk", startOn: "main", startColor: "magenta" },
+    ],
   ])("keeps %s's valid settings", (_action, schema, settings) => {
     expect(parseSettings(settings, schema, logger)).toEqual(settings);
     expect(logger.warn).not.toHaveBeenCalled();
@@ -153,6 +169,10 @@ describe("parseSettings", () => {
       // A dial starts on its main screen, or a lamp's, by the lamp's id (#278).
       ["startOn", brightnessDialSettingsSchema, ""],
       ["startOn", temperatureDialSettingsSchema, 1],
+      // It shows that lamp in one of the colors its page offers, by name, or in the text styles as they are.
+      ["startColor", brightnessDialSettingsSchema, "#f5c542"],
+      ["startColor", temperatureDialSettingsSchema, "Gold"],
+      ["startColor", temperatureDialSettingsSchema, "red"],
       ["mode", powerSettingsSchema, "blink"],
       ["mode", powerSettingsSchema, "On"],
       ["mode", powerSettingsSchema, ""],

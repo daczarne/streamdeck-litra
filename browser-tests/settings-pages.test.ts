@@ -65,7 +65,7 @@ const PANELS: Panel[] = [
   {
     page: "ui/brightness.html",
     controller: "Encoder",
-    settings: ["title", "stepPercentage"],
+    settings: ["title", "stepPercentage", "startColor"],
     change: { setting: "stepPercentage", value: "20", saved: 20 },
     numbers: [{ setting: "stepPercentage", unit: "%", value: "20" }],
   },
@@ -79,7 +79,7 @@ const PANELS: Panel[] = [
   {
     page: "ui/temperature.html",
     controller: "Encoder",
-    settings: ["title", "stepKelvin"],
+    settings: ["title", "stepKelvin", "startColor"],
     change: { setting: "stepKelvin", value: "400", saved: 400 },
     numbers: [{ setting: "stepKelvin", unit: "K", value: "400" }],
   },
@@ -2715,6 +2715,74 @@ describe("settings pages", () => {
       await page.close();
 
       expect(read("startOn", "0123456789ab3333", "action")).toEqual({ value: "0123456789ab3333", valid: true });
+    });
+
+    it("offers Default, then the colors, by name, each one settings.ts takes, greyed out while the dial starts on its main screen", async () => {
+      streamDeck.globalSettings = { lamps: LAMPS };
+      const { page } = await openPanel(panel);
+      await expect.poll(() => listOf(page)).toMatchObject({ chosen: "main" });
+
+      const color = await page.evaluate<{ options: string[][]; chosen: string; disabled: boolean }>(`(() => {
+        const color = document.querySelector("#start-color");
+        return {
+          options: [...color.querySelectorAll("option")].map((option) => [option.value, option.textContent]),
+          chosen: color.getAttribute("default"),
+          disabled: color.disabled,
+        };
+      })()`);
+      await page.close();
+
+      expect(color).toEqual({
+        options: [
+          ["default", "Default"],
+          ["gold", "Gold"],
+          ["orange", "Orange"],
+          ["green", "Green"],
+          ["blue", "Blue"],
+          ["violet", "Violet"],
+          ["magenta", "Magenta"],
+        ],
+        chosen: "default",
+        disabled: true,
+      });
+      expect(read("startColor", "default", "action")).toEqual({
+        value: defaultOf("startColor", "action"),
+        valid: true,
+      });
+      for (const [value] of color.options) {
+        expect(read("startColor", value ?? "", "action")).toEqual({ value, valid: true });
+      }
+    });
+
+    it("offers the color once a lamp is chosen, or saved, and greys it out again for the main screen", async () => {
+      streamDeck.globalSettings = { lamps: LAMPS };
+      const disabledOf = (page: Page) => page.evaluate<boolean>(`document.querySelector("#start-color").disabled`);
+      const { page: saved } = await openPanel(panel, { startOn: "0123456789ab2222", startColor: "green" });
+      await expect.poll(() => listOf(saved)).toMatchObject({ chosen: "0123456789ab2222" });
+      expect(await disabledOf(saved)).toBe(false);
+      expect(await saved.evaluate(`document.querySelector("#start-color").value`)).toBe("green");
+      await saved.close();
+
+      const { page } = await openPanel(panel);
+      await expect.poll(() => drawnOptionsOf(page)).toBe(4);
+      await setControl(page, LIST, "0123456789ab3333");
+      await expect.poll(() => disabledOf(page)).toBe(false);
+
+      await setControl(page, LIST, "main");
+      await expect.poll(() => disabledOf(page)).toBe(true);
+      await page.close();
+    });
+
+    it("saves a color chosen to the dial's settings", async () => {
+      streamDeck.globalSettings = { lamps: LAMPS };
+      const { page, uuid } = await openPanel(panel, { startOn: "0123456789ab2222" });
+      await expect.poll(() => listOf(page)).toMatchObject({ chosen: "0123456789ab2222" });
+
+      const after = streamDeck.messages.length;
+      await setControl(page, `document.querySelector("#start-color")`, "violet");
+
+      await expect.poll(() => savesOf(uuid, after)).toEqual([{ startOn: "0123456789ab2222", startColor: "violet" }]);
+      await page.close();
     });
 
     it("lists a lamp's new name once the plugin saves it", async () => {

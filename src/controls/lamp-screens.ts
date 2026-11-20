@@ -9,10 +9,11 @@ import {
   type LampScreenCell,
   type LampScreenItem,
   type LampScreenItemOptions,
+  type StartColor,
 } from "../settings/schemas";
 import { type Glyph, iconOf } from "./icons";
 import { findLampsShown, lampsShown } from "./shown";
-import { type TextStyle, type TextStyles, textStyle, textStylesOf } from "./text-styles";
+import { type TextStyle, type TextStyles, textStyle, textStylesOf, withPrimaryIn } from "./text-styles";
 
 /** What a lamp screen uses of its dial, whichever action it belongs to. */
 type LampScreenDial = Pick<
@@ -29,6 +30,8 @@ type DialOwner = {
   adjusts: string;
   /** The screen the dial starts on as it appears (#278): `"main"`, or a lamp's id. */
   startOn: () => string;
+  /** The color the dial shows the lamp it starts on in, in the Primary style's place, or "default" for none. */
+  startColor: () => StartColor;
 };
 
 const logger = pluginLogger.createScope("Lamp screens");
@@ -50,7 +53,9 @@ const LAMP_TRIGGER_DESCRIPTIONS = { push: "Power", touch: "Next lamp", longTouch
  *
  * With the blink on, which the dials share as a global setting, a tap that shows a lamp also blinks it, so tapping
  * through the lamps shows which one the dial is about to adjust (#144). What each of a lamp screen's six cells shows is
- * a global setting, the same on every dial (#177).
+ * a global setting, the same on every dial (#177). The lamp the dial starts on takes the dial's own color in place of
+ * the Primary style's, however the dial got to it, so a page with a dial for each lamp tells them apart at a glance,
+ * while every other lamp shows in the text styles as they are, and the color marks no lamp but the dial's.
  *
  * Its dial redraws it whenever the lamps change, whichever action changed them, and whenever the global settings do.
  * Operations run one at a time, since each changes what the dial shows, and a tap or a blink goes through the lamps.
@@ -140,7 +145,7 @@ export class LampScreen {
       if (lamp === undefined) {
         await this.backToMain();
       } else {
-        await draw(this.dial, lamp, lamps);
+        await this.draw(lamp, lamps);
       }
     });
   }
@@ -198,7 +203,12 @@ export class LampScreen {
       await this.dial.setFeedbackLayout(LAMP_LAYOUT);
       await this.dial.setTriggerDescription({ rotate: this.owner.adjusts, ...LAMP_TRIGGER_DESCRIPTIONS });
     }
-    await draw(this.dial, lamp, lamps);
+    await this.draw(lamp, lamps);
+  }
+
+  /** Draws a lamp, the one the dial starts on in the dial's color. */
+  private async draw(lamp: ReachedLamp, lamps: ReachedLamp[]): Promise<void> {
+    await draw(this.dial, lamp, lamps, lamp.id === this.owner.startOn() ? this.owner.startColor() : "default");
   }
 
   /** Switches the dial back to the main layout and lets it draw its main screen. */
@@ -350,10 +360,13 @@ function cellSlots(cell: LampScreenCell, shown: Shown | undefined) {
   };
 }
 
-/** Fills the slots of the lamp layout, each cell with what the global settings give it, and how (#177). */
-async function draw(dial: LampScreenDial, lamp: ReachedLamp, lamps: ReachedLamp[]): Promise<void> {
+/**
+ * Fills the slots of the lamp layout, each cell with what the global settings give it, and how (#177), with the Primary
+ * style in the color given, unless it's "default".
+ */
+async function draw(dial: LampScreenDial, lamp: ReachedLamp, lamps: ReachedLamp[], color: StartColor): Promise<void> {
   const cells = globalSettings.lampScreenCells;
-  const styles = textStylesOf(globalSettings.textStyles);
+  const styles = withPrimaryIn(textStylesOf(globalSettings.textStyles), color);
   await dial.setFeedback(
     Object.assign({}, ...LAMP_SCREEN_CELLS.map((cell) => cellSlots(cell, shownIn(cells[cell], lamp, lamps, styles)))),
   );
