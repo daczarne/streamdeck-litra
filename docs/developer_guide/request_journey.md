@@ -37,7 +37,7 @@ Deck key ─► Stream Deck app ─► WebSocket ─► SDK ─► SetBrightness
 1. Stream Deck sends `keyDown`. Of the 10 `keyDown` listeners [start-up registered][start-up-register], the Set Brightness action's matches the `manifestId`, and calls `SetBrightnessAction.onKeyDown` ([action-instance.ts][action-instance-keydown]).
 2. `take(ev)` finds the key's `PresetKey` by its id. It reads the settings again only if their JSON changed since the last time.
 3. [`PresetKey.keyDown`][preset-key-down] works out the key's lamps with [`globalSettings.actionKeyLamps`][action-key-lamps]: `"all"` for a key that never saved a list, or `{ except: [] }` for one that checked all 4 and takes in lamps added later. Either way it covers all 4.
-4. It asks [`globalSettings.turnsLampsOn`][turns-lamps-on] whether Set Brightness keys turn their lamps on, which is checked here, logs `Key pressed: preset 100%, on every lamp, turning lamps on`, and awaits `setLampsBrightness(lamps, 100, true)`.
+4. It asks [`globalSettings.turnsLampsOn`][turns-lamps-on] whether this key turns its lamps on, by its id: Set Brightness keys do, as checked here, and this key didn't choose otherwise on its own page (#181). It logs `Key pressed: preset 100%, on every lamp, turning lamps on`, and awaits `setLampsBrightness(lamps, 100, true)`.
 
 ## 2. Queueing and waiting
 
