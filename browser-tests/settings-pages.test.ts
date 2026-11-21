@@ -2040,10 +2040,10 @@ describe("settings pages", () => {
       };
     }
 
-    it("shows the first group alone, with no heading, and Add a group, on a key with none added", async () => {
+    it("shows the first group alone, under its heading, and Add a new group, on a key with none added", async () => {
       const { page } = await openScene();
 
-      expect(await groupsOf(page)).toEqual({ firstHeading: false, firstPresets: true, groups: [], add: true });
+      expect(await groupsOf(page)).toEqual({ firstHeading: true, firstPresets: true, groups: [], add: true });
       expect(read("addedGroups", [])).toEqual({ value: defaultOf("addedGroups"), valid: true });
       await page.close();
     });
@@ -2089,7 +2089,7 @@ describe("settings pages", () => {
       const { page, uuid } = await openScene();
 
       const after = streamDeck.messages.length;
-      await clickInGroups(page, "Add a group");
+      await clickInGroups(page, "Add a new group");
       const saved = await nextGroups(uuid, after);
 
       expect(saved).toEqual([NEW_GROUP]);
@@ -2289,7 +2289,7 @@ describe("settings pages", () => {
       await page.close();
     });
 
-    it("removes a group, renumbers the ones after it, and frees its lamps in the first group's picker", async () => {
+    it("removes a group, renumbers the ones after it, frees its lamps in the first group's picker, and keeps its heading", async () => {
       const { page, uuid } = await openScene({
         addedGroups: [
           { ...NEW_GROUP, lamps: [savedLamp(FIRST)] },
@@ -2304,12 +2304,16 @@ describe("settings pages", () => {
 
       expect(saved).toEqual([{ ...NEW_GROUP, lamps: [savedLamp(SECOND)] }]);
       expect(await groupsOf(page)).toMatchObject({
+        firstHeading: true,
         groups: [{ heading: "Group 2", lamps: [{ checked: false }, { checked: true }] }],
       });
       expect(await pickerRowsOf(page)).toEqual([
         { label: FIRST.label, checked: true, disabled: false, note: null },
         { label: SECOND.label, checked: false, disabled: true, note: "in group 2" },
       ]);
+
+      await clickInGroups(page, "Remove group 2");
+      expect(await groupsOf(page)).toMatchObject({ firstHeading: true, groups: [] });
       await page.close();
     });
   });
@@ -3324,7 +3328,7 @@ function groupsOf(
       firstPresets: usable([...document.querySelectorAll(".first-group-preset")]),
       groups,
       add: [...document.querySelectorAll("#added-groups > sdpi-item sdpi-button")].some(
-        (button) => button.textContent === "Add a group"),
+        (button) => button.textContent === "Add a new group"),
     };
   })()`);
 }
