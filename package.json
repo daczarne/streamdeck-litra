@@ -67,7 +67,7 @@
     "vitest": "5.1.0"
   },
   "dependencies": {
-    "@daczarne/streamdeck-icons": "github:daczarne/streamdeck-icons#fba6c064763485ec839e56bfc08b99ac75abda7b",
+    "@daczarne/streamdeck-icons": "github:daczarne/streamdeck-icons#e7dd653df8387ccf0b41263b5316d7e08dfb8463",
     "@elgato/streamdeck": "3.0.4",
     "@elgato/utils": "0.6.2",
     "litra": "4.5.1"
