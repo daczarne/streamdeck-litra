@@ -26,6 +26,11 @@
     <!-- The plugin's own settings, the same on every page, which plugin-settings.js shows in place of the action's
       (#146). -->
     <div id="plugin-settings"></div>
+    <!-- Whether the key takes in lamps added later, for the whole scene, which plugin-settings.js shows and saves
+      (#147), and each group's radio button, which scene-groups.js draws, says which group they go to (#279). -->
+    <sdpi-item label="New lamps">
+      <div id="key-new-lamps"></div>
+    </sdpi-item>
     <!-- The scene's first group, the key's own settings (#174): whether it turns its lamps on or off, and the presets
       it turns them on at, the same as the Set Temperature and Set Brightness keys', on one row. While it turns them
       off, scene-groups.js greys out its presets, which then show a dash, and shows the note under the row's controls.
@@ -58,11 +63,11 @@
         Temperature and Brightness aren't applied while Power is off
       </p>
     </div>
-    <!-- The lamps the key acts on, which lamp-picker.js lists and saves (#20), and whether lamps added later
-      join them, which plugin-settings.js shows and saves (#147). -->
+    <!-- The lamps the first group acts on, which lamp-picker.js lists and saves (#20), and its radio button for
+      whether the lamps added later join it, which scene-groups.js draws and saves (#279). -->
     <sdpi-item label="Lamps">
       <div id="lamp-picker"></div>
-      <div id="key-new-lamps"></div>
+      <div id="first-group-new-lamps"></div>
     </sdpi-item>
     <!-- The groups added after the first, and the button that adds one, which scene-groups.js draws and saves. -->
     <div id="added-groups"></div>

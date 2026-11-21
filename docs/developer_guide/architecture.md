@@ -139,7 +139,7 @@ Every operation leaves out the connected lamps that aren't among them, so a sele
 
 The lamp manager keeps no list of the lamps connected. Every operation finds them again, opens each one the plugin knows that it acts on, lends its connection to its `Lamp` for the operation, and closes them, so a lamp that was unplugged is simply not found, and one plugged in again is, without any code for either. Finding the lamps is a call inside the plugin's process, not a new process, so doing it on every operation costs little. It also tells which lamps are connected (see [Whether a lamp is connected](#whether-a-lamp-is-connected)).
 
-An operation can be given the lamps to act on, by their ids, which a key's settings can hold, and an exported profile carry, without revealing the serial ([#20]). A lamp screen gives its lamp the same way. Or it can be given the lamps to leave out, which is how a key takes in lamps added later: every lamp found but those ([#147]). A scene is given one selection for each of its groups, and each lamp found takes the part of the first group that selects it ([#174]). It then closes the others unused, and logs a selected lamp it doesn't find, or that every lamp found is left out.
+An operation can be given the lamps to act on, by their ids, which a key's settings can hold, and an exported profile carry, without revealing the serial ([#20]). A lamp screen gives its lamp the same way. Or it can be given the lamps to leave out, which is how a key takes in lamps added later: every lamp found but those ([#147]). A Scene key's group that takes them, other than the first, is given every lamp but the ones the first group listed, checked or left out, and the other groups hold ([#279]). A scene is given one selection for each of its groups, and each lamp found takes the part of the first group that selects it ([#174]). It then closes the others unused, and logs a selected lamp it doesn't find, or that every lamp found is left out.
 
 `litra` finds the lamps in an order that changes from one call to the next, so every operation goes through them in the order of their ids, as the settings pages list the lamps. That order is `Lamp.byId`, which the lamp screens step through the lamps in too, one tap after the other, so a tap never shows the lamps in another order than the plugin settings. A tap finds the lamps too, so it never shows a lamp unplugged since the last operation.
 
@@ -214,6 +214,7 @@ By default, the lamp manager steps the value the dial shows, the brightest lamp'
 [#57]: https://github.com/daczarne/streamdeck-litra/issues/57
 [#96]: https://github.com/daczarne/streamdeck-litra/issues/96
 [#278]: https://github.com/daczarne/streamdeck-litra/issues/278
+[#279]: https://github.com/daczarne/streamdeck-litra/issues/279
 [actions]: ../elgato_sdk/actions.md
 [contributing]: ../contributing.md
 [keys]: ../elgato_sdk/keys.md

@@ -296,7 +296,8 @@ export const temperatureStepSettingsSchema = {
 // a scene saved before groups had them, and picks its lamps as every key does, lamps added later included. Each group
 // added after it is saved with its power, its presets and the lamps checked for it, read against
 // sceneGroupSettingsSchema, and a lamp it checks leaves the first group. A group turns its lamps on by default, as
-// every scene did.
+// every scene did. A key that adds new lamps adds them to the first group, unless a group added after it takes them
+// (#279), which the first of them to say so does, so a scene saved before it could choose adds them as it did.
 const scenePower = oneOf(["on", "off"], "on");
 
 export const sceneSettingsSchema = {
@@ -313,6 +314,7 @@ export const sceneGroupSettingsSchema = {
   presetPercentage: brightnessSettingsSchema.presetPercentage,
   presetKelvin: temperatureSettingsSchema.presetKelvin,
   lamps: lampList(),
+  newLamps: flag(false),
 };
 
 // What a lamp screen can show in each of its cells (#177): the lamp's model and the end of its id, its place

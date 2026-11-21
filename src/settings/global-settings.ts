@@ -182,7 +182,7 @@ export class GlobalSettings {
    * Whether a key takes in lamps added later (#147): the plugin's setting, or the opposite for a key that chose
    * otherwise.
    */
-  private addsNewLamps(keyId: string): boolean {
+  addsNewLamps(keyId: string): boolean {
     return this.parsed.addNewLamps !== this.parsed.addNewLampsExceptions.includes(keyId);
   }
 

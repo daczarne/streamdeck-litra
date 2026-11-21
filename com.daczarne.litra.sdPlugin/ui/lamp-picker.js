@@ -10,8 +10,11 @@
 // group holds it (scene-groups.js, #174), while the key keeps what it saved for it, which applies again once no group
 // holds it. All is then greyed out too, since it means every lamp the plugin knows, which the first group no longer can
 // have. The lamps the key acts on, its scene's first group, are told to scene-groups.js, through an event on the
-// document. `lamps` is "all" for a key saved before lamps could be picked, or never saved, which acts on every lamp. A
-// file rather than an inline script, so the pages' Content-Security-Policy doesn't have to allow inline scripts.
+// document, and so are the lamps it hasn't listed yet, which a Scene key that adds new lamps adds to the group whose
+// radio button scene-groups.js shows chosen (#279): the first, as every key adds them, or another, which holds them
+// then, so the first group leaves them unlisted as it saves, and lists one as left out once that group unchecks it.
+// `lamps` is "all" for a key saved before lamps could be picked, or never saved, which acts on every lamp. A file
+// rather than an inline script, so the pages' Content-Security-Policy doesn't have to allow inline scripts.
 //
 // Its styles are in settings.css, with every page's (#247).
 (() => {
@@ -24,8 +27,10 @@
   // What the key has saved: "all", or the ids of the lamps checked, and of the lamps left out.
   let saved = "all";
   let leftOut = [];
-  // Whether the key takes in lamps added later, as plugin-settings.js says, which every key does by default.
+  // Whether the key takes in lamps added later, as plugin-settings.js says, which every key does by default, and the
+  // number of the scene group they go to, as scene-groups.js says, the first on every other key.
   let addsNew = true;
+  let newLampsGroup = 1;
   // The lamps the plugin knows, by id, from its global settings, or undefined until they're read.
   let known;
   // The number of the scene group that holds each lamp, by lamp id, on a Scene key's page.
@@ -111,7 +116,17 @@
     if (saved === "all" || saved.includes(lamp.id)) {
       return true;
     }
-    return !leftOut.includes(lamp.id) && addsNew;
+    return !leftOut.includes(lamp.id) && addsNew && newLampsGroup === 1;
+  }
+
+  /** Whether the key hasn't listed a lamp yet, checked or left out, which a key saved before it picked lamps has. */
+  function isUnlisted(lamp) {
+    return saved !== "all" && !saved.includes(lamp.id) && !leftOut.includes(lamp.id);
+  }
+
+  /** Whether a lamp the key hasn't listed yet goes to a scene group other than the first, which holds it then. */
+  function goesElsewhere(lamp) {
+    return isUnlisted(lamp) && addsNew && newLampsGroup !== 1;
   }
 
   /**
@@ -119,7 +134,7 @@
    * as they were saved, and shows them.
    */
   function store(checked) {
-    const lamps = listed();
+    const lamps = listed().filter((lamp) => !goesElsewhere(lamp));
     const unknown = (ids) => ids.filter((id) => known?.[id] === undefined);
     saved = [...lamps.filter(checked).map(({ id }) => id), ...unknown(saved === "all" ? [] : saved)];
     leftOut = [...lamps.filter((lamp) => !checked(lamp)).map(({ id }) => id), ...unknown(leftOut)];
@@ -192,9 +207,13 @@
     const free = (lamp) => held[lamp.id] === undefined;
     const someHeld = !lamps.every(free);
     rows.push(checkbox("All", !someHeld && lamps.every(isChecked), (value) => store(() => value), someHeld));
+    picker.replaceChildren(...rows);
+    // Told once the picker is drawn, since scene-groups.js may answer at once with the lamps the groups hold, which
+    // draws the picker again.
     const own = lamps.filter((lamp) => free(lamp) && isChecked(lamp)).map(({ id }) => id);
     document.dispatchEvent(new CustomEvent("litra:first-group-lamps", { detail: own }));
-    picker.replaceChildren(...rows);
+    const unlisted = lamps.filter(isUnlisted).map(({ id }) => id);
+    document.dispatchEvent(new CustomEvent("litra:unlisted-lamps", { detail: unlisted }));
   }
 
   // Listened for from the start, since scene-groups.js may tell it before this page knows it's a key's. Lamps held as
@@ -211,6 +230,24 @@
   document.addEventListener("litra:adds-new-lamps", (event) => {
     addsNew = event.detail;
     render();
+  });
+
+  // Listened for from the start, since scene-groups.js tells it as it draws the groups.
+  document.addEventListener("litra:new-lamps-group", (event) => {
+    if (event.detail !== newLampsGroup) {
+      newLampsGroup = event.detail;
+      render();
+    }
+  });
+
+  // A lamp the key hasn't listed yet, unchecked in the scene group that took it, is left out, as one unchecked here is.
+  document.addEventListener("litra:leave-out", (event) => {
+    if (leftOut.includes(event.detail)) {
+      return;
+    }
+    leftOut = [...leftOut, event.detail];
+    render();
+    saveLeftOut(leftOut).catch((error) => console.error("Can't save the lamps left out", error));
   });
 
   (async () => {
