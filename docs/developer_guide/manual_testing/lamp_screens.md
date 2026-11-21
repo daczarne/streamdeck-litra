@@ -9,6 +9,7 @@ Tapping a Brightness or Temperature dial's part of the touch strip shows one scr
 ## When to run these checks
 
 - After a change to the lamp screens, to their layout in `layouts/lamp.json`, to how the plugin reads the lamps or picks the ones an operation acts on, to the order it goes through them in, or to the plugin's global settings.
+- After an update of `@daczarne/streamdeck-icons` that changes its `src/`, whose glyphs the dials' icons are drawn from.
 - After a Stream Deck update.
 
 ## Setup

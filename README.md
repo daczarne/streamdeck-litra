@@ -149,7 +149,7 @@ How a release is made, from the version to publishing it, is in [`docs/developer
 
 The plugin's images are drawn by code, from the glyphs of [`streamdeck-icons`][streamdeck-icons], a dependency pinned to a commit. That repository also holds the palette, and the Litra icon pack, which adds these icons and variants of them to Stream Deck's Icon Library. `scripts/generate-icons.mjs` decides which glyph goes where, and renders each to the PNG sizes Stream Deck needs, while the lamp screens draw the thermometer and the sun at runtime, in their cell's text color. The key images are drawn at the icon pack's sizes, leaving room for a title, while the dials' icons on the touch strip fill their canvas. The script also draws the icons of this README's actions table, in `docs/images/actions/`, outside the plugin folder: each action's glyph as its keys and dials show it, once for GitHub's dark theme and once for its light one, which the table picks between with `#gh-dark-mode-only` and `#gh-light-mode-only`, so no theme shows a white icon on a white page.
 
-To take a change to the glyphs, update the commit the dependency is pinned to, run `npm run icons`, and commit the regenerated images with it. CI regenerates them too, and fails when the committed images aren't what the script draws.
+The pin is kept at the newest commit of that repository's `main` (see the "Dependencies" section of the [contributing guide][contributing]). To move it, update the commit the dependency is pinned to, run `npm run icons`, and commit the regenerated images with it. CI regenerates them too, and fails when the committed images aren't what the script draws.
 
 ## Settings pages
 
