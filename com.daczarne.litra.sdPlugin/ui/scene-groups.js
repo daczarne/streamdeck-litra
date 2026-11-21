@@ -11,7 +11,12 @@
 // takes it. The lamps, with their names, come from the plugin's global settings, where the plugin saves them. Only
 // adding or removing a group, or groups that arrive changed, draw the groups again: a change to a group saves it in
 // place, and a lamp checked or unchecked draws the lamp lists alone, since a page drawn again scrolls while its new
-// controls are drawn. A file rather than an inline script, so the pages' Content-Security-Policy doesn't have to allow
+// controls are drawn. Each group, the first included, has a radio button that says it's the one a key that adds new
+// lamps adds them to (#279), greyed out while the key doesn't, and saved as `newLamps` on each group added after the
+// first, none of which says so while the first takes them, as it does by default, and once the group that took them is
+// removed. A group other than the first that takes them holds the lamps the first group hasn't listed yet, as the
+// plugin takes it: they show checked there, and greyed out elsewhere, and unchecking one leaves it out, as unchecking
+// it in the first group would. A file rather than an inline script, so the pages' Content-Security-Policy doesn't have to allow
 // inline scripts.
 (() => {
   const container = document.getElementById("added-groups");
@@ -20,7 +25,7 @@
   }
 
   // A group as it's added: on, at the presets' defaults, as a new key's are, with no lamps.
-  const NEW_GROUP = { power: "on", presetPercentage: 0, presetKelvin: 2700, lamps: [] };
+  const NEW_GROUP = { power: "on", presetPercentage: 0, presetKelvin: 2700, lamps: [], newLamps: false };
 
   // The groups added after the first, as saved.
   let groups = [];
@@ -28,8 +33,13 @@
   let known;
   // Each group's list of lamps, as last drawn, by the group's place.
   let lampLists = [];
-  // The ids of the lamps the first group holds, as its lamp picker shows them.
+  // The ids of the lamps the first group holds, as its lamp picker shows them, and of the ones it hasn't listed yet.
   let firstGroupLamps = [];
+  let unlisted = [];
+  // Whether the key takes in lamps added later, as plugin-settings.js says, which every key does by default.
+  let addsNew = true;
+  // Each group's radio button for whether it takes the lamps added later, by the group's number.
+  let radios = [];
 
   // The first group's presets, greyed out with the note under them while it turns its lamps off.
   const power = document.getElementById("power");
@@ -77,7 +87,17 @@
         presetPercentage: number(group.presetPercentage, 0, 100, NEW_GROUP.presetPercentage),
         presetKelvin: number(group.presetKelvin, 2700, 6500, NEW_GROUP.presetKelvin),
         lamps: Array.isArray(group.lamps) ? group.lamps.filter((id) => typeof id === "string") : [],
+        newLamps: group.newLamps === true,
       }));
+  }
+
+  /**
+   * The number of the group the lamps added later go to: the first added group that says it takes them, as the plugin
+   * takes it, or else the first group.
+   */
+  function newLampsGroup() {
+    const index = groups.findIndex((group) => group.newLamps);
+    return index === -1 ? 1 : index + 2;
   }
 
   /**
@@ -117,16 +137,23 @@
         held[id] ??= index + 2;
       }
     });
+    const taker = newLampsGroup();
+    if (addsNew && taker !== 1) {
+      for (const id of unlisted) {
+        held[id] ??= taker;
+      }
+    }
     return held;
   }
 
   /** Groups as the key saves them: every setting written out, and the ids of their lamps. */
   function asSaved(list) {
-    return list.map(({ power: groupPower, presetPercentage, presetKelvin, lamps }) => ({
+    return list.map(({ power: groupPower, presetPercentage, presetKelvin, lamps, newLamps }) => ({
       power: groupPower,
       presetPercentage,
       presetKelvin,
       lamps: [...lamps],
+      newLamps,
     }));
   }
 
@@ -222,6 +249,12 @@
         "sdpi-checkbox",
         lamp.heldBy === number,
         (checked) => {
+          // A lamp the group holds as one the first group hasn't listed yet is left out there, so the group no longer
+          // takes it.
+          if (!checked && !group.lamps.includes(lamp.id)) {
+            document.dispatchEvent(new CustomEvent("litra:leave-out", { detail: lamp.id }));
+            return;
+          }
           group.lamps = checked ? [...group.lamps, lamp.id] : group.lamps.filter((id) => id !== lamp.id);
           save();
           renderLamps();
@@ -244,7 +277,10 @@
     return lamps.length === 0 ? [note("No lamps found")] : lamps.map((lamp) => lampRow(group, number, lamp));
   }
 
-  /** Draws every group's lamps again, and tells the lamp picker of the lamps the groups hold. */
+  /**
+   * Draws every group's lamps again, and tells the lamp picker of the lamps the groups hold, and of the group the lamps
+   * added later go to.
+   */
   function renderLamps() {
     lampLists.forEach((list, index) => {
       const group = groups[index];
@@ -252,7 +288,51 @@
         list.replaceChildren(...lampRows(group, index + 2));
       }
     });
+    tellPicker();
+  }
+
+  /** Tells the lamp picker of the group the lamps added later go to, and of the lamps the groups hold. */
+  function tellPicker() {
+    document.dispatchEvent(new CustomEvent("litra:new-lamps-group", { detail: newLampsGroup() }));
     document.dispatchEvent(new CustomEvent("litra:held-lamps", { detail: holders() }));
+  }
+
+  /**
+   * A group's radio button for whether it takes the lamps added later: a radio from sdpi-components with that option
+   * alone, which saves nothing itself, chosen for one group at a time, and greyed out while the key adds no new lamps.
+   * It also reports the values this script gives it, which are left out, so only a choice moves the lamps added later.
+   */
+  function newLampsRadio(number) {
+    const radio = document.createElement("sdpi-radio");
+    const option = document.createElement("option");
+    option.value = "takes";
+    option.textContent = "Add new lamps to this group";
+    radio.append(option);
+    radio.addEventListener("valuechange", () => {
+      if (radio.value !== "takes" || newLampsGroup() === number) {
+        return;
+      }
+      groups.forEach((group, index) => {
+        group.newLamps = index + 2 === number;
+      });
+      save();
+      showRadios();
+      renderLamps();
+    });
+    radios[number] = radio;
+    return radio;
+  }
+
+  /**
+   * Shows each group's radio button: the one of the group the lamps added later go to chosen, and all greyed out while
+   * the key adds no new lamps.
+   */
+  function showRadios() {
+    const taker = newLampsGroup();
+    radios.forEach((radio, number) => {
+      radio.disabled = !addsNew;
+      radio.value = number === taker ? "takes" : undefined;
+    });
   }
 
   /** A group's heading and controls, numbered after the first group, with a button that removes it. */
@@ -301,7 +381,7 @@
     view.append(
       heading,
       row,
-      item("Lamps", list),
+      item("Lamps", list, newLampsRadio(number)),
       item(
         undefined,
         button(`Remove group ${number}`, () => {
@@ -317,6 +397,7 @@
   /** Draws the groups added after the first, and tells the lamp picker of the lamps they hold. */
   function render() {
     lampLists = [];
+    radios = radios.slice(0, 2);
     container.replaceChildren(
       ...groups.map(groupView),
       item(
@@ -328,7 +409,8 @@
         }),
       ),
     );
-    document.dispatchEvent(new CustomEvent("litra:held-lamps", { detail: holders() }));
+    showRadios();
+    tellPicker();
   }
 
   (async () => {
@@ -339,6 +421,18 @@
         renderLamps();
       }
     });
+    document.addEventListener("litra:unlisted-lamps", (event) => {
+      if (JSON.stringify(event.detail) !== JSON.stringify(unlisted)) {
+        unlisted = event.detail;
+        renderLamps();
+      }
+    });
+    document.addEventListener("litra:adds-new-lamps", (event) => {
+      addsNew = event.detail;
+      showRadios();
+      renderLamps();
+    });
+    document.getElementById("first-group-new-lamps")?.append(newLampsRadio(1));
     render();
     [groups, known] = await Promise.all([readGroups().then(validGroups), readKnown().then(validKnown)]);
     render();

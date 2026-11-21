@@ -34,8 +34,10 @@ function readScene(settings: JsonObject): SceneConfig {
 /**
  * A Scene key: sets its lamps to its scene, in one press (#86). A scene is made of groups, each of which turns its
  * lamps off, or on at its own brightness and temperature (#174). The first group takes the lamps the key picks, but
- * the ones the groups added after it check. It shows only its image, and the dials and Power keys follow the lamps
- * through the lamp manager's notice.
+ * the ones the groups added after it check. A key that adds new lamps adds them to the group that takes them (#279):
+ * the first, as every key adds them, or one added after it, which then takes, besides its own, every lamp the first
+ * group's list never saved, checked or left out, and that no other group checks. It shows only its image, and the
+ * dials and Power keys follow the lamps through the lamp manager's notice.
  */
 class SceneKey extends ActionInstance<SceneConfig, KeyAction<JsonObject>> {
   /** Takes the key and its settings. */
@@ -47,9 +49,16 @@ class SceneKey extends ActionInstance<SceneConfig, KeyAction<JsonObject>> {
   override async keyDown(): Promise<void> {
     const { first, added } = this.config;
     const taken = added.flatMap((group) => group.lamps);
+    const taker = added.findIndex((group) => group.newLamps);
+    const firstLamps = taker === -1 ? globalSettings.actionKeyLamps(this.control.id, first) : first.lamps;
+    // A first group saved before lamps could be picked holds every lamp, so none is new to it.
+    const listed = first.lamps === "all" ? undefined : [...first.lamps, ...first.leftOutLamps, ...taken];
+    const addsNew = listed !== undefined && globalSettings.addsNewLamps(this.control.id);
     const groups = [
-      sceneGroup({ ...first, lamps: without(globalSettings.actionKeyLamps(this.control.id, first), taken) }),
-      ...added.map(sceneGroup),
+      sceneGroup({ ...first, lamps: without(firstLamps, taken) }),
+      ...added.map((group, index) =>
+        sceneGroup(index === taker && addsNew ? { ...group, lamps: withNewLamps(group.lamps, listed) } : group),
+      ),
     ];
     logger.info(`Key pressed: scene ${groups.map(describeGroup).join("; ")}`);
     const result = await setLampsScene(groups);
@@ -86,6 +95,14 @@ function without(lamps: KeyLampSelection, ids: readonly string[]): KeyLampSelect
     return { except: [...new Set([...lamps.except, ...ids])] };
   }
   return lamps.filter((id) => !ids.includes(id));
+}
+
+/**
+ * A group's lamps with the lamps added later: every lamp but the ones listed elsewhere, among which the group's own
+ * aren't, so they're its, and a lamp added later too.
+ */
+function withNewLamps(own: readonly string[], listed: readonly string[]): KeyLampSelection {
+  return { except: [...new Set(listed.filter((id) => !own.includes(id)))] };
 }
 
 /** A group as the log line tells it: what it sets its lamps to, and which lamps. */

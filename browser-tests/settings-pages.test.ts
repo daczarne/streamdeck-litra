@@ -1999,7 +1999,7 @@ describe("settings pages", () => {
 
   describe("the scene's groups (#174)", () => {
     const SCENE = PANELS.find((panel) => panel.page === "ui/scene.html") as Panel;
-    const NEW_GROUP = { power: "on", presetPercentage: 0, presetKelvin: 2700, lamps: [] };
+    const NEW_GROUP = { power: "on", presetPercentage: 0, presetKelvin: 2700, lamps: [], newLamps: false };
     // A first group that holds none of the lamps, which leaves them free for the groups added after it.
     const FIRST_HOLDS_NONE = { lamps: [], leftOutLamps: [savedLamp(FIRST), savedLamp(SECOND)] };
 
@@ -2094,10 +2094,16 @@ describe("settings pages", () => {
 
       expect(saved).toEqual([NEW_GROUP]);
       expect(readGroup(at(saved, 0))).toEqual({
-        value: { power: "on", presetPercentage: 0, presetKelvin: 2700, lamps: [] },
+        value: { power: "on", presetPercentage: 0, presetKelvin: 2700, lamps: [], newLamps: false },
         valid: true,
       });
-      expect(Object.values(sceneGroupSettingsSchema).map((setting) => setting.default)).toEqual(["on", 0, 2700, []]);
+      expect(Object.values(sceneGroupSettingsSchema).map((setting) => setting.default)).toEqual([
+        "on",
+        0,
+        2700,
+        [],
+        false,
+      ]);
       expect(await groupsOf(page)).toMatchObject({
         firstHeading: true,
         groups: [{ heading: "Group 2", power: "on", presets: true, remove: "Remove group 2" }],
@@ -2315,6 +2321,160 @@ describe("settings pages", () => {
       await clickInGroups(page, "Remove group 2");
       expect(await groupsOf(page)).toMatchObject({ firstHeading: true, groups: [] });
       await page.close();
+    });
+
+    describe("the group new lamps go to (#279)", () => {
+      // A first group that has listed the first lamp alone, so the second is one it hasn't listed yet, a new lamp.
+      const SECOND_NEW = { lamps: [savedLamp(FIRST)], leftOutLamps: [] };
+
+      /** Each group's radio button for whether new lamps go to it, the first group's first: chosen, greyed out. */
+      function radiosOf(page: Page): Promise<{ chosen: boolean; disabled: boolean; label: string | null }[]> {
+        return page.evaluate(`[
+          document.querySelector("#first-group-new-lamps sdpi-radio"),
+          ...document.querySelectorAll("#added-groups .group sdpi-radio"),
+        ].map((radio) => ({
+          chosen: radio.value === "takes",
+          disabled: radio.disabled === true,
+          label: radio.querySelector("option")?.textContent ?? null,
+        }))`);
+      }
+
+      /** Chooses a group's radio button, by the group's number, as the user would: on the input inside it. */
+      async function chooseRadio(page: Page, group: number): Promise<void> {
+        const radio = `[
+          document.querySelector("#first-group-new-lamps sdpi-radio"),
+          ...document.querySelectorAll("#added-groups .group sdpi-radio"),
+        ][${group - 1}]`;
+        await expect.poll(() => page.evaluate(`${radio}.shadowRoot?.querySelector("input") !== null`)).toBe(true);
+        await page.evaluate(`${radio}.shadowRoot.querySelector("input").click()`);
+      }
+
+      /** The last value the page saved of one of the key's settings since the `after`th message. */
+      async function lastSaved(uuid: string, after: number, setting: string): Promise<unknown> {
+        const saves = () =>
+          streamDeck.messages
+            .slice(after)
+            .filter((m) => m.event === "setSettings" && m.context === uuid && m.payload?.[setting] !== undefined);
+        await expect.poll(() => saves().length).toBeGreaterThanOrEqual(1);
+        return at(saves(), -1).payload?.[setting];
+      }
+
+      it("shows the key's New lamps above Group 1, and a radio button in each group, the first chosen", async () => {
+        const { page } = await openScene({ addedGroups: [NEW_GROUP] });
+        await expect.poll(() => radiosOf(page)).toHaveLength(2);
+
+        expect(await radiosOf(page)).toEqual([
+          { chosen: true, disabled: false, label: "Add new lamps to this group" },
+          { chosen: false, disabled: false, label: "Add new lamps to this group" },
+        ]);
+        expect(await keyNewLampsOf(page)).toMatchObject({ shown: true, checked: true });
+        const above = await page.evaluate(`!!(document.getElementById("key-new-lamps").compareDocumentPosition(
+          document.getElementById("first-group-heading")) & Node.DOCUMENT_POSITION_FOLLOWING)`);
+        expect(above).toBe(true);
+        await page.close();
+      });
+
+      it("shows the first group's radio button chosen on a key with no group added", async () => {
+        const { page } = await openScene();
+
+        await expect
+          .poll(() => radiosOf(page))
+          .toEqual([{ chosen: true, disabled: false, label: "Add new lamps to this group" }]);
+        await page.close();
+      });
+
+      it("moves the new lamps to the group chosen, saves it, and greys them out in the first group", async () => {
+        const { page, uuid } = await openScene({ ...SECOND_NEW, addedGroups: [NEW_GROUP] });
+        await expect.poll(() => pickerRowsOf(page)).toMatchObject([{ checked: true }, { checked: true }]);
+
+        const after = streamDeck.messages.length;
+        await chooseRadio(page, 2);
+        const saved = await nextGroups(uuid, after);
+
+        expect(saved).toEqual([{ ...NEW_GROUP, newLamps: true }]);
+        expect(readGroup(at(saved, 0))).toEqual({ value: { ...NEW_GROUP, newLamps: true }, valid: true });
+        expect(await radiosOf(page)).toMatchObject([{ chosen: false }, { chosen: true }]);
+        await expect
+          .poll(() => pickerRowsOf(page))
+          .toEqual([
+            { label: FIRST.label, checked: true, disabled: false, note: null },
+            { label: SECOND.label, checked: false, disabled: true, note: "in group 2" },
+          ]);
+        expect((await groupsOf(page)).groups[0]?.lamps).toEqual([
+          { label: FIRST.label, checked: false, disabled: true, note: "in group 1" },
+          { label: SECOND.label, checked: true, disabled: false, note: null },
+        ]);
+
+        const back = streamDeck.messages.length;
+        await chooseRadio(page, 1);
+        expect(await nextGroups(uuid, back)).toEqual([NEW_GROUP]);
+        await expect.poll(() => pickerRowsOf(page)).toMatchObject([{ checked: true }, { checked: true, note: null }]);
+        await page.close();
+      });
+
+      it("leaves the new lamps the group takes out of what the first group saves", async () => {
+        const { page, uuid } = await openScene({ ...SECOND_NEW, addedGroups: [{ ...NEW_GROUP, newLamps: true }] });
+        await expect.poll(() => pickerRowsOf(page)).toMatchObject([{ checked: true }, { note: "in group 2" }]);
+
+        const after = streamDeck.messages.length;
+        await clickInPicker(page, FIRST.label);
+
+        expect(await lastSaved(uuid, after, "lamps")).toEqual([]);
+        expect(await lastSaved(uuid, after, "leftOutLamps")).toEqual([savedLamp(FIRST)]);
+        await page.close();
+      });
+
+      it("leaves out a new lamp unchecked in the group that takes it, which frees it in every group", async () => {
+        const { page, uuid } = await openScene({ ...SECOND_NEW, addedGroups: [{ ...NEW_GROUP, newLamps: true }] });
+        await expect.poll(async () => (await groupsOf(page)).groups[0]?.lamps[1]).toMatchObject({ checked: true });
+
+        const after = streamDeck.messages.length;
+        await clickInGroups(page, SECOND.label, 2);
+
+        expect(await lastSaved(uuid, after, "leftOutLamps")).toEqual([savedLamp(SECOND)]);
+        await expect
+          .poll(async () => (await groupsOf(page)).groups[0]?.lamps[1])
+          .toEqual({ label: SECOND.label, checked: false, disabled: false, note: null });
+        expect(at(await pickerRowsOf(page), 1)).toEqual({
+          label: SECOND.label,
+          checked: false,
+          disabled: false,
+          note: null,
+        });
+        await page.close();
+      });
+
+      it("gives the new lamps back to the first group once the group that takes them is removed", async () => {
+        const { page, uuid } = await openScene({ ...SECOND_NEW, addedGroups: [{ ...NEW_GROUP, newLamps: true }] });
+        await expect.poll(() => radiosOf(page)).toMatchObject([{ chosen: false }, { chosen: true }]);
+
+        const after = streamDeck.messages.length;
+        await clickInGroups(page, "Remove group 2");
+
+        expect(await nextGroups(uuid, after)).toEqual([]);
+        expect(await radiosOf(page)).toMatchObject([{ chosen: true }]);
+        await expect.poll(() => pickerRowsOf(page)).toMatchObject([{ checked: true }, { checked: true, note: null }]);
+        await page.close();
+      });
+
+      it("greys out every radio button while the key adds no new lamps, which then go to no group", async () => {
+        const { page } = await openScene({ ...SECOND_NEW, addedGroups: [{ ...NEW_GROUP, newLamps: true }] });
+        await expect.poll(() => radiosOf(page)).toMatchObject([{ disabled: false }, { disabled: false }]);
+
+        await clickKeyNewLamps(page);
+
+        await expect
+          .poll(() => radiosOf(page))
+          .toMatchObject([
+            { chosen: false, disabled: true },
+            { chosen: true, disabled: true },
+          ]);
+        await expect
+          .poll(async () => (await groupsOf(page)).groups[0]?.lamps[1])
+          .toEqual({ label: SECOND.label, checked: false, disabled: false, note: null });
+        expect(at(await pickerRowsOf(page), 1)).toMatchObject({ checked: false, disabled: false, note: null });
+        await page.close();
+      });
     });
   });
 

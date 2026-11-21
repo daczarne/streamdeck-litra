@@ -177,6 +177,78 @@ describe("SceneAction", () => {
     });
   });
 
+  describe("with a group added after the first that takes new lamps (#279)", () => {
+    /** A key with three groups: the first with lamp-1, left out lamp-2 and lamp-3, held by the groups added after it. */
+    function keyWith(newLamps: [boolean, boolean]) {
+      return deck.key(SCENE, {
+        presetPercentage: 50,
+        presetKelvin: 5000,
+        lamps: ["lamp-1"],
+        leftOutLamps: ["lamp-2", "lamp-3"],
+        addedGroups: [
+          { presetPercentage: 30, presetKelvin: 3000, lamps: ["lamp-2"], newLamps: newLamps[0] },
+          { presetPercentage: 10, presetKelvin: 6500, lamps: ["lamp-3"], newLamps: newLamps[1] },
+        ],
+      });
+    }
+
+    it("adds the lamps the first group never listed to it, besides its own, and none to the first group", async () => {
+      const key = await keyWith([false, true]);
+      vi.mocked(setLampsScene).mockResolvedValue(SET);
+
+      await deck.press(key);
+
+      expect(setLampsScene).toHaveBeenCalledExactlyOnceWith([
+        onAt(["lamp-1"], 50, 5000),
+        onAt(["lamp-2"], 30, 3000),
+        onAt({ except: ["lamp-1", "lamp-2"] }, 10, 6500),
+      ]);
+    });
+
+    it("adds them to the first group that says so, in an edited profile where two do", async () => {
+      const key = await keyWith([true, true]);
+      vi.mocked(setLampsScene).mockResolvedValue(SET);
+
+      await deck.press(key);
+
+      expect(setLampsScene).toHaveBeenCalledExactlyOnceWith([
+        onAt(["lamp-1"], 50, 5000),
+        onAt({ except: ["lamp-1", "lamp-3"] }, 30, 3000),
+        onAt(["lamp-3"], 10, 6500),
+      ]);
+    });
+
+    it("adds them to no group on a key that adds no new lamps", async () => {
+      changeGlobalSettings({ addNewLamps: false });
+      const key = await keyWith([false, true]);
+      vi.mocked(setLampsScene).mockResolvedValue(SET);
+
+      await deck.press(key);
+
+      expect(setLampsScene).toHaveBeenCalledExactlyOnceWith([
+        onAt(["lamp-1"], 50, 5000),
+        onAt(["lamp-2"], 30, 3000),
+        onAt(["lamp-3"], 10, 6500),
+      ]);
+    });
+
+    it("adds none on a key saved before lamps could be picked, whose first group holds every lamp", async () => {
+      const key = await deck.key(SCENE, {
+        presetPercentage: 50,
+        presetKelvin: 5000,
+        addedGroups: [{ presetPercentage: 30, presetKelvin: 3000, lamps: ["lamp-2"], newLamps: true }],
+      });
+      vi.mocked(setLampsScene).mockResolvedValue(SET);
+
+      await deck.press(key);
+
+      expect(setLampsScene).toHaveBeenCalledExactlyOnceWith([
+        onAt({ except: ["lamp-2"] }, 50, 5000),
+        onAt(["lamp-2"], 30, 3000),
+      ]);
+    });
+  });
+
   it("shows only its image, without a title of its own", async () => {
     const key = await deck.key(SCENE, { presetPercentage: 100, presetKelvin: 6500 });
 

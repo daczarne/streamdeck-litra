@@ -574,6 +574,35 @@ describe("the Scene key", () => {
     ]);
   });
 
+  it("takes a lamp added later into the group added after the first that takes new lamps, and none into the first (#279)", async () => {
+    const [first, second, added] = [newLamp({ on: false }), newLamp({ on: false }), newLamp({ on: false })];
+    await plugIn(first, second);
+    const key = await deck.key(SCENE, {
+      presetPercentage: 100,
+      presetKelvin: 6500,
+      lamps: [Lamp.idOf(first.serialNumber)],
+      leftOutLamps: [],
+      addedGroups: [
+        {
+          power: "on",
+          presetPercentage: 10,
+          presetKelvin: 2700,
+          lamps: [Lamp.idOf(second.serialNumber)],
+          newLamps: true,
+        },
+      ],
+    });
+    await plugIn(first, second, added);
+
+    await deck.press(key);
+
+    expect([first, second, added].map((lamp) => [lamp.on, lamp.brightnessInLumen, lamp.temperatureInKelvin])).toEqual([
+      [true, LUMEN_AT_100, 6500],
+      [true, LUMEN_AT_10, 2700],
+      [true, LUMEN_AT_10, 2700],
+    ]);
+  });
+
   it("gives a lamp both groups check to the added group, on a key that adds no new lamps (#174)", async () => {
     await saveFromPage({ addNewLamps: false });
     const [first, second, added] = [newLamp({ on: false }), newLamp({ on: false }), newLamp({ on: false })];

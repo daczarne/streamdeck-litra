@@ -415,6 +415,11 @@ body.plugin-settings-open > :not(#plugin-settings) {
   margin-top: 8px;
 }
 
+/* Alone in its row, as on the Scene key's page, it lines up with the row's label (#279). */
+#key-new-lamps:first-child {
+  margin-top: 0;
+}
+
 /* The sections, by the reach of their settings, and the parts of a section with several settings. Outside
   sdpi-components' rows, so in its text color, written out. */
 #plugin-settings .section {
