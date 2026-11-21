@@ -316,13 +316,12 @@
 
   /** Draws the groups added after the first, and tells the lamp picker of the lamps they hold. */
   function render() {
-    document.getElementById("first-group-heading").hidden = groups.length === 0;
     lampLists = [];
     container.replaceChildren(
       ...groups.map(groupView),
       item(
         undefined,
-        button("Add a group", () => {
+        button("Add a new group", () => {
           groups.push({ ...NEW_GROUP, lamps: [] });
           save();
           render();
