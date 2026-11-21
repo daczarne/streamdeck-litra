@@ -9,6 +9,7 @@ Every settings page, on a key or a dial, has a Plugin settings button at its top
 ## When to run these checks
 
 - After a change to the plugin settings (`ui/plugin-settings.js`), to the lamp picker's names (`ui/lamp-picker.js`), to how the plugin finds, blinks or re-syncs the lamps, or to the lamps it knows ([#194]).
+- After an upgrade of `litra` or `node-hid`, which give the serial numbers the lamps' ids are hashes of.
 - After a Stream Deck update, or an update of the vendored sdpi-components.
 
 ## Setup

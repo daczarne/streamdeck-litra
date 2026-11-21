@@ -9,6 +9,7 @@ The unit tests check against emulated lamps how a toggle chooses one state for e
 ## When to run these checks
 
 - After a change to how the plugin turns the lamps on or off, or reads whether they're on, or to the Power key's images.
+- After an upgrade of `litra`, `node-hid`, `@elgato/streamdeck` or `@elgato/utils`.
 - After a Stream Deck update.
 
 ## Setup
