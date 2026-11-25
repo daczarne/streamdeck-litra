@@ -8,7 +8,7 @@ allowed-tools: Bash(npm test), Bash(npm test -- *), Bash(npm run test:browser), 
 Run the tests from CI's `tests` and `browser-tests` jobs, from the repository root, in this order:
 
 1. The unit tests and the integration tests, with `npm test`.
-1. The browser tests, with `npm run test:browser`. They drive the settings pages in a headless Chrome, so they need Chrome installed. Run them even when the unit or integration tests fail.
+1. The browser tests, with `npm run test:browser`. They drive the settings pages in a headless Chrome, so they need Chrome installed. Run them even when the unit or integration tests fail. A session whose commands run in Claude Code's sandbox on macOS doesn't run them: Chrome can't start there, since it opens a Unix socket at a path it picks at random, which the sandbox refuses, and the settings that would let it through open the sandbox far wider. It gives the user the command to run them instead, `npm run test:browser` from the repository root.
 
 To rerun a single file while looking into a failure, pass it after `--` (`npm test -- src/lamps/manager.test.ts`). The tests that run on emulated lamps run twice, once on Beams and once on Beam LXs, and a failure names the run it failed in, `|Beam|` or `|Beam LX|`. To rerun one run alone, name it too (`npm test -- --project "Beam LX" src/lamps/manager.test.ts`). A test that fails in one run only points to a difference between the models: say so in its report. The linters have their own command, `/lint`, and `/ci` runs both.
 
@@ -16,4 +16,4 @@ Failures are reported, never fixed on their own. A failing test means that eithe
 
 Vitest reports an `it.fails` test that starts passing as a failure too. Such a test documents a known bug, so it passing means the bug is fixed: propose turning it into a normal test, and point out the issue it links to.
 
-Finish with a short summary: how many tests passed in each suite, and the failures that need a decision.
+Finish with a short summary: how many tests passed in each suite, or that the browser tests are left to the user, and the failures that need a decision.

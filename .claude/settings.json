@@ -2,19 +2,20 @@
   "permissions": {
     "allow": [
       "Bash(cspell lint *)",
+      "Bash(markdownlint-cli2 *)"
+    ],
+    "ask": [
       "Bash(gh issue comment *)",
       "Bash(gh issue create *)",
       "Bash(git stash clear*)",
       "Bash(git stash drop*)",
-      "Bash(git switch *)",
-      "Bash(markdownlint-cli2 *)"
+      "Bash(git switch *)"
     ],
-    "ask": [
+    "deny": [
       "Bash(gh issue edit *)",
       "Bash(gh issue reopen *)",
       "Bash(gh label create *)",
       "Bash(gh label edit *)"
-    ],
-    "deny": [ ]
+    ]
   }
 }
