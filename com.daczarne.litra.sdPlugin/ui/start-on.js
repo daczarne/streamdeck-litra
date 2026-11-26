@@ -38,7 +38,12 @@
     render();
   });
 
-  /** The screen the dial saved, or the main screen when it saved none, or something that isn't one. */
+  /**
+   * The screen the dial saved, or the main screen when it saved none, or something that isn't one.
+   *
+   * @param {unknown} value what the dial saved as `startOn`
+   * @returns {string}
+   */
   function validStart(value) {
     return typeof value === "string" && value !== "" ? value : MAIN;
   }
@@ -46,6 +51,9 @@
   /**
    * The lamps the plugin knows, by id, or none when they aren't lamps by id: each with a model, and a name only when
    * it's text.
+   *
+   * @param {unknown} value the global settings' `lamps`
+   * @returns {Record<string, { model: string, name?: string }>}
    */
   function validKnown(value) {
     if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -60,7 +68,11 @@
     );
   }
 
-  /** The screens offered: the main screen, then every lamp the plugin knows, in the order of their ids. */
+  /**
+   * The screens offered: the main screen, then every lamp the plugin knows, in the order of their ids.
+   *
+   * @returns {[string, string][]} each screen's value and text
+   */
   function offered() {
     const lamps = Object.entries(known ?? {})
       .sort(([a], [b]) => (a < b ? -1 : 1))
@@ -73,6 +85,8 @@
    * the lamp it saved, or the main screen for a lamp the plugin doesn't know, unless it already shows them. A list from
    * sdpi-components that saves nothing itself, and also reports the value this script gives it, which matches what it
    * last showed and is left out, as is a value that isn't one of its screens, so only a choice saves.
+   *
+   * @returns {void}
    */
   function render() {
     const screens = offered();
@@ -105,7 +119,12 @@
     container.replaceChildren(list);
   }
 
-  /** Greys out the color while the dial starts on its main screen, where it shows no lamp to color. */
+  /**
+   * Greys out the color while the dial starts on its main screen, where it shows no lamp to color.
+   *
+   * @param {string} shown the screen the list shows
+   * @returns {void}
+   */
   function greyColor(shown) {
     if (color !== null) {
       color.disabled = shown === MAIN;

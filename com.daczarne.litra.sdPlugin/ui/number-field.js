@@ -24,7 +24,11 @@
 
   /** The number field, as a page writes it: `<litra-number setting min max step default unit>`. */
   class NumberField extends HTMLElement {
-    /** Draws the buttons and the field once, and reads the setting it saves, if any. */
+    /**
+     * Draws the buttons and the field once, and reads the setting it saves, if any.
+     *
+     * @returns {void}
+     */
     connectedCallback() {
       if (this.input !== undefined) {
         return;
@@ -51,45 +55,88 @@
       this.bind();
     }
 
-    /** The lowest value, the highest, the step between values, and the value while the setting is missing. */
+    /**
+     * The lowest value.
+     *
+     * @returns {number}
+     */
     get min() {
       return Number(this.getAttribute("min") ?? 0);
     }
 
+    /**
+     * The highest value.
+     *
+     * @returns {number}
+     */
     get max() {
       return Number(this.getAttribute("max") ?? 100);
     }
 
+    /**
+     * The step between values.
+     *
+     * @returns {number}
+     */
     get step() {
       return Number(this.getAttribute("step") ?? 1);
     }
 
+    /**
+     * The value while the setting is missing.
+     *
+     * @returns {number}
+     */
     get fallback() {
       return Number(this.getAttribute("default") ?? this.min);
     }
 
-    /** The value shown. */
+    /**
+     * The value shown.
+     *
+     * @returns {number}
+     */
     get value() {
       return this._value;
     }
 
-    /** Shows a value set by a script, snapped and kept within the range, without saving it or telling of it. */
+    /**
+     * Shows a value set by a script, snapped and kept within the range, without saving it or telling of it.
+     *
+     * @param {unknown} value
+     */
     set value(value) {
       this._value = this.snap(Number(value));
       this.show();
     }
 
-    /** The disabled state, which greys out the buttons and the field, and shows a dash in place of the value. */
+    /**
+     * The disabled state, which greys out the buttons and the field, and shows a dash in place of the value.
+     *
+     * @returns {boolean}
+     */
     get disabled() {
       return this.hasAttribute("disabled");
     }
 
+    /**
+     * Greys out the field, or brings it back.
+     *
+     * @param {boolean} disabled
+     */
     set disabled(disabled) {
       this.toggleAttribute("disabled", disabled);
       this.show();
     }
 
-    /** A button that moves the value one step down or up, and keeps doing it while it's held. */
+    /**
+     * A button that moves the value one step down or up, and keeps doing it while it's held.
+     *
+     * @param {string} text what the button shows
+     * @param {string} label what it's read as
+     * @param {-1 | 1} direction down or up
+     * @returns {HTMLButtonElement}
+     */
     button(text, label, direction) {
       const element = document.createElement("button");
       element.type = "button";
@@ -135,7 +182,12 @@
       return element;
     }
 
-    /** Takes the arrow keys as − and +, and Enter as the end of typing. */
+    /**
+     * Takes the arrow keys as − and +, and Enter as the end of typing.
+     *
+     * @param {KeyboardEvent} event
+     * @returns {void}
+     */
     onKey(event) {
       if (event.key === "ArrowUp" || event.key === "ArrowDown") {
         event.preventDefault();
@@ -145,7 +197,12 @@
       }
     }
 
-    /** A value snapped to the step, counted from the lowest value, and kept within the range. */
+    /**
+     * A value snapped to the step, counted from the lowest value, and kept within the range.
+     *
+     * @param {number} value
+     * @returns {number}
+     */
     snap(value) {
       const { min, max, step } = this;
       if (!Number.isFinite(value)) {
@@ -156,12 +213,23 @@
       return Math.min(max, Math.max(min, Math.round(snapped * 1e6) / 1e6));
     }
 
-    /** Moves the value one step down or up, as − and + do. */
+    /**
+     * Moves the value one step down or up, as − and + do.
+     *
+     * @param {-1 | 1} direction
+     * @returns {void}
+     */
     nudge(direction) {
       this.change(this._value + direction * this.step);
     }
 
-    /** Takes a typed value, or shows the one before for one that isn't a number, and saves it at once when asked. */
+    /**
+     * Takes a typed value, or shows the one before for one that isn't a number, and saves it at once when asked.
+     *
+     * @param {string} text what was typed
+     * @param {boolean} now whether to save it at once
+     * @returns {void}
+     */
     take(text, now) {
       const typed = Number.parseFloat(text);
       if (!Number.isNaN(typed)) {
@@ -178,6 +246,9 @@
     /**
      * Shows the user's new value, and saves it once the changes stop for a moment, or, while a button is held, once
      * it's let go.
+     *
+     * @param {number} value
+     * @returns {void}
      */
     change(value) {
       const snapped = this.snap(value);
@@ -193,13 +264,21 @@
       }
     }
 
-    /** Saves a change once the changes stop for a moment. */
+    /**
+     * Saves a change once the changes stop for a moment.
+     *
+     * @returns {void}
+     */
     saveSoon() {
       clearTimeout(this.pending);
       this.pending = setTimeout(() => this.save(), SAVE_DELAY_MS);
     }
 
-    /** Saves the value now, or tells of it for a field without a setting, if it changed since it was last saved. */
+    /**
+     * Saves the value now, or tells of it for a field without a setting, if it changed since it was last saved.
+     *
+     * @returns {void}
+     */
     save() {
       clearTimeout(this.pending);
       this.pending = undefined;
@@ -216,6 +295,8 @@
     /**
      * Shows the value, and greys out a button at its end of the range, or everything while it's disabled, when it shows
      * a dash instead of the value and its unit.
+     *
+     * @returns {void}
      */
     show() {
       if (this.input === undefined) {
@@ -237,12 +318,18 @@
     /**
      * Makes the input as wide as the text in it, as it's shown or typed, so the field centers the value and its unit
      * together, rather than the widest value the range holds, which left a shorter value and its unit off center.
+     *
+     * @returns {void}
      */
     fit() {
       this.input.style.width = `${Math.max(this.input.value.length, 1)}ch`;
     }
 
-    /** Reads and follows the setting the field saves, if it has one, keeping a change the user hasn't saved yet. */
+    /**
+     * Reads and follows the setting the field saves, if it has one, keeping a change the user hasn't saved yet.
+     *
+     * @returns {void}
+     */
     bind() {
       const setting = this.getAttribute("setting");
       if (setting === null) {

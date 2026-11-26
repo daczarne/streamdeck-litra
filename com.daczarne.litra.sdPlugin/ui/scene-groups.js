@@ -41,10 +41,26 @@
   // Each group's radio button for whether it takes the lamps added later, by the group's number.
   let radios = [];
 
+  /**
+   * @typedef {object} Group A group added after the first, as the key saves it.
+   * @property {"on" | "off"} power whether it turns its lamps on or off
+   * @property {number} presetPercentage its brightness
+   * @property {number} presetKelvin its temperature
+   * @property {string[]} lamps the ids of the lamps checked for it
+   * @property {boolean} newLamps whether it takes the lamps added later
+   */
+
+  /** @typedef {{ id: string, label: string, heldBy: number | undefined }} ListedLamp A lamp a group lists. */
+
   // The first group's presets, greyed out with the note under them while it turns its lamps off.
   const power = document.getElementById("power");
   const firstPresets = document.querySelectorAll(".first-group-preset");
   const firstOffNote = document.getElementById("first-group-off-note");
+  /**
+   * Greys out the first group's presets, and shows the note under them, while it turns its lamps off.
+   *
+   * @returns {void}
+   */
   const showFirstPresets = () => {
     for (const preset of firstPresets) {
       preset.disabled = power.value === "off";
@@ -73,7 +89,12 @@
     renderLamps();
   });
 
-  /** The groups as the key saved them, each with its settings' defaults for the ones that aren't valid. */
+  /**
+   * The groups as the key saved them, each with its settings' defaults for the ones that aren't valid.
+   *
+   * @param {unknown} value what the key saved as `addedGroups`
+   * @returns {Group[]}
+   */
   function validGroups(value) {
     if (!Array.isArray(value)) {
       return [];
@@ -94,6 +115,8 @@
   /**
    * The number of the group the lamps added later go to: the first added group that says it takes them, as the plugin
    * takes it, or else the first group.
+   *
+   * @returns {number}
    */
   function newLampsGroup() {
     const index = groups.findIndex((group) => group.newLamps);
@@ -103,6 +126,9 @@
   /**
    * The lamps the plugin knows, by id, or none when they aren't lamps by id: each with a model, and a
    * name only when it's text.
+   *
+   * @param {unknown} value the global settings' `lamps`
+   * @returns {Record<string, { model: string, name?: string }>}
    */
   function validKnown(value) {
     if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -129,6 +155,8 @@
    * The group that holds each lamp, by the lamp's id, as the page numbers it: the first added group that checks the
    * lamp, as the plugin takes it, since only an edited profile has two groups check the same lamp. The first group's
    * lamps aren't among them: the lamp picker leaves out the ones these hold.
+   *
+   * @returns {Record<string, number>}
    */
   function holders() {
     const held = {};
@@ -146,7 +174,12 @@
     return held;
   }
 
-  /** Groups as the key saves them: every setting written out, and the ids of their lamps. */
+  /**
+   * Groups as the key saves them: every setting written out, and the ids of their lamps.
+   *
+   * @param {Group[]} list
+   * @returns {Group[]}
+   */
   function asSaved(list) {
     return list.map(({ power: groupPower, presetPercentage, presetKelvin, lamps, newLamps }) => ({
       power: groupPower,
@@ -157,12 +190,22 @@
     }));
   }
 
-  /** Saves the groups. */
+  /**
+   * Saves the groups.
+   *
+   * @returns {void}
+   */
   function save() {
     saveGroups(asSaved(groups)).catch((error) => console.error("Can't save the groups", error));
   }
 
-  /** A row of its own, as wide as the page's controls, holding `content`, with `label` on its left. */
+  /**
+   * A row of its own, as wide as the page's controls, holding `content`, with `label` on its left.
+   *
+   * @param {string | undefined} label
+   * @param {...Node} content
+   * @returns {HTMLElement}
+   */
   function item(label, ...content) {
     const element = document.createElement("sdpi-item");
     if (label !== undefined) {
@@ -172,7 +215,13 @@
     return element;
   }
 
-  /** A button from sdpi-components. */
+  /**
+   * A button from sdpi-components.
+   *
+   * @param {string} text
+   * @param {() => void} onClick
+   * @returns {HTMLElement}
+   */
   function button(text, onClick) {
     const element = document.createElement("sdpi-button");
     element.textContent = text;
@@ -183,6 +232,12 @@
   /**
    * A control from sdpi-components that saves nothing itself, showing `value`, which calls `onChange` with a new value.
    * Its listener is added after the value is set, so only the user's changes reach it.
+   *
+   * @param {string} tag the control's element, such as `sdpi-checkbox`
+   * @param {unknown} value
+   * @param {(value: any) => void} onChange
+   * @param {{ label?: string, disabled?: boolean }} [options] its label, and whether it's greyed out
+   * @returns {HTMLElement}
    */
   function control(tag, value, onChange, { label, disabled = false } = {}) {
     const element = document.createElement(tag);
@@ -198,6 +253,11 @@
   /**
    * A number field with − and + (number-field.js, #195), as the first group's, which saves nothing itself, and calls
    * `onChange` with the user's new value.
+   *
+   * @param {number} value
+   * @param {{ min: number, max: number, step: number, unit: string }} range its range, step and unit
+   * @param {(value: number) => void} onChange
+   * @returns {HTMLElement}
    */
   function numberField(value, { min, max, step, unit }, onChange) {
     const field = document.createElement("litra-number");
@@ -209,7 +269,11 @@
     return field;
   }
 
-  /** The note under a group's controls while it turns its lamps off, which the group shows and hides. */
+  /**
+   * The note under a group's controls while it turns its lamps off, which the group shows and hides.
+   *
+   * @returns {HTMLParagraphElement}
+   */
   function offNote() {
     const element = document.createElement("p");
     element.className = "off-note";
@@ -217,7 +281,12 @@
     return element;
   }
 
-  /** A line of grey text. */
+  /**
+   * A line of grey text.
+   *
+   * @param {string} text
+   * @returns {HTMLParagraphElement}
+   */
   function note(text) {
     const element = document.createElement("p");
     element.className = "note";
@@ -228,6 +297,8 @@
   /**
    * The lamps a group lists: the ones the plugin knows, in the order of their ids, as the lamp
    * picker lists them, each with its name, or else its label, and the group that holds it.
+   *
+   * @returns {ListedLamp[]}
    */
   function listed() {
     const held = { ...Object.fromEntries(firstGroupLamps.map((id) => [id, 1])), ...holders() };
@@ -239,6 +310,11 @@
   /**
    * A lamp's row in a group: its checkbox, by its name or else its label, checked when the group holds it, and greyed
    * out, with the group that does, when another one holds it.
+   *
+   * @param {Group} group
+   * @param {number} number the group's number on the page
+   * @param {ListedLamp} lamp
+   * @returns {HTMLDivElement}
    */
   function lampRow(group, number, lamp) {
     const elsewhere = lamp.heldBy !== undefined && lamp.heldBy !== number;
@@ -268,7 +344,13 @@
     return row;
   }
 
-  /** A group's lamps: a row for each, or what stands in for them until they're read, or when the plugin knows none. */
+  /**
+   * A group's lamps: a row for each, or what stands in for them until they're read, or when the plugin knows none.
+   *
+   * @param {Group} group
+   * @param {number} number the group's number on the page
+   * @returns {HTMLElement[]}
+   */
   function lampRows(group, number) {
     if (known === undefined) {
       return [];
@@ -280,6 +362,8 @@
   /**
    * Draws every group's lamps again, and tells the lamp picker of the lamps the groups hold, and of the group the lamps
    * added later go to.
+   *
+   * @returns {void}
    */
   function renderLamps() {
     lampLists.forEach((list, index) => {
@@ -291,7 +375,11 @@
     tellPicker();
   }
 
-  /** Tells the lamp picker of the group the lamps added later go to, and of the lamps the groups hold. */
+  /**
+   * Tells the lamp picker of the group the lamps added later go to, and of the lamps the groups hold.
+   *
+   * @returns {void}
+   */
   function tellPicker() {
     document.dispatchEvent(new CustomEvent("litra:new-lamps-group", { detail: newLampsGroup() }));
     document.dispatchEvent(new CustomEvent("litra:held-lamps", { detail: holders() }));
@@ -301,6 +389,9 @@
    * A group's radio button for whether it takes the lamps added later: a radio from sdpi-components with that option
    * alone, which saves nothing itself, chosen for one group at a time, and greyed out while the key adds no new lamps.
    * It also reports the values this script gives it, which are left out, so only a choice moves the lamps added later.
+   *
+   * @param {number} number the group's number on the page
+   * @returns {HTMLElement}
    */
   function newLampsRadio(number) {
     const radio = document.createElement("sdpi-radio");
@@ -326,6 +417,8 @@
   /**
    * Shows each group's radio button: the one of the group the lamps added later go to chosen, and all greyed out while
    * the key adds no new lamps.
+   *
+   * @returns {void}
    */
   function showRadios() {
     const taker = newLampsGroup();
@@ -335,7 +428,13 @@
     });
   }
 
-  /** A group's heading and controls, numbered after the first group, with a button that removes it. */
+  /**
+   * A group's heading and controls, numbered after the first group, with a button that removes it.
+   *
+   * @param {Group} group
+   * @param {number} index its place among the groups added after the first
+   * @returns {HTMLDivElement}
+   */
   function groupView(group, index) {
     const number = index + 2;
     const heading = document.createElement("h2");
@@ -394,7 +493,11 @@
     return view;
   }
 
-  /** Draws the groups added after the first, and tells the lamp picker of the lamps they hold. */
+  /**
+   * Draws the groups added after the first, and tells the lamp picker of the lamps they hold.
+   *
+   * @returns {void}
+   */
   function render() {
     lampLists = [];
     radios = radios.slice(0, 2);

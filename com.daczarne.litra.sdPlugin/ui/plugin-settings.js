@@ -54,6 +54,9 @@
   /**
    * The lamps the plugin knows, by id, or none when they aren't lamps by id: each with a model, and a
    * name only when it's text.
+   *
+   * @param {unknown} value the global settings' `lamps`
+   * @returns {Record<string, { model: string, name?: string }>}
    */
   function validLamps(value) {
     if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -76,12 +79,23 @@
     );
   }
 
-  /** Asks the plugin to name a lamp, or to take its name away when `name` is blank. The plugin saves it. */
+  /**
+   * Asks the plugin to name a lamp, or to take its name away when `name` is blank. The plugin saves it.
+   *
+   * @param {string} id the lamp's id
+   * @param {string} name
+   * @returns {void}
+   */
   function rename(id, name) {
     client.send("sendToPlugin", { event: "rename", id, name }).catch(showError);
   }
 
-  /** Asks the plugin to forget a lamp. The plugin saves the lamps left, which then arrive without it. */
+  /**
+   * Asks the plugin to forget a lamp. The plugin saves the lamps left, which then arrive without it.
+   *
+   * @param {string} id the lamp's id
+   * @returns {void}
+   */
   function forget(id) {
     client.send("sendToPlugin", { event: "forget", id }).catch(showError);
   }
@@ -89,6 +103,8 @@
   /**
    * Asks the plugin for the lamps connected now, which it adds to the ones it knows, and marks the ones it knows that
    * it didn't find. The lamps it adds arrive with the global settings, as the plugin saves them.
+   *
+   * @returns {Promise<void>}
    */
   async function findLamps() {
     const reply = await client.get(
@@ -105,6 +121,8 @@
    * Shows the plugin settings, with the lamps the plugin knows, or the action's settings again, or the plugin settings
    * again from a cell's options, scrolled to where they were. Opening them looks for no lamps: it asks the plugin which
    * ones it last found (#198).
+   *
+   * @returns {Promise<void>}
    */
   async function toggle() {
     if (editing !== undefined) {
@@ -127,7 +145,13 @@
     }
   }
 
-  /** A row of its own, as wide as the page's controls, holding `content`, with `label` on its left. */
+  /**
+   * A row of its own, as wide as the page's controls, holding `content`, with `label` on its left.
+   *
+   * @param {string | undefined} label
+   * @param {...Node} content
+   * @returns {HTMLElement}
+   */
   function item(label, ...content) {
     const element = document.createElement("sdpi-item");
     if (label !== undefined) {
@@ -137,7 +161,13 @@
     return element;
   }
 
-  /** A button from sdpi-components. */
+  /**
+   * A button from sdpi-components.
+   *
+   * @param {string} text
+   * @param {() => void} onClick
+   * @returns {HTMLElement}
+   */
   function button(text, onClick) {
     const element = document.createElement("sdpi-button");
     element.textContent = text;
@@ -145,7 +175,13 @@
     return element;
   }
 
-  /** A checkbox from sdpi-components that reads and saves a global setting itself. */
+  /**
+   * A checkbox from sdpi-components that reads and saves a global setting itself.
+   *
+   * @param {string} setting the global setting
+   * @param {string} label
+   * @returns {HTMLElement}
+   */
   function globalCheckbox(setting, label) {
     const box = document.createElement("sdpi-checkbox");
     box.setAttribute("setting", setting);
@@ -154,7 +190,14 @@
     return box;
   }
 
-  /** A number field with − and + (number-field.js, #195) that reads and saves a global setting itself. */
+  /**
+   * A number field with − and + (number-field.js, #195) that reads and saves a global setting itself.
+   *
+   * @param {string} setting the global setting
+   * @param {{ min: number, max: number, step: number, fallback: number, unit: string }} field its range, step, default
+   *   and unit
+   * @returns {HTMLElement}
+   */
   function globalNumber(setting, { min, max, step, fallback, unit }) {
     const field = document.createElement("litra-number");
     const attributes = { setting, global: "", min, max, step, default: fallback, unit };
@@ -169,6 +212,10 @@
    * which brings back its default. A field of the page's own that takes the setting as its placeholder, such as a
    * dial's own title (#181), shows it as this field holds it: as the global settings arrive, and as it's typed in or
    * reset, which sdpi-components tells no other field of the page.
+   *
+   * @param {string} setting the global setting
+   * @param {string} fallback its default
+   * @returns {HTMLDivElement}
    */
   function globalText(setting, fallback) {
     const field = document.createElement("sdpi-textfield");
@@ -196,7 +243,13 @@
     return row;
   }
 
-  /** A color picker from sdpi-components that reads and saves a global setting itself. */
+  /**
+   * A color picker from sdpi-components that reads and saves a global setting itself.
+   *
+   * @param {string} setting the global setting
+   * @param {string} fallback its default
+   * @returns {HTMLElement}
+   */
   function globalColor(setting, fallback) {
     const picker = document.createElement("sdpi-color");
     picker.setAttribute("setting", setting);
@@ -223,6 +276,11 @@
   /**
    * Radio buttons from sdpi-components that read and save a global setting themselves, one under the other, with their
    * options as [value, text].
+   *
+   * @param {string} setting the global setting
+   * @param {[string, string][]} options
+   * @param {string} fallback its default
+   * @returns {HTMLElement}
    */
   function globalRadio(setting, options, fallback) {
     const radio = document.createElement("sdpi-radio");
@@ -238,7 +296,14 @@
     return radio;
   }
 
-  /** A list from sdpi-components that reads and saves a global setting itself, with its options as [value, text]. */
+  /**
+   * A list from sdpi-components that reads and saves a global setting itself, with its options as [value, text].
+   *
+   * @param {string} setting the global setting
+   * @param {[string, string][]} options
+   * @param {string} fallback its default
+   * @returns {HTMLElement}
+   */
   function globalSelect(setting, options, fallback) {
     const select = document.createElement("sdpi-select");
     select.setAttribute("setting", setting);
@@ -336,18 +401,34 @@
     0,
   );
 
-  /** An object from the global settings, or an empty one when it isn't an object. */
+  /**
+   * An object from the global settings, or an empty one when it isn't an object.
+   *
+   * @param {unknown} value
+   * @returns {Record<string, any>}
+   */
   function validObject(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value) ? value : {};
   }
 
-  /** What a cell shows: its list's value, or its default before the global settings arrive. */
+  /**
+   * What a cell shows: its list's value, or its default before the global settings arrive.
+   *
+   * @param {string} cell the cell, such as `topLeft`
+   * @returns {string}
+   */
   function itemOf(cell) {
     const [, , , fallback] = CELLS.find(([name]) => name === cell);
     return cellLists[cell].value || fallback;
   }
 
-  /** A cell's options for an item: the saved ones of the right type, and the defaults for the rest. */
+  /**
+   * A cell's options for an item: the saved ones of the right type, and the defaults for the rest.
+   *
+   * @param {string} cell the cell, such as `topLeft`
+   * @param {string} item what it shows, such as `counter`
+   * @returns {Record<string, string | boolean>}
+   */
   function optionsOf(cell, item) {
     const saved = validObject(validObject(cellOptions[cell])[item]);
     const defaults = ITEM_OPTIONS[item];
@@ -361,6 +442,11 @@
 
   /**
    * Saves a cell's options for an item, or takes them away, to bring back the defaults, when `options` is undefined.
+   *
+   * @param {string} cell the cell, such as `topLeft`
+   * @param {string} item what it shows, such as `counter`
+   * @param {Record<string, string | boolean> | undefined} options
+   * @returns {void}
    */
   function storeOptions(cell, item, options) {
     const { [item]: _, ...others } = validObject(cellOptions[cell]);
@@ -373,6 +459,12 @@
    * One of the dials' text styles (#153), under its name: its color, weight and size, side by side, each saved
    * by sdpi-components as a global setting named after the style, and a Reset button under them, which sets each back
    * to its default. A control saves the value a script gives it, as it does the user's.
+   *
+   * @param {string} name the style's name, as the page shows it
+   * @param {string} setting what its global settings are named after
+   * @param {string} color its default color
+   * @param {string} [weight] its default weight
+   * @returns {HTMLDivElement}
    */
   function textStyle(name, setting, color, weight = "normal") {
     const controls = [
@@ -402,6 +494,9 @@
    * The parts of the dials' main screen (#183), two to a row, as [name, setting]: each under its name, with the text
    * style it takes its color from, saved by sdpi-components as a global setting, and a Reset button under it, which
    * sets it back to Primary.
+   *
+   * @param {[string, string][]} parts
+   * @returns {HTMLDivElement}
    */
   function mainScreenParts(parts) {
     const grid = document.createElement("div");
@@ -423,7 +518,11 @@
     return grid;
   }
 
-  /** A list for each cell of the lamp screens, laid out as the cells are, each with a button that shows its options. */
+  /**
+   * A list for each cell of the lamp screens, laid out as the cells are, each with a button that shows its options.
+   *
+   * @returns {HTMLDivElement}
+   */
   function lampScreenCells() {
     const cells = document.createElement("div");
     cells.className = "cells";
@@ -448,6 +547,14 @@
    * A control from sdpi-components that saves nothing itself, showing the value of an option, marked with its key,
    * which calls `onChange` with a new value, greyed out when it's `disabled`. It also reports the values this script
    * gives it, which are left out, so only the user's changes reach `onChange`.
+   *
+   * @param {string} tag the control's element, such as `sdpi-select`
+   * @param {string} key the option
+   * @param {unknown} value
+   * @param {(value: any) => void} onChange
+   * @param {{ label?: string, options?: [string, string][], disabled?: boolean }} [settings] its label, a list's
+   *   options as [value, text], and whether it's greyed out
+   * @returns {HTMLElement}
    */
   function control(tag, key, value, onChange, { label, options, disabled = false } = {}) {
     const element = document.createElement(tag);
@@ -471,7 +578,14 @@
     return element;
   }
 
-  /** The rows of an editor for an item's options, each control showing its option and saving its change. */
+  /**
+   * The rows of an editor for an item's options, each control showing its option and saving its change.
+   *
+   * @param {string} shownItem what the cell shows, such as `counter`
+   * @param {Record<string, string | boolean>} options
+   * @param {(key: string, value: any) => void} change saves an option's new value
+   * @returns {HTMLElement[]}
+   */
   function optionRows(shownItem, options, change) {
     const option = (tag, key, settings) => control(tag, key, options[key], (value) => change(key, value), settings);
     const select = (label, key, choices, disabled = false) =>
@@ -545,6 +659,8 @@
   /**
    * Shows the options of the cell being edited, for the item it shows, with a Reset button that brings back their
    * defaults. Drawn again whenever they change, here or on another page.
+   *
+   * @returns {void}
    */
   function renderEditor() {
     if (editing === undefined) {
@@ -566,7 +682,13 @@
     );
   }
 
-  /** Controls side by side under a title, given as [caption, control], each with its caption above it. */
+  /**
+   * Controls side by side under a title, given as [caption, control], each with its caption above it.
+   *
+   * @param {string} title
+   * @param {...[string, Node][]} rows
+   * @returns {HTMLDivElement}
+   */
   function fields(title, ...rows) {
     const heading = document.createElement("p");
     heading.className = "fields-title";
@@ -590,7 +712,12 @@
     return box;
   }
 
-  /** The heading of a section of the plugin settings, across the page, with a line under it. */
+  /**
+   * The heading of a section of the plugin settings, across the page, with a line under it.
+   *
+   * @param {string} text
+   * @returns {HTMLHeadingElement}
+   */
   function section(text) {
     const element = document.createElement("h2");
     element.className = "section";
@@ -598,7 +725,12 @@
     return element;
   }
 
-  /** The heading of a part of a section, centered over the controls. */
+  /**
+   * The heading of a part of a section, centered over the controls.
+   *
+   * @param {string} text
+   * @returns {HTMLHeadingElement}
+   */
   function subsection(text) {
     const element = document.createElement("h3");
     element.className = "subsection";
@@ -606,7 +738,12 @@
     return element;
   }
 
-  /** A line of grey text. */
+  /**
+   * A line of grey text.
+   *
+   * @param {string} text
+   * @returns {HTMLParagraphElement}
+   */
   function note(text) {
     const element = document.createElement("p");
     element.className = "note";
@@ -614,14 +751,24 @@
     return element;
   }
 
-  /** A table cell holding text or elements. */
+  /**
+   * A table cell holding text or elements, or a part of a table holding the cells or rows given.
+   *
+   * @param {string} tag the element, such as `td`
+   * @param {...(Node | string)} content
+   * @returns {HTMLElement}
+   */
   function cell(tag, ...content) {
     const element = document.createElement(tag);
     element.append(...content);
     return element;
   }
 
-  /** A trash can, drawn in its button's text color, for the button that forgets a lamp (#194). */
+  /**
+   * A trash can, drawn in its button's text color, for the button that forgets a lamp (#194).
+   *
+   * @returns {SVGSVGElement}
+   */
   function trashCan() {
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     svg.setAttribute("viewBox", "0 0 12 14");
@@ -647,6 +794,9 @@
    * its id matches nothing printed on the lamp: Identify tells which lamp a row is.
    * A lamp the plugin didn't find the last time it looked is greyed out, with "Not found" in place of its Identify
    * button (#198).
+   *
+   * @param {[string, { model: string, name?: string }]} entry the lamp's id, and the lamp
+   * @returns {HTMLTableRowElement}
    */
   function lampRow([id, lamp]) {
     const label = `${lamp.model} - ${id.slice(-4)}`;
@@ -681,7 +831,11 @@
     return row;
   }
 
-  /** The table of the lamps the plugin knows, in the order of their ids. */
+  /**
+   * The table of the lamps the plugin knows, in the order of their ids.
+   *
+   * @returns {HTMLTableElement}
+   */
   function lampTable() {
     const table = document.createElement("table");
     const model = cell("th", "Model");
@@ -695,6 +849,10 @@
   /**
    * A checkbox that can also be indeterminate, which calls `onClick` when it's clicked, or toggled with the space bar.
    * Its state is its `aria-checked`: "true", "false" or "mixed".
+   *
+   * @param {string} label
+   * @param {() => void} onClick
+   * @returns {HTMLDivElement}
    */
   function triStateCheckbox(label, onClick) {
     const box = document.createElement("div");
@@ -726,7 +884,12 @@
   // differ, and a click there gives every one the same again, even the ones not on screen. A dial's or key's page shows
   // its own, in the element the page has for it.
 
-  /** The ids in the global settings, or none when they aren't a list of ids. */
+  /**
+   * The ids in the global settings, or none when they aren't a list of ids.
+   *
+   * @param {unknown} value
+   * @returns {string[]}
+   */
   function validIds(value) {
     return Array.isArray(value) ? value.filter((id) => typeof id === "string") : [];
   }
@@ -737,6 +900,18 @@
    * `every`, and puts the page's own, labeled `own`, in the element with the id `ownElement`, on a page for that
    * `controller` ("Encoder" or "Keypad"), and for that `action` alone when it's given, by its UUID, since the Up and
    * Down keys of a step share a page. `onOwnChange` hears the page's own choice each time it's shown.
+   *
+   * @param {object} choice
+   * @param {string} choice.setting
+   * @param {string} choice.exceptions
+   * @param {boolean} choice.fallback
+   * @param {string} choice.every
+   * @param {string} choice.own
+   * @param {string} choice.ownElement
+   * @param {"Encoder" | "Keypad"} choice.controller
+   * @param {string} [choice.action]
+   * @param {(own: boolean) => void} [choice.onOwnChange]
+   * @returns {HTMLDivElement}
    */
   function sharedChoice({
     setting,
@@ -856,6 +1031,15 @@
    * `${controls}TurnLampsOn` and its exceptions, labeled `every` in the plugin settings, and `own` on the page of a key
    * or dial of `action` (#181), in the element with the id `ownElement`. Off by default, as src/settings/schemas.ts
    * says.
+   *
+   * @param {string} controls the keys or dials, as their global setting names them, such as `setBrightnessKeys`
+   * @param {object} labels
+   * @param {string} labels.every
+   * @param {string} labels.own
+   * @param {string} labels.ownElement
+   * @param {"Encoder" | "Keypad"} labels.controller
+   * @param {string} labels.action the action, after `com.daczarne.litra.`
+   * @returns {HTMLDivElement}
    */
   function turnsLampsOn(controls, { every, own, ownElement, controller, action }) {
     return sharedChoice({
@@ -902,7 +1086,13 @@
     turnsLampsOn(controls, { ...LAMP_SCREEN_TURNS_ON, every: `${name} dials turn the lamp on`, action }),
   );
 
-  /** A row for each of `boxes`, one under the other, labeled `label` on the first. */
+  /**
+   * A row for each of `boxes`, one under the other, labeled `label` on the first.
+   *
+   * @param {string} label
+   * @param {HTMLElement[]} boxes
+   * @returns {HTMLElement[]}
+   */
   function rows(label, boxes) {
     return boxes.map((box, index) => item(index === 0 ? label : undefined, box));
   }
@@ -923,6 +1113,8 @@
   /**
    * Asks the plugin to re-sync, in the direction chosen, or the default one before the global settings arrive. The
    * plugin logs a lamp it can't read or set, which the page has no way to show.
+   *
+   * @returns {void}
    */
   function resync() {
     const direction = resyncDirection.value || resyncDirection.getAttribute("default");
@@ -931,7 +1123,12 @@
       .catch((error) => console.error("Can't re-sync the lamps", error));
   }
 
-  /** Logs a failure to find the lamps, which the page has no other way to show. */
+  /**
+   * Logs a failure to find the lamps, which the page has no other way to show.
+   *
+   * @param {unknown} error
+   * @returns {void}
+   */
   function showError(error) {
     console.error("Can't show the lamps", error);
   }
@@ -1006,6 +1203,8 @@
    * Shows the button's text, and the plugin settings when they're open, with the lamps the plugin knows. A name field
    * being typed in isn't redrawn, so the names that arrive from Stream Deck as the plugin saves them don't move its
    * cursor.
+   *
+   * @returns {void}
    */
   function render() {
     toggleButton.textContent = open ? "Back" : "Plugin settings";

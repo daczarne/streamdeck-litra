@@ -11,7 +11,7 @@ Run the linters from CI, from the repository root, in this order: those of the `
 1. `cspell lint --config ".cspell.json" --dot --no-progress .`
 1. `npm run typecheck`, which checks the TypeScript and the build and check scripts.
 1. `npm run lint`, which runs Biome on the TypeScript, the JavaScript and the settings pages' stylesheet: its lint rules, formatting and import order.
-1. `npm run check:docs`, which lists every function, class, method and constructor without a doc comment.
+1. `npm run check:docs`, which checks that every function, class, method and constructor has a doc comment, that in JavaScript it has a typed `@param` for every parameter and a typed `@returns`, or a `@type` that types the whole function, and that in TypeScript its tags give no type.
 1. `npm run icons`, then `git status --short -- com.daczarne.litra.sdPlugin/imgs`: regenerating the icons must change nothing. A change means the committed icons aren't what `scripts/generate-icons.mjs` draws.
 1. `npm run validate`, which runs `check:ui`, the build and `streamdeck validate`.
 
@@ -21,7 +21,7 @@ Formatting findings are fixed directly, without asking. Everything else is repor
 
 - markdownlint, cspell and the heading check only cover formatting and spelling. Fix everything they report.
 - Biome's formatting and import order findings are fixed with `npm run format`. Its lint rules report problems in the code: report them.
-- A missing doc comment is reported, not written on the spot: what it should say is a decision about the code.
+- A missing doc comment, or a missing tag, is reported, not written on the spot: what it should say is a decision about the code.
 - Icons that change when regenerated are reported, and left as regenerated: whether the script or the committed icons are right is a decision.
 - The type check and `npm run validate` report errors in the code, the settings pages or the manifest. Report them.
 

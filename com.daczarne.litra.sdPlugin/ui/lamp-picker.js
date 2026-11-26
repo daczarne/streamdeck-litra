@@ -38,6 +38,8 @@
   // Whether the page is a key's, which the picker draws only on, once the page knows it.
   let onKey = false;
 
+  /** @typedef {{ id: string, label: string }} ListedLamp A lamp the page lists, by its id, with its name or label. */
+
   // A missing setting is a key from before lamps could be picked, which acts on every lamp.
   const [readSaved, save] = SDPIComponents.useSettings(
     "lamps",
@@ -63,12 +65,22 @@
     render();
   });
 
-  /** A list of lamp ids as the key saves them, or none when it isn't one. */
+  /**
+   * A list of lamp ids as the key saves them, or none when it isn't one.
+   *
+   * @param {unknown} value
+   * @returns {string[]}
+   */
   function validIds(value) {
     return Array.isArray(value) ? value.filter((id) => typeof id === "string") : [];
   }
 
-  /** The lamps checked, as the key saves them: "all" for a key that never saved them, or their ids. */
+  /**
+   * The lamps checked, as the key saves them: "all" for a key that never saved them, or their ids.
+   *
+   * @param {unknown} value
+   * @returns {"all" | string[]}
+   */
   function validChecked(value) {
     return value === undefined || value === "all" ? "all" : validIds(value);
   }
@@ -76,6 +88,9 @@
   /**
    * The lamps the plugin knows, by id, or none when they aren't lamps by id: each with a model, and a
    * name only when it's text.
+   *
+   * @param {unknown} value the global settings' `lamps`
+   * @returns {Record<string, { model: string, name?: string }>}
    */
   function validKnown(value) {
     if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -101,6 +116,8 @@
   /**
    * Every lamp the page lists: the ones the plugin knows, in the order of their ids, as the plugin
    * settings list them, each with its name, or else its label.
+   *
+   * @returns {ListedLamp[]}
    */
   function listed() {
     return Object.entries(known ?? {})
@@ -111,6 +128,9 @@
   /**
    * Whether the key acts on a lamp: every lamp for a key that has saved none, a lamp checked or left out as saved, and
    * a lamp it hasn't listed yet only if it adds new lamps.
+   *
+   * @param {ListedLamp} lamp
+   * @returns {boolean}
    */
   function isChecked(lamp) {
     if (saved === "all" || saved.includes(lamp.id)) {
@@ -119,12 +139,22 @@
     return !leftOut.includes(lamp.id) && addsNew && newLampsGroup === 1;
   }
 
-  /** Whether the key hasn't listed a lamp yet, checked or left out, which a key saved before it picked lamps has. */
+  /**
+   * Whether the key hasn't listed a lamp yet, checked or left out, which a key saved before it picked lamps has.
+   *
+   * @param {ListedLamp} lamp
+   * @returns {boolean}
+   */
   function isUnlisted(lamp) {
     return saved !== "all" && !saved.includes(lamp.id) && !leftOut.includes(lamp.id);
   }
 
-  /** Whether a lamp the key hasn't listed yet goes to a scene group other than the first, which holds it then. */
+  /**
+   * Whether a lamp the key hasn't listed yet goes to a scene group other than the first, which holds it then.
+   *
+   * @param {ListedLamp} lamp
+   * @returns {boolean}
+   */
   function goesElsewhere(lamp) {
     return isUnlisted(lamp) && addsNew && newLampsGroup !== 1;
   }
@@ -132,6 +162,9 @@
   /**
    * Saves which of the listed lamps the key acts on, and which it leaves out, keeping the lamps the plugin doesn't know
    * as they were saved, and shows them.
+   *
+   * @param {(lamp: ListedLamp) => boolean} checked whether the key acts on a lamp
+   * @returns {void}
    */
   function store(checked) {
     const lamps = listed().filter((lamp) => !goesElsewhere(lamp));
@@ -143,12 +176,26 @@
     saveLeftOut(leftOut).catch((error) => console.error("Can't save the lamps left out", error));
   }
 
-  /** Checks or unchecks one lamp, keeping the others as they show. */
+  /**
+   * Checks or unchecks one lamp, keeping the others as they show.
+   *
+   * @param {ListedLamp} toggled the lamp
+   * @param {boolean} checked whether it's checked now
+   * @returns {void}
+   */
   function toggleLamp(toggled, checked) {
     store((lamp) => (lamp.id === toggled.id ? checked : isChecked(lamp)));
   }
 
-  /** A checkbox from sdpi-components, which saves nothing itself, since it has no `setting`. */
+  /**
+   * A checkbox from sdpi-components, which saves nothing itself, since it has no `setting`.
+   *
+   * @param {string} label
+   * @param {boolean} checked
+   * @param {(checked: boolean) => void} onChange called with the user's choice
+   * @param {boolean} [disabled] whether it's greyed out
+   * @returns {HTMLElement}
+   */
   function checkbox(label, checked, onChange, disabled = false) {
     const box = document.createElement("sdpi-checkbox");
     box.setAttribute("label", label);
@@ -159,7 +206,12 @@
     return box;
   }
 
-  /** A line of grey text. */
+  /**
+   * A line of grey text.
+   *
+   * @param {string} text
+   * @returns {HTMLParagraphElement}
+   */
   function note(text) {
     const element = document.createElement("p");
     element.className = "note";
@@ -170,6 +222,9 @@
   /**
    * A lamp's row: its checkbox, by its name or else its label. A lamp a scene group holds shows unchecked and greyed
    * out, with the group that holds it.
+   *
+   * @param {ListedLamp} lamp
+   * @returns {HTMLDivElement}
    */
   function lampRow(lamp) {
     const holder = held[lamp.id];
@@ -191,6 +246,8 @@
 
   /**
    * Draws the picker from what the key has saved and the lamps the plugin knows, on a key's page, once they're read.
+   *
+   * @returns {void}
    */
   function render() {
     if (!onKey || known === undefined) {
