@@ -11,7 +11,11 @@
 (() => {
   /** The switch, as a page writes it: `<litra-switch setting default>`. */
   class PowerSwitch extends HTMLElement {
-    /** Draws the switch once, and reads the setting it saves, if any. */
+    /**
+     * Draws the switch once, and reads the setting it saves, if any.
+     *
+     * @returns {void}
+     */
     connectedCallback() {
       if (this.button !== undefined) {
         return;
@@ -29,23 +33,40 @@
       this.bind();
     }
 
-    /** The value shown: "on" or "off". */
+    /**
+     * The value shown: "on" or "off".
+     *
+     * @returns {"on" | "off"}
+     */
     get value() {
       return this._value;
     }
 
-    /** Shows a value set by a script, without saving it or telling of it. */
+    /**
+     * Shows a value set by a script, without saving it or telling of it.
+     *
+     * @param {unknown} value
+     */
     set value(value) {
       this._value = this.valid(value);
       this.show();
     }
 
-    /** A value the switch shows: "off", or else "on", the default of a scene's power. */
+    /**
+     * A value the switch shows: "off", or else "on", the default of a scene's power.
+     *
+     * @param {unknown} value
+     * @returns {"on" | "off"}
+     */
     valid(value) {
       return value === "off" ? "off" : "on";
     }
 
-    /** Turns the switch the other way, saves it, and tells of it. */
+    /**
+     * Turns the switch the other way, saves it, and tells of it.
+     *
+     * @returns {void}
+     */
     toggle() {
       this._value = this._value === "on" ? "off" : "on";
       this.show();
@@ -55,12 +76,20 @@
       this.dispatchEvent(new Event("valuechange"));
     }
 
-    /** Shows the value. */
+    /**
+     * Shows the value.
+     *
+     * @returns {void}
+     */
     show() {
       this.button?.setAttribute("aria-checked", String(this._value === "on"));
     }
 
-    /** Reads and follows the setting the switch saves, if it has one. */
+    /**
+     * Reads and follows the setting the switch saves, if it has one.
+     *
+     * @returns {void}
+     */
     bind() {
       const setting = this.getAttribute("setting");
       if (setting === null) {
