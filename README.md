@@ -123,7 +123,7 @@ npm run format            # Biome: apply the formatting and the import order
 npm test                  # run the unit tests and the integration tests
 npm run coverage          # the same tests, with a coverage report in the terminal and in coverage/
 npm run test:browser      # run the browser tests of the settings pages, which need Google Chrome
-npm run check:docs        # every function, class, method and constructor has a doc comment
+npm run check:docs        # a doc comment on every function, class, method and constructor; in JavaScript, typed @param and @returns
 npm run check:ui          # settings pages: no remote resources or inline styles, CSP and stylesheet on every page, vendored file matches its hash
 npm run validate          # check:ui, build and streamdeck validate
 npm run icons             # regenerate the icons in imgs/ and docs/images/ from scripts/generate-icons.mjs
