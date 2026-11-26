@@ -110,27 +110,33 @@ function wrappedStatements(statement) {
  * @returns {Declaration[]}
  */
 function membersOf(cls, className, file) {
-  /** @type {Declaration[]} */
-  const members = [];
-  for (const member of cls.members) {
-    if (ts.isConstructorDeclaration(member)) {
-      members.push({ node: member, kind: "constructor", name: className, signature: member });
-    } else if (ts.isMethodDeclaration(member) || ts.isGetAccessor(member) || ts.isSetAccessor(member)) {
-      const kind = ts.isGetAccessor(member) ? "getter" : ts.isSetAccessor(member) ? "setter" : "method";
-      members.push({ node: member, kind, name: `${className}.${nameOf(member.name, file)}`, signature: member });
-    } else if (ts.isPropertyDeclaration(member)) {
-      const fn = functionIn(member.initializer);
-      if (fn !== undefined) {
-        members.push({
-          node: member,
-          kind: "method",
-          name: `${className}.${nameOf(member.name, file)}`,
-          signature: fn,
-        });
-      }
-    }
+  return cls.members.flatMap((member) => memberOf(member, className, file) ?? []);
+}
+
+/**
+ * A member of a class, when the rule covers it: a constructor, a method, an accessor, or a property set to a function.
+ *
+ * @param {ts.ClassElement} member the member
+ * @param {string} className the class's name, as the report names it
+ * @param {ts.SourceFile} file the file it's in
+ * @returns {Declaration | undefined}
+ */
+function memberOf(member, className, file) {
+  if (ts.isConstructorDeclaration(member)) {
+    return { node: member, kind: "constructor", name: className, signature: member };
   }
-  return members;
+  const name = `${className}.${nameOf(member.name, file)}`;
+  if (ts.isMethodDeclaration(member)) {
+    return { node: member, kind: "method", name, signature: member };
+  }
+  if (ts.isGetAccessor(member)) {
+    return { node: member, kind: "getter", name, signature: member };
+  }
+  if (ts.isSetAccessor(member)) {
+    return { node: member, kind: "setter", name, signature: member };
+  }
+  const fn = ts.isPropertyDeclaration(member) ? functionIn(member.initializer) : undefined;
+  return fn === undefined ? undefined : { node: member, kind: "method", name, signature: fn };
 }
 
 /**
@@ -142,41 +148,57 @@ function membersOf(cls, className, file) {
  * @returns {Declaration[]}
  */
 function declarationsIn(statements, file) {
-  /** @type {Declaration[]} */
-  const declarations = [];
-  for (const statement of statements) {
-    const wrapped = wrappedStatements(statement);
-    if (wrapped !== undefined) {
-      declarations.push(...declarationsIn(wrapped, file));
-    } else if (ts.isFunctionDeclaration(statement)) {
-      declarations.push({
-        node: statement,
-        kind: "function",
-        name: nameOf(statement.name, file),
-        signature: statement,
-      });
-    } else if (ts.isClassDeclaration(statement)) {
-      const name = nameOf(statement.name, file);
-      declarations.push({ node: statement, kind: "class", name }, ...membersOf(statement, name, file));
-    } else if (ts.isExportAssignment(statement)) {
-      const fn = functionIn(statement.expression);
-      if (fn !== undefined) {
-        declarations.push({ node: statement, kind: "function", name: "(default)", signature: fn });
-      }
-    } else if (ts.isVariableStatement(statement)) {
-      for (const variable of statement.declarationList.declarations) {
-        const name = nameOf(variable.name, file);
-        const fn = functionIn(variable.initializer);
-        const value = variable.initializer === undefined ? undefined : unwrapped(variable.initializer);
-        if (fn !== undefined) {
-          declarations.push({ node: variable, kind: "function", name, signature: fn });
-        } else if (value !== undefined && ts.isClassExpression(value)) {
-          declarations.push({ node: variable, kind: "class", name }, ...membersOf(value, name, file));
-        }
-      }
-    }
+  return statements.flatMap((statement) => declarationsOf(statement, file));
+}
+
+/**
+ * The declarations a statement makes that the rule covers: a function, or a class and its members, or, for a function
+ * that wraps the file and runs at once, the ones in it.
+ *
+ * @param {ts.Statement} statement the statement
+ * @param {ts.SourceFile} file the file it's in
+ * @returns {Declaration[]}
+ */
+function declarationsOf(statement, file) {
+  const wrapped = wrappedStatements(statement);
+  if (wrapped !== undefined) {
+    return declarationsIn(wrapped, file);
   }
-  return declarations;
+  if (ts.isFunctionDeclaration(statement)) {
+    return [{ node: statement, kind: "function", name: nameOf(statement.name, file), signature: statement }];
+  }
+  if (ts.isClassDeclaration(statement)) {
+    const name = nameOf(statement.name, file);
+    return [{ node: statement, kind: "class", name }, ...membersOf(statement, name, file)];
+  }
+  if (ts.isExportAssignment(statement)) {
+    const fn = functionIn(statement.expression);
+    return fn === undefined ? [] : [{ node: statement, kind: "function", name: "(default)", signature: fn }];
+  }
+  if (ts.isVariableStatement(statement)) {
+    return statement.declarationList.declarations.flatMap((variable) => variableDeclarations(variable, file));
+  }
+  return [];
+}
+
+/**
+ * The declarations a variable makes that the rule covers: the function it holds, or the class and its members.
+ *
+ * @param {ts.VariableDeclaration} variable the variable
+ * @param {ts.SourceFile} file the file it's in
+ * @returns {Declaration[]}
+ */
+function variableDeclarations(variable, file) {
+  const name = nameOf(variable.name, file);
+  const fn = functionIn(variable.initializer);
+  if (fn !== undefined) {
+    return [{ node: variable, kind: "function", name, signature: fn }];
+  }
+  const value = variable.initializer === undefined ? undefined : unwrapped(variable.initializer);
+  if (value !== undefined && ts.isClassExpression(value)) {
+    return [{ node: variable, kind: "class", name }, ...membersOf(value, name, file)];
+  }
+  return [];
 }
 
 /**
