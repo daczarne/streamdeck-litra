@@ -297,25 +297,35 @@ function problemsIn(path) {
   const javascript = /\.m?js$/.test(path);
   const kind = javascript ? ts.ScriptKind.JS : ts.ScriptKind.TS;
   const file = ts.createSourceFile(path, readFileSync(path, "utf8"), ts.ScriptTarget.Latest, true, kind);
-  const problems = [];
-  for (const { node, kind: what, name, signature } of declarationsIn(file.statements, file)) {
-    const at = `${path}:${file.getLineAndCharacterOfPosition(node.getStart(file)).line + 1}: ${what} ${name}`;
-    const doc = docOf(node);
-    if (doc === undefined) {
-      problems.push(`${at} has no doc comment`);
-    } else if (javascript) {
-      const missing = signature === undefined ? [] : missingTags(doc, signature);
-      if (missing.length > 0) {
-        problems.push(`${at}: its doc comment lacks ${missing.join(", ")}`);
-      }
-    } else {
-      const typed = typedTags(doc, file);
-      if (typed.length > 0) {
-        problems.push(`${at}: its doc comment gives a type in ${typed.join(", ")}, which the signature holds`);
-      }
-    }
+  return declarationsIn(file.statements, file).flatMap((declaration) => problemOf(declaration, file, javascript) ?? []);
+}
+
+/**
+ * What a declaration's doc comment misses of the rule, as a line of the report, or undefined when it misses nothing:
+ * the doc comment itself, or, in JavaScript, the tags that type the function, or, in TypeScript, a tag that gives a
+ * type the signature holds.
+ *
+ * @param {Declaration} declaration the declaration
+ * @param {ts.SourceFile} file the file it's in
+ * @param {boolean} javascript whether the file is JavaScript
+ * @returns {string | undefined}
+ */
+function problemOf(declaration, file, javascript) {
+  const { node, kind, name, signature } = declaration;
+  const line = file.getLineAndCharacterOfPosition(node.getStart(file)).line + 1;
+  const at = `${file.fileName}:${line}: ${kind} ${name}`;
+  const doc = docOf(node);
+  if (doc === undefined) {
+    return `${at} has no doc comment`;
   }
-  return problems;
+  if (javascript) {
+    const missing = signature === undefined ? [] : missingTags(doc, signature);
+    return missing.length === 0 ? undefined : `${at}: its doc comment lacks ${missing.join(", ")}`;
+  }
+  const typed = typedTags(doc, file);
+  return typed.length === 0
+    ? undefined
+    : `${at}: its doc comment gives a type in ${typed.join(", ")}, which the signature holds`;
 }
 
 const files = filesChecked();
